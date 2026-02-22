@@ -28,6 +28,34 @@ function createSchema(database: Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_timestamp ON messages(timestamp);
 
+    CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+      content,
+      chat_jid UNINDEXED,
+      sender UNINDEXED,
+      sender_name UNINDEXED,
+      timestamp UNINDEXED,
+      is_bot_message UNINDEXED,
+      content='messages',
+      content_rowid='rowid'
+    );
+
+    CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
+      INSERT INTO messages_fts(rowid, content, chat_jid, sender, sender_name, timestamp, is_bot_message)
+      VALUES (new.rowid, new.content, new.chat_jid, new.sender, new.sender_name, new.timestamp, new.is_bot_message);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
+      INSERT INTO messages_fts(messages_fts, rowid, content, chat_jid, sender, sender_name, timestamp, is_bot_message)
+      VALUES ('delete', old.rowid, old.content, old.chat_jid, old.sender, old.sender_name, old.timestamp, old.is_bot_message);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages BEGIN
+      INSERT INTO messages_fts(messages_fts, rowid, content, chat_jid, sender, sender_name, timestamp, is_bot_message)
+      VALUES ('delete', old.rowid, old.content, old.chat_jid, old.sender, old.sender_name, old.timestamp, old.is_bot_message);
+      INSERT INTO messages_fts(rowid, content, chat_jid, sender, sender_name, timestamp, is_bot_message)
+      VALUES (new.rowid, new.content, new.chat_jid, new.sender, new.sender_name, new.timestamp, new.is_bot_message);
+    END;
+
     CREATE TABLE IF NOT EXISTS media (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       filename TEXT NOT NULL,
@@ -81,12 +109,21 @@ function createSchema(database: Database): void {
   `);
 }
 
+function ensureFts(database: Database): void {
+  const row = database.prepare("PRAGMA user_version").get() as { user_version?: number } | undefined;
+  const version = typeof row?.user_version === "number" ? row.user_version : 0;
+  if (version >= 1) return;
+  database.exec("INSERT INTO messages_fts(messages_fts) VALUES('rebuild');");
+  database.exec("PRAGMA user_version = 1;");
+}
+
 export function initDatabase(): void {
   const dbPath = path.join(STORE_DIR, "messages.db");
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
   db = new Database(dbPath);
   createSchema(db);
+  ensureFts(db);
 }
 
 export interface ChatInfo {
@@ -309,13 +346,30 @@ export function getMessagesByHashtag(chatJid: string, hashtag: string, limit: nu
 }
 
 export function searchMessages(chatJid: string, query: string, limit: number, offset: number): InteractionRow[] {
-  const pattern = `%${query}%`;
-  const rows = db
-    .prepare(
-      "SELECT rowid, chat_jid, sender, sender_name, content, timestamp, is_bot_message FROM messages WHERE chat_jid = ? AND content LIKE ? COLLATE NOCASE ORDER BY rowid DESC LIMIT ? OFFSET ?"
-    )
-    .all(chatJid, pattern, limit, offset) as StoredMessageRow[];
-  return rows.map((row) => buildInteraction(row, getMediaIdsForMessage(row.rowid)));
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  try {
+    const rows = db
+      .prepare(
+        `SELECT messages.rowid, messages.chat_jid, messages.sender, messages.sender_name, messages.content, messages.timestamp, messages.is_bot_message
+         FROM messages
+         JOIN messages_fts ON messages_fts.rowid = messages.rowid
+         WHERE messages.chat_jid = ? AND messages_fts MATCH ?
+         ORDER BY messages.rowid DESC
+         LIMIT ? OFFSET ?`
+      )
+      .all(chatJid, trimmed, limit, offset) as StoredMessageRow[];
+    return rows.map((row) => buildInteraction(row, getMediaIdsForMessage(row.rowid)));
+  } catch {
+    const pattern = `%${query}%`;
+    const rows = db
+      .prepare(
+        "SELECT rowid, chat_jid, sender, sender_name, content, timestamp, is_bot_message FROM messages WHERE chat_jid = ? AND content LIKE ? COLLATE NOCASE ORDER BY rowid DESC LIMIT ? OFFSET ?"
+      )
+      .all(chatJid, pattern, limit, offset) as StoredMessageRow[];
+    return rows.map((row) => buildInteraction(row, getMediaIdsForMessage(row.rowid)));
+  }
 }
 
 export function getNewMessages(
