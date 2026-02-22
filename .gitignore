@@ -20,4 +20,3 @@ docker-compose.override.yml
 home/
 workspaces/
 node_modules/
-piclaw/dist/
