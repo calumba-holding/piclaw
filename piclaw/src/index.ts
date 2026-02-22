@@ -9,12 +9,14 @@ import { AgentQueue } from "./queue.js";
 import { startIpcWatcher } from "./ipc.js";
 import { startSchedulerLoop } from "./task-scheduler.js";
 import { WhatsAppChannel } from "./channels/whatsapp.js";
+import { WebChannel } from "./channels/web.js";
 import { formatMessages, formatOutbound } from "./router.js";
 
 let lastTimestamp = "";
 let lastAgentTimestamp: Record<string, string> = {};
 const queue = new AgentQueue();
 let whatsapp: WhatsAppChannel;
+let web: WebChannel;
 
 // Chat JIDs we listen on — loaded from data/chats.json
 let chatJids: Set<string> = new Set();
@@ -124,10 +126,14 @@ async function main(): Promise<void> {
     console.log(`[piclaw] ${signal} received, shutting down...`);
     await queue.shutdown(5000);
     await whatsapp.disconnect();
+    await web?.stop();
     process.exit(0);
   };
   process.on("SIGTERM", () => shutdown("SIGTERM"));
   process.on("SIGINT", () => shutdown("SIGINT"));
+
+  web = new WebChannel({ queue });
+  await web.start();
 
   whatsapp = new WhatsAppChannel({
     chatJids: () => chatJids,
@@ -144,13 +150,21 @@ async function main(): Promise<void> {
 
   await whatsapp.connect();
 
+  const sendMessage = async (jid: string, text: string) => {
+    if (jid.startsWith("web:")) {
+      await web.sendMessage(jid, text);
+      return;
+    }
+    await whatsapp.sendMessage(jid, text);
+  };
+
   startIpcWatcher({
-    sendMessage: (jid, text) => whatsapp.sendMessage(jid, text),
+    sendMessage,
   });
 
   startSchedulerLoop({
     queue,
-    sendMessage: (jid, text) => whatsapp.sendMessage(jid, text),
+    sendMessage,
   });
 
   messageLoop();

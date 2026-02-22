@@ -28,6 +28,25 @@ function createSchema(database: Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_timestamp ON messages(timestamp);
 
+    CREATE TABLE IF NOT EXISTS media (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      filename TEXT NOT NULL,
+      content_type TEXT NOT NULL,
+      data BLOB NOT NULL,
+      thumbnail BLOB,
+      metadata TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS message_media (
+      message_rowid INTEGER NOT NULL,
+      media_id INTEGER NOT NULL,
+      PRIMARY KEY (message_rowid, media_id),
+      FOREIGN KEY (media_id) REFERENCES media(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_message_media_message_rowid ON message_media(message_rowid);
+    CREATE INDEX IF NOT EXISTS idx_message_media_media_id ON message_media(media_id);
+
     CREATE TABLE IF NOT EXISTS scheduled_tasks (
       id TEXT PRIMARY KEY,
       chat_jid TEXT NOT NULL,
@@ -93,7 +112,7 @@ export function storeChatMetadata(chatJid: string, timestamp: string, name?: str
   }
 }
 
-export function storeMessage(msg: NewMessage): void {
+export function storeMessage(msg: NewMessage): number {
   db.prepare(
     `INSERT OR REPLACE INTO messages (id, chat_jid, sender, sender_name, content, timestamp, is_from_me, is_bot_message)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
@@ -107,6 +126,196 @@ export function storeMessage(msg: NewMessage): void {
     msg.is_from_me ? 1 : 0,
     msg.is_bot_message ? 1 : 0
   );
+
+  const row = db
+    .prepare("SELECT rowid as rowid FROM messages WHERE id = ? AND chat_jid = ?")
+    .get(msg.id, msg.chat_jid) as { rowid: number } | undefined;
+  return row?.rowid ?? 0;
+}
+
+export interface InteractionData {
+  type: "user_message" | "agent_response" | "agent_request" | "agent_draft" | string;
+  content: string;
+  agent_id?: string;
+  thread_id?: number | null;
+  media_ids?: number[];
+  content_blocks?: unknown[];
+  link_previews?: unknown[];
+}
+
+export interface InteractionRow {
+  id: number;
+  timestamp: string;
+  data: InteractionData;
+}
+
+export interface MediaRecord {
+  id: number;
+  filename: string;
+  content_type: string;
+  data: Uint8Array;
+  thumbnail: Uint8Array | null;
+  metadata: Record<string, any> | null;
+  created_at: string;
+}
+
+interface StoredMessageRow {
+  rowid: number;
+  chat_jid: string;
+  sender: string;
+  sender_name: string;
+  content: string;
+  timestamp: string;
+  is_bot_message: number;
+}
+
+function buildInteraction(row: StoredMessageRow, mediaIds: number[] = []): InteractionRow {
+  return {
+    id: row.rowid,
+    timestamp: row.timestamp,
+    data: {
+      type: row.is_bot_message ? "agent_response" : "user_message",
+      content: row.content,
+      agent_id: "default",
+      media_ids: mediaIds,
+    },
+  };
+}
+
+export function attachMediaToMessage(messageRowId: number, mediaIds: number[]): void {
+  if (mediaIds.length === 0) return;
+  const stmt = db.prepare("INSERT OR IGNORE INTO message_media (message_rowid, media_id) VALUES (?, ?)");
+  for (const mediaId of mediaIds) {
+    stmt.run(messageRowId, mediaId);
+  }
+}
+
+export function getMediaIdsForMessage(messageRowId: number): number[] {
+  const rows = db
+    .prepare("SELECT media_id FROM message_media WHERE message_rowid = ? ORDER BY media_id")
+    .all(messageRowId) as Array<{ media_id: number }>;
+  return rows.map((row) => row.media_id);
+}
+
+export function createMedia(
+  filename: string,
+  contentType: string,
+  data: Uint8Array,
+  thumbnail: Uint8Array | null,
+  metadata: Record<string, any> | null
+): number {
+  const res = db
+    .prepare(
+      `INSERT INTO media (filename, content_type, data, thumbnail, metadata)
+       VALUES (?, ?, ?, ?, ?)`
+    )
+    .run(filename, contentType, data, thumbnail, metadata ? JSON.stringify(metadata) : null);
+  return Number(res.lastInsertRowid || 0);
+}
+
+export function getMediaById(id: number): MediaRecord | undefined {
+  const row = db
+    .prepare("SELECT id, filename, content_type, data, thumbnail, metadata, created_at FROM media WHERE id = ?")
+    .get(id) as {
+      id: number;
+      filename: string;
+      content_type: string;
+      data: Uint8Array;
+      thumbnail: Uint8Array | null;
+      metadata: string | null;
+      created_at: string;
+    } | undefined;
+  if (!row) return undefined;
+  return {
+    id: row.id,
+    filename: row.filename,
+    content_type: row.content_type,
+    data: row.data,
+    thumbnail: row.thumbnail,
+    metadata: row.metadata ? JSON.parse(row.metadata) : null,
+    created_at: row.created_at,
+  };
+}
+
+export function getMediaInfoById(id: number): Omit<MediaRecord, "data" | "thumbnail"> | undefined {
+  const row = db
+    .prepare("SELECT id, filename, content_type, metadata, created_at FROM media WHERE id = ?")
+    .get(id) as {
+      id: number;
+      filename: string;
+      content_type: string;
+      metadata: string | null;
+      created_at: string;
+    } | undefined;
+  if (!row) return undefined;
+  return {
+    id: row.id,
+    filename: row.filename,
+    content_type: row.content_type,
+    metadata: row.metadata ? JSON.parse(row.metadata) : null,
+    created_at: row.created_at,
+  };
+}
+
+export function getMessageByRowId(chatJid: string, rowId: number): InteractionRow | undefined {
+  const row = db
+    .prepare(
+      "SELECT rowid, chat_jid, sender, sender_name, content, timestamp, is_bot_message FROM messages WHERE chat_jid = ? AND rowid = ?"
+    )
+    .get(chatJid, rowId) as StoredMessageRow | undefined;
+  if (!row) return undefined;
+  const mediaIds = getMediaIdsForMessage(row.rowid);
+  return buildInteraction(row, mediaIds);
+}
+
+export function deleteMessageByRowId(chatJid: string, rowId: number): boolean {
+  db.prepare("DELETE FROM message_media WHERE message_rowid = ?").run(rowId);
+  const res = db.prepare("DELETE FROM messages WHERE chat_jid = ? AND rowid = ?").run(chatJid, rowId);
+  return res.changes > 0;
+}
+
+export function getTimeline(chatJid: string, limit: number, beforeId?: number): InteractionRow[] {
+  const rows = beforeId
+    ? (db
+        .prepare(
+          "SELECT rowid, chat_jid, sender, sender_name, content, timestamp, is_bot_message FROM messages WHERE chat_jid = ? AND rowid < ? ORDER BY rowid DESC LIMIT ?"
+        )
+        .all(chatJid, beforeId, limit) as StoredMessageRow[])
+    : (db
+        .prepare(
+          "SELECT rowid, chat_jid, sender, sender_name, content, timestamp, is_bot_message FROM messages WHERE chat_jid = ? ORDER BY rowid DESC LIMIT ?"
+        )
+        .all(chatJid, limit) as StoredMessageRow[]);
+
+  const interactions = rows.map((row) => buildInteraction(row, getMediaIdsForMessage(row.rowid)));
+  return interactions.reverse();
+}
+
+export function hasOlderMessages(chatJid: string, oldestId: number): boolean {
+  const row = db
+    .prepare("SELECT rowid FROM messages WHERE chat_jid = ? AND rowid < ? LIMIT 1")
+    .get(chatJid, oldestId) as { rowid: number } | undefined;
+  return Boolean(row);
+}
+
+export function getMessagesByHashtag(chatJid: string, hashtag: string, limit: number, offset: number): InteractionRow[] {
+  const pattern = `%#${hashtag}%`;
+  const rows = db
+    .prepare(
+      "SELECT rowid, chat_jid, sender, sender_name, content, timestamp, is_bot_message FROM messages WHERE chat_jid = ? AND content LIKE ? COLLATE NOCASE ORDER BY rowid DESC LIMIT ? OFFSET ?"
+    )
+    .all(chatJid, pattern, limit, offset) as StoredMessageRow[];
+  return rows.map((row) => buildInteraction(row, getMediaIdsForMessage(row.rowid)));
+}
+
+export function searchMessages(chatJid: string, query: string, limit: number, offset: number): InteractionRow[] {
+  const pattern = `%${query}%`;
+  const rows = db
+    .prepare(
+      "SELECT rowid, chat_jid, sender, sender_name, content, timestamp, is_bot_message FROM messages WHERE chat_jid = ? AND content LIKE ? COLLATE NOCASE ORDER BY rowid DESC LIMIT ? OFFSET ?"
+    )
+    .all(chatJid, pattern, limit, offset) as StoredMessageRow[];
+  return rows.map((row) => buildInteraction(row, getMediaIdsForMessage(row.rowid)));
 }
 
 export function getNewMessages(
