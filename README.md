@@ -97,7 +97,7 @@ All piclaw paths are env-configurable:
 
 ## Piclaw — WhatsApp Integration
 
-Piclaw is a persistent orchestrator that connects WhatsApp to pi:
+Piclaw is a persistent orchestrator that connects WhatsApp to pi. It runs agents via the Pi SDK AgentSession (RPC-style), not `pi --print`:
 
 1. WhatsApp messages arrive via Baileys
 2. Messages matching `@pi` trigger are stored in SQLite
