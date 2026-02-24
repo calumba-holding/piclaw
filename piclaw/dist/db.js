@@ -350,6 +350,11 @@ export function logTaskRun(log) {
     db.prepare(`INSERT INTO task_run_logs (task_id, run_at, duration_ms, status, result, error)
      VALUES (?, ?, ?, ?, ?, ?)`).run(log.task_id, log.run_at, log.duration_ms, log.status, log.result, log.error);
 }
+export function getTaskRunLogs(taskId) {
+    return db
+        .prepare("SELECT * FROM task_run_logs WHERE task_id = ? ORDER BY run_at")
+        .all(taskId);
+}
 // --- Router state accessors ---
 export function getRouterState(key) {
     const row = db.prepare("SELECT value FROM router_state WHERE key = ?").get(key);

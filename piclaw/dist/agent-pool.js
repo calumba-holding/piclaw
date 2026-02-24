@@ -20,7 +20,9 @@ export class AgentPool {
     modelRegistry = new ModelRegistry(this.authStorage);
     settingsManager = SettingsManager.create(WORKSPACE_DIR, getAgentDir());
     logsDir = join(WORKSPACE_DIR, "logs");
-    constructor() {
+    createSession;
+    constructor(options = {}) {
+        this.createSession = options.createSession;
         mkdirSync(SESSIONS_DIR, { recursive: true });
         mkdirSync(this.logsDir, { recursive: true });
         this.cleanupTimer = setInterval(() => this.evictIdle(), CLEANUP_INTERVAL);
@@ -108,6 +110,12 @@ export class AgentPool {
         // Each chat gets its own session directory so history is per-conversation
         const chatSessionDir = join(SESSIONS_DIR, sanitiseJid(chatJid));
         mkdirSync(chatSessionDir, { recursive: true });
+        if (this.createSession) {
+            const session = await this.createSession(chatJid, chatSessionDir);
+            this.pool.set(chatJid, { session, lastUsed: Date.now() });
+            console.log(`[agent-pool] Session ready for ${chatJid} (pool size: ${this.pool.size})`);
+            return session;
+        }
         // Use DefaultResourceLoader for full discovery (skills, extensions, context)
         const resourceLoader = new DefaultResourceLoader({
             cwd: WORKSPACE_DIR,
