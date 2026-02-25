@@ -12,6 +12,7 @@ import { WebChannel } from "./channels/web.js";
 import { PushoverChannel } from "./channels/pushover.js";
 import { detectChannel, formatMessages, formatOutbound } from "./router.js";
 import { startToolOutputCleanup } from "./tool-output.js";
+import { parseControlCommand } from "./agent-control.js";
 const HELP_TEXT = `piclaw - Pi Coding Agent Assistant
 
 Usage:
@@ -55,6 +56,21 @@ let web;
 let pushover = null;
 // Chat JIDs we listen on — loaded from data/chats.json
 let chatJids = new Set();
+const processedCommandIds = new Map();
+function getProcessedCommandSet(chatJid) {
+    const existing = processedCommandIds.get(chatJid);
+    if (existing)
+        return existing;
+    const set = new Set();
+    processedCommandIds.set(chatJid, set);
+    return set;
+}
+function markCommandProcessed(chatJid, messageId) {
+    getProcessedCommandSet(chatJid).add(messageId);
+}
+function wasCommandProcessed(chatJid, messageId) {
+    return getProcessedCommandSet(chatJid).has(messageId);
+}
 function loadChats() {
     const chatsFile = join(DATA_DIR, "chats.json");
     if (existsSync(chatsFile)) {
@@ -86,16 +102,35 @@ async function processMessages(chatJid) {
     const messages = getMessagesSince(chatJid, since, ASSISTANT_NAME);
     if (messages.length === 0)
         return true;
-    // Check trigger
-    const hasTrigger = messages.some((m) => TRIGGER_PATTERN.test(m.content.trim()));
+    const commandQueue = [];
+    const promptMessages = [];
+    for (const message of messages) {
+        const command = !message.is_bot_message
+            ? parseControlCommand(message.content, TRIGGER_PATTERN)
+            : null;
+        if (command) {
+            if (!wasCommandProcessed(chatJid, message.id)) {
+                commandQueue.push({ message, command });
+            }
+            continue;
+        }
+        promptMessages.push(message);
+    }
+    for (const { message, command } of commandQueue) {
+        const result = await agentPool.applyControlCommand(chatJid, command);
+        await whatsapp.sendMessage(chatJid, result.message);
+        markCommandProcessed(chatJid, message.id);
+    }
+    // Check trigger on non-command messages only
+    const hasTrigger = promptMessages.some((m) => TRIGGER_PATTERN.test(m.content.trim()));
     if (!hasTrigger)
         return true;
     const channel = detectChannel(chatJid);
-    const prompt = formatMessages(messages, channel);
+    const prompt = formatMessages(promptMessages, channel);
     const prevCursor = lastAgentTimestamp[chatJid] || "";
     lastAgentTimestamp[chatJid] = messages[messages.length - 1].timestamp;
     saveState();
-    console.log(`[piclaw] Processing ${messages.length} messages from ${chatJid}`);
+    console.log(`[piclaw] Processing ${promptMessages.length} messages from ${chatJid}`);
     await whatsapp.setTyping(chatJid, true);
     const output = await agentPool.runAgent(prompt, chatJid);
     await whatsapp.setTyping(chatJid, false);

@@ -1,5 +1,6 @@
 import { extname, resolve } from "path";
-import { ASSISTANT_NAME, WEB_HOST, WEB_IDLE_TIMEOUT, WEB_PORT } from "../config.js";
+import { parseControlCommand } from "../agent-control.js";
+import { ASSISTANT_NAME, TRIGGER_PATTERN, WEB_HOST, WEB_IDLE_TIMEOUT, WEB_PORT } from "../config.js";
 import { attachMediaToMessage, createMedia, deleteMessageByRowId, getMediaById, getMediaInfoById, getMessageByRowId, getMessagesByHashtag, getMessagesSince, getRouterState, getTimeline, hasOlderMessages, searchMessages, setRouterState, storeChatMetadata, storeMessage, } from "../db.js";
 import { detectChannel, formatMessages, formatOutbound } from "../router.js";
 const DEFAULT_CHAT_JID = "web:default";
@@ -269,6 +270,12 @@ export class WebChannel {
         if (!interaction)
             return this.json({ error: "Failed to store message" }, 500);
         this.broadcastEvent("new_post", interaction);
+        const command = parseControlCommand(data.content, TRIGGER_PATTERN);
+        if (command) {
+            const result = await this.agentPool.applyControlCommand(DEFAULT_CHAT_JID, command);
+            await this.sendMessage(DEFAULT_CHAT_JID, result.message);
+            return this.json({ user_message: interaction, thread_id: data.thread_id ?? interaction.id, command: result }, 201);
+        }
         this.queue.enqueue(async () => {
             await this.processChat(DEFAULT_CHAT_JID, agentId);
         }, `chat:${DEFAULT_CHAT_JID}`);

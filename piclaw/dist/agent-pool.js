@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { AuthStorage, createAgentSession, DefaultResourceLoader, getAgentDir, ModelRegistry, SessionManager, SettingsManager, } from "@mariozechner/pi-coding-agent";
+import { applyControlCommand } from "./agent-control.js";
 import { AGENT_TIMEOUT, SESSIONS_DIR, WORKSPACE_DIR } from "./config.js";
 import { detectChannel } from "./router.js";
 /** How long (ms) an idle session stays cached before being disposed. */
@@ -17,13 +18,15 @@ export class AgentPool {
     pool = new Map();
     cleanupTimer = null;
     // Shared across all sessions (expensive to create, safe to reuse)
-    authStorage = AuthStorage.create();
-    modelRegistry = new ModelRegistry(this.authStorage);
+    authStorage;
+    modelRegistry;
     settingsManager = SettingsManager.create(WORKSPACE_DIR, getAgentDir());
     logsDir = join(WORKSPACE_DIR, "logs");
     createSession;
     constructor(options = {}) {
         this.createSession = options.createSession;
+        this.authStorage = AuthStorage.create();
+        this.modelRegistry = options.modelRegistry ?? new ModelRegistry(this.authStorage);
         mkdirSync(SESSIONS_DIR, { recursive: true });
         mkdirSync(this.logsDir, { recursive: true });
         this.cleanupTimer = setInterval(() => this.evictIdle(), CLEANUP_INTERVAL);
@@ -83,6 +86,10 @@ export class AgentPool {
             console.error(`[agent-pool] Error for ${chatJid}:`, errorMsg);
             return { status: "error", result: null, error: errorMsg };
         }
+    }
+    async applyControlCommand(chatJid, command) {
+        const session = await this.getOrCreate(chatJid);
+        return applyControlCommand(session, this.modelRegistry, command);
     }
     /** Gracefully shut down all sessions. */
     async shutdown() {
