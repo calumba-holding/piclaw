@@ -533,7 +533,8 @@ export class WebChannel {
     const command = parseControlCommand(data.content, TRIGGER_PATTERN);
     if (command) {
       const result = await this.agentPool.applyControlCommand(DEFAULT_CHAT_JID, command);
-      await this.sendMessage(DEFAULT_CHAT_JID, result.message);
+      const formatted = formatOutbound(result.message, "web");
+      if (formatted) await this.sendMessage(DEFAULT_CHAT_JID, formatted);
       markCommandHandled();
       return this.json(
         { user_message: interaction, thread_id: data.thread_id ?? interaction.id, command: result },
@@ -546,7 +547,8 @@ export class WebChannel {
     if (trimmed.startsWith("/")) {
       const cmdResult = await this.agentPool.applySlashCommand(DEFAULT_CHAT_JID, trimmed);
       try {
-        if (cmdResult.message) await this.sendMessage(DEFAULT_CHAT_JID, cmdResult.message);
+        const formatted = formatOutbound(cmdResult.message || "", "web");
+        if (formatted) await this.sendMessage(DEFAULT_CHAT_JID, formatted);
       } catch (e) {
         console.error('[web] Failed to send slash command response:', e);
       }

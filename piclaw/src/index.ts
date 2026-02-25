@@ -159,16 +159,13 @@ async function processMessages(chatJid: string): Promise<boolean> {
     const result = await agentPool.applySlashCommand(chatJid, cleaned);
     await whatsapp.setTyping(chatJid, false);
 
-    if (result.status === "error") {
-      lastAgentTimestamp[chatJid] = prevCursor;
-      saveState();
-      console.error(`[piclaw] Agent error: ${result.message}`);
-      return false;
-    }
-
     if (result.message) {
       const text = formatOutbound(result.message, channel);
       if (text) await whatsapp.sendMessage(chatJid, text);
+    }
+
+    if (result.status === "error") {
+      console.error(`[piclaw] Agent error: ${result.message}`);
     }
 
     return true;

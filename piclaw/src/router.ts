@@ -41,8 +41,11 @@ export function stripInternalTags(text: string): string {
   return text.replace(/<internal>[\s\S]*?<\/internal>/g, "").trim();
 }
 
-export function formatOutbound(rawText: string, _channel?: ChatChannel): string {
+export function formatOutbound(rawText: string, channel?: ChatChannel): string {
   const text = stripInternalTags(rawText);
   if (!text) return "";
+  if (channel === "web") {
+    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
   return text;
 }

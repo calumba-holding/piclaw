@@ -68,9 +68,15 @@ function renderMarkdown(text, onHashtagClick) {
     
     // Decode HTML entities first (in case content has encoded entities)
     const decoded = decodeEntities(text);
-    
-    // Render markdown to HTML
-    let html_content = window.marked ? marked.parse(decoded) : decoded.replace(/\n/g, '<br>');
+    const escaped = decoded
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+    // Render markdown to HTML (preserve escaped HTML)
+    let html_content = window.marked
+        ? marked.parse(escaped, { headerIds: false, mangle: false })
+        : escaped.replace(/\n/g, '<br>');
     
     // Decode any entities that marked might have introduced
     html_content = html_content.replace(/&#(\d+);/g, (match, num) => String.fromCharCode(num));

@@ -159,6 +159,42 @@ export class AgentPool {
       const session = await this.getOrCreate(chatJid);
       console.log(`[agent-pool] Executing slash command for ${chatJid}: ${rawText}`);
 
+      const trimmed = rawText.trim();
+      if (!trimmed.startsWith("/")) {
+        return { status: "error", message: "Not a slash command." };
+      }
+
+      const rawCommand = trimmed.slice(1);
+      const spaceIndex = rawCommand.indexOf(" ");
+      const commandName = spaceIndex === -1 ? rawCommand : rawCommand.slice(0, spaceIndex);
+
+      const skills = session.resourceLoader.getSkills().skills;
+      const templates = session.promptTemplates;
+      const extensionRunner = session.extensionRunner;
+
+      let known = false;
+      if (rawCommand.startsWith("skill:")) {
+        const skillName = rawCommand.slice(6).split(/\s+/)[0];
+        known = skills.some((skill) => skill.name === skillName);
+        if (!known) {
+          return {
+            status: "error",
+            message: `Unknown skill: /skill:${skillName}. Use /commands to list available commands.`,
+          };
+        }
+      } else if (templates.some((template) => template.name === commandName)) {
+        known = true;
+      } else if (extensionRunner?.getCommand(commandName)) {
+        known = true;
+      }
+
+      if (!known) {
+        return {
+          status: "error",
+          message: `Unknown command: /${commandName}. Use /commands to list available commands.`,
+        };
+      }
+
       // Collect textual output from events (both streaming deltas and final message_end)
       let assistantBuffer = "";
       const customBuffers: string[] = [];
