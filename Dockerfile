@@ -25,7 +25,7 @@ RUN apt-get update && \
     net-tools iproute2 dnsutils \
     rsync file strace \
     build-essential cmake make pkg-config \
-    procps && \
+    procps psmisc && \
     apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Layer 2: Create user
@@ -129,6 +129,7 @@ RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/instal
     echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc && \
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && \
     brew update && \
+    brew install lazygit && \
     curl -fsSL https://bun.sh/install | bash && \
     export BUN_INSTALL="$HOME/.bun" && export PATH="$BUN_INSTALL/bin:$PATH" && \
     bun add -g @mariozechner/pi-coding-agent && \
