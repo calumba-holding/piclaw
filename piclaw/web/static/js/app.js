@@ -23,8 +23,9 @@ if (window.marked) {
  */
 function decodeEntities(text) {
     if (!text) return text;
-    // Use a more robust decoding that handles all entity types
-    const doc = new DOMParser().parseFromString(text, 'text/html');
+    // Escape literal angle brackets so DOMParser doesn't treat them as tags
+    const safe = text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const doc = new DOMParser().parseFromString(safe, 'text/html');
     return doc.documentElement.textContent;
 }
 
@@ -37,6 +38,57 @@ function decodeEntitiesDeep(text, maxDepth = 2) {
         current = next;
     }
     return current;
+}
+
+const ALLOWED_HTML_TAGS = new Set([
+    'strong',
+    'em',
+    'b',
+    'i',
+    'u',
+    's',
+    'br',
+    'p',
+    'ul',
+    'ol',
+    'li',
+    'blockquote',
+]);
+
+function normalizeHtmlCodeTags(text) {
+    if (!text) return text;
+    return text.replace(/<code>([\s\S]*?)<\/code>/gi, (match, code) => {
+        if (code.includes('\n')) {
+            return `\n\`\`\`\n${code}\n\`\`\`\n`;
+        }
+        return `\`${code}\``;
+    });
+}
+
+function restoreAllowedHtmlTags(text) {
+    if (!text) return text;
+    return text.replace(/&lt;([\s\S]*?)&gt;/g, (match, content) => {
+        const trimmed = content.trim();
+        const isClosing = trimmed.startsWith('/');
+        const tagContent = isClosing ? trimmed.slice(1) : trimmed;
+        const tagName = tagContent.split(/\s+/)[0]?.toLowerCase();
+        if (!tagName || !ALLOWED_HTML_TAGS.has(tagName)) return match;
+        const slash = isClosing ? '/' : '';
+        return `<${slash}${tagName}>`;
+    });
+}
+
+function decodeCodeEntities(html) {
+    if (!html) return html;
+    const normalize = (value) => value
+        .replace(/&amp;lt;/g, '&lt;')
+        .replace(/&amp;gt;/g, '&gt;')
+        .replace(/&amp;quot;/g, '&quot;')
+        .replace(/&amp;#39;/g, '&#39;')
+        .replace(/&amp;amp;/g, '&amp;');
+    return html
+        .replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g, (match, code) => `<pre><code>${normalize(code)}</code></pre>`)
+        .replace(/<code>([\s\S]*?)<\/code>/g, (match, code) => `<code>${normalize(code)}</code>`);
 }
 
 /**
@@ -78,21 +130,20 @@ function renderMarkdown(text, onHashtagClick) {
     if (!text) return '';
     
     // Decode HTML entities first (in case content has encoded entities)
-    const decoded = decodeEntities(text);
-    const escaped = decoded
-        .replace(/&/g, '&amp;')
+    const decoded = decodeEntitiesDeep(text, 2);
+    const normalized = normalizeHtmlCodeTags(decoded);
+    const escaped = normalized
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
+    const safeHtml = restoreAllowedHtmlTags(escaped);
 
     // Render markdown to HTML (preserve escaped HTML)
     let html_content = window.marked
-        ? marked.parse(escaped, { headerIds: false, mangle: false })
-        : escaped.replace(/\n/g, '<br>');
+        ? marked.parse(safeHtml, { headerIds: false, mangle: false })
+        : safeHtml.replace(/\n/g, '<br>');
     
-    // Decode any entities that marked might have introduced
-    html_content = html_content.replace(/&#(\d+);/g, (match, num) => String.fromCharCode(num));
-    html_content = html_content.replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
-    
+    html_content = decodeCodeEntities(html_content);
+
     // Render math expressions
     html_content = renderMath(html_content);
     
@@ -159,12 +210,14 @@ function linkifyHashtagsInHtml(html_content) {
 function renderThinkingMarkdown(text) {
     if (!text) return '';
     const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    const decoded = decodeEntities(normalized);
-    const escaped = decoded
-        .replace(/&/g, '&amp;')
+    const decoded = decodeEntitiesDeep(normalized, 2);
+    const normalizedHtml = normalizeHtmlCodeTags(decoded);
+    const escaped = normalizedHtml
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
-    let html_content = window.marked ? marked.parse(escaped) : escaped.replace(/\n/g, '<br>');
+    const safeHtml = restoreAllowedHtmlTags(escaped);
+    let html_content = window.marked ? marked.parse(safeHtml) : safeHtml.replace(/\n/g, '<br>');
+    html_content = decodeCodeEntities(html_content);
     html_content = renderMath(html_content);
     return html_content;
 }
