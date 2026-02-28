@@ -285,6 +285,7 @@ export class AgentPool {
     onAutoCompact?: (notice: AutoCompactNotice) => void
   ): Promise<void> {
     if (!session.autoCompactionEnabled) return;
+    if (session.isCompacting) return;
     const usage = session.getContextUsage();
     if (!usage || usage.tokens === null || usage.contextWindow <= 0) return;
     const settings = this.settingsManager.getCompactionSettings();

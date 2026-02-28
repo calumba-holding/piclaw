@@ -209,6 +209,8 @@ export class AgentPool {
     async maybeAutoCompact(session, phase, onAutoCompact) {
         if (!session.autoCompactionEnabled)
             return;
+        if (session.isCompacting)
+            return;
         const usage = session.getContextUsage();
         if (!usage || usage.tokens === null || usage.contextWindow <= 0)
             return;
