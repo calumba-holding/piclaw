@@ -45,7 +45,7 @@ Piclaw ships with a built-in web UI (Vibes-inspired). Once the container is up, 
 http://localhost:8080
 ```
 
-Set `PICLAW_WEB_PORT` or `PICLAW_WEB_HOST` to change where it listens. Use `PICLAW_WEB_IDLE_TIMEOUT` (seconds, `0` disables) to drop idle web clients. Use `PICLAW_WEB_MAX_CONTENT_CHARS` (default 65,536) to cap text payloads; oversized messages render as a placeholder with length metadata instead of full content. CLI overrides are also available: `piclaw --port`, `--host`, `--idle-timeout`.
+Set `PICLAW_WEB_PORT` or `PICLAW_WEB_HOST` to change where it listens. Use `PICLAW_WEB_IDLE_TIMEOUT` (seconds, `0` disables) to drop idle web clients. Use `PICLAW_WEB_MAX_CONTENT_CHARS` (default 131,072) to cap text payloads; oversized messages render as a placeholder with length metadata instead of full content. CLI overrides are also available: `piclaw --port`, `--host`, `--idle-timeout`.
 
 ## Volumes & Persistence
 
