@@ -1,5 +1,6 @@
-import { mkdirSync } from "fs";
-import { join } from "path";
+import { mkdirSync, existsSync } from "fs";
+import { dirname, join, resolve } from "path";
+import { fileURLToPath } from "url";
 import {
   type AgentSession,
   createAgentSession,
@@ -20,6 +21,13 @@ export function ensureSessionDir(chatJid: string): string {
   return chatSessionDir;
 }
 
+function resolveBuiltInExtensions(): string[] {
+  const currentDir = dirname(fileURLToPath(import.meta.url));
+  const rootDir = resolve(currentDir, "..", "..");
+  const extensionPath = join(rootDir, "extensions", "model-control.ts");
+  return existsSync(extensionPath) ? [extensionPath] : [];
+}
+
 export async function createDefaultSession(
   chatJid: string,
   options: {
@@ -35,6 +43,7 @@ export async function createDefaultSession(
     cwd: WORKSPACE_DIR,
     agentDir: getAgentDir(),
     settingsManager: options.settingsManager,
+    additionalExtensionPaths: resolveBuiltInExtensions(),
   });
   await resourceLoader.reload();
 
