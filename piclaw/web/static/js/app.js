@@ -362,6 +362,14 @@ function formatCount(value) {
     return Math.round(value).toLocaleString();
 }
 
+function buildAgentsMap(data) {
+    const map = {};
+    (data?.agents || []).forEach((agent) => {
+        map[agent.id] = agent;
+    });
+    return map;
+}
+
 /**
  * Detect iOS devices for layout adjustments.
  */
@@ -1726,65 +1734,54 @@ function App() {
         }
     }, [hasMore, loadMore, posts]);
 
-    useEffect(() => {
-        getAgents()
-            .then((data) => {
-                const map = {};
-                (data.agents || []).forEach((agent) => {
-                    map[agent.id] = agent;
-                });
-                setAgents(map);
-            })
-            .catch((e) => console.warn('Failed to load agents:', e));
+    const loadAgents = useCallback(async () => {
+        try {
+            const data = await getAgents();
+            setAgents(buildAgentsMap(data));
+        } catch (e) {
+            console.warn('Failed to load agents:', e);
+        }
     }, []);
-    
+
     useEffect(() => {
-        getAgents()
-            .then((data) => {
-                const map = {};
-                (data.agents || []).forEach((agent) => {
-                    map[agent.id] = agent;
-                });
-                setAgents(map);
-            })
-            .catch((e) => console.warn('Failed to load agents:', e));
+        loadAgents();
+    }, [loadAgents]);
+
+    const updateAgentProfile = useCallback((payload) => {
+        if (!payload || typeof payload !== 'object') return;
+        const agentId = payload.agent_id;
+        if (!agentId) return;
+        const nextName = payload.agent_name;
+        const nextAvatar = payload.agent_avatar;
+        if (!nextName && nextAvatar === undefined) return;
+
+        setAgents((prev) => {
+            const current = prev[agentId] || { id: agentId };
+            const updated = { ...current };
+            let changed = false;
+
+            if (nextName && nextName !== current.name) {
+                updated.name = nextName;
+                changed = true;
+            }
+
+            if (nextAvatar !== undefined) {
+                const normalizedAvatar = typeof nextAvatar === 'string' ? nextAvatar.trim() : null;
+                const currentAvatar = current.avatar_url ?? current.avatarUrl ?? current.avatar;
+                const normalizedCurrent = typeof currentAvatar === 'string' ? currentAvatar.trim() : null;
+                if (normalizedAvatar !== normalizedCurrent) {
+                    updated.avatar_url = normalizedAvatar || null;
+                    changed = true;
+                }
+            }
+
+            if (!changed) return prev;
+            return { ...prev, [agentId]: updated };
+        });
     }, []);
 
     const handleSseEvent = useCallback((eventType, data) => {
         const turnId = data?.turn_id;
-
-        const updateAgentProfile = (payload) => {
-            if (!payload || typeof payload !== 'object') return;
-            const agentId = payload.agent_id;
-            if (!agentId) return;
-            const nextName = payload.agent_name;
-            const nextAvatar = payload.agent_avatar;
-            if (!nextName && nextAvatar === undefined) return;
-
-            setAgents((prev) => {
-                const current = prev[agentId] || { id: agentId };
-                const updated = { ...current };
-                let changed = false;
-
-                if (nextName && nextName !== current.name) {
-                    updated.name = nextName;
-                    changed = true;
-                }
-
-                if (nextAvatar !== undefined) {
-                    const normalizedAvatar = typeof nextAvatar === 'string' ? nextAvatar.trim() : null;
-                    const currentAvatar = current.avatar_url ?? current.avatarUrl ?? current.avatar;
-                    const normalizedCurrent = typeof currentAvatar === 'string' ? currentAvatar.trim() : null;
-                    if (normalizedAvatar !== normalizedCurrent) {
-                        updated.avatar_url = normalizedAvatar || null;
-                        changed = true;
-                    }
-                }
-
-                if (!changed) return prev;
-                return { ...prev, [agentId]: updated };
-            });
-        };
 
         updateAgentProfile(data);
 
@@ -1940,7 +1937,7 @@ function App() {
                 }
             }
         }
-    }, [clearAgentRunState, noteAgentActivity, removeStalledPost, setActiveTurn, setAgents]);
+    }, [clearAgentRunState, noteAgentActivity, removeStalledPost, setActiveTurn, updateAgentProfile]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;

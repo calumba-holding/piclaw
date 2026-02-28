@@ -263,7 +263,7 @@ Piclaw supports direct control commands (no LLM round‑trip) in chat. Key comma
 | `/switch-session <path>` | Switch to another session file |
 | `/fork <entryId>` | Fork from a previous message |
 | `/forks` | List forkable messages |
-| `/tree [entryId] [--summarize|--summary "..."] [--limit N|--all]` | List or navigate the session tree (default shows 10 entries) |
+| `/tree [entryId] [--summarize|--summary "..."] [--limit N [--offset M] | --tail N]` | List or navigate the session tree (default: tail 10) |
 | `/label <entryId> <label|clear>` | Set or clear a label |
 | `/labels` | List labeled entries |
 | `/agent-name <name|clear>` | Set or show the agent name (stored in .piclaw/config.json) |

@@ -1,6 +1,6 @@
-import { readFileSync } from "fs";
 import { resolve } from "path";
 import { readEnvFile } from "./env.js";
+import { readJsonConfig } from "./config-store.js";
 const envConfig = readEnvFile([
     "ASSISTANT_NAME",
     "ASSISTANT_AVATAR",
@@ -11,19 +11,6 @@ const envConfig = readEnvFile([
     "PUSHOVER_SOUND",
     "WHATSAPP_PHONE",
 ]);
-function readJsonConfig(filePath) {
-    try {
-        const raw = readFileSync(filePath, "utf-8");
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object") {
-            return parsed;
-        }
-    }
-    catch {
-        // ignore
-    }
-    return {};
-}
 function pickString(config, keys) {
     for (const key of keys) {
         const value = config[key];

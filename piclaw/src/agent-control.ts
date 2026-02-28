@@ -1,9 +1,9 @@
 import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
 import type { Model } from "@mariozechner/pi-ai";
 import type { AgentSession, ModelRegistry } from "@mariozechner/pi-coding-agent";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { dirname } from "path";
+import { existsSync } from "fs";
 import { ASSISTANT_AVATAR, ASSISTANT_NAME, PICLAW_CONFIG_PATH, setAssistantAvatar, setAssistantName } from "./config.js";
+import { readJsonConfig, writeJsonConfig } from "./config-store.js";
 import { createTrackedBashOperations } from "./tools/tracked-bash.js";
 import { killTrackedProcesses } from "./process-tracker.js";
 
@@ -146,7 +146,8 @@ export type AgentControlCommand =
       replaceInstructions?: boolean;
       label?: string;
       limit?: number;
-      all?: boolean;
+      offset?: number;
+      mode?: "head" | "tail";
       raw: string;
     }
   | {
@@ -293,7 +294,8 @@ function parseTreeArgs(args: string): {
   replaceInstructions?: boolean;
   label?: string;
   limit?: number;
-  all?: boolean;
+  offset?: number;
+  mode?: "head" | "tail";
 } {
   const tokens = splitArgs(args);
   let targetId: string | undefined;
@@ -302,7 +304,27 @@ function parseTreeArgs(args: string): {
   let replaceInstructions = false;
   let label: string | undefined;
   let limit: number | undefined;
-  let all = false;
+  let offset: number | undefined;
+  let mode: "head" | "tail" = "tail";
+  let modeExplicit = false;
+
+  const readLimit = (value?: string) => {
+    if (!value) return undefined;
+    const parsed = parseInt(value, 10);
+    if (!Number.isNaN(parsed) && parsed > 0) {
+      return parsed;
+    }
+    return undefined;
+  };
+
+  const readOffset = (value?: string) => {
+    if (!value) return undefined;
+    const parsed = parseInt(value, 10);
+    if (!Number.isNaN(parsed) && parsed >= 0) {
+      return parsed;
+    }
+    return undefined;
+  };
 
   let i = 0;
   while (i < tokens.length) {
@@ -348,17 +370,71 @@ function parseTreeArgs(args: string): {
       i += 1;
       continue;
     }
-    if (token === "--all") {
-      all = true;
+    if (token === "--head" || token === "--first") {
+      mode = "head";
+      modeExplicit = true;
+      const next = tokens[i + 1];
+      const parsed = readLimit(next && !next.startsWith("--") ? next : undefined);
+      if (parsed !== undefined) {
+        limit = parsed;
+        i += 2;
+      } else {
+        i += 1;
+      }
+      continue;
+    }
+    if (token.startsWith("--head=")) {
+      mode = "head";
+      modeExplicit = true;
+      const parsed = readLimit(token.slice("--head=".length));
+      if (parsed !== undefined) limit = parsed;
+      i += 1;
+      continue;
+    }
+    if (token.startsWith("--first=")) {
+      mode = "head";
+      modeExplicit = true;
+      const parsed = readLimit(token.slice("--first=".length));
+      if (parsed !== undefined) limit = parsed;
+      i += 1;
+      continue;
+    }
+    if (token === "--tail" || token === "--last") {
+      mode = "tail";
+      modeExplicit = true;
+      const next = tokens[i + 1];
+      const parsed = readLimit(next && !next.startsWith("--") ? next : undefined);
+      if (parsed !== undefined) {
+        limit = parsed;
+        i += 2;
+      } else {
+        i += 1;
+      }
+      continue;
+    }
+    if (token.startsWith("--tail=")) {
+      mode = "tail";
+      modeExplicit = true;
+      const parsed = readLimit(token.slice("--tail=".length));
+      if (parsed !== undefined) limit = parsed;
+      i += 1;
+      continue;
+    }
+    if (token.startsWith("--last=")) {
+      mode = "tail";
+      modeExplicit = true;
+      const parsed = readLimit(token.slice("--last=".length));
+      if (parsed !== undefined) limit = parsed;
       i += 1;
       continue;
     }
     if (token === "--limit") {
       const next = tokens[i + 1];
       if (next && !next.startsWith("--")) {
-        const parsed = parseInt(next, 10);
-        if (!Number.isNaN(parsed) && parsed > 0) {
+        const parsed = readLimit(next);
+        if (parsed !== undefined) {
           limit = parsed;
+          if (!modeExplicit) mode = "head";
         }
         i += 2;
       } else {
@@ -367,10 +443,33 @@ function parseTreeArgs(args: string): {
       continue;
     }
     if (token.startsWith("--limit=")) {
-      const raw = token.slice("--limit=".length);
-      const parsed = parseInt(raw, 10);
-      if (!Number.isNaN(parsed) && parsed > 0) {
+      const parsed = readLimit(token.slice("--limit=".length));
+      if (parsed !== undefined) {
         limit = parsed;
+        if (!modeExplicit) mode = "head";
+      }
+      i += 1;
+      continue;
+    }
+    if (token === "--offset") {
+      const next = tokens[i + 1];
+      if (next && !next.startsWith("--")) {
+        const parsed = readOffset(next);
+        if (parsed !== undefined) {
+          offset = parsed;
+          if (!modeExplicit) mode = "head";
+        }
+        i += 2;
+      } else {
+        i += 1;
+      }
+      continue;
+    }
+    if (token.startsWith("--offset=")) {
+      const parsed = readOffset(token.slice("--offset=".length));
+      if (parsed !== undefined) {
+        offset = parsed;
+        if (!modeExplicit) mode = "head";
       }
       i += 1;
       continue;
@@ -380,31 +479,14 @@ function parseTreeArgs(args: string): {
 
   if (customInstructions) summarize = true;
 
-  return { targetId, summarize, customInstructions, replaceInstructions, label, limit, all };
-}
-
-function readPiclawConfig(): Record<string, unknown> {
-  try {
-    const raw = readFileSync(PICLAW_CONFIG_PATH, "utf-8");
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object") return parsed as Record<string, unknown>;
-  } catch {
-    // ignore
-  }
-  return {};
-}
-
-function writePiclawConfig(config: Record<string, unknown>): void {
-  mkdirSync(dirname(PICLAW_CONFIG_PATH), { recursive: true });
-  const next = JSON.stringify(config, null, 2);
-  writeFileSync(PICLAW_CONFIG_PATH, `${next}\n`, "utf-8");
+  return { targetId, summarize, customInstructions, replaceInstructions, label, limit, offset, mode };
 }
 
 function updateAssistantConfig(patch: { name?: string | null; avatar?: string | null }): {
   name?: string;
   avatar?: string;
 } {
-  const config = readPiclawConfig();
+  const config = readJsonConfig(PICLAW_CONFIG_PATH);
   const assistant =
     config.assistant && typeof config.assistant === "object"
       ? { ...(config.assistant as Record<string, unknown>) }
@@ -445,7 +527,7 @@ function updateAssistantConfig(patch: { name?: string | null; avatar?: string | 
     delete config.assistant;
   }
 
-  writePiclawConfig(config);
+  writeJsonConfig(PICLAW_CONFIG_PATH, config);
 
   return {
     name: typeof assistant.assistantName === "string" ? assistant.assistantName : undefined,
@@ -732,7 +814,8 @@ export function parseControlCommand(text: string, triggerPattern?: RegExp): Agen
       replaceInstructions: parsed.replaceInstructions,
       label: parsed.label,
       limit: parsed.limit,
-      all: parsed.all,
+      offset: parsed.offset,
+      mode: parsed.mode,
       raw: cleaned,
     };
   }
@@ -1267,39 +1350,46 @@ export async function applyControlCommand(
       };
 
       const lines: string[] = ["Session tree:"];
-      const maxEntries = command.all ? Number.POSITIVE_INFINITY : (command.limit ?? 10);
-      let count = 0;
-      let truncated = false;
+      const flatLines: string[] = [];
 
       const walk = (node: any, depth: number) => {
-        if (count >= maxEntries) {
-          truncated = true;
-          return;
-        }
         const indent = "  ".repeat(depth);
         const label = node.label ? ` [${node.label}]` : "";
         const active = node.entry.id === leafId ? " ← active" : "";
-        lines.push(`${indent}• ${node.entry.id} ${describeEntry(node.entry)}${label}${active}`);
-        count += 1;
+        flatLines.push(`${indent}• ${node.entry.id} ${describeEntry(node.entry)}${label}${active}`);
         for (const child of node.children || []) {
           walk(child, depth + 1);
-          if (count >= maxEntries) {
-            truncated = true;
-            return;
-          }
         }
       };
 
       for (const root of roots) {
         walk(root, 0);
-        if (count >= maxEntries) {
-          truncated = true;
-          break;
-        }
       }
 
-      if (truncated) {
-        lines.push(`… truncated at ${maxEntries} entries. Use /tree --all or /tree --limit N to view more.`);
+      const totalEntries = flatLines.length;
+      const limit = Math.max(1, command.limit ?? 10);
+      const mode = command.mode ?? "tail";
+      const offset = Math.max(0, command.offset ?? 0);
+
+      let start = 0;
+      let end = totalEntries;
+
+      if (mode === "tail") {
+        start = Math.max(totalEntries - limit, 0);
+        end = totalEntries;
+      } else {
+        start = Math.min(offset, totalEntries);
+        end = Math.min(start + limit, totalEntries);
+      }
+
+      const slice = flatLines.slice(start, end);
+      lines.push(...slice);
+
+      if (slice.length < totalEntries) {
+        const range = mode === "tail"
+          ? `last ${slice.length} of ${totalEntries}`
+          : `entries ${start + 1}-${start + slice.length} of ${totalEntries}`;
+        lines.push(`… showing ${range}. Use /tree --limit N [--offset M] or /tree --tail N to view more.`);
       }
 
       lines.push("Use /tree <entryId> to navigate. Add --summarize or --summary \"...\" for branch summaries.");
@@ -1550,7 +1640,7 @@ export async function applyControlCommand(
     addLine("/switch-session", "Switch to a session file");
     addLine("/fork", "Fork from a previous message");
     addLine("/forks", "List forkable messages");
-    addLine("/tree", "List the session tree (default 10 entries) and navigate branches");
+    addLine("/tree", "List the session tree (default tail 10) and navigate branches");
     addLine("/label", "Set or clear a label on a tree entry");
     addLine("/labels", "List labeled entries");
     addLine("/agent-name", "Set or show the agent display name");
