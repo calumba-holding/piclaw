@@ -6,6 +6,7 @@ export interface ChatInfo {
 
 export interface InteractionContentMeta {
   truncated: boolean;
+  preview?: boolean;
   original_length: number;
   max_length: number;
 }

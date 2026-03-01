@@ -194,6 +194,8 @@ export function Post({ post, onClick, onHashtagClick, agentName, agentAvatarUrl,
 
     const contentMeta = data.content_meta;
     const isTruncated = Boolean(contentMeta?.truncated);
+    const isPreview = Boolean(contentMeta?.preview);
+    const isHardTruncated = isTruncated && !isPreview;
     const truncatedInfo = isTruncated
         ? {
             originalLength: Number.isFinite(contentMeta?.original_length)
@@ -205,7 +207,7 @@ export function Post({ post, onClick, onHashtagClick, agentName, agentAvatarUrl,
 
     // Remove URLs that have previews from the displayed content
     let displayContent = removePreviewedUrls(data.content, data.link_previews);
-    const shouldRenderContent = Boolean(displayContent) && !isTruncated;
+    const shouldRenderContent = Boolean(displayContent) && !isHardTruncated;
 
     const handleImageClick = (e, mediaId) => {
         e.stopPropagation();
@@ -315,12 +317,20 @@ export function Post({ post, onClick, onHashtagClick, agentName, agentAvatarUrl,
                     <span class="post-author">${displayName}</span>
                     <span class="post-time">${formatTime(post.timestamp)}</span>
                 </div>
-                ${isTruncated && truncatedInfo && html`
+                ${isHardTruncated && truncatedInfo && html`
                     <div class="post-content truncated">
                         <div class="truncated-title">Message too large to display.</div>
                         <div class="truncated-meta">
                             Original length: ${formatCount(truncatedInfo.originalLength)} chars
                             ${truncatedInfo.maxLength ? html` • Display limit: ${formatCount(truncatedInfo.maxLength)} chars` : ''}
+                        </div>
+                    </div>
+                `}
+                ${isPreview && truncatedInfo && html`
+                    <div class="post-content preview">
+                        <div class="truncated-title">Preview truncated.</div>
+                        <div class="truncated-meta">
+                            Showing first ${formatCount(truncatedInfo.maxLength)} of ${formatCount(truncatedInfo.originalLength)} chars. Download full text below.
                         </div>
                     </div>
                 `}

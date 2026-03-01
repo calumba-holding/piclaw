@@ -492,7 +492,17 @@ body {
     padding: var(--spacing-sm);
 }
 
-.post-content.truncated .truncated-title {
+.post-content.preview {
+    background: var(--bg-secondary);
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-sm);
+}
+
+.post-content.truncated .truncated-title,
+.post-content.preview .truncated-title {
     color: var(--text-primary);
     font-weight: 600;
     margin-bottom: 4px;
