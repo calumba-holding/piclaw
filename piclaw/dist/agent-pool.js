@@ -109,8 +109,7 @@ export class AgentPool {
     }
     async applyControlCommand(chatJid, command) {
         const session = await this.getOrCreate(chatJid);
-        process.env.PICLAW_CHAT_JID = chatJid;
-        process.env.PICLAW_CHANNEL = detectChannel(chatJid);
+        this.setRunEnvironment(chatJid);
         return applyControlCommand(session, this.modelRegistry, command);
     }
     async getCurrentModelLabel(chatJid) {
@@ -151,8 +150,7 @@ export class AgentPool {
         const session = await this.getOrCreate(chatJid);
         if (!session.isStreaming)
             return { queued: false };
-        process.env.PICLAW_CHAT_JID = chatJid;
-        process.env.PICLAW_CHANNEL = detectChannel(chatJid);
+        this.setRunEnvironment(chatJid);
         try {
             await session.prompt(text, { streamingBehavior: behavior });
             return { queued: true };
@@ -165,6 +163,7 @@ export class AgentPool {
     /** Execute a raw slash command in the AgentSession (extension commands). */
     async applySlashCommand(chatJid, rawText) {
         this.attachments.clear(chatJid);
+        this.setRunEnvironment(chatJid);
         const session = await this.getOrCreate(chatJid);
         const result = await executeSlashCommand(session, chatJid, rawText);
         this.attachments.clear(chatJid);

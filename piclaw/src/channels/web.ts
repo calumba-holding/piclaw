@@ -9,11 +9,7 @@ import { serveDocsStatic, serveStatic } from "./web/static.js";
 import { clampInt, jsonResponse, parseOptionalInt } from "./web/http-utils.js";
 import { createFallbackTheme } from "./web/theme.js";
 import { bindSessionUiContext } from "./web/ui-context.js";
-import { scheduleLinkPreviews } from "./web/link-previews.js";
 import {
-  attachMediaToMessage,
-  clampWebContent,
-  createMedia,
   deleteMessageByRowId,
   getMessageByRowId,
   getMessageRowIdById,
@@ -24,12 +20,9 @@ import {
   replaceMessageContent,
   searchMessages,
   setRouterState,
-  storeChatMetadata,
-  storeMessage,
 } from "../db.js";
-import { getWebPreviewMaxChars, shouldPreviewWebContent } from "../db/web-content.js";
 import type { InteractionRow } from "../db.js";
-import type { NewMessage } from "../types.js";
+import { storeWebMessage } from "./web/message-store.js";
 
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
@@ -282,89 +275,22 @@ export class WebChannel {
     mediaIds: number[],
     options: { contentBlocks?: unknown[]; linkPreviews?: unknown[]; threadId?: number } = {}
   ): InteractionRow | null {
-    const timestamp = new Date().toISOString();
-    const messageId = `web-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    let contentBlocks = Array.isArray(options.contentBlocks)
-      ? [...options.contentBlocks]
-      : undefined;
-    const allMediaIds = [...mediaIds];
-
-    if (shouldPreviewWebContent(content)) {
-      if (!contentBlocks && mediaIds.length > 0) {
-        contentBlocks = mediaIds.map(() => ({ type: "image" }));
+    return storeWebMessage(
+      this,
+      {
+        chatJid,
+        content,
+        isBot,
+        mediaIds,
+        agentId: DEFAULT_AGENT_ID,
+        agentName: ASSISTANT_NAME,
+      },
+      {
+        contentBlocks: options.contentBlocks,
+        linkPreviews: options.linkPreviews,
+        threadId: options.threadId ?? null,
       }
-      const maxChars = getWebPreviewMaxChars();
-      const filename = `message-${messageId}.md`;
-      const data = new TextEncoder().encode(content);
-      const mediaId = createMedia(filename, "text/markdown", data, null, {
-        size: data.length,
-        kind: "file",
-        source: "message",
-        original_length: content.length,
-        preview_limit: maxChars,
-      });
-      if (mediaId > 0) {
-        allMediaIds.push(mediaId);
-        const block = {
-          type: "file",
-          name: filename,
-          filename,
-          mime_type: "text/markdown",
-          size: data.length,
-        };
-        if (contentBlocks) contentBlocks.push(block);
-        else contentBlocks = [block];
-      }
-    }
-
-    const msg: NewMessage = {
-      id: messageId,
-      chat_jid: chatJid,
-      sender: isBot ? "web-agent" : "web-user",
-      sender_name: isBot ? ASSISTANT_NAME : "You",
-      content,
-      timestamp,
-      is_from_me: false,
-      is_bot_message: isBot,
-      content_blocks: contentBlocks,
-      link_previews: options.linkPreviews,
-      thread_id: options.threadId ?? null,
-    };
-
-    const rowId = storeMessage(msg);
-    if (rowId <= 0) return null;
-
-    if (allMediaIds.length > 0) {
-      attachMediaToMessage(rowId, allMediaIds);
-    }
-
-    storeChatMetadata(chatJid, timestamp, "Web");
-
-    const interaction = getMessageByRowId(chatJid, rowId);
-    if (interaction) {
-      interaction.data.agent_id = DEFAULT_AGENT_ID;
-      if (options.threadId) interaction.data.thread_id = options.threadId;
-      scheduleLinkPreviews(this, chatJid, rowId, content, options.linkPreviews);
-      return interaction;
-    }
-
-    const { content: safeContent, meta } = clampWebContent(content);
-    const data: InteractionRow["data"] = {
-      type: isBot ? "agent_response" : "user_message",
-      content: safeContent,
-      content_meta: meta,
-      agent_id: DEFAULT_AGENT_ID,
-      media_ids: allMediaIds,
-    };
-    if (options.threadId) data.thread_id = options.threadId;
-    if (contentBlocks?.length) data.content_blocks = contentBlocks;
-    if (options.linkPreviews?.length) data.link_previews = options.linkPreviews;
-    scheduleLinkPreviews(this, chatJid, rowId, content, options.linkPreviews);
-    return {
-      id: rowId,
-      timestamp,
-      data,
-    };
+    );
   }
 
   async handleMediaUpload(req: Request): Promise<Response> {
