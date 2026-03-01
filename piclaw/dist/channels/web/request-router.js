@@ -35,6 +35,9 @@ export async function handleWebRequest(channel, req) {
     if (req.method === "POST" && pathname === "/workspace/attach") {
         return channel.handleWorkspaceAttach(req);
     }
+    if (req.method === "POST" && pathname === "/workspace/visibility") {
+        return channel.handleWorkspaceVisibility(req);
+    }
     if (req.method === "GET" && pathname.startsWith("/hashtag/")) {
         const tag = decodeURIComponent(pathname.replace("/hashtag/", ""));
         const limit = channel.clampInt(url.searchParams.get("limit"), 50, 1, 100);

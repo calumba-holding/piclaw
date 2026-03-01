@@ -53,6 +53,7 @@ export async function handleWorkspaceAttach(_channel: WebChannel, req: Request):
 
 export function startWorkspaceWatcher(channel: WebChannel): { close: () => Promise<void> } {
   return workspaceService.startWatcher((updates) => {
+    if (!channel.workspaceVisible) return;
     channel.broadcastEvent("workspace_update", { updates });
   });
 }

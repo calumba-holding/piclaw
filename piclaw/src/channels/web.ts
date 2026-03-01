@@ -40,6 +40,7 @@ export class WebChannel {
   uiBridge: UiBridge;
   pendingLinkPreviews = new Set<number>();
   workspaceWatcher: { close: () => Promise<void> } | null = null;
+  workspaceVisible = false;
 
   constructor(opts: WebChannelOpts) {
     this.queue = opts.queue;
@@ -164,6 +165,17 @@ export class WebChannel {
         },
       ],
     });
+  }
+
+  async handleWorkspaceVisibility(req: Request): Promise<Response> {
+    let data: { visible?: boolean };
+    try {
+      data = await req.json();
+    } catch {
+      return this.json({ error: "Invalid JSON" }, 400);
+    }
+    this.workspaceVisible = Boolean(data.visible);
+    return this.json({ status: "ok", visible: this.workspaceVisible });
   }
 
   handleTimeline(limit: number, before?: number): Response {

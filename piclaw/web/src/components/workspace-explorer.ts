@@ -7,6 +7,7 @@ import {
     getWorkspaceFile,
     getWorkspaceRawUrl,
     getWorkspaceTree,
+    setWorkspaceVisibility,
 } from '../api.js';
 import { formatFileSize, formatTimestamp } from '../utils/format.js';
 import { renderMarkdown } from '../markdown.js';
@@ -250,9 +251,17 @@ export function WorkspaceExplorer({ onFileSelect }) {
     // so it always has the current closure (tree, expanded, etc.).
     loadTreeFnRef.current = loadTree;
 
+    const updateVisibility = useRef(() => {
+        if (typeof window === 'undefined') return;
+        const media = window.matchMedia('(min-width: 1024px) and (orientation: landscape)');
+        const visible = media.matches && document.visibilityState !== 'hidden';
+        setWorkspaceVisibility(visible).catch(() => {});
+    }).current;
+
     // Mount once; interval always calls the ref, never a stale copy.
     useEffect(() => {
         loadTreeFnRef.current();
+        updateVisibility();
         const timer = setInterval(() => loadTreeFnRef.current(), REFRESH_INTERVAL_MS);
         // Apply saved preview height
         const saved = parseInt(localStorage.getItem('previewHeight') || '', 10);
@@ -261,9 +270,26 @@ export function WorkspaceExplorer({ onFileSelect }) {
         if (sidebarRef.current) {
             sidebarRef.current.style.setProperty('--preview-height', `${h}px`);
         }
+
+        const media = window.matchMedia('(min-width: 1024px) and (orientation: landscape)');
+        const onVisibilityChange = () => updateVisibility();
+        if (media.addEventListener) {
+            media.addEventListener('change', onVisibilityChange);
+        } else if (media.addListener) {
+            media.addListener(onVisibilityChange);
+        }
+        document.addEventListener('visibilitychange', onVisibilityChange);
+
         return () => {
             clearInterval(timer);
             if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = 0; }
+            if (media.removeEventListener) {
+                media.removeEventListener('change', onVisibilityChange);
+            } else if (media.removeListener) {
+                media.removeListener(onVisibilityChange);
+            }
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            setWorkspaceVisibility(false).catch(() => {});
         };
     }, []);
 

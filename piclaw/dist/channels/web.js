@@ -21,6 +21,7 @@ export class WebChannel {
     uiBridge;
     pendingLinkPreviews = new Set();
     workspaceWatcher = null;
+    workspaceVisible = false;
     constructor(opts) {
         this.queue = opts.queue;
         this.agentPool = opts.agentPool;
@@ -124,6 +125,17 @@ export class WebChannel {
                 },
             ],
         });
+    }
+    async handleWorkspaceVisibility(req) {
+        let data;
+        try {
+            data = await req.json();
+        }
+        catch {
+            return this.json({ error: "Invalid JSON" }, 400);
+        }
+        this.workspaceVisible = Boolean(data.visible);
+        return this.json({ status: "ok", visible: this.workspaceVisible });
     }
     handleTimeline(limit, before) {
         const posts = getTimeline(DEFAULT_CHAT_JID, limit, before ?? undefined);

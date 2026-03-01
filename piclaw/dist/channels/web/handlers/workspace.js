@@ -39,6 +39,8 @@ export async function handleWorkspaceAttach(_channel, req) {
 }
 export function startWorkspaceWatcher(channel) {
     return workspaceService.startWatcher((updates) => {
+        if (!channel.workspaceVisible)
+            return;
         channel.broadcastEvent("workspace_update", { updates });
     });
 }

@@ -207,6 +207,13 @@ export async function attachWorkspaceFile(path) {
     });
 }
 
+export async function setWorkspaceVisibility(visible) {
+    return request('/workspace/visibility', {
+        method: 'POST',
+        body: JSON.stringify({ visible: Boolean(visible) }),
+    });
+}
+
 /**
  * Get raw workspace file URL (images/SVG)
  */
