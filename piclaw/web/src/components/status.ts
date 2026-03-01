@@ -62,6 +62,9 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, turn
             return next;
         });
 
+    // Collapse all panels when a new turn begins
+    useEffect(() => { setExpandedPanels(new Set()); }, [turnId]);
+
     const activeTurn = status?.turn_id || turnId;
     const turnColor = getTurnColor(activeTurn);
     const panelTitle = (label) => label;
