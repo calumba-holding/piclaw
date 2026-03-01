@@ -4,7 +4,6 @@ import chokidar from "chokidar";
 import type { WebChannel } from "../../web.js";
 import { WORKSPACE_DIR } from "../../../config.js";
 import { createMedia } from "../../../db.js";
-import { broadcastEvent } from "../sse.js";
 import { MAX_ATTACH_BYTES, MAX_PREVIEW_BYTES } from "../workspace/constants.js";
 import { contentTypeForPath, detectBinary, formatMtime, isImageFile, isTextFile } from "../workspace/file-utils.js";
 import { resolveWorkspacePath, shouldIgnorePath, toRelativePath } from "../workspace/paths.js";
@@ -192,7 +191,7 @@ export function startWorkspaceWatcher(channel: WebChannel): { close: () => Promi
           // ignore
         }
       }
-      if (updates.length) broadcastEvent(channel, "workspace_update", { updates });
+      if (updates.length) channel.broadcastEvent("workspace_update", { updates });
     }, 300);
   };
 

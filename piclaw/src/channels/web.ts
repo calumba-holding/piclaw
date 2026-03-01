@@ -4,7 +4,7 @@ import { initTheme, type AgentSession } from "@mariozechner/pi-coding-agent";
 import { ASSISTANT_AVATAR, ASSISTANT_NAME, WEB_HOST, WEB_IDLE_TIMEOUT, WEB_PORT } from "../config.js";
 import { handleMedia, handleMediaInfo, handleMediaUpload } from "./web/handlers/media.js";
 import { handleWorkspaceAttach, handleWorkspaceFile, handleWorkspaceRaw, handleWorkspaceTree, startWorkspaceWatcher } from "./web/handlers/workspace.js";
-import { handleSse, broadcastEvent, type PendingClient } from "./web/sse.js";
+import { SseHub } from "./web/sse-hub.js";
 import { serveDocsStatic, serveStatic } from "./web/static.js";
 import { clampInt, jsonResponse, parseOptionalInt } from "./web/http-utils.js";
 import { createFallbackTheme } from "./web/theme.js";
@@ -37,7 +37,7 @@ export class WebChannel {
   agentPool: AgentPool;
   server: ReturnType<typeof Bun.serve> | null = null;
   state = new WebChannelState(STATE_KEY);
-  clients: Set<PendingClient> = new Set();
+  sse = new SseHub();
   pendingUiRequests = new Map<string, { resolve: (value: any) => void; reject: (err: Error) => void; timeoutId: ReturnType<typeof setTimeout>; kind: string }>();
   uiRequestCounter = 0;
   editorTextByChat = new Map<string, string>();
@@ -69,11 +69,7 @@ export class WebChannel {
   }
 
   async stop(): Promise<void> {
-    for (const client of this.clients) {
-      clearInterval(client.heartbeat);
-      try { client.controller.close(); } catch {}
-    }
-    this.clients.clear();
+    this.sse.closeAll();
     for (const pending of this.pendingUiRequests.values()) {
       clearTimeout(pending.timeoutId);
       try { pending.reject(new Error("Web channel stopped")); } catch {}
@@ -212,11 +208,11 @@ export class WebChannel {
   }
 
   handleSse(): Response {
-    return handleSse(this);
+    return this.sse.handleRequest();
   }
 
   broadcastEvent(eventType: string, data: unknown): void {
-    broadcastEvent(this, eventType, data);
+    this.sse.broadcast(eventType, data);
   }
 
   async handlePost(req: Request, isReply: boolean): Promise<Response> {

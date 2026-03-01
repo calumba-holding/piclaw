@@ -1,4 +1,3 @@
-import type { WebChannel } from "../web.js";
 
 const encoder = new TextEncoder();
 
@@ -7,7 +6,11 @@ export interface PendingClient {
   heartbeat: Timer;
 }
 
-export function handleSse(channel: WebChannel): Response {
+export interface SseClientContainer {
+  clients: Set<PendingClient>;
+}
+
+export function handleSse(channel: SseClientContainer): Response {
   let clientRef: PendingClient | null = null;
 
   const stream = new ReadableStream<Uint8Array>({
@@ -42,7 +45,7 @@ export function handleSse(channel: WebChannel): Response {
   });
 }
 
-export function broadcastEvent(channel: WebChannel, eventType: string, data: unknown): void {
+export function broadcastEvent(channel: SseClientContainer, eventType: string, data: unknown): void {
   const payload = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
   const bytes = encoder.encode(payload);
   for (const client of channel.clients) {

@@ -3,7 +3,6 @@ import path from "path";
 import chokidar from "chokidar";
 import { WORKSPACE_DIR } from "../../../config.js";
 import { createMedia } from "../../../db.js";
-import { broadcastEvent } from "../sse.js";
 import { MAX_ATTACH_BYTES, MAX_PREVIEW_BYTES } from "../workspace/constants.js";
 import { contentTypeForPath, detectBinary, formatMtime, isImageFile, isTextFile } from "../workspace/file-utils.js";
 import { resolveWorkspacePath, shouldIgnorePath, toRelativePath } from "../workspace/paths.js";
@@ -177,7 +176,7 @@ export function startWorkspaceWatcher(channel) {
                 }
             }
             if (updates.length)
-                broadcastEvent(channel, "workspace_update", { updates });
+                channel.broadcastEvent("workspace_update", { updates });
         }, 300);
     };
     const watcher = chokidar.watch(WORKSPACE_DIR, {

@@ -2,7 +2,7 @@ import { initTheme } from "@mariozechner/pi-coding-agent";
 import { ASSISTANT_AVATAR, ASSISTANT_NAME, WEB_HOST, WEB_IDLE_TIMEOUT, WEB_PORT } from "../config.js";
 import { handleMedia, handleMediaInfo, handleMediaUpload } from "./web/handlers/media.js";
 import { handleWorkspaceAttach, handleWorkspaceFile, handleWorkspaceRaw, handleWorkspaceTree, startWorkspaceWatcher } from "./web/handlers/workspace.js";
-import { handleSse, broadcastEvent } from "./web/sse.js";
+import { SseHub } from "./web/sse-hub.js";
 import { serveDocsStatic, serveStatic } from "./web/static.js";
 import { clampInt, jsonResponse, parseOptionalInt } from "./web/http-utils.js";
 import { createFallbackTheme } from "./web/theme.js";
@@ -18,7 +18,7 @@ export class WebChannel {
     agentPool;
     server = null;
     state = new WebChannelState(STATE_KEY);
-    clients = new Set();
+    sse = new SseHub();
     pendingUiRequests = new Map();
     uiRequestCounter = 0;
     editorTextByChat = new Map();
@@ -48,14 +48,7 @@ export class WebChannel {
         console.log(`[web] UI listening on http://${WEB_HOST}:${WEB_PORT}`);
     }
     async stop() {
-        for (const client of this.clients) {
-            clearInterval(client.heartbeat);
-            try {
-                client.controller.close();
-            }
-            catch { }
-        }
-        this.clients.clear();
+        this.sse.closeAll();
         for (const pending of this.pendingUiRequests.values()) {
             clearTimeout(pending.timeoutId);
             try {
@@ -176,10 +169,10 @@ export class WebChannel {
         return this.json({ deleted: deleted ? 1 : 0, ids: deleted ? [id] : [] });
     }
     handleSse() {
-        return handleSse(this);
+        return this.sse.handleRequest();
     }
     broadcastEvent(eventType, data) {
-        broadcastEvent(this, eventType, data);
+        this.sse.broadcast(eventType, data);
     }
     async handlePost(req, isReply) {
         const { handlePost } = await import("./web/handlers/posts.js");
