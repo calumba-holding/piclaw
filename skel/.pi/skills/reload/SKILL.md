@@ -24,61 +24,28 @@ the new process takes over on the same port.
    cd "$DEST" && bun install --production
    ```
 
-2. Find the running piclaw PID:
+2. Find the running piclaw PID and its command line:
    ```bash
    PICLAW_PID=$(pgrep -f 'bun.*piclaw.*--port' | head -1)
-   ```
-
-3. Determine the piclaw command line (preserves flags like --port):
-   ```bash
    PICLAW_CMD=$(cat /proc/$PICLAW_PID/cmdline | tr '\0' ' ')
    ```
 
-4. Launch the force-restart script as a fully detached process. The script:
-   - Does NOT wait for the current pi invocation
-   - Sends SIGTERM to piclaw and waits for it to die
-   - Starts a new piclaw in the background and writes a PID file
-
+3. Launch the restart script (ships alongside this SKILL.md):
    ```bash
-   cat > /tmp/restart-piclaw-force.sh << 'SCRIPT'
-   #!/bin/bash
-   set -e
-   PICLAW_PID=$1
-   shift 1
-   PICLAW_CMD="$@"
-   PIDFILE=/tmp/piclaw.pid
-
-   echo "[reload] Forcing restart (no wait)"
-
-   # Kill old piclaw
-   echo "[reload] Stopping old piclaw ($PICLAW_PID)..."
-   kill "$PICLAW_PID" 2>/dev/null || true
-   for i in $(seq 1 10); do
-     kill -0 "$PICLAW_PID" 2>/dev/null || break
-     sleep 0.5
-   done
-   kill -9 "$PICLAW_PID" 2>/dev/null || true
-   sleep 1
-
-   # Start new piclaw as a child, write PID file
-   echo "[reload] Starting new piclaw: $PICLAW_CMD"
-   $PICLAW_CMD &
-   NEW_PID=$!
-   echo "$NEW_PID" > "$PIDFILE"
-   echo "[reload] New piclaw PID: $NEW_PID (pidfile: $PIDFILE)"
-
-   # Wait for the child so it doesn't become a zombie
-   wait $NEW_PID 2>/dev/null || true
-   echo "[reload] Piclaw exited"
-   SCRIPT
-   chmod +x /tmp/restart-piclaw-force.sh
-
-   nohup setsid /tmp/restart-piclaw-force.sh "$PICLAW_PID" $PICLAW_CMD \
+   SKILL_DIR="$(cd "$(dirname "$0")" && pwd)"
+   nohup setsid "$SKILL_DIR/restart-piclaw.sh" "$PICLAW_PID" $PICLAW_CMD \
      </dev/null >/tmp/restart-piclaw-force.log 2>&1 &
    disown
    ```
 
-5. Confirm the restart script is running:
+   Since pi cannot run the above `$SKILL_DIR` expansion directly, use the absolute path:
+   ```bash
+   nohup setsid /workspace/.pi/skills/reload/restart-piclaw.sh "$PICLAW_PID" $PICLAW_CMD \
+     </dev/null >/tmp/restart-piclaw-force.log 2>&1 &
+   disown
+   ```
+
+4. Confirm the restart script is running:
    ```bash
    echo "Force restart scheduled. Piclaw will restart immediately."
    ```
@@ -86,7 +53,7 @@ the new process takes over on the same port.
 ## Important Notes
 
 - This force restart does NOT wait for the current pi invocation; the current response may be cut off.
-- There will be a brief (~3s) gap where piclaw is down during the restart.
+- There will be a brief gap where piclaw is down during the restart.
 - The new piclaw inherits the same command-line flags as the old one.
 - WhatsApp session state persists across restarts (stored in SQLite + auth dir).
 - If something goes wrong, check `/tmp/restart-piclaw-force.log`.
