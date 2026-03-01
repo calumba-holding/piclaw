@@ -45,11 +45,19 @@ erDiagram
     text sender
     text sender_name
     text content
+    text content_blocks
+    text link_previews
     text timestamp
+    int is_from_me
     int is_bot_message
   }
   MESSAGES_FTS {
     text content
+    text chat_jid
+    text sender
+    text sender_name
+    text timestamp
+    int is_bot_message
   }
   MESSAGE_MEDIA {
     int message_rowid
@@ -60,37 +68,62 @@ erDiagram
     text filename
     text content_type
     blob data
+    blob thumbnail
+    text metadata
+    text created_at
   }
   SCHEDULED_TASKS {
     text id
+    text chat_jid
+    text prompt
     text schedule_type
     text schedule_value
     text next_run
+    text last_run
+    text last_result
     text status
+    text created_at
   }
   TASK_RUN_LOGS {
     int id
     text task_id
     text run_at
+    int duration_ms
     text status
+    text result
+    text error
   }
   TOKEN_USAGE {
+    int id
     text chat_jid
     text run_at
     int input_tokens
     int output_tokens
+    int cache_read_tokens
+    int cache_write_tokens
     int total_tokens
+    real cost_input
+    real cost_output
+    real cost_cache_read
+    real cost_cache_write
     real cost_total
     text model
     text provider
+    text api
+    int turns
   }
   TOOL_OUTPUTS {
     text id
     text created_at
+    text source
+    int size_bytes
+    int line_count
     text summary
+    text path
   }
   TOOL_OUTPUTS_FTS {
     text content
+    text output_id
   }
   ROUTER_STATE {
     text key
