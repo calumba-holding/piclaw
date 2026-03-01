@@ -1,16 +1,11 @@
+import { buildPreviewLines, countSoftLines, splitLines } from "../../utils/preview.js";
 export function buildPreview(text, maxLines, maxCharsPerLine) {
-    const value = (text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-    if (!value)
+    const lines = splitLines(text || "");
+    if (!lines.length)
         return { preview: "", totalLines: 0 };
-    const rawLines = value.split("\n");
-    const totalLines = rawLines.reduce((acc, line) => acc + countSoftLines(line, maxCharsPerLine), 0);
-    const previewLines = rawLines.slice(0, maxLines);
-    return { preview: previewLines.join("\n"), totalLines };
-}
-function countSoftLines(line, maxChars) {
-    if (!line)
-        return 1;
-    return Math.max(1, Math.ceil(line.length / maxChars));
+    const totalLines = countSoftLines(lines, maxCharsPerLine);
+    const { preview } = buildPreviewLines(lines, { maxLines });
+    return { preview, totalLines };
 }
 function extractToolArgs(args) {
     if (!args)

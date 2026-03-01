@@ -11,6 +11,7 @@ import {
   searchToolOutputSnippets,
   type ToolOutputRecord,
 } from "./db.js";
+import { buildPreviewLines } from "./utils/preview.js";
 
 const TOOL_OUTPUT_DIR = join(DATA_DIR, "tool-output");
 const DEFAULT_CHUNK_SIZE = 4000;
@@ -31,17 +32,12 @@ export interface ToolOutputSaveResult {
 }
 
 export function buildPreview(text: string, maxLines = 12, maxLineLength = 200): string {
-  if (!text) return "";
-  const lines = text.replace(/\r\n/g, "\n").split("\n");
-  const previewLines = lines.slice(0, maxLines).map((line) => {
-    if (line.length <= maxLineLength) return line;
-    return `${line.slice(0, maxLineLength)}…`;
+  const { preview } = buildPreviewLines(text, {
+    maxLines,
+    maxLineLength,
+    includeOmittedLine: true,
   });
-  const omitted = Math.max(lines.length - maxLines, 0);
-  if (omitted > 0) {
-    previewLines.push(`… (${omitted} more lines)`);
-  }
-  return previewLines.join("\n");
+  return preview;
 }
 
 function chunkText(text: string, chunkSize = DEFAULT_CHUNK_SIZE): string[] {
