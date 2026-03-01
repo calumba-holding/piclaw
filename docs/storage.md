@@ -27,15 +27,33 @@ Attachments and link previews are stored on the message record (`content_blocks`
 ```mermaid
 erDiagram
   CHATS ||--o{ MESSAGES : contains
+  CHATS ||--o{ TOKEN_USAGE : tracks
   MESSAGES ||--o{ MESSAGE_MEDIA : has
   MEDIA ||--o{ MESSAGE_MEDIA : linked
   SCHEDULED_TASKS ||--o{ TASK_RUN_LOGS : logs
+  MESSAGES ||--|| MESSAGES_FTS : indexes
+  TOOL_OUTPUTS ||--|| TOOL_OUTPUTS_FTS : indexes
 
+  CHATS {
+    text jid
+    text name
+    text last_message_time
+  }
   MESSAGES {
     text id
     text chat_jid
+    text sender
+    text sender_name
     text content
     text timestamp
+    int is_bot_message
+  }
+  MESSAGES_FTS {
+    text content
+  }
+  MESSAGE_MEDIA {
+    int message_rowid
+    int media_id
   }
   MEDIA {
     int id
@@ -47,8 +65,60 @@ erDiagram
     text id
     text schedule_type
     text schedule_value
+    text next_run
+    text status
+  }
+  TASK_RUN_LOGS {
+    int id
+    text task_id
+    text run_at
+    text status
+  }
+  TOKEN_USAGE {
+    text chat_jid
+    text run_at
+    int input_tokens
+    int output_tokens
+    int total_tokens
+    real cost_total
+    text model
+    text provider
+  }
+  TOOL_OUTPUTS {
+    text id
+    text created_at
+    text summary
+  }
+  TOOL_OUTPUTS_FTS {
+    text content
+  }
+  ROUTER_STATE {
+    text key
+    text value
   }
 ```
+
+## Token usage
+
+`token_usage` stores per-assistant-message usage and cost tracking:
+
+- `run_at` is the timestamp for the tool run (ISO 8601).
+- Token counts are stored in `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, and `total_tokens`.
+- Costs are tracked in `cost_input`, `cost_output`, `cost_cache_read`, `cost_cache_write`, and `cost_total`.
+- `model`, `provider`, and `api` help with attribution.
+
+## Indexes
+
+- `messages(timestamp)` for chronological queries
+- `messages(chat_jid)` for timeline paging
+- `messages(chat_jid, timestamp)` for per-chat time windows
+- `messages(chat_jid, is_bot_message, timestamp)` for pollers and ingestion
+- `token_usage(chat_jid)`, `token_usage(run_at)`, and `token_usage(chat_jid, run_at)` for usage summaries
+- `scheduled_tasks(next_run)` and `scheduled_tasks(status)` for the scheduler
+- `task_run_logs(task_id, run_at)` for audit history
+- `tool_outputs(created_at)` for recent tool output
+- `message_media(message_rowid)` and `message_media(media_id)` for joins
+- `messages_fts` and `tool_outputs_fts` for full-text search
 
 ## Data paths
 
