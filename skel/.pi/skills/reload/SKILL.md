@@ -37,7 +37,7 @@ the new process takes over on the same port.
 4. Launch the force-restart script as a fully detached process. The script:
    - Does NOT wait for the current pi invocation
    - Sends SIGTERM to piclaw and waits for it to die
-   - Starts a new piclaw with the same command line
+   - Starts a new piclaw in the background and writes a PID file
 
    ```bash
    cat > /tmp/restart-piclaw-force.sh << 'SCRIPT'
@@ -46,8 +46,8 @@ the new process takes over on the same port.
    PICLAW_PID=$1
    shift 1
    PICLAW_CMD="$@"
+   PIDFILE=/tmp/piclaw.pid
 
-   # Immediate restart (no wait)
    echo "[reload] Forcing restart (no wait)"
 
    # Kill old piclaw
@@ -60,9 +60,16 @@ the new process takes over on the same port.
    kill -9 "$PICLAW_PID" 2>/dev/null || true
    sleep 1
 
-   # Start new piclaw
+   # Start new piclaw as a child, write PID file
    echo "[reload] Starting new piclaw: $PICLAW_CMD"
-   exec $PICLAW_CMD
+   $PICLAW_CMD &
+   NEW_PID=$!
+   echo "$NEW_PID" > "$PIDFILE"
+   echo "[reload] New piclaw PID: $NEW_PID (pidfile: $PIDFILE)"
+
+   # Wait for the child so it doesn't become a zombie
+   wait $NEW_PID 2>/dev/null || true
+   echo "[reload] Piclaw exited"
    SCRIPT
    chmod +x /tmp/restart-piclaw-force.sh
 
@@ -84,3 +91,5 @@ the new process takes over on the same port.
 - WhatsApp session state persists across restarts (stored in SQLite + auth dir).
 - If something goes wrong, check `/tmp/restart-piclaw-force.log`.
 - `bun add -g file:` creates symlinks; the pack+extract approach ensures real file copies.
+- The restart script `wait`s for piclaw so it won't become a zombie process.
+- A PID file is written to `/tmp/piclaw.pid` for future restarts.

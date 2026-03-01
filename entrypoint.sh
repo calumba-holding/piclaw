@@ -79,12 +79,20 @@ fi
 
 echo "=== PiClaw - Pi Coding Agent Sandbox ==="
 
+# Reap zombie children — PID 1 must handle SIGCHLD
+trap 'wait' SIGCHLD
+
 # Auto-start piclaw if requested
 if [ "${PICLAW_AUTOSTART:-0}" = "1" ]; then
     echo "Auto-starting piclaw..."
-    exec su -s /bin/bash agent -c 'source ~/.bashrc 2>/dev/null; exec piclaw'
+    su -s /bin/bash agent -c 'source ~/.bashrc 2>/dev/null; exec piclaw' &
 fi
 
 echo "Container idle. Attach with: docker exec -u agent -it <name> bash"
 echo "Run 'pi' for interactive mode, or 'piclaw' for web UI + WhatsApp."
-exec tail -f /dev/null
+
+# Stay alive as PID 1 and reap orphaned children
+while true; do
+    sleep 60 &
+    wait $! 2>/dev/null || true
+done
