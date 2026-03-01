@@ -147,9 +147,11 @@ erDiagram
 - `messages(chat_jid, timestamp)` for per-chat time windows
 - `messages(chat_jid, is_bot_message, timestamp)` for pollers and ingestion
 - `token_usage(chat_jid)`, `token_usage(run_at)`, and `token_usage(chat_jid, run_at)` for usage summaries
-- `scheduled_tasks(next_run)` and `scheduled_tasks(status)` for the scheduler
+- `chats(last_message_time)` for recent chat ordering
+- `scheduled_tasks(next_run)`, `scheduled_tasks(status)`, `scheduled_tasks(created_at)`, and `scheduled_tasks(last_run)` for the scheduler
 - `task_run_logs(task_id, run_at)` for audit history
 - `tool_outputs(created_at)` for recent tool output
+- `media(created_at)` for attachment timelines
 - `message_media(message_rowid)` and `message_media(media_id)` for joins
 - `messages_fts` and `tool_outputs_fts` for full-text search
 

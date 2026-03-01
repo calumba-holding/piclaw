@@ -13,6 +13,7 @@ function createSchema(database: Database): void {
       name TEXT,
       last_message_time TEXT
     );
+    CREATE INDEX IF NOT EXISTS idx_chats_last_message_time ON chats(last_message_time);
     CREATE TABLE IF NOT EXISTS messages (
       id TEXT,
       chat_jid TEXT,
@@ -69,6 +70,7 @@ function createSchema(database: Database): void {
       metadata TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE INDEX IF NOT EXISTS idx_media_created_at ON media(created_at);
 
     CREATE TABLE IF NOT EXISTS message_media (
       message_rowid INTEGER NOT NULL,
@@ -109,6 +111,8 @@ function createSchema(database: Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_next_run ON scheduled_tasks(next_run);
     CREATE INDEX IF NOT EXISTS idx_status ON scheduled_tasks(status);
+    CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_created_at ON scheduled_tasks(created_at);
+    CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_last_run ON scheduled_tasks(last_run);
 
     CREATE TABLE IF NOT EXISTS task_run_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
