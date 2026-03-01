@@ -83,6 +83,7 @@ const ATTACHMENT_HINT = [
     "You do NOT need to paste the file contents into your reply.",
     "After attaching, briefly mention what you attached so the user knows",
     "to look for the download card below your message.",
+    "Use attachment:<filename> only when you want to embed inline (images, links).",
 ].join("\n");
 // ── Factory ───────────────────────────────────────────────
 export const fileAttachments = (pi) => {
