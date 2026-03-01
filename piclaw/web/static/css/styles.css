@@ -130,10 +130,12 @@ body {
 .workspace-sidebar {
     display: none;
     flex-direction: column;
-    width: 280px;
+    width: var(--sidebar-width, 280px);
+    min-width: var(--sidebar-width, 280px);
     background-color: var(--bg-primary);
     border-right: 1px solid var(--border-color);
     height: 100dvh;
+    overflow: hidden;
 }
 
 .workspace-header {
@@ -184,42 +186,99 @@ body {
 .workspace-tree {
     flex: 1;
     overflow: auto;
-    padding: var(--spacing-sm);
+    padding: 4px;
 }
 
-.workspace-tree-svg {
-    display: block;
-    max-width: 100%;
+/* ── HTML tree rows (replaces old SVG approach) ── */
+.workspace-tree-list {
+    margin: 0;
+    padding: 0;
 }
 
 .workspace-row {
+    display: flex;
+    align-items: center;
+    height: 22px;
     cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    overflow: hidden;
+    border-radius: 3px;
+    gap: 2px;
+    box-sizing: border-box;
 }
 
-.workspace-row-bg {
-    fill: transparent;
+.workspace-row:hover,
+.workspace-row.selected {
+    background: var(--bg-secondary);
 }
 
-.workspace-row:hover .workspace-row-bg,
-.workspace-row-bg.selected {
-    fill: var(--bg-secondary);
+.workspace-caret {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.workspace-label {
-    fill: var(--text-primary);
-    font-size: 12px;
-    dominant-baseline: middle;
-}
-
-.workspace-caret-icon {
+.workspace-caret svg {
+    width: 8px;
+    height: 8px;
     fill: var(--text-secondary);
     display: block;
+    overflow: visible;
 }
 
-.workspace-icon {
+.workspace-node-icon {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
     color: var(--text-secondary);
     stroke-linecap: round;
     stroke-linejoin: round;
+}
+
+.workspace-node-icon.folder {
+    width: 16px;
+    height: 16px;
+}
+
+.workspace-label {
+    font-size: 12px;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    line-height: 22px;
+}
+
+/* ── Splitter ── */
+.workspace-splitter {
+    display: none;
+    width: 5px;
+    flex-shrink: 0;
+    cursor: col-resize;
+    background: transparent;
+    position: relative;
+    z-index: 10;
+    transition: background 0.15s;
+}
+
+.workspace-splitter::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 2px;
+    width: 1px;
+    background: var(--border-color);
+    transition: background 0.15s;
+}
+
+.workspace-splitter:hover::after,
+.workspace-splitter.dragging::after {
+    background: var(--accent-color);
 }
 
 .workspace-preview {
@@ -279,6 +338,10 @@ body {
 @media (min-width: 1024px) and (orientation: landscape) {
     .workspace-sidebar {
         display: flex;
+    }
+
+    .workspace-splitter {
+        display: block;
     }
 
     .container {
@@ -384,6 +447,7 @@ body {
     flex-direction: column;
     gap: var(--spacing-xs);
     min-width: 0;
+    position: relative;
 }
 
 .compose-file-refs {
@@ -450,6 +514,24 @@ body {
 
 .compose-box textarea::placeholder {
     color: var(--text-secondary);
+}
+
+/* Model hint — bottom-left of input, low opacity */
+.compose-model-hint {
+    position: absolute;
+    bottom: 4px;
+    left: var(--spacing-xs);
+    font-size: 10px;
+    color: var(--text-secondary);
+    opacity: 0.45;
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60%;
+    line-height: 1;
+    font-family: var(--font-mono, monospace);
+    letter-spacing: 0.01em;
 }
 
 .compose-actions {

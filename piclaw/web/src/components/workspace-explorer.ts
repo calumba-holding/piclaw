@@ -11,27 +11,76 @@ import {
 import { formatFileSize, formatTimestamp } from '../utils/format.js';
 import { renderMarkdown } from '../markdown.js';
 
-const ROW_HEIGHT = 22;
-const TREE_WIDTH = 260;
-const INDENT = 18;
+const INDENT = 16;
 const REFRESH_INTERVAL_MS = 15000;
+
+// ── Tree data helpers ─────────────────────────────────────────────────────────
+
+function flattenTree(node, expanded, depth = 0, rows = []) {
+    if (!node) return rows;
+    rows.push({ node, depth });
+    if (node.type === 'dir' && node.children && expanded.has(node.path)) {
+        for (const child of node.children) flattenTree(child, expanded, depth + 1, rows);
+    }
+    return rows;
+}
+
+/**
+ * Signature of *visible* structure only: path + type for expanded nodes.
+ * Ignores mtime/size so file modifications alone don't trigger a redraw.
+ */
+function treeSignature(node, expanded) {
+    if (!node) return '';
+    const parts = [];
+    const walk = (item) => {
+        parts.push(item.type === 'dir' ? `d:${item.path}` : `f:${item.path}`);
+        if (item.children && expanded?.has(item.path)) {
+            for (const child of item.children) walk(child);
+        }
+    };
+    walk(node);
+    return parts.join('|');
+}
+
+/**
+ * Deep-merge two tree snapshots, preserving object identity for unchanged
+ * subtrees so Preact's keyed diffing can skip unchanged rows entirely.
+ */
+function mergeTree(prev, next) {
+    if (!next) return null;
+    if (!prev) return next;
+    if (prev.path !== next.path || prev.type !== next.type) return next;
+
+    const prevKids = Array.isArray(prev.children) ? prev.children : null;
+    const nextKids = Array.isArray(next.children) ? next.children : null;
+
+    // Server hit depth limit and returned no children – keep what we had.
+    if (!nextKids) return prev;
+
+    const prevMap = prevKids ? new Map(prevKids.map(c => [c?.path, c])) : new Map();
+    let changed = !prevKids || prevKids.length !== nextKids.length;
+    const merged = nextKids.map(child => {
+        const m = mergeTree(prevMap.get(child.path), child);
+        if (m !== prevMap.get(child.path)) changed = true;
+        return m;
+    });
+    return changed ? { ...next, children: merged } : prev;
+}
+
+// ── FileAttachmentCard ────────────────────────────────────────────────────────
 
 function FileAttachmentCard({ mediaId }) {
     const [info, setInfo] = useState(null);
-
     useEffect(() => {
         if (!mediaId) return;
         getMediaInfo(mediaId).then(setInfo).catch(() => {});
     }, [mediaId]);
-
     if (!info) return null;
-
     const filename = info.filename || 'file';
-    const size = info.metadata?.size;
-    const sizeStr = size ? formatFileSize(size) : '';
-
+    const sizeStr = info.metadata?.size ? formatFileSize(info.metadata.size) : '';
     return html`
-        <a href=${getMediaUrl(mediaId)} download=${filename} class="file-attachment" onClick=${(e) => e.stopPropagation()}>
+        <a href=${getMediaUrl(mediaId)} download=${filename} class="file-attachment"
+            onClick=${(e) => e.stopPropagation()}>
             <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                 <polyline points="14 2 14 8 20 8"/>
@@ -52,126 +101,35 @@ function FileAttachmentCard({ mediaId }) {
     `;
 }
 
-function flattenTree(node, expanded, depth = 0, rows = []) {
-    if (!node) return rows;
-    rows.push({ node, depth });
-    if (node.type === 'dir' && node.children && expanded.has(node.path)) {
-        node.children.forEach((child) => flattenTree(child, expanded, depth + 1, rows));
-    }
-    return rows;
-}
-
-function treeSignature(node, expanded) {
-    if (!node) return '';
-    const walk = (item) => ({
-        path: item.path,
-        type: item.type,
-        children: item.children && expanded?.has(item.path)
-            ? item.children.map(walk)
-            : null,
-    });
-    return JSON.stringify(walk(node));
-}
-
-function mergeTree(prev, next) {
-    if (!next) return next;
-    if (!prev) return next;
-    if (prev.path !== next.path || prev.type !== next.type) return next;
-
-    const prevChildren = Array.isArray(prev.children) ? prev.children : null;
-    const nextChildren = Array.isArray(next.children) ? next.children : null;
-
-    if (!nextChildren) {
-        return prevChildren ? { ...next, children: undefined } : prev;
-    }
-
-    const prevMap = new Map();
-    if (prevChildren) {
-        prevChildren.forEach((child) => {
-            if (child?.path) prevMap.set(child.path, child);
-        });
-    }
-
-    let changed = false;
-    const mergedChildren = nextChildren.map((child) => {
-        const merged = mergeTree(prevMap.get(child.path), child);
-        if (merged !== prevMap.get(child.path)) changed = true;
-        return merged;
-    });
-
-    if (!prevChildren || prevChildren.length !== mergedChildren.length) {
-        changed = true;
-    } else {
-        for (let i = 0; i < mergedChildren.length; i += 1) {
-            if (mergedChildren[i] !== prevChildren[i]) {
-                changed = true;
-                break;
-            }
-        }
-    }
-
-    if (!changed) return prev;
-    return { ...next, children: mergedChildren };
-}
-
-function iconPath(type) {
-    if (type === 'dir') {
-        return html`<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />`;
-    }
-    return html`
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-    `;
-}
+// ── WorkspaceExplorer ─────────────────────────────────────────────────────────
 
 export function WorkspaceExplorer({ onFileSelect }) {
-    const [tree, setTree] = useState(null);
-    const [expanded, setExpanded] = useState(new Set(['.']));
-    const [selectedPath, setSelectedPath] = useState(null);
-    const [preview, setPreview] = useState(null);
-    const [downloadId, setDownloadId] = useState(null);
-    const [loadingTree, setLoadingTree] = useState(false);
-    const [loadingPreview, setLoadingPreview] = useState(false);
-    const [error, setError] = useState(null);
-    const lastTreeRef = useRef('');
-    const pendingTreeRef = useRef(null);
-    const treeRafRef = useRef(0);
-    const expandedRef = useRef(expanded);
+    const [tree,          setTree]          = useState(null);
+    const [expanded,      setExpanded]      = useState(new Set(['.']));
+    const [selectedPath,  setSelectedPath]  = useState(null);
+    const [preview,       setPreview]       = useState(null);
+    const [downloadId,    setDownloadId]    = useState(null);
+    const [initialLoad,   setInitialLoad]   = useState(true);
+    const [loadingPreview,setLoadingPreview]= useState(false);
+    const [error,         setError]         = useState(null);
 
-    const loadTree = async () => {
-        const initialLoad = !tree;
-        if (initialLoad) {
-            setLoadingTree(true);
-        }
-        try {
-            const data = await getWorkspaceTree('', 3);
-            const signature = treeSignature(data.root, expandedRef.current);
-            if (signature && signature !== lastTreeRef.current) {
-                lastTreeRef.current = signature;
-                pendingTreeRef.current = data.root;
-                if (!treeRafRef.current) {
-                    treeRafRef.current = requestAnimationFrame(() => {
-                        treeRafRef.current = 0;
-                        setTree((prev) => mergeTree(prev, pendingTreeRef.current));
-                    });
-                }
-            }
-            if (data.root?.path) {
-                setExpanded((prev) => {
-                    if (prev.has(data.root.path)) return prev;
-                    const next = new Set(prev);
-                    next.add(data.root.path);
-                    return next;
-                });
-            }
-            setError((prev) => (prev ? null : prev));
-        } catch (err) {
-            setError(err.message || 'Failed to load workspace');
-        } finally {
-            if (initialLoad) setLoadingTree(false);
-        }
-    };
+    // ── Stable refs (never trigger re-renders) ────────────────────────────────
+    const expandedRef     = useRef(expanded);
+    const lastSigRef      = useRef('');
+    const pendingRootRef  = useRef(null);
+    const rafRef          = useRef(0);
+    // KEY FIX: keep a ref to the latest loadTree so the setInterval never
+    // holds a stale closure over the initial tree=null state.
+    const loadTreeFnRef   = useRef(null);
+    const nodeMapRef      = useRef(new Map());
+    const onFileSelectRef = useRef(onFileSelect);
+    const loadPreviewRef  = useRef(null);
 
+    // Sync mutable refs each render
+    onFileSelectRef.current = onFileSelect;
+    useEffect(() => { expandedRef.current = expanded; }, [expanded]);
+
+    // ── loadPreview ───────────────────────────────────────────────────────────
     const loadPreview = async (path) => {
         setLoadingPreview(true);
         setPreview(null);
@@ -185,50 +143,82 @@ export function WorkspaceExplorer({ onFileSelect }) {
             setLoadingPreview(false);
         }
     };
+    loadPreviewRef.current = loadPreview;
 
-    useEffect(() => {
-        expandedRef.current = expanded;
-    }, [expanded]);
+    // ── loadTree ──────────────────────────────────────────────────────────────
+    const loadTree = async () => {
+        try {
+            const data = await getWorkspaceTree('', 3);
+            const sig = treeSignature(data.root, expandedRef.current);
+            if (sig === lastSigRef.current) {
+                // Structure unchanged – just clear the initial spinner if needed.
+                setInitialLoad(false);
+                return;
+            }
+            lastSigRef.current = sig;
+            pendingRootRef.current = data.root;
+            // Batch the DOM update into a single rAF; coalesce rapid calls.
+            if (!rafRef.current) {
+                rafRef.current = requestAnimationFrame(() => {
+                    rafRef.current = 0;
+                    // mergeTree returns prev unchanged when content is identical,
+                    // so Preact skips diffing rows that didn't change.
+                    setTree(prev => mergeTree(prev, pendingRootRef.current));
+                    setInitialLoad(false);
+                });
+            }
+        } catch (err) {
+            setError(err.message || 'Failed to load workspace');
+            setInitialLoad(false);
+        }
+    };
+    // Always point at the freshest loadTree — interval calls this ref,
+    // so it always has the current closure (tree, expanded, etc.).
+    loadTreeFnRef.current = loadTree;
 
+    // Mount once; interval always calls the ref, never a stale copy.
     useEffect(() => {
-        loadTree();
-        const timer = setInterval(loadTree, REFRESH_INTERVAL_MS);
+        loadTreeFnRef.current();
+        const timer = setInterval(() => loadTreeFnRef.current(), REFRESH_INTERVAL_MS);
         return () => {
             clearInterval(timer);
-            if (treeRafRef.current) {
-                cancelAnimationFrame(treeRafRef.current);
-                treeRafRef.current = 0;
-            }
+            if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = 0; }
         };
     }, []);
 
+    // ── Flattened visible rows ────────────────────────────────────────────────
     const rows = useMemo(() => flattenTree(tree, expanded), [tree, expanded]);
-    const svgHeight = Math.max(rows.length * ROW_HEIGHT + 12, 120);
+    const nodeMap = useMemo(() => new Map(rows.map(r => [r.node.path, r.node])), [rows]);
+    nodeMapRef.current = nodeMap;
 
-    const handleToggle = (node) => {
-        if (node.type !== 'dir') return;
-        setExpanded((prev) => {
-            const next = new Set(prev);
-            if (next.has(node.path)) next.delete(node.path);
-            else next.add(node.path);
-            return next;
-        });
-    };
-
-    const handleSelect = (node) => {
-        if (node.type === 'dir') {
-            handleToggle(node);
-            return;
+    // ── Single stable click handler via event delegation ──────────────────────
+    // Created once; reads live state through refs so it never needs recreation.
+    const handleTreeClick = useRef((e) => {
+        const rowEl = e.target.closest('[data-path]');
+        if (!rowEl) return;
+        const clickedPath = rowEl.dataset.path;
+        const clickedType = rowEl.dataset.type;
+        if (clickedType === 'dir') {
+            setExpanded(prev => {
+                const next = new Set(prev);
+                if (next.has(clickedPath)) next.delete(clickedPath);
+                else next.add(clickedPath);
+                return next;
+            });
+        } else {
+            setSelectedPath(clickedPath);
+            const node = nodeMapRef.current.get(clickedPath);
+            if (node) onFileSelectRef.current?.(node.path, node);
+            loadPreviewRef.current?.(clickedPath);
         }
-        setSelectedPath(node.path);
-        onFileSelect?.(node.path, node);
-        loadPreview(node.path);
-    };
+    }).current;
 
-    useEffect(() => {
-        if (!tree) return;
-        loadTree();
-    }, [expanded]);
+    // Refresh button: force-invalidate signature so a changed tree is picked up
+    // even if the visible signature hasn't changed (e.g. mtime-only updates).
+    const handleRefreshClick = useRef(() => {
+        lastSigRef.current = '';
+        loadTreeFnRef.current();
+    }).current;
 
     const handleDownload = async () => {
         if (!selectedPath) return;
@@ -236,74 +226,61 @@ export function WorkspaceExplorer({ onFileSelect }) {
             const res = await attachWorkspaceFile(selectedPath);
             if (res.media_id) setDownloadId(res.media_id);
         } catch (err) {
-            setPreview((prev) => ({ ...(prev || {}), error: err.message || 'Failed to attach file' }));
+            setPreview(prev => ({ ...(prev || {}), error: err.message || 'Failed to attach' }));
         }
     };
 
+    // ── Render ────────────────────────────────────────────────────────────────
     return html`
         <aside class="workspace-sidebar">
             <div class="workspace-header">
                 <span>Workspace</span>
-                <button class="workspace-refresh" onClick=${loadTree} title="Refresh">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="12" cy="12" r="8.5" stroke-dasharray="42 12" stroke-dashoffset="6" transform="rotate(75 12 12)" />
+                <button class="workspace-refresh" onClick=${handleRefreshClick} title="Refresh">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="8.5" stroke-dasharray="42 12" stroke-dashoffset="6"
+                            transform="rotate(75 12 12)" />
                         <polyline points="21 3 21 9 15 9" />
                     </svg>
                 </button>
             </div>
             <div class="workspace-tree">
-                ${loadingTree && !tree && html`<div class="workspace-loading">Loading…</div>`}
+                ${initialLoad && html`<div class="workspace-loading">Loading…</div>`}
                 ${error && html`<div class="workspace-error">${error}</div>`}
-                ${!loadingTree && tree && html`
-                    <svg class="workspace-tree-svg" viewBox=${`0 0 ${TREE_WIDTH} ${svgHeight}`} width=${TREE_WIDTH} height=${svgHeight} preserveAspectRatio="xMinYMin meet">
-                        ${rows.map((row, idx) => {
-                            const node = row.node;
-                            const depth = row.depth;
-                            const y = idx * ROW_HEIGHT + 12;
-                            const x = 8 + depth * INDENT;
-                            const isSelected = node.path === selectedPath;
-                            const isDir = node.type === 'dir';
-                            const expandedDir = isDir && expanded.has(node.path);
-                            const caret = isDir ? (expandedDir ? 'down' : 'right') : null;
-                            const caretSize = 12;
-                            const caretWidth = caretSize;
-                            const caretY = y - caretSize / 2 - 1;
-                            const iconSlot = 20;
-                            const iconSize = isDir ? 20 : 16;
-                            const iconX = x + caretWidth + (iconSlot - iconSize) / 2;
-                            const iconY = y - iconSize / 2 - (isDir ? 1 : 0);
-                            const textX = x + caretWidth + iconSlot + 4;
+                ${tree && html`
+                    <div class="workspace-tree-list" onClick=${handleTreeClick}>
+                        ${rows.map(({ node, depth }) => {
+                            const isDir     = node.type === 'dir';
+                            const isSelected= node.path === selectedPath;
+                            const isOpen    = isDir && expanded.has(node.path);
                             return html`
-                                <g key=${node.path} class="workspace-row" onClick=${() => handleSelect(node)}>
-                                    <rect x="0" y=${y - 14} width=${TREE_WIDTH} height=${ROW_HEIGHT} class=${`workspace-row-bg ${isSelected ? 'selected' : ''}`} />
-                                    ${caret && html`
-                                        <svg class="workspace-caret-icon" x=${x} y=${caretY} width=${caretSize} height=${caretSize} viewBox="0 0 12 12" aria-hidden="true">
-                                            ${caret === 'down'
-                                                ? html`<polygon points="1 2 11 2 6 11" />`
-                                                : html`<polygon points="2 1 11 6 2 11" />`
-                                            }
-                                        </svg>
-                                    `}
-                                    <svg
-                                        class=${`workspace-icon ${isDir ? 'folder' : 'file'}`}
-                                        x=${iconX}
-                                        y=${iconY}
-                                        width=${iconSize}
-                                        height=${iconSize}
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    >
-                                        ${iconPath(node.type)}
+                                <div
+                                    key=${node.path}
+                                    class=${`workspace-row${isSelected ? ' selected' : ''}`}
+                                    style=${{ paddingLeft: `${8 + depth * INDENT}px` }}
+                                    data-path=${node.path}
+                                    data-type=${node.type}
+                                >
+                                    <span class="workspace-caret" aria-hidden="true">
+                                        ${isDir
+                                            ? (isOpen
+                                                ? html`<svg viewBox="0 0 12 12"><polygon points="1,2 11,2 6,11"/></svg>`
+                                                : html`<svg viewBox="0 0 12 12"><polygon points="2,1 11,6 2,11"/></svg>`)
+                                            : null}
+                                    </span>
+                                    <svg class=${`workspace-node-icon${isDir ? ' folder' : ''}`}
+                                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                        aria-hidden="true">
+                                        ${isDir
+                                            ? html`<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>`
+                                            : html`<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>`}
                                     </svg>
-                                    <text class="workspace-label" x=${textX} y=${y}>${node.name}</text>
-                                </g>
+                                    <span class="workspace-label">${node.name}</span>
+                                </div>
                             `;
                         })}
-                    </svg>
+                    </div>
                 `}
             </div>
             ${selectedPath && html`
@@ -311,7 +288,8 @@ export function WorkspaceExplorer({ onFileSelect }) {
                     <div class="workspace-preview-header">
                         <span class="workspace-preview-title">${selectedPath}</span>
                         <button class="workspace-download" onClick=${handleDownload} title="Download">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                                 <polyline points="7 10 12 15 17 10"/>
                                 <line x1="12" y1="15" x2="12" y2="3"/>
@@ -322,7 +300,7 @@ export function WorkspaceExplorer({ onFileSelect }) {
                     ${preview?.error && html`<div class="workspace-error">${preview.error}</div>`}
                     ${preview && !preview.error && html`
                         <div class="workspace-preview-meta">
-                            ${preview.size ? html`<span>${formatFileSize(preview.size)}</span>` : ''}
+                            ${preview.size  ? html`<span>${formatFileSize(preview.size)}</span>` : ''}
                             ${preview.mtime ? html`<span>${formatTimestamp(preview.mtime)}</span>` : ''}
                             ${preview.truncated ? html`<span>truncated</span>` : ''}
                         </div>
@@ -333,15 +311,19 @@ export function WorkspaceExplorer({ onFileSelect }) {
                         `}
                         ${preview.kind === 'text' && html`
                             ${preview.content_type === 'text/markdown'
-                                ? html`<div class="workspace-preview-text" dangerouslySetInnerHTML=${{ __html: renderMarkdown(preview.text || '') }} />`
-                                : html`<pre class="workspace-preview-text"><code>${preview.text || ''}</code></pre>`
-                            }
+                                ? html`<div class="workspace-preview-text"
+                                    dangerouslySetInnerHTML=${{ __html: renderMarkdown(preview.text || '') }} />`
+                                : html`<pre class="workspace-preview-text"><code>${preview.text || ''}</code></pre>`}
                         `}
                         ${preview.kind === 'binary' && html`
-                            <div class="workspace-preview-text">Binary file. Download to view.</div>
+                            <div class="workspace-preview-text">Binary file — download to view.</div>
                         `}
                     `}
-                    ${downloadId && html`<div class="workspace-download-card"><${FileAttachmentCard} mediaId=${downloadId} /></div>`}
+                    ${downloadId && html`
+                        <div class="workspace-download-card">
+                            <${FileAttachmentCard} mediaId=${downloadId} />
+                        </div>
+                    `}
                 </div>
             `}
         </aside>

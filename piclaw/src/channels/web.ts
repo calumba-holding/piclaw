@@ -174,7 +174,8 @@ export class WebChannel {
     return handleWebRequest(this, req);
   }
 
-  handleAgents(): Response {
+  async handleAgents(): Promise<Response> {
+    const model = await this.agentPool.getCurrentModelLabel(DEFAULT_CHAT_JID).catch(() => null);
     return this.json({
       agents: [
         {
@@ -184,6 +185,7 @@ export class WebChannel {
           status: "running",
           actions: [],
           avatar_url: ASSISTANT_AVATAR || null,
+          model: model ?? null,
         },
       ],
     });

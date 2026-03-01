@@ -100,6 +100,7 @@ function App() {
     const [pendingRequest, setPendingRequest] = useState(null);
     const [currentTurnId, setCurrentTurnId] = useState(null);
     const [agents, setAgents] = useState({});
+    const [activeModel, setActiveModel] = useState(null);
     const hasConnectedOnceRef = useRef(false);
     const viewStateRef = useRef({ currentHashtag: null, searchQuery: null });
     const hasMoreRef = useRef(false);
@@ -112,7 +113,9 @@ function App() {
     const pendingRequestRef = useRef(null);
     const stalledPostIdRef = useRef(null);
     const currentTurnIdRef = useRef(null);
-    
+    const appShellRef = useRef(null);
+    const sidebarWidthRef = useRef(0);
+
     // Refresh timestamps every 30 seconds
     useTimestampRefresh(30000);
 
@@ -423,6 +426,9 @@ function App() {
         try {
             const data = await getAgents();
             setAgents(buildAgentsMap(data));
+            // Pick up the current model from the default agent entry
+            const defaultAgent = (data?.agents || []).find((a) => a.id === 'default');
+            if (defaultAgent?.model) setActiveModel(defaultAgent.model);
         } catch (e) {
             console.warn('Failed to load agents:', e);
         }
@@ -430,6 +436,13 @@ function App() {
 
     useEffect(() => {
         loadAgents();
+        // Also apply saved sidebar width imperatively (no state → no re-render)
+        const saved = parseInt(localStorage.getItem('sidebarWidth') || '', 10);
+        const w = Number.isFinite(saved) ? Math.min(Math.max(saved, 160), 600) : 280;
+        sidebarWidthRef.current = w;
+        if (appShellRef.current) {
+            appShellRef.current.style.setProperty('--sidebar-width', `${w}px`);
+        }
     }, [loadAgents]);
 
     const updateAgentProfile = useCallback((payload) => {
@@ -660,10 +673,42 @@ function App() {
             sse.disconnect();
         };
     }, [handleConnectionStatusChange, handleSseEvent, loadPosts]);
-    
+
+    // ── Splitter drag: zero re-renders, direct CSS var manipulation ───────────
+    const handleSplitterMouseDown = useRef((e) => {
+        e.preventDefault();
+        const shell = appShellRef.current;
+        if (!shell) return;
+        const startX = e.clientX;
+        const startW = sidebarWidthRef.current || 280;
+        const splitter = e.currentTarget;
+        splitter.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+
+        const onMove = (me) => {
+            const w = Math.min(Math.max(startW + (me.clientX - startX), 160), 600);
+            shell.style.setProperty('--sidebar-width', `${w}px`);
+            sidebarWidthRef.current = w;
+        };
+        const onUp = (me) => {
+            const w = Math.min(Math.max(startW + (me.clientX - startX), 160), 600);
+            sidebarWidthRef.current = w;
+            splitter.classList.remove('dragging');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            localStorage.setItem('sidebarWidth', String(Math.round(w)));
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    }).current;
+
     return html`
-        <div class="app-shell">
+        <div class="app-shell" ref=${appShellRef}>
             <${WorkspaceExplorer} onFileSelect=${addFileRef} />
+            <div class="workspace-splitter" onMouseDown=${handleSplitterMouseDown}></div>
             <div class="container">
                 ${searchQuery && isIOSDevice() && html`<div class="search-results-spacer"></div>`}
                 ${(currentHashtag || searchQuery) && html`
@@ -704,6 +749,7 @@ function App() {
                     fileRefs=${fileRefs}
                     onRemoveFileRef=${removeFileRef}
                     onClearFileRefs=${clearFileRefs}
+                    activeModel=${activeModel}
                 />
                 <${ConnectionStatus} status=${connectionStatus} />
                 <${AgentRequestModal}

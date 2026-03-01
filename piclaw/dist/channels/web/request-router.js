@@ -16,7 +16,7 @@ export async function handleWebRequest(channel, req) {
         return channel.handleSse();
     }
     if (req.method === "GET" && pathname === "/agents") {
-        return channel.handleAgents();
+        return await channel.handleAgents();
     }
     if (req.method === "GET" && pathname === "/timeline") {
         const limit = channel.clampInt(url.searchParams.get("limit"), 10, 1, 100);

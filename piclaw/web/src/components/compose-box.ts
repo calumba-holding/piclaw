@@ -15,6 +15,7 @@ export function ComposeBox({
     fileRefs = [],
     onRemoveFileRef,
     onClearFileRefs,
+    activeModel = null,
 }) {
     const [content, setContent] = useState('');
     const [searchText, setSearchText] = useState('');
@@ -174,6 +175,11 @@ export function ComposeBox({
                         disabled=${loading}
                         rows="1"
                     />
+                    ${!searchMode && activeModel && html`
+                        <span class="compose-model-hint" title=${activeModel}>
+                            ${activeModel.includes('/') ? activeModel.split('/').pop() : activeModel}
+                        </span>
+                    `}
                 </div>
                 <div class="compose-actions ${searchMode ? 'search-mode' : ''}">
                     <button
