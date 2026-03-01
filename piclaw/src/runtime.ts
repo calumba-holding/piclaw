@@ -17,7 +17,7 @@ import {
   TOOL_OUTPUT_CLEANUP_INTERVAL_MS,
   WHATSAPP_PHONE,
 } from "./config.js";
-import { initDatabase, getMessagesSince, getNewMessages, storeMessage, storeChatMetadata } from "./db.js";
+import { initDatabase, storeMessage, storeChatMetadata } from "./db.js";
 import { AgentPool } from "./agent-pool.js";
 import { AgentQueue } from "./queue.js";
 import { startIpcWatcher } from "./ipc.js";
@@ -25,11 +25,10 @@ import { startSchedulerLoop } from "./task-scheduler.js";
 import { WhatsAppChannel } from "./channels/whatsapp.js";
 import { WebChannel } from "./channels/web.js";
 import { PushoverChannel } from "./channels/pushover.js";
-import { detectChannel, formatMessages, formatOutbound } from "./router.js";
 import { startToolOutputCleanup } from "./tool-output.js";
-import { parseControlCommand, type AgentControlCommand } from "./agent-control.js";
 import { createId } from "./utils/ids.js";
 import { RuntimeState } from "./runtime/state.js";
+import { processMessages, runMessageLoop } from "./runtime/message-loop.js";
 
 const queue = new AgentQueue();
 const agentPool = new AgentPool();
@@ -39,128 +38,6 @@ let pushover: PushoverChannel | null = null;
 
 const state = new RuntimeState(DATA_DIR);
 
-async function processMessages(chatJid: string): Promise<boolean> {
-  const since = state.lastAgentTimestamp[chatJid] || "";
-  const messages = getMessagesSince(chatJid, since, ASSISTANT_NAME);
-  if (messages.length === 0) return true;
-
-  const commandQueue: Array<{ message: (typeof messages)[number]; command: AgentControlCommand }> = [];
-  const promptMessages: typeof messages = [];
-
-  for (const message of messages) {
-    const command = !message.is_bot_message
-      ? parseControlCommand(message.content, TRIGGER_PATTERN)
-      : null;
-    if (command) {
-      if (!state.wasCommandProcessed(chatJid, message.id)) {
-        commandQueue.push({ message, command });
-      }
-      continue;
-    }
-    promptMessages.push(message);
-  }
-
-  for (const { message, command } of commandQueue) {
-    const result = await agentPool.applyControlCommand(chatJid, command);
-    await whatsapp.sendMessage(chatJid, result.message);
-    state.markCommandProcessed(chatJid, message.id);
-  }
-
-  // Check trigger on non-command messages only
-  const hasTrigger = promptMessages.some((m) => TRIGGER_PATTERN.test(m.content.trim()));
-  if (!hasTrigger) return true;
-
-  const channel = detectChannel(chatJid);
-  const prevCursor = state.lastAgentTimestamp[chatJid] || "";
-  state.lastAgentTimestamp[chatJid] = messages[messages.length - 1].timestamp;
-  state.saveTimestamps();
-
-  const stripTrigger = (text: string): string => {
-    if (!text) return "";
-    const flags = TRIGGER_PATTERN.flags.includes("g")
-      ? TRIGGER_PATTERN.flags
-      : `${TRIGGER_PATTERN.flags}g`;
-    const pattern = new RegExp(TRIGGER_PATTERN.source, flags);
-    return text.replace(pattern, " ").trim();
-  };
-
-  const lastPrompt = promptMessages[promptMessages.length - 1];
-  const cleaned = lastPrompt ? stripTrigger(lastPrompt.content) : "";
-  if (promptMessages.length === 1 && cleaned.startsWith("/")) {
-    console.log(`[piclaw] Executing slash command from ${chatJid}`);
-    await whatsapp.setTyping(chatJid, true);
-    const result = await agentPool.applySlashCommand(chatJid, cleaned);
-    await whatsapp.setTyping(chatJid, false);
-
-    if (result.message) {
-      const text = formatOutbound(result.message, channel);
-      if (text) await whatsapp.sendMessage(chatJid, text);
-    }
-
-    if (result.status === "error") {
-      console.error(`[piclaw] Agent error: ${result.message}`);
-    }
-
-    return true;
-  }
-
-  const prompt = formatMessages(promptMessages, channel);
-
-  console.log(`[piclaw] Processing ${promptMessages.length} messages from ${chatJid}`);
-
-  await whatsapp.setTyping(chatJid, true);
-
-  const output = await agentPool.runAgent(prompt, chatJid, {
-    onTurnComplete: async (turn) => {
-      if (turn.text) {
-        const text = formatOutbound(turn.text, channel);
-        if (text) await whatsapp.sendMessage(chatJid, text);
-      }
-    },
-  });
-
-  await whatsapp.setTyping(chatJid, false);
-
-  if (output.status === "error") {
-    state.lastAgentTimestamp[chatJid] = prevCursor;
-    state.saveTimestamps();
-    console.error(`[piclaw] Agent error: ${output.error}`);
-    return false;
-  }
-
-  if (output.result) {
-    const text = formatOutbound(output.result, channel);
-    if (text) await whatsapp.sendMessage(chatJid, text);
-  }
-
-  return true;
-}
-
-async function messageLoop(): Promise<void> {
-  console.log(`[piclaw] Running (trigger: @${ASSISTANT_NAME})`);
-  while (true) {
-    try {
-      const jids = [...state.chatJids];
-      const { messages, newTimestamp } = getNewMessages(jids, state.lastTimestamp, ASSISTANT_NAME);
-      if (messages.length > 0) {
-        state.lastTimestamp = newTimestamp;
-        state.saveTimestamps();
-        // Deduplicate by chat
-        const byChat = new Map<string, boolean>();
-        for (const msg of messages) byChat.set(msg.chat_jid, true);
-        for (const chatJid of byChat.keys()) {
-          queue.enqueue(async () => {
-            const ok = await processMessages(chatJid);
-            if (!ok) throw new Error(`Agent processing failed for ${chatJid}`);
-          }, `chat:${chatJid}`);
-        }
-      }
-    } catch (err) {
-      console.error("[piclaw] Message loop error:", err);
-    }
-    await Bun.sleep(POLL_INTERVAL);
-  }
-}
 
 export async function main(): Promise<void> {
   // Ensure directories
@@ -260,5 +137,18 @@ export async function main(): Promise<void> {
 
   await whatsapp.connect();
 
-  messageLoop();
+  runMessageLoop({
+    queue,
+    state,
+    assistantName: ASSISTANT_NAME,
+    pollIntervalMs: POLL_INTERVAL,
+    processMessages: (chatJid) =>
+      processMessages(chatJid, {
+        agentPool,
+        whatsapp,
+        state,
+        assistantName: ASSISTANT_NAME,
+        triggerPattern: TRIGGER_PATTERN,
+      }),
+  });
 }
