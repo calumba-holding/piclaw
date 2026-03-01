@@ -1382,6 +1382,19 @@ body {
     word-break: break-word;
     overflow-wrap: anywhere;
     max-width: 100%;
+    overflow-x: auto;
+}
+
+.agent-thinking-body code,
+.agent-thinking-body pre code {
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    max-width: 100%;
+}
+
+.agent-thinking-body pre code {
+    display: block;
 }
 
 /* Agent request modal */
