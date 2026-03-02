@@ -43,11 +43,10 @@ echo "Reload started. Check /tmp/restart-piclaw-force.log for status."
 The restart script (`restart-piclaw.sh`):
 1. Reads `/tmp/piclaw.pid` to find the currently running piclaw
 2. Sends SIGTERM and waits up to 5s, then SIGKILL if needed
-3. Writes its own PID to `/tmp/piclaw.pid`
-4. Uses `exec` to replace itself with piclaw — no wrapper process left behind
+3. Writes the child piclaw PID to `/tmp/piclaw.pid`
+4. Runs as a lightweight supervisor so it can reap child exits and restart if needed
 
-Because the script `exec`s into piclaw, its PID *becomes* piclaw's PID.
-On the next reload, the new script kills that PID directly.
+The supervisor PID is stored in `/tmp/piclaw-supervisor.pid` so the next reload can terminate it cleanly.
 
 ## Important Notes
 

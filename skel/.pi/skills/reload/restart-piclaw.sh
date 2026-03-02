@@ -127,12 +127,58 @@ if [ -n "$PORT_PID" ]; then
   fi
 fi
 
-# Write PID and exec
-echo $$ > "$PIDFILE"
-if [ "$LOCK_HELD" -eq 1 ]; then
-  flock -u 9 || true
-  exec 9>&- || true
+SUPERVISOR_PIDFILE=/tmp/piclaw-supervisor.pid
+CHILD_PID=""
+
+tidy_lock() {
+  if [ "$LOCK_HELD" -eq 1 ]; then
+    flock -u 9 || true
+    exec 9>&- || true
+  fi
+}
+
+handle_signal() {
+  echo "[reload] Signal received, shutting down..."
+  if [ -n "$CHILD_PID" ] && kill -0 "$CHILD_PID" 2>/dev/null; then
+    kill "$CHILD_PID" 2>/dev/null || true
+    wait "$CHILD_PID" 2>/dev/null || true
+  fi
+  tidy_lock
+  exit 0
+}
+trap handle_signal SIGTERM SIGINT
+
+# Kill old supervisor if present
+if [ -f "$SUPERVISOR_PIDFILE" ]; then
+  OLD_SUPERVISOR=$(cat "$SUPERVISOR_PIDFILE" 2>/dev/null || true)
+  if [ -n "$OLD_SUPERVISOR" ] && [ "$OLD_SUPERVISOR" != "$$" ]; then
+    kill_pid "$OLD_SUPERVISOR" "old supervisor"
+  fi
 fi
 
-echo "[reload] Starting: $* (PID $$)"
-exec "$@"
+echo $$ > "$SUPERVISOR_PIDFILE"
+
+tidy_lock
+
+echo "[reload] Starting: $* (supervisor PID $$)"
+ATTEMPT=0
+while true; do
+  ATTEMPT=$((ATTEMPT + 1))
+  "$@" &
+  CHILD_PID=$!
+  echo "$CHILD_PID" > "$PIDFILE"
+  wait "$CHILD_PID"
+  STATUS=$?
+  CHILD_PID=""
+  if [ $STATUS -eq 0 ]; then
+    echo "[reload] piclaw exited cleanly"
+    exit 0
+  fi
+  if [ $ATTEMPT -ge 5 ]; then
+    echo "[reload] piclaw exited with status $STATUS; giving up"
+    exit $STATUS
+  fi
+  echo "[reload] piclaw exited with status $STATUS; restarting in 2s"
+  sleep 2
+
+done
