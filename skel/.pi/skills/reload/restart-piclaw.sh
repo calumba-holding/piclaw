@@ -16,11 +16,17 @@ export BUN_INSTALL="/home/agent/.bun"
 
 PIDFILE=/tmp/piclaw.pid
 LOCKFILE=/tmp/piclaw-restart.lock
+LOCK_HELD=0
 
-exec 9>"$LOCKFILE"
-if ! flock -n 9; then
-  echo "[reload] Another restart is in progress. Exiting."
-  exit 1
+if command -v flock >/dev/null 2>&1; then
+  exec 9>"$LOCKFILE"
+  if ! flock -n 9; then
+    echo "[reload] Another restart is in progress. Exiting."
+    exit 1
+  fi
+  LOCK_HELD=1
+else
+  echo "[reload] flock not available; continuing without lock"
 fi
 
 # Parse args
@@ -73,7 +79,17 @@ wait_for_exit() {
   return 1
 }
 
+is_zombie() {
+  local pid="$1"
+  local stat
+  stat=$(ps -o stat= -p "$pid" 2>/dev/null | tr -d ' ')
+  [[ "$stat" == *Z* ]]
+}
+
 find_port_pid() {
+  if ! command -v ss >/dev/null 2>&1; then
+    return 0
+  fi
   ss -ltnp "sport = :$PORT" 2>/dev/null | awk -F 'pid=' 'NR>1 {split($2,a,","); print a[1]}' | head -1
 }
 
@@ -81,6 +97,10 @@ kill_pid() {
   local pid="$1"
   local label="$2"
   if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    if is_zombie "$pid"; then
+      echo "[reload] ${label} ($pid) is a zombie; skipping kill"
+      return 0
+    fi
     echo "[reload] Stopping ${label} ($pid)..."
     kill "$pid" 2>/dev/null || true
     wait_for_exit "$pid" "$label" || true
@@ -109,5 +129,10 @@ fi
 
 # Write PID and exec
 echo $$ > "$PIDFILE"
+if [ "$LOCK_HELD" -eq 1 ]; then
+  flock -u 9 || true
+  exec 9>&- || true
+fi
+
 echo "[reload] Starting: $* (PID $$)"
 exec "$@"

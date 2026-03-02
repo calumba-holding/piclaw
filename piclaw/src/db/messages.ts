@@ -2,7 +2,12 @@ import { getDb } from "./connection.js";
 import { clampWebContent } from "./web-content.js";
 import type { InteractionRow } from "./types.js";
 import type { NewMessage } from "../types.js";
-import { attachMediaToMessage, getMediaIdsForMessage } from "./media.js";
+import {
+  attachMediaToMessage,
+  deleteUnreferencedMedia,
+  getMediaIdsForMessage,
+  getMediaIdsForMessages,
+} from "./media.js";
 
 interface StoredMessageRow {
   rowid: number;
@@ -156,8 +161,12 @@ export function replaceMessageContent(
 
 export function deleteMessageByRowId(chatJid: string, rowId: number): boolean {
   const db = getDb();
+  const mediaIds = getMediaIdsForMessage(rowId);
   db.prepare("DELETE FROM message_media WHERE message_rowid = ?").run(rowId);
   const res = db.prepare("DELETE FROM messages WHERE chat_jid = ? AND rowid = ?").run(chatJid, rowId);
+  if (res.changes > 0) {
+    deleteUnreferencedMedia(mediaIds);
+  }
   return res.changes > 0;
 }
 
@@ -169,9 +178,11 @@ export function deleteThreadByRowId(chatJid: string, rowId: number): number[] {
   const ids = Array.from(new Set(rows.map((row) => row.rowid)));
   if (ids.length === 0) return [];
 
+  const mediaIds = getMediaIdsForMessages(ids);
   const placeholders = ids.map(() => "?").join(",");
   db.prepare(`DELETE FROM message_media WHERE message_rowid IN (${placeholders})`).run(...ids);
   db.prepare(`DELETE FROM messages WHERE chat_jid = ? AND rowid IN (${placeholders})`).run(chatJid, ...ids);
+  deleteUnreferencedMedia(mediaIds);
   return ids;
 }
 

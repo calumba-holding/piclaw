@@ -1,6 +1,6 @@
 import { getDb } from "./connection.js";
 import { clampWebContent } from "./web-content.js";
-import { attachMediaToMessage, getMediaIdsForMessage } from "./media.js";
+import { attachMediaToMessage, deleteUnreferencedMedia, getMediaIdsForMessage, getMediaIdsForMessages, } from "./media.js";
 const MESSAGE_COLUMNS = "rowid, chat_jid, sender, sender_name, content, content_blocks, link_previews, thread_id, timestamp, is_bot_message";
 function parseJsonArray(value) {
     if (!value)
@@ -103,8 +103,12 @@ export function replaceMessageContent(chatJid, rowId, content, options = {}) {
 }
 export function deleteMessageByRowId(chatJid, rowId) {
     const db = getDb();
+    const mediaIds = getMediaIdsForMessage(rowId);
     db.prepare("DELETE FROM message_media WHERE message_rowid = ?").run(rowId);
     const res = db.prepare("DELETE FROM messages WHERE chat_jid = ? AND rowid = ?").run(chatJid, rowId);
+    if (res.changes > 0) {
+        deleteUnreferencedMedia(mediaIds);
+    }
     return res.changes > 0;
 }
 export function deleteThreadByRowId(chatJid, rowId) {
@@ -115,9 +119,11 @@ export function deleteThreadByRowId(chatJid, rowId) {
     const ids = Array.from(new Set(rows.map((row) => row.rowid)));
     if (ids.length === 0)
         return [];
+    const mediaIds = getMediaIdsForMessages(ids);
     const placeholders = ids.map(() => "?").join(",");
     db.prepare(`DELETE FROM message_media WHERE message_rowid IN (${placeholders})`).run(...ids);
     db.prepare(`DELETE FROM messages WHERE chat_jid = ? AND rowid IN (${placeholders})`).run(chatJid, ...ids);
+    deleteUnreferencedMedia(mediaIds);
     return ids;
 }
 export function getTimeline(chatJid, limit, beforeId) {

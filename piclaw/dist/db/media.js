@@ -15,6 +15,26 @@ export function getMediaIdsForMessage(messageRowId) {
         .all(messageRowId);
     return rows.map((row) => row.media_id);
 }
+export function getMediaIdsForMessages(messageRowIds) {
+    if (messageRowIds.length === 0)
+        return [];
+    const db = getDb();
+    const placeholders = messageRowIds.map(() => "?").join(",");
+    const rows = db
+        .prepare(`SELECT DISTINCT media_id FROM message_media WHERE message_rowid IN (${placeholders})`)
+        .all(...messageRowIds);
+    return rows.map((row) => row.media_id);
+}
+export function deleteUnreferencedMedia(mediaIds) {
+    if (mediaIds.length === 0)
+        return 0;
+    const db = getDb();
+    const placeholders = mediaIds.map(() => "?").join(",");
+    const res = db
+        .prepare(`DELETE FROM media WHERE id IN (${placeholders}) AND id NOT IN (SELECT media_id FROM message_media)`)
+        .run(...mediaIds);
+    return Number(res.changes || 0);
+}
 export function createMedia(filename, contentType, data, thumbnail, metadata) {
     const db = getDb();
     const res = db
