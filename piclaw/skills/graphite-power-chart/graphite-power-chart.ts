@@ -269,14 +269,14 @@ const xLabels = xTicks
 const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${title}">
   <style>
-    svg { --text: #0f1419; --grid: #cbd5e1; --tick: #94a3b8; --line: #1d9bf0; --fill: rgba(29,155,240,0.12); --muted: #536471; }
+    svg { --text: #0f1419; --grid: #e5e7eb; --tick: #94a3b8; --line: #1d9bf0; --fill: rgba(29,155,240,0.12); --muted: #536471; }
     @media (prefers-color-scheme: dark) {
-      svg { --text: #e7e9ea; --grid: #3b4044; --tick: #5f666d; --line: #1d9bf0; --fill: rgba(29,155,240,0.18); --muted: #71767b; }
+      svg { --text: #e7e9ea; --grid: #2a2d32; --tick: #5f666d; --line: #1d9bf0; --fill: rgba(29,155,240,0.18); --muted: #71767b; }
     }
     .title { font: 600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: var(--text); }
     .label { font: 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: var(--muted); }
     .axis { stroke: var(--grid); stroke-width: 1.2; }
-    .grid { stroke: var(--grid); stroke-width: 1.2; stroke-dasharray: 4 4; opacity: 1; vector-effect: non-scaling-stroke; }
+    .grid { stroke: var(--grid); stroke-width: 1.2; stroke-dasharray: 4 4; opacity: 0.6; vector-effect: non-scaling-stroke; }
     .tick { stroke: var(--tick); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
     .line { fill: none; stroke: var(--line); stroke-width: 2; }
     .area { fill: var(--fill); }
