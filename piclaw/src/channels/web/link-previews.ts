@@ -135,6 +135,31 @@ function extractTitle(html: string): string | undefined {
   return titleMatch?.[1]?.trim();
 }
 
+function decodeHtmlEntities(value: string | undefined): string | undefined {
+  if (!value) return value;
+  const entityMap: Record<string, string> = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+  };
+  return value.replace(/&(#x[0-9a-fA-F]+|#\d+|[a-zA-Z]+);/g, (match, code) => {
+    if (code.startsWith("#x") || code.startsWith("#X")) {
+      const num = parseInt(code.slice(2), 16);
+      if (!Number.isFinite(num)) return match;
+      return String.fromCharCode(num);
+    }
+    if (code.startsWith("#")) {
+      const num = parseInt(code.slice(1), 10);
+      if (!Number.isFinite(num)) return match;
+      return String.fromCharCode(num);
+    }
+    const mapped = entityMap[code];
+    return mapped ?? match;
+  });
+}
+
 function normalizeImage(url: string, baseUrl: string): string {
   try {
     return new URL(url, baseUrl).toString();
@@ -163,11 +188,11 @@ export async function fetchLinkPreview(url: string): Promise<LinkPreview | null>
     if (!contentType.includes("text/html")) return null;
 
     const html = (await res.text()).slice(0, MAX_HTML_CHARS);
-    const title =
+    const titleRaw =
       extractMetaContent(html, "og:title") ||
       extractMetaContent(html, "twitter:title") ||
       extractTitle(html);
-    const description =
+    const descriptionRaw =
       extractMetaContent(html, "og:description") ||
       extractMetaContent(html, "twitter:description") ||
       extractMetaContent(html, "description");
@@ -175,8 +200,12 @@ export async function fetchLinkPreview(url: string): Promise<LinkPreview | null>
       extractMetaContent(html, "og:image") ||
       extractMetaContent(html, "twitter:image") ||
       extractMetaContent(html, "og:image:url");
-    const siteName = extractMetaContent(html, "og:site_name") || new URL(url).hostname;
-    const image = imageRaw ? normalizeImage(imageRaw, url) : undefined;
+    const siteNameRaw = extractMetaContent(html, "og:site_name") || new URL(url).hostname;
+    const title = decodeHtmlEntities(titleRaw)?.trim();
+    const description = decodeHtmlEntities(descriptionRaw)?.trim();
+    const siteName = decodeHtmlEntities(siteNameRaw)?.trim();
+    const imageDecoded = decodeHtmlEntities(imageRaw)?.trim();
+    const image = imageDecoded ? normalizeImage(imageDecoded, url) : undefined;
 
     if (!title && !description && !image) return null;
 
