@@ -132,7 +132,7 @@ COPY --chown=agent:agent skel/ /home/agent/workspace-skel/
 COPY --chown=agent:agent piclaw/skills/ /home/agent/.pi/agent/skills/
 
 # Ship piclaw orchestrator and install as global binary
-COPY --chown=agent:agent piclaw/piclaw/ /home/agent/piclaw/
+COPY --chown=agent:agent piclaw/ /home/agent/piclaw/
 RUN set -euo pipefail && \
     export BUN_INSTALL="$HOME/.bun" && export PATH="$BUN_INSTALL/bin:$PATH" && \
     rm -f /tmp/piclaw-*.tgz && \
