@@ -84,7 +84,7 @@ fi
 [ "${1:-}" = "--" ] && shift
 
 if [ $# -eq 0 ]; then
-  set -- piclaw --port 3000
+  set -- piclaw --port "${PICLAW_WEB_PORT:-3000}"
 fi
 
 # Fall back to pidfile
@@ -92,7 +92,7 @@ if [ -z "$OLD_PID" ] && [ -f "$PIDFILE" ]; then
   OLD_PID=$(cat "$PIDFILE" 2>/dev/null || true)
 fi
 
-PORT=3000
+PORT="${PICLAW_WEB_PORT:-3000}"
 for ((i=1;i<=$#;i++)); do
   arg="${!i}"
   if [ "$arg" = "--port" ]; then
