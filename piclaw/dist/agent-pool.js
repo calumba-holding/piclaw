@@ -279,14 +279,15 @@ export class AgentPool {
                 }
             }
         }
-        if (toolCallIds.size === 0)
-            return;
-        const pruned = messages.filter((msg) => {
+        const shouldKeepToolResult = (msg) => {
             if (msg?.role !== "toolResult")
                 return true;
+            if (toolCallIds.size === 0)
+                return false;
             const id = msg.toolCallId;
             return typeof id === "string" && toolCallIds.has(id);
-        });
+        };
+        const pruned = messages.filter(shouldKeepToolResult);
         if (pruned.length !== messages.length) {
             try {
                 session?.agent?.replaceMessages(pruned);
