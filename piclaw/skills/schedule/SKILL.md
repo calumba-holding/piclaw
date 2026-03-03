@@ -58,9 +58,15 @@ Use an ISO 8601 timestamp:
 
 Write to the same IPC directory:
 
-• Pause:  `{ "type": "pause_task", "taskId": "task-xxx" }`
-• Resume: `{ "type": "resume_task", "taskId": "task-xxx" }`
-• Cancel: `{ "type": "cancel_task", "taskId": "task-xxx" }`
+• Pause:    `{ "type": "pause_task", "taskId": "task-xxx" }`
+• Resume:   `{ "type": "resume_task", "taskId": "task-xxx" }`
+• Cancel:   `{ "type": "cancel_task", "taskId": "task-xxx" }`
+• Update:   `{ "type": "update_task", "taskId": "task-xxx", "prompt": "...", "model": "...", "schedule_value": "..." }`
+• Cleanup:  `{ "type": "cleanup_tasks", "chatJid": "web:default" }`
+
+Update accepts any combination of `prompt`, `model`, `schedule_type`, `schedule_value`. Only the fields you include are changed; the rest stay as-is. Set `"model": ""` to clear the model override. If the schedule is changed, `next_run` is recomputed automatically.
+
+Cleanup deletes all completed tasks and their run logs, then posts a confirmation message.
 
 ## Environment
 

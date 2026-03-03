@@ -126,6 +126,55 @@ async function processTaskCommand(data: Record<string, any>, deps: IpcDeps): Pro
       if (t) deleteTask(data.taskId);
       break;
     }
+    case "update_task": {
+      if (!data.taskId) return;
+      const t = getTaskById(data.taskId);
+      if (!t) return;
+      const updates: Record<string, any> = {};
+      if (typeof data.prompt === "string") updates.prompt = data.prompt;
+      if (typeof data.schedule_type === "string") updates.schedule_type = data.schedule_type;
+      if (typeof data.schedule_value === "string") updates.schedule_value = data.schedule_value;
+      if (typeof data.model === "string") {
+        if (data.model === "") {
+          updates.model = null;
+        } else if (deps.resolveModel) {
+          const resolved = deps.resolveModel(data.model.trim());
+          if (!resolved.model) {
+            if (data.chatJid) await deps.sendMessage(data.chatJid, `Cannot update task: ${resolved.error || "Invalid model."}`);
+            return;
+          }
+          updates.model = resolved.model;
+        } else {
+          updates.model = data.model.trim();
+        }
+      }
+      if (updates.schedule_type || updates.schedule_value) {
+        const sType = updates.schedule_type || t.schedule_type;
+        const sValue = updates.schedule_value || t.schedule_value;
+        try {
+          if (sType === "cron") {
+            updates.next_run = CronExpressionParser.parse(sValue, { tz: TIMEZONE }).next().toISOString();
+          } else if (sType === "interval") {
+            updates.next_run = new Date(Date.now() + parseInt(sValue, 10)).toISOString();
+          } else if (sType === "once") {
+            updates.next_run = new Date(sValue).toISOString();
+          }
+        } catch { /* keep existing next_run */ }
+      }
+      if (Object.keys(updates).length > 0) updateTask(data.taskId, updates);
+      break;
+    }
+    case "cleanup_tasks": {
+      const db = (await import("./db/connection.js")).getDb();
+      const completed = db.prepare("SELECT id FROM scheduled_tasks WHERE status = 'completed'").all() as { id: string }[];
+      for (const { id } of completed) {
+        db.prepare("DELETE FROM task_run_logs WHERE task_id = ?").run(id);
+      }
+      const result = db.prepare("DELETE FROM scheduled_tasks WHERE status = 'completed'").run();
+      const count = (result as any).changes ?? 0;
+      if (data.chatJid) await deps.sendMessage(data.chatJid, `Cleaned up ${count} completed task(s).`);
+      break;
+    }
     case "resume_chat": {
       if (deps.resumeChat) {
         await deps.resumeChat(data);
