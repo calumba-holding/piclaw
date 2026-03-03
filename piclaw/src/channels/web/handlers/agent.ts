@@ -1,5 +1,5 @@
 import type { WebChannel } from "../../web.js";
-import { ASSISTANT_AVATAR, ASSISTANT_NAME, TRIGGER_PATTERN } from "../../../core/config.js";
+import { ASSISTANT_AVATAR, ASSISTANT_NAME, BACKGROUND_AGENT_TIMEOUT, TRIGGER_PATTERN } from "../../../core/config.js";
 import { parseControlCommand } from "../../../agent-control/index.js";
 import {
   normalizeAgentMessagePayload,
@@ -86,7 +86,8 @@ export async function handleAgentMessage(
 
   const steerResult = await channel.agentPool.queueStreamingMessage(chatJid, normalized.content, "steer");
   if (steerResult.queued) {
-    markCommandHandled();
+    channel.queuePendingSteering(chatJid, interaction.timestamp);
+    channel.broadcastEvent("agent_steer_queued", { chat_jid: chatJid });
     return channel.json(
       {
         user_message: interaction,
@@ -164,7 +165,11 @@ export async function processChat(
     onDraftBuffer: (text, totalLines) => channel.updateDraftBuffer(turnId, text, totalLines),
   });
 
+  const hasActiveClients = channel.sse.clients.size > 0;
+  const timeoutMs = hasActiveClients ? undefined : BACKGROUND_AGENT_TIMEOUT;
+
   const output = await channel.agentPool.runAgent(prompt, chatJid, {
+    timeoutMs,
     onAutoCompact: (notice) => {
       const phaseLabel = notice.phase === "pre"
         ? "Auto-compacting to free context"
@@ -240,6 +245,15 @@ export async function processChat(
       channelName,
       threadId: resolvedThreadRootId,
     });
+  }
+
+  const pendingSteerTimestamp = channel.consumePendingSteering(chatJid);
+  if (pendingSteerTimestamp) {
+    const current = channel.state.lastAgentTimestamp[chatJid] || "";
+    if (!current || current < pendingSteerTimestamp) {
+      channel.state.lastAgentTimestamp[chatJid] = pendingSteerTimestamp;
+      channel.saveState();
+    }
   }
 
   emitter.status({

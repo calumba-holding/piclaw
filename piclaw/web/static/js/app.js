@@ -111,6 +111,7 @@ function App() {
     const [agentThought, setAgentThought] = useState({ text: '', totalLines: 0 });
     const [pendingRequest, setPendingRequest] = useState(null);
     const [currentTurnId, setCurrentTurnId] = useState(null);
+    const [steerQueuedTurnId, setSteerQueuedTurnId] = useState(null);
     const [agents, setAgents] = useState({});
     const [activeModel, setActiveModel] = useState(null);
     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -129,6 +130,7 @@ function App() {
     const pendingRequestRef = useRef(null);
     const stalledPostIdRef = useRef(null);
     const currentTurnIdRef = useRef(null);
+    const steerQueuedTurnIdRef = useRef(null);
     const appShellRef = useRef(null);
     const sidebarWidthRef = useRef(0);
     const thoughtExpandedRef = useRef(false);
@@ -208,16 +210,20 @@ function App() {
         pendingRequestRef.current = null;
         lastAgentResponseRef.current = null;
         currentTurnIdRef.current = null;
+        steerQueuedTurnIdRef.current = null;
         setCurrentTurnId(null);
+        setSteerQueuedTurnId(null);
         thoughtExpandedRef.current = false;
         draftExpandedRef.current = false;
-    }, [setCurrentTurnId]);
+    }, [setCurrentTurnId, setSteerQueuedTurnId]);
 
     const setActiveTurn = useCallback((turnId) => {
         if (!turnId) return;
         if (currentTurnIdRef.current === turnId) return;
         currentTurnIdRef.current = turnId;
         setCurrentTurnId(turnId);
+        steerQueuedTurnIdRef.current = null;
+        setSteerQueuedTurnId(null);
         draftBufferRef.current = '';
         thoughtBufferRef.current = '';
         setAgentDraft({ text: '', totalLines: 0 });
@@ -228,7 +234,7 @@ function App() {
         lastAgentResponseRef.current = null;
         thoughtExpandedRef.current = false;
         draftExpandedRef.current = false;
-    }, [setCurrentTurnId]);
+    }, [setCurrentTurnId, setSteerQueuedTurnId]);
 
     const requestNotificationPermission = useCallback(() => {
         if (typeof Notification === 'undefined') return Promise.resolve('denied');
@@ -722,6 +728,17 @@ function App() {
             return;
         }
 
+        if (eventType === 'agent_steer_queued') {
+            if (turnId && currentTurnIdRef.current && turnId !== currentTurnIdRef.current) {
+                return;
+            }
+            const targetTurn = turnId || currentTurnIdRef.current;
+            if (!targetTurn) return;
+            steerQueuedTurnIdRef.current = targetTurn;
+            setSteerQueuedTurnId(targetTurn);
+            return;
+        }
+
         if (eventType === 'agent_draft_delta') {
             if (turnId && currentTurnIdRef.current && turnId !== currentTurnIdRef.current) {
                 return;
@@ -989,6 +1006,8 @@ function App() {
         document.addEventListener('touchcancel', onUp);
     }).current;
 
+    const steerQueued = Boolean(steerQueuedTurnId && (steerQueuedTurnId === (agentStatus?.turn_id || currentTurnId)));
+
     return html`
         <div class="app-shell" ref=${appShellRef}>
             <${WorkspaceExplorer} onFileSelect=${addFileRef} />
@@ -1022,6 +1041,7 @@ function App() {
                     thought=${agentThought}
                     pendingRequest=${pendingRequest}
                     turnId=${currentTurnId}
+                    steerQueued=${steerQueued}
                     onPanelToggle=${handlePanelToggle}
                 />
                 <${ComposeBox} 

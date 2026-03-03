@@ -4,7 +4,7 @@ import { addToWhitelist, respondToAgentRequest } from '../api.js';
 import { renderThinkingMarkdown } from '../markdown.js';
 import { getTurnColor } from '../ui/agent-utils.js';
 
-export function AgentStatus({ status, draft, plan, thought, pendingRequest, turnId, onPanelToggle }) {
+export function AgentStatus({ status, draft, plan, thought, pendingRequest, turnId, steerQueued, onPanelToggle }) {
     const THOUGHT_MAX_LINES = 8;
     const DRAFT_MAX_LINES = 8;
 
@@ -72,6 +72,7 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, turn
 
     const activeTurn = status?.turn_id || turnId;
     const turnColor = getTurnColor(activeTurn);
+    const dotClass = steerQueued ? 'turn-dot turn-dot-queued' : 'turn-dot';
     const panelTitle = (label) => label;
 
     let content = '';
@@ -98,7 +99,7 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, turn
         return html`
             <div class="agent-thinking" style=${turnColor ? `--turn-color: ${turnColor};` : ''}>
                 <div class="agent-thinking-title ${titleClass || ''}">
-                    ${turnColor && html`<span class="turn-dot" aria-hidden="true"></span>`}
+                    ${turnColor && html`<span class=${dotClass} aria-hidden="true"></span>`}
                     ${panelTitle}
                 </div>
                 <div
@@ -126,7 +127,7 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, turn
         <div class="agent-status-panel">
             ${pendingRequest && html`
                 <div class="agent-status agent-status-request" aria-live="polite" style=${turnColor ? `--turn-color: ${turnColor};` : ''}>
-                    <span class="turn-dot" aria-hidden="true"></span>
+                    <span class=${dotClass} aria-hidden="true"></span>
                     <div class="agent-status-spinner"></div>
                     <span class="agent-status-text">${pendingMessage}</span>
                 </div>
@@ -158,7 +159,7 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, turn
             })}
             ${status && html`
                 <div class="agent-status" aria-live="polite" style=${turnColor ? `--turn-color: ${turnColor};` : ''}>
-                    ${turnColor && html`<span class="turn-dot" aria-hidden="true"></span>`}
+                    ${turnColor && html`<span class=${dotClass} aria-hidden="true"></span>`}
                     <div class="agent-status-spinner"></div>
                     <span class="agent-status-text">${content}</span>
                 </div>

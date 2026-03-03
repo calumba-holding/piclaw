@@ -48,10 +48,48 @@ test("agent pool aggregates streamed text and writes logs", async () => {
   expect(result.result).toBe("Hello world");
   expect(process.env.PICLAW_CHAT_JID).toBeUndefined();
 
-  const logsDir = join(process.env.PICLAW_WORKSPACE || ws.workspace, "logs");
+  const logsDir = (pool as any).logsDir || join(process.env.PICLAW_WORKSPACE || ws.workspace, "logs");
   const logFiles = readdirSync(logsDir).filter((f) => f.startsWith("agent-") && f.endsWith(".log"));
   expect(logFiles.length).toBeGreaterThan(0);
   const latest = logFiles.sort().slice(-1)[0];
   const content = readFileSync(join(logsDir, latest), "utf8");
   expect(content).toContain("Hello world");
+});
+
+test("agent pool honors timeout overrides", async () => {
+  const ws = getTestWorkspace();
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const { AgentPool } = await importFresh<typeof import("../src/agent-pool.js")>("../src/agent-pool.js");
+
+  let abortCalled = false;
+  class StubSession {
+    private listeners: Array<(event: any) => void> = [];
+    subscribe(listener: (event: any) => void) {
+      this.listeners.push(listener);
+      return () => {
+        this.listeners = this.listeners.filter((l) => l !== listener);
+      };
+    }
+    async prompt(_prompt: string) {
+      await Bun.sleep(20);
+    }
+    async abort() {
+      abortCalled = true;
+    }
+    dispose() {}
+  }
+
+  const pool = new AgentPool({
+    createSession: async () => new StubSession() as any,
+  });
+
+  const timedOut = await pool.runAgent("test", "web:default", { timeoutMs: 5 });
+  expect(timedOut.status).toBe("error");
+  expect(abortCalled).toBe(true);
+
+  abortCalled = false;
+  const ok = await pool.runAgent("test", "web:default", { timeoutMs: 0 });
+  expect(ok.status).toBe("success");
+  expect(abortCalled).toBe(false);
 });

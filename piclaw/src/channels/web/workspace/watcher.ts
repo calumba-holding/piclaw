@@ -136,7 +136,7 @@ export function startWorkspaceWatcher(
     }
 
     if (depth === 0) return;
-    let entries: Array<{ name: string; isDirectory: () => boolean }> = [];
+    let entries: Array<{ name: string; isDirectory: () => boolean }>;
     try {
       entries = readdirSync(dir, { withFileTypes: true }) as Array<{ name: string; isDirectory: () => boolean }>;
     } catch {

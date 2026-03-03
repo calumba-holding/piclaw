@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { writeFileSync } from "fs";
+import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { getTestWorkspace, setEnv } from "../helpers.js";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -55,7 +55,9 @@ test("attach_file tool stores media and registers attachment", async () => {
   const db = await import("../../src/db.js");
   db.initDatabase();
 
-  const filePath = join(ws.workspace, "hello.txt");
+  const { WORKSPACE_DIR } = await import("../../src/core/config.js");
+  mkdirSync(WORKSPACE_DIR, { recursive: true });
+  const filePath = join(WORKSPACE_DIR, "hello.txt");
   writeFileSync(filePath, "hello", "utf8");
 
   const { fileAttachments } = await import("../../src/extensions/file-attachments.js");

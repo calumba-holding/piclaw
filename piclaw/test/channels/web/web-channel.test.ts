@@ -124,6 +124,48 @@ test("web channel handles /model command without queueing agent", async () => {
   expect(timeline[timeline.length - 1].data.content).toContain("Model set to openai/gpt-test.");
 });
 
+test("web channel queues follow-up placeholder for /queue", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+
+  let queued = false;
+
+  const webMod = await import("../../../src/channels/web.js");
+  const web = new (webMod.WebChannel as any)({
+    queue: { enqueue: () => { queued = true; } },
+    agentPool: {
+      applyControlCommand: async () => ({
+        status: "success",
+        message: "Queued as a follow-up (one-at-a-time).",
+        queued_followup: true,
+      }),
+    },
+  });
+
+  const req = new Request("http://test/agent/default/message", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: "/queue do this" }),
+  });
+
+  const res = await (web as any).handleRequest(req);
+  expect(res.status).toBe(201);
+  expect(queued).toBe(false);
+
+  const placeholderId = web.consumeQueuedFollowupPlaceholder("web:default");
+  expect(placeholderId).not.toBeNull();
+
+  const timeline = db.getTimeline("web:default", 10);
+  const last = timeline[timeline.length - 1];
+  expect(last.data.content).toContain("Queued as a follow-up");
+});
+
 test("web channel delete post cascades thread replies", async () => {
   const ws = createTempWorkspace("piclaw-web-channel-");
   cleanupWorkspace = ws.cleanup;
@@ -170,4 +212,83 @@ test("web channel delete post cascades thread replies", async () => {
 
   const remaining = db.getTimeline("web:default", 10);
   expect(remaining.length).toBe(0);
+});
+
+test("web channel queues steering without advancing cursor", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+
+  const events: Array<{ type: string; data: any }> = [];
+
+  const webMod = await import("../../../src/channels/web.js");
+  const web = new (webMod.WebChannel as any)({
+    queue: { enqueue: () => {} },
+    agentPool: {
+      setSessionBinder: () => {},
+      queueStreamingMessage: async () => ({ queued: true }),
+      runAgent: async () => ({ status: "success", result: "ok" }),
+    },
+  });
+  web.broadcastEvent = (type: string, data: unknown) => {
+    events.push({ type, data });
+  };
+
+  const req = new Request("http://test/agent/default/message", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: "steer this" }),
+  });
+
+  const res = await (web as any).handleRequest(req);
+  expect(res.status).toBe(201);
+  const json = await res.json();
+  expect(json.queued).toBe("steer");
+  expect(web.state.lastAgentTimestamp["web:default"]).toBeUndefined();
+  const pending = (web as any).pendingSteering.get("web:default") ?? [];
+  expect(pending.length).toBe(1);
+  expect(events.some((event) => event.type === "agent_steer_queued")).toBe(true);
+});
+
+test("processChat advances cursor to pending steering timestamp", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+
+  const messageTs = "2024-01-01T00:00:00.000Z";
+  db.storeMessage({
+    id: `msg-${Math.random()}`,
+    chat_jid: "web:default",
+    sender: "user",
+    sender_name: "User",
+    content: "hello",
+    timestamp: messageTs,
+    is_from_me: false,
+    is_bot_message: false,
+  });
+
+  const webMod = await import("../../../src/channels/web.js");
+  const web = new (webMod.WebChannel as any)({
+    queue: { enqueue: () => {} },
+    agentPool: {
+      setSessionBinder: () => {},
+      runAgent: async () => ({ status: "success", result: "ok", attachments: [] }),
+    },
+  });
+
+  const pendingTs = "2024-01-01T00:00:10.000Z";
+  web.queuePendingSteering("web:default", pendingTs);
+
+  await web.processChat("web:default", "default");
+  expect(web.state.lastAgentTimestamp["web:default"]).toBe(pendingTs);
 });

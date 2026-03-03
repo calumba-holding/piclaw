@@ -45,6 +45,7 @@ export class WebChannel {
   workspaceWatcher: { close: () => Promise<void> } | null = null;
   workspaceVisible = false;
   workspaceShowHidden = false;
+  pendingSteering = new Map<string, string[]>();
   thoughtBuffers = new Map<string, { text: string; totalLines: number; updatedAt: number }>();
   draftBuffers = new Map<string, { text: string; totalLines: number; updatedAt: number }>();
   expandedPanels = new Map<string, { thought: boolean; draft: boolean }>();
@@ -107,6 +108,21 @@ export class WebChannel {
 
   consumeQueuedFollowupPlaceholder(chatJid: string): number | null {
     return this.state.consumeFollowupPlaceholder(chatJid);
+  }
+
+  queuePendingSteering(chatJid: string, timestamp: string | undefined): void {
+    if (!timestamp) return;
+    const existing = this.pendingSteering.get(chatJid) ?? [];
+    existing.push(timestamp);
+    this.pendingSteering.set(chatJid, existing);
+  }
+
+  consumePendingSteering(chatJid: string): string | null {
+    const entries = this.pendingSteering.get(chatJid);
+    if (!entries || entries.length === 0) return null;
+    this.pendingSteering.delete(chatJid);
+    entries.sort();
+    return entries[entries.length - 1] ?? null;
   }
 
   replaceQueuedFollowupPlaceholder(

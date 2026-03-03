@@ -87,7 +87,11 @@ export let ASSISTANT_NAME =
 export let ASSISTANT_AVATAR =
   process.env.ASSISTANT_AVATAR || envConfig.ASSISTANT_AVATAR || configAssistantAvatar || "";
 
-export const AGENT_TIMEOUT = parseInt(process.env.AGENT_TIMEOUT || "600000", 10); // 10min default
+export const AGENT_TIMEOUT = parseInt(process.env.AGENT_TIMEOUT || "1800000", 10); // 30min default
+export const BACKGROUND_AGENT_TIMEOUT = parseInt(
+  process.env.PICLAW_BACKGROUND_AGENT_TIMEOUT || process.env.AGENT_TIMEOUT_BACKGROUND || "0",
+  10
+);
 export const IPC_POLL_INTERVAL = 1000;
 
 const CLI_ARGS = process.argv.slice(2);

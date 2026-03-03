@@ -6,6 +6,7 @@ import { getTestWorkspace, setEnv, waitFor } from "../helpers.js";
 let restoreEnv: (() => void) | null = null;
 let db: typeof import("../../src/db.js");
 let ipc: typeof import("../../src/ipc.js");
+let config: typeof import("../../src/core/config.js");
 
 const sentMessages: Array<{ jid: string; text: string }> = [];
 const sentNudges: string[] = [];
@@ -22,6 +23,7 @@ beforeAll(async () => {
   db.initDatabase();
 
   ipc = await import("../../src/ipc.js");
+  config = await import("../../src/core/config.js");
   ipc.startIpcWatcher({
     sendMessage: async (jid, text) => {
       sentMessages.push({ jid, text });
@@ -43,7 +45,7 @@ afterAll(() => {
 });
 
 test("IPC message sends to web chat and removes file", async () => {
-  const messagesDir = join(process.env.PICLAW_DATA!, "ipc", "messages");
+  const messagesDir = join(config.DATA_DIR, "ipc", "messages");
   mkdirSync(messagesDir, { recursive: true });
   const filePath = join(messagesDir, `msg_${Date.now()}.json`);
   writeFileSync(
@@ -60,7 +62,7 @@ test("IPC message sends to web chat and removes file", async () => {
 });
 
 test("IPC schedule_task creates a due task", async () => {
-  const tasksDir = join(process.env.PICLAW_DATA!, "ipc", "tasks");
+  const tasksDir = join(config.DATA_DIR, "ipc", "tasks");
   mkdirSync(tasksDir, { recursive: true });
   const filePath = join(tasksDir, `task_${Date.now()}.json`);
   writeFileSync(
