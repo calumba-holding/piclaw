@@ -43,6 +43,7 @@
     /* Layout */
     --chat-min-width: 640px;
     --chat-max-width: 900px;
+    --workspace-tab-width: 20px;
 }
 
 /* Dark mode */
@@ -139,8 +140,8 @@ body {
     border: 1px solid var(--border-color);
     color: var(--text-secondary);
     padding: 0;
-    width: 26px;
-    height: 56px;
+    width: var(--workspace-tab-width, 20px);
+    height: 52px;
     border-radius: var(--radius-md) 0 0 var(--radius-md);
     box-shadow: var(--shadow-sm);
     cursor: pointer;
@@ -154,8 +155,8 @@ body {
 }
 
 .workspace-toggle-tab-icon {
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
     flex-shrink: 0;
 }
 
@@ -447,7 +448,7 @@ body {
     }
 
     .app-shell:not(.workspace-collapsed) .workspace-toggle-tab {
-        left: calc(var(--sidebar-width, 280px) - 1px);
+        left: calc(var(--sidebar-width, 280px) - var(--workspace-tab-width, 20px));
     }
 
     .app-shell.workspace-collapsed .container {
