@@ -25,18 +25,23 @@ RUN apt-get update && \
     net-tools iproute2 dnsutils \
     rsync file strace \
     build-essential cmake make pkg-config \
-    procps psmisc && \
+    procps psmisc supervisor && \
+    mkdir -p /etc/supervisor/conf.d /var/log/supervisor /var/log/piclaw /var/run/supervisor && \
     apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Layer 2: Create user
 RUN useradd -m -s /bin/bash -G sudo agent && \
     echo 'agent:agent' | chpasswd && \
     echo 'agent ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && \
-    mkdir -p /etc/skel.agent
+    mkdir -p /etc/skel.agent && \
+    chown -R agent:agent /var/log/piclaw
 
-# Layer 3: Entrypoint
+# Layer 3: Entrypoint + Supervisor
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY supervisor/supervisord.conf /etc/supervisor/supervisord.conf
+COPY supervisor/conf.d/ /etc/supervisor/conf.d/
+COPY supervisor/run-piclaw.sh /usr/local/bin/run-piclaw.sh
+RUN chmod +x /entrypoint.sh /usr/local/bin/run-piclaw.sh
 
 # Layer 4: Install Homebrew, Bun, and Pi Coding Agent as agent
 USER agent

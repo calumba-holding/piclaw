@@ -8,7 +8,7 @@ services:
       PUID: "${PUID:-1000}"
       PGID: "${PGID:-1000}"
       PICLAW_WEB_PORT: "${PICLAW_WEB_PORT:-8080}"
-      PICLAW_AUTOSTART: "${PICLAW_AUTOSTART:-0}"
+      PICLAW_AUTOSTART: "${PICLAW_AUTOSTART:-1}"
     ports:
       - "${PICLAW_WEB_PORT:-8080}:8080"
     restart: unless-stopped

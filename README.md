@@ -21,17 +21,14 @@ PiClaw is a minimal Docker-based sandbox for running the [Pi Coding Agent](https
 # Build the image
 make build
 
-# Start the container
+# Start the container (supervisord launches piclaw automatically)
 make up
 
-# Enter the container
-make enter
-
-# Inside the container, start piclaw (web UI + WhatsApp gateway)
-piclaw
+# Tail the logs if you want to watch startup
+docker logs -f piclaw
 ```
 
-The container starts idle — you need to `exec` into it and run `piclaw` manually (or set `PICLAW_AUTOSTART=1` in your environment / `.env` to start it on boot).
+`supervisord` now acts as PID 1 and keeps `piclaw` running (see [`supervisor/conf.d/piclaw.conf`](supervisor/conf.d/piclaw.conf)). Drop additional program files into `/etc/supervisor/conf.d/` (or bake them into the image) to keep other services — e.g., `tailscaled`, cron workers, log forwarders — alive alongside `piclaw`.
 
 Once piclaw is running, open the web UI at:
 
@@ -45,6 +42,27 @@ To use `pi` interactively instead (no web UI):
 cd /workspace
 pi
 ```
+
+### Provisioning pi & provider logins
+
+PiClaw bundles both the Pi CLI and the web UI, so you can provision keys or run setup flows without leaving the container. Two common approaches:
+
+1. **`/shell` command (from the web UI):**
+   - Type `/shell <command>` in the compose box to run a non-interactive command inside the container.
+   - Examples: `/shell pi --version`, `/shell piclaw keychain set github/foo --secret ...`, `/shell ANTHROPIC_API_KEY=sk-ant-... pi -c "console.log('ready')"`.
+   - Ideal for short tasks such as exporting API keys, writing config files, or seeding the encrypted keychain. Output streams back into the chat.
+
+2. **`docker exec` (full TTY):**
+   ```bash
+   docker exec -u agent -it piclaw bash
+   cd /workspace
+   pi
+   /login              # choose provider (Anthropic, OpenAI, Azure, etc.)
+   ```
+   - Use this when a provider requires an interactive login or multi-step CLI wizard.
+   - Credentials live under `/home/agent/.pi/agent/` (persisted via the `/config` volume), so they survive container restarts.
+
+You can also export API keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, etc.) in your `.env` or pass them via `/shell` before launching `pi`. For long-lived secrets, prefer the keychain (`piclaw keychain set ...`) so tools can safely reference them as `keychain:provider/name`.
 
 WhatsApp pairing is optional; see [docs/whatsapp.md](docs/whatsapp.md).
 
@@ -180,7 +198,7 @@ WORKSPACE_PATH=/mnt/data/piclaw-workspace docker compose up -d
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `PICLAW_AUTOSTART` | `0` | Set to `1` to auto-start piclaw on container boot |
+| `PICLAW_AUTOSTART` | `1` | Set to `0` to keep the supervisor service idle (run `pi`/`piclaw` manually) |
 | `PICLAW_AGENT_TIMEOUT` | `1800000` | Max `pi` invocation time (ms) |
 | `PICLAW_BACKGROUND_AGENT_TIMEOUT` | `0` | Max background invocation time (ms, `0` disables) |
 | `PICLAW_ASSISTANT_NAME` | `PiClaw` | Trigger name (`@PiClaw`) |

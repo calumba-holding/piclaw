@@ -4,10 +4,11 @@ set -e
 MARKER_FILE="/home/agent/.container_initialized"
 HOME_DIR="/home/agent"
 SKEL_DIR="/etc/skel.agent"
+SUPERVISOR_CONF="${SUPERVISOR_CONF:-/etc/supervisor/supervisord.conf}"
 
 if [ ! -f "$MARKER_FILE" ] || [ ! -f "$HOME_DIR/.bashrc" ]; then
     echo "Initializing home directory..."
-    if [ -d "$SKEL_DIR" ] && [ "$(ls -A $SKEL_DIR 2>/dev/null)" ]; then
+    if [ -d "$SKEL_DIR" ] && [ "$(ls -A "$SKEL_DIR" 2>/dev/null)" ]; then
         cp -a "$SKEL_DIR/." "$HOME_DIR/"
     fi
 
@@ -39,14 +40,12 @@ BASHRC
 PROFILE
     fi
 
-    # Ensure pi config directories exist
     mkdir -p "$HOME_DIR/.pi/agent/skills" \
              "$HOME_DIR/.pi/agent/sessions" \
              "$HOME_DIR/.pi/agent/extensions" \
              "$HOME_DIR/.pi/agent/prompts" \
              "$HOME_DIR/.pi/agent/themes"
 
-    # Symlink persistent config from /config if mounted
     for item in .gitconfig .pi; do
         target="/config/$item"
         link="$HOME_DIR/$item"
@@ -60,7 +59,6 @@ PROFILE
     echo "$(id -u agent):$(id -g agent)" > "$MARKER_FILE"
 fi
 
-# Ensure workspace has AGENTS.md (system prompt for pi)
 if [ -d "/workspace" ] && [ ! -f "/workspace/AGENTS.md" ]; then
     if [ -f "$HOME_DIR/workspace-skel/AGENTS.md" ]; then
         cp "$HOME_DIR/workspace-skel/AGENTS.md" /workspace/AGENTS.md
@@ -68,7 +66,6 @@ if [ -d "/workspace" ] && [ ! -f "/workspace/AGENTS.md" ]; then
     fi
 fi
 
-# Ensure workspace has project-level skills
 if [ -d "/workspace" ] && [ ! -d "/workspace/.pi/skills" ]; then
     if [ -d "$HOME_DIR/workspace-skel/.pi/skills" ]; then
         mkdir -p /workspace/.pi
@@ -77,22 +74,15 @@ if [ -d "/workspace" ] && [ ! -d "/workspace/.pi/skills" ]; then
     fi
 fi
 
+mkdir -p /var/log/piclaw /var/run/supervisor
+chown -R agent:agent /var/log/piclaw
+chmod 755 /usr/local/bin/run-piclaw.sh 2>/dev/null || true
+
 echo "=== PiClaw - Pi Coding Agent Sandbox ==="
 
-# Reap zombie children — PID 1 must handle SIGCHLD
-trap 'wait' SIGCHLD
-
-# Auto-start piclaw if requested
-if [ "${PICLAW_AUTOSTART:-0}" = "1" ]; then
-    echo "Auto-starting piclaw..."
-    su -s /bin/bash agent -c 'source ~/.bashrc 2>/dev/null; exec piclaw' &
+if [ ! -f "$SUPERVISOR_CONF" ]; then
+    echo "Missing supervisor config at $SUPERVISOR_CONF" >&2
+    exit 1
 fi
 
-echo "Container idle. Attach with: docker exec -u agent -it <name> bash"
-echo "Run 'pi' for interactive mode, or 'piclaw' for web UI + WhatsApp."
-
-# Stay alive as PID 1 and reap orphaned children
-while true; do
-    sleep 60 &
-    wait $! 2>/dev/null || true
-done
+exec /usr/bin/supervisord -c "$SUPERVISOR_CONF"

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export HOME="/home/agent"
+export BUN_INSTALL="/home/agent/.bun"
+export PATH="$BUN_INSTALL/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"
+
+# Ensure login environment matches interactive shell
+if [ -f "$HOME/.bashrc" ]; then
+  # shellcheck source=/dev/null
+  source "$HOME/.bashrc" >/dev/null 2>&1 || true
+fi
+
+if [ "${PICLAW_AUTOSTART:-1}" != "1" ]; then
+  echo "[run-piclaw] PICLAW_AUTOSTART=0; supervisor service is idle."
+  tail -f /dev/null & wait $!
+fi
+
+PORT="${PICLAW_PORT:-3000}"
+
+cd /workspace 2>/dev/null || cd "$HOME"
+exec piclaw --port "$PORT"
