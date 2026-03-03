@@ -166,6 +166,21 @@ function createSchema(database) {
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_keychain_entries_type ON keychain_entries(type);
+
+    CREATE TABLE IF NOT EXISTS workspace_files (
+      path TEXT PRIMARY KEY,
+      mtime_ms INTEGER NOT NULL,
+      size_bytes INTEGER NOT NULL,
+      indexed_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_workspace_files_indexed_at ON workspace_files(indexed_at);
+
+    CREATE VIRTUAL TABLE IF NOT EXISTS workspace_fts USING fts5(
+      content,
+      path UNINDEXED,
+      mtime_ms UNINDEXED,
+      size_bytes UNINDEXED
+    );
   `);
 }
 function ensureMessageColumns(database) {
