@@ -24,7 +24,22 @@ export function handleWorkspaceTree(_channel, req) {
 /** Handle GET /workspace/file: return file content. */
 export function handleWorkspaceFile(_channel, req) {
     const url = new URL(req.url);
-    const result = workspaceService.getFile(url.searchParams.get("path"), url.searchParams.get("max"));
+    const result = workspaceService.getFile(url.searchParams.get("path"), url.searchParams.get("max"), url.searchParams.get("mode"));
+    return jsonResponse(result.body, result.status);
+}
+/** Handle PUT /workspace/file: update file contents. */
+export async function handleWorkspaceUpdate(_channel, req) {
+    let data;
+    try {
+        data = await req.json();
+    }
+    catch {
+        return jsonResponse({ error: "Invalid JSON" }, 400);
+    }
+    if (!data?.path) {
+        return jsonResponse({ error: "Missing path" }, 400);
+    }
+    const result = workspaceService.updateFile(data.path, data.content ?? "");
     return jsonResponse(result.body, result.status);
 }
 /** Handle GET /workspace/raw: serve raw file content for download. */

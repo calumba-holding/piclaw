@@ -43,6 +43,9 @@ export async function handleWebRequest(channel, req) {
     if (req.method === "GET" && pathname === "/workspace/file") {
         return channel.handleWorkspaceFile(req);
     }
+    if (req.method === "PUT" && pathname === "/workspace/file") {
+        return channel.handleWorkspaceUpdate(req);
+    }
     if (req.method === "GET" && pathname === "/workspace/raw") {
         return channel.handleWorkspaceRaw(req);
     }

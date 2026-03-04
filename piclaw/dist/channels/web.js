@@ -16,7 +16,7 @@ import { initTheme } from "@mariozechner/pi-coding-agent";
 import { randomSessionToken, verifyTotp } from "./web/auth.js";
 import { ASSISTANT_AVATAR, ASSISTANT_NAME, USER_AVATAR, USER_AVATAR_BACKGROUND, USER_NAME, WEB_HOST, WEB_IDLE_TIMEOUT, WEB_PORT, WEB_TLS_CERT, WEB_TLS_KEY, WEB_SESSION_TTL, WEB_TOTP_SECRET, WEB_TOTP_WINDOW, WEB_INTERNAL_SECRET, } from "../core/config.js";
 import { handleMedia, handleMediaInfo, handleMediaUpload } from "./web/handlers/media.js";
-import { handleWorkspaceAttach, handleWorkspaceDownload, handleWorkspaceFile, handleWorkspaceRaw, handleWorkspaceTree, handleWorkspaceUpload, startWorkspaceWatcher, } from "./web/handlers/workspace.js";
+import { handleWorkspaceAttach, handleWorkspaceDownload, handleWorkspaceFile, handleWorkspaceRaw, handleWorkspaceTree, handleWorkspaceUpdate, handleWorkspaceUpload, startWorkspaceWatcher, } from "./web/handlers/workspace.js";
 import { SseHub } from "./web/sse-hub.js";
 import { UiBridge } from "./web/ui-bridge.js";
 import { ResponseService } from "./web/http/response-service.js";
@@ -604,6 +604,9 @@ export class WebChannel {
     }
     handleWorkspaceFile(req) {
         return handleWorkspaceFile(this, req);
+    }
+    async handleWorkspaceUpdate(req) {
+        return handleWorkspaceUpdate(this, req);
     }
     handleWorkspaceRaw(req) {
         return handleWorkspaceRaw(this, req);

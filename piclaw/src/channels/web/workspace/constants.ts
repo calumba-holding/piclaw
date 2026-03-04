@@ -23,6 +23,8 @@ export const EXCLUDE_DIRS = new Set([
 export const MAX_TREE_ENTRIES = 2000;
 /** Maximum bytes to read for file preview in the explorer. */
 export const MAX_PREVIEW_BYTES = 64 * 1024;
+/** Maximum bytes allowed when editing a file via the web UI. */
+export const MAX_EDIT_BYTES = 256 * 1024;
 /** Maximum bytes for file attachment to agent context. */
 export const MAX_ATTACH_BYTES = 25 * 1024 * 1024;
 /** Maximum upload file size. */

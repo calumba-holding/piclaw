@@ -40,6 +40,7 @@ import {
   handleWorkspaceFile,
   handleWorkspaceRaw,
   handleWorkspaceTree,
+  handleWorkspaceUpdate,
   handleWorkspaceUpload,
   startWorkspaceWatcher,
 } from "./web/handlers/workspace.js";
@@ -750,6 +751,10 @@ export class WebChannel {
 
   handleWorkspaceFile(req: Request): Response {
     return handleWorkspaceFile(this, req);
+  }
+
+  async handleWorkspaceUpdate(req: Request): Promise<Response> {
+    return handleWorkspaceUpdate(this, req);
   }
 
   handleWorkspaceRaw(req: Request): Response {

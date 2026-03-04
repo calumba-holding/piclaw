@@ -146,6 +146,9 @@ export class RequestRouterService {
         if (req.method === "GET" && pathname === "/workspace/file") {
             return this.channel.handleWorkspaceFile(req);
         }
+        if (req.method === "PUT" && pathname === "/workspace/file") {
+            return await this.channel.handleWorkspaceUpdate(req);
+        }
         if (req.method === "GET" && pathname === "/workspace/raw") {
             return this.channel.handleWorkspaceRaw(req);
         }

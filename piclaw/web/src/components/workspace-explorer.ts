@@ -129,7 +129,7 @@ function FileAttachmentCard({ mediaId }) {
 // ── WorkspaceExplorer ─────────────────────────────────────────────────────────
 
 /** Preact component: file tree explorer with upload, rename, and preview. */
-export function WorkspaceExplorer({ onFileSelect, visible = true }) {
+export function WorkspaceExplorer({ onFileSelect, visible = true, onOpenEditor }) {
     const [tree,          setTree]          = useState(null);
     const [expanded,      setExpanded]      = useState(new Set(['.']));
     const [selectedPath,  setSelectedPath]  = useState(null);
@@ -157,6 +157,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true }) {
     const loadTreeFnRef   = useRef(null);
     const nodeMapRef      = useRef(new Map());
     const onFileSelectRef = useRef(onFileSelect);
+    const onOpenEditorRef = useRef(onOpenEditor);
     const loadPreviewRef  = useRef(null);
     const loadSubtreeRef  = useRef(null);
     const sidebarRef      = useRef(null);
@@ -169,6 +170,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true }) {
 
     // Sync mutable refs each render
     onFileSelectRef.current = onFileSelect;
+    onOpenEditorRef.current = onOpenEditor;
     useEffect(() => { expandedRef.current = expanded; }, [expanded]);
     useEffect(() => { showHiddenRef.current = showHidden; }, [showHidden]);
     useEffect(() => { visibleRef.current = visible; }, [visible]);
@@ -347,6 +349,12 @@ export function WorkspaceExplorer({ onFileSelect, visible = true }) {
     nodeMapRef.current = nodeMap;
     const selectedNode = selectedPath ? nodeMapRef.current.get(selectedPath) : null;
     const selectedIsDir = selectedNode?.type === 'dir';
+    const canEdit = Boolean(preview && preview.kind === 'text' && !selectedIsDir && (!preview.size || preview.size <= 256 * 1024));
+    const editTitle = canEdit
+        ? 'Open in editor'
+        : preview?.size > 256 * 1024
+            ? 'File too large to edit'
+            : 'File is not editable';
 
     // ── Single stable click handler via event delegation ──────────────────────
     // Created once; reads live state through refs so it never needs recreation.
@@ -635,24 +643,40 @@ export function WorkspaceExplorer({ onFileSelect, visible = true }) {
                 <div class="workspace-preview">
                     <div class="workspace-preview-header">
                         <span class="workspace-preview-title">${selectedPath}</span>
-                        ${selectedIsDir
-                            ? html`<a class="workspace-download" href=${getWorkspaceDownloadUrl(selectedPath, showHidden)}
-                                title="Download folder as zip" onClick=${(e) => e.stopPropagation()}>
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                    <polyline points="7 10 12 15 17 10"/>
-                                    <line x1="12" y1="15" x2="12" y2="3"/>
-                                </svg>
-                            </a>`
-                            : html`<button class="workspace-download" onClick=${handleDownload} title="Download">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                    <polyline points="7 10 12 15 17 10"/>
-                                    <line x1="12" y1="15" x2="12" y2="3"/>
-                                </svg>
-                            </button>`}
+                        <div class="workspace-preview-actions">
+                            ${!selectedIsDir && html`
+                                <button
+                                    class="workspace-download workspace-edit"
+                                    onClick=${() => canEdit && onOpenEditorRef.current?.(selectedPath, preview)}
+                                    title=${editTitle}
+                                    disabled=${!canEdit}
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M12 20h9" />
+                                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                                    </svg>
+                                </button>
+                            `}
+                            ${selectedIsDir
+                                ? html`<a class="workspace-download" href=${getWorkspaceDownloadUrl(selectedPath, showHidden)}
+                                    title="Download folder as zip" onClick=${(e) => e.stopPropagation()}>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                </a>`
+                                : html`<button class="workspace-download" onClick=${handleDownload} title="Download">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                </button>`}
+                        </div>
                     </div>
                     ${loadingPreview && html`<div class="workspace-loading">Loading preview…</div>`}
                     ${preview?.error && html`<div class="workspace-error">${preview.error}</div>`}

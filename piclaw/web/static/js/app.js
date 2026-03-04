@@ -1,10 +1,11 @@
 // @ts-nocheck
 import { html, render, useState, useEffect, useCallback, useRef } from './vendor/preact-htm.js';
-import { getTimeline, getPostsByHashtag, searchPosts, deletePost, getAgents, getAgentThought, setAgentThoughtVisibility, getAgentStatus, SSEClient } from './api.js';
+import { getTimeline, getPostsByHashtag, searchPosts, deletePost, getAgents, getAgentThought, setAgentThoughtVisibility, getAgentStatus, getWorkspaceFile, updateWorkspaceFile, SSEClient } from './api.js';
 import { ComposeBox } from './components/compose-box.js';
 import { AgentRequestModal, AgentStatus, ConnectionStatus } from './components/status.js';
 import { Timeline } from './components/timeline.js';
 import { WorkspaceExplorer } from './components/workspace-explorer.js';
+import { WorkspaceEditor } from './components/editor.js';
 
 function readSilenceOverride(key, fallback) {
     try {
@@ -123,6 +124,10 @@ function App() {
         const stored = localStorage.getItem('workspaceOpen');
         return stored === null ? true : stored === 'true';
     });
+    const [editorState, setEditorState] = useState({ open: false, path: null, content: '', loading: false, error: null, mtime: null, size: null });
+    const [editorSaving, setEditorSaving] = useState(false);
+    const [editorSaveError, setEditorSaveError] = useState(null);
+    const [editorSavedAt, setEditorSavedAt] = useState(null);
     const [userProfile, setUserProfile] = useState({ name: 'You', avatar_url: null, avatar_background: null });
     const hasConnectedOnceRef = useRef(false);
     const agentsRef = useRef({});
@@ -144,6 +149,7 @@ function App() {
     const steerQueuedTurnIdRef = useRef(null);
     const appShellRef = useRef(null);
     const sidebarWidthRef = useRef(0);
+    const editorWidthRef = useRef(0);
     const thoughtExpandedRef = useRef(false);
     const draftExpandedRef = useRef(false);
     const notificationsEnabledRef = useRef(false);
@@ -1280,15 +1286,151 @@ function App() {
         document.addEventListener('touchcancel', onUp);
     }).current;
 
+    const handleEditorSplitterMouseDown = useRef((e) => {
+        e.preventDefault();
+        const shell = appShellRef.current;
+        if (!shell) return;
+        const startX = e.clientX;
+        const startW = editorWidthRef.current || sidebarWidthRef.current || 280;
+        const splitter = e.currentTarget;
+        splitter.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+
+        let lastX = startX;
+        const onMove = (me) => {
+            lastX = me.clientX;
+            const w = Math.min(Math.max(startW + (me.clientX - startX), 200), 800);
+            shell.style.setProperty('--editor-width', `${w}px`);
+            editorWidthRef.current = w;
+        };
+        const onUp = () => {
+            const w = Math.min(Math.max(startW + (lastX - startX), 200), 800);
+            editorWidthRef.current = w;
+            splitter.classList.remove('dragging');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            localStorage.setItem('editorWidth', String(Math.round(w)));
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    }).current;
+
+    const handleEditorSplitterTouchStart = useRef((e) => {
+        e.preventDefault();
+        const shell = appShellRef.current;
+        if (!shell) return;
+        const touch = e.touches[0];
+        if (!touch) return;
+        const startX = touch.clientX;
+        const startW = editorWidthRef.current || sidebarWidthRef.current || 280;
+        const splitter = e.currentTarget;
+        splitter.classList.add('dragging');
+        document.body.style.userSelect = 'none';
+
+        const onMove = (te) => {
+            const t = te.touches[0];
+            if (!t) return;
+            te.preventDefault();
+            const w = Math.min(Math.max(startW + (t.clientX - startX), 200), 800);
+            shell.style.setProperty('--editor-width', `${w}px`);
+            editorWidthRef.current = w;
+        };
+        const onUp = () => {
+            splitter.classList.remove('dragging');
+            document.body.style.userSelect = '';
+            localStorage.setItem('editorWidth', String(Math.round(editorWidthRef.current || startW)));
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('touchend', onUp);
+            document.removeEventListener('touchcancel', onUp);
+        };
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend', onUp);
+        document.addEventListener('touchcancel', onUp);
+    }).current;
+
     const toggleWorkspace = useCallback(() => {
         setWorkspaceOpen((prev) => !prev);
     }, []);
 
+    useEffect(() => {
+        if (!editorState.open) return;
+        if (typeof window === 'undefined') return;
+        const shell = appShellRef.current;
+        if (!shell) return;
+        if (!editorWidthRef.current) {
+            const stored = parseInt(localStorage.getItem('editorWidth') || '', 10);
+            const fallback = sidebarWidthRef.current || 280;
+            editorWidthRef.current = Number.isFinite(stored) ? stored : fallback;
+        }
+        shell.style.setProperty('--editor-width', `${editorWidthRef.current}px`);
+    }, [editorState.open]);
+
+    const EDITOR_MAX_BYTES = 256 * 1024;
+
+    const openEditor = useCallback(async (path) => {
+        if (!path) return;
+        setEditorSaveError(null);
+        setEditorSavedAt(null);
+        setEditorState({ open: true, path, content: '', loading: true, error: null, mtime: null, size: null });
+        try {
+            const data = await getWorkspaceFile(path, EDITOR_MAX_BYTES, 'edit');
+            if (data?.error) {
+                setEditorState({ open: true, path, content: '', loading: false, error: data.error, mtime: null, size: null });
+                return;
+            }
+            if (data?.kind && data.kind !== 'text') {
+                setEditorState({ open: true, path, content: '', loading: false, error: 'File is not editable', mtime: data.mtime, size: data.size });
+                return;
+            }
+            setEditorState({
+                open: true,
+                path,
+                content: data?.text || '',
+                loading: false,
+                error: null,
+                mtime: data?.mtime || null,
+                size: data?.size || null,
+            });
+        } catch (err) {
+            setEditorState({ open: true, path, content: '', loading: false, error: err.message || 'Failed to load file', mtime: null, size: null });
+        }
+    }, []);
+
+    const closeEditor = useCallback(() => {
+        setEditorState({ open: false, path: null, content: '', loading: false, error: null, mtime: null, size: null });
+        setEditorSaveError(null);
+        setEditorSavedAt(null);
+    }, []);
+
+    const handleEditorSave = useCallback(async (value) => {
+        if (!editorState?.path || editorSaving) return;
+        setEditorSaving(true);
+        setEditorSaveError(null);
+        try {
+            const result = await updateWorkspaceFile(editorState.path, value);
+            setEditorState((prev) => ({
+                ...prev,
+                content: value,
+                mtime: result?.mtime || prev.mtime,
+                size: result?.size || prev.size,
+            }));
+            setEditorSavedAt(Date.now());
+        } catch (err) {
+            setEditorSaveError(err.message || 'Failed to save file');
+        } finally {
+            setEditorSaving(false);
+        }
+    }, [editorState?.path, editorSaving]);
+
     const steerQueued = Boolean(steerQueuedTurnId && (steerQueuedTurnId === (agentStatus?.turn_id || currentTurnId)));
+    const editorOpen = Boolean(editorState.open);
 
     return html`
-        <div class=${`app-shell${workspaceOpen ? '' : ' workspace-collapsed'}`} ref=${appShellRef}>
-            <${WorkspaceExplorer} onFileSelect=${addFileRef} visible=${workspaceOpen} />
+        <div class=${`app-shell${workspaceOpen ? '' : ' workspace-collapsed'}${editorOpen ? ' editor-open' : ''}`} ref=${appShellRef}>
+            <${WorkspaceExplorer} onFileSelect=${addFileRef} visible=${workspaceOpen} onOpenEditor=${openEditor} />
             <button
                 class=${`workspace-toggle-tab${workspaceOpen ? ' open' : ' closed'}`}
                 onClick=${toggleWorkspace}
@@ -1300,6 +1442,20 @@ function App() {
                 </svg>
             </button>
             <div class="workspace-splitter" onMouseDown=${handleSplitterMouseDown} onTouchStart=${handleSplitterTouchStart}></div>
+            ${editorOpen && html`
+                <${WorkspaceEditor}
+                    path=${editorState.path}
+                    content=${editorState.content}
+                    loading=${editorState.loading}
+                    error=${editorState.error}
+                    saving=${editorSaving}
+                    saveError=${editorSaveError}
+                    savedAt=${editorSavedAt}
+                    onSave=${handleEditorSave}
+                    onClose=${closeEditor}
+                />
+                <div class="editor-splitter" onMouseDown=${handleEditorSplitterMouseDown} onTouchStart=${handleEditorSplitterTouchStart}></div>
+            `}
             <div class="container">
                 ${searchQuery && isIOSDevice() && html`<div class="search-results-spacer"></div>`}
                 ${(currentHashtag || searchQuery) && html`

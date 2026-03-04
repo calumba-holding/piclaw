@@ -11,12 +11,12 @@ import { readdir } from "fs/promises";
 import path from "path";
 import { Zip, ZipDeflate, ZipPassThrough } from "fflate";
 import { createMedia } from "../../../db.js";
-import { MAX_ATTACH_BYTES, MAX_PREVIEW_BYTES, MAX_UPLOAD_BYTES } from "./constants.js";
+import { MAX_ATTACH_BYTES, MAX_EDIT_BYTES, MAX_PREVIEW_BYTES, MAX_UPLOAD_BYTES } from "./constants.js";
 import { contentTypeForPath, detectBinary, formatMtime, isImageFile, isTextFile } from "./file-utils.js";
 import { isHiddenPath, resolveWorkspacePath, shouldIgnorePath, toRelativePath } from "./paths.js";
 /** File read/write service for the workspace explorer API. */
 export class WorkspaceFileService {
-    getFile(pathParam, maxParam) {
+    getFile(pathParam, maxParam, modeParam) {
         const targetPath = resolveWorkspacePath(pathParam);
         if (!targetPath)
             return { status: 400, body: { error: "Invalid path" } };
@@ -44,24 +44,33 @@ export class WorkspaceFileService {
                 };
             }
             const maxParsed = parseInt(maxParam || "", 10);
+            const isEditMode = modeParam === "edit";
+            const maxLimit = isEditMode ? MAX_EDIT_BYTES : MAX_PREVIEW_BYTES;
             const maxBytes = Number.isFinite(maxParsed)
-                ? Math.min(Math.max(maxParsed, 1024), MAX_PREVIEW_BYTES)
-                : 20000;
+                ? Math.min(Math.max(maxParsed, 1024), maxLimit)
+                : isEditMode
+                    ? maxLimit
+                    : 20000;
+            if (isEditMode && stats.size > MAX_EDIT_BYTES) {
+                return { status: 400, body: { error: "File too large to edit" } };
+            }
             const buffer = readFileSync(targetPath, { encoding: null });
             const slice = buffer.subarray(0, maxBytes);
             const truncated = buffer.length > maxBytes;
             if (!isTextFile(targetPath) && detectBinary(slice)) {
                 return {
-                    status: 200,
-                    body: {
-                        path: relPath,
-                        name: path.basename(targetPath),
-                        kind: "binary",
-                        content_type: contentType,
-                        size: stats.size,
-                        mtime: formatMtime(stats),
-                        truncated,
-                    },
+                    status: isEditMode ? 400 : 200,
+                    body: isEditMode
+                        ? { error: "Binary file cannot be edited" }
+                        : {
+                            path: relPath,
+                            name: path.basename(targetPath),
+                            kind: "binary",
+                            content_type: contentType,
+                            size: stats.size,
+                            mtime: formatMtime(stats),
+                            truncated,
+                        },
                 };
             }
             let text = slice.toString("utf-8");
@@ -182,6 +191,44 @@ export class WorkspaceFileService {
         }
         catch {
             return { status: 500, body: { error: "Failed to upload file" } };
+        }
+    }
+    updateFile(pathParam, content) {
+        const targetPath = resolveWorkspacePath(pathParam);
+        if (!targetPath)
+            return { status: 400, body: { error: "Invalid path" } };
+        if (typeof content !== "string") {
+            return { status: 400, body: { error: "Missing file content" } };
+        }
+        try {
+            const stats = statSync(targetPath);
+            if (stats.isDirectory()) {
+                return { status: 400, body: { error: "Path is a directory" } };
+            }
+        }
+        catch {
+            return { status: 404, body: { error: "File not found" } };
+        }
+        const size = Buffer.byteLength(content, "utf-8");
+        if (size > MAX_EDIT_BYTES) {
+            return { status: 400, body: { error: "File too large to edit" } };
+        }
+        try {
+            writeFileSync(targetPath, content, "utf-8");
+            const updated = statSync(targetPath);
+            const relPath = toRelativePath(targetPath);
+            return {
+                status: 200,
+                body: {
+                    path: relPath,
+                    name: path.basename(targetPath),
+                    size: updated.size,
+                    mtime: formatMtime(updated),
+                },
+            };
+        }
+        catch {
+            return { status: 500, body: { error: "Failed to write file" } };
         }
     }
     async downloadZip(pathParam, includeHidden = false) {

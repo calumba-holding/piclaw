@@ -17,8 +17,8 @@ export class WorkspaceService {
     getTree(pathParam, depthParam, includeHidden = false) {
         return this.treeCache.getTree(pathParam, depthParam, includeHidden);
     }
-    getFile(pathParam, maxParam) {
-        return this.fileService.getFile(pathParam, maxParam);
+    getFile(pathParam, maxParam, mode) {
+        return this.fileService.getFile(pathParam, maxParam, mode);
     }
     getRaw(pathParam) {
         return this.fileService.getRaw(pathParam);
@@ -28,6 +28,9 @@ export class WorkspaceService {
     }
     uploadFile(pathParam, file) {
         return this.fileService.uploadFile(pathParam, file);
+    }
+    updateFile(pathParam, content) {
+        return this.fileService.updateFile(pathParam, content);
     }
     downloadZip(pathParam, includeHidden = false) {
         return this.fileService.downloadZip(pathParam, includeHidden);
