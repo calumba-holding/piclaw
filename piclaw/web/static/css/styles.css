@@ -1017,6 +1017,15 @@ body {
     animation: searchHighlightFade 2s ease-out;
 }
 
+.search-highlight-term {
+    background-color: var(--search-highlight-color);
+    color: inherit;
+    padding: 0 2px;
+    border-radius: 2px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
 .post-content {
     margin-top: var(--spacing-xs);
     word-wrap: break-word;

@@ -1259,6 +1259,7 @@ function App() {
                     user=${userProfile}
                     reverse=${!(searchQuery && !currentHashtag)}
                     removingPostIds=${removingPostIds}
+                    searchQuery=${searchQuery}
                 />
                 <${AgentStatus}
                     status=${agentStatus}

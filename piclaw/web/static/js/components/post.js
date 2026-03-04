@@ -210,10 +210,63 @@ function extractFileRefs(content) {
     return { content: cleaned, fileRefs: refs };
 }
 
+function escapeRegex(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function highlightHtml(html, query) {
+    if (!html || !query) return html;
+    const terms = String(query)
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+    if (terms.length === 0) return html;
+
+    const escapedTerms = terms
+        .map(escapeRegex)
+        .sort((a, b) => b.length - a.length);
+    const pattern = new RegExp(`(${escapedTerms.join('|')})`, 'gi');
+    const matcher = new RegExp(`^(${escapedTerms.join('|')})$`, 'i');
+
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    let node;
+    while ((node = walker.nextNode())) nodes.push(node);
+
+    for (const textNode of nodes) {
+        const value = textNode.nodeValue;
+        if (!value || !pattern.test(value)) {
+            pattern.lastIndex = 0;
+            continue;
+        }
+        pattern.lastIndex = 0;
+        const parent = textNode.parentElement;
+        if (parent && parent.closest('code, pre, script, style')) continue;
+
+        const parts = value.split(pattern).filter((part) => part !== '');
+        if (parts.length === 0) continue;
+        const frag = doc.createDocumentFragment();
+        for (const part of parts) {
+            if (matcher.test(part)) {
+                const mark = doc.createElement('mark');
+                mark.className = 'search-highlight-term';
+                mark.textContent = part;
+                frag.appendChild(mark);
+            } else {
+                frag.appendChild(doc.createTextNode(part));
+            }
+        }
+        textNode.parentNode.replaceChild(frag, textNode);
+    }
+
+    return doc.body.innerHTML;
+}
+
 /**
  * Single post component
  */
-export function Post({ post, onClick, onHashtagClick, agentName, agentAvatarUrl, userName, userAvatarUrl, userAvatarBackground, onDelete, isThreadReply, isRemoving }) {
+export function Post({ post, onClick, onHashtagClick, agentName, agentAvatarUrl, userName, userAvatarUrl, userAvatarBackground, onDelete, isThreadReply, isRemoving, highlightQuery }) {
     const [zoomedImage, setZoomedImage] = useState(null);
     const contentRef = useRef(null);
 
@@ -251,6 +304,7 @@ export function Post({ post, onClick, onHashtagClick, agentName, agentAvatarUrl,
     const { content: cleanedContent, fileRefs } = extractFileRefs(displayContent);
     displayContent = cleanedContent;
     const shouldRenderContent = Boolean(displayContent) && !isHardTruncated;
+    const highlightQueryText = typeof highlightQuery === 'string' ? highlightQuery.trim() : '';
 
     const handleImageClick = (e, mediaId) => {
         e.stopPropagation();
@@ -397,7 +451,9 @@ export function Post({ post, onClick, onHashtagClick, agentName, agentAvatarUrl,
                     <div 
                         ref=${contentRef}
                         class="post-content"
-                        dangerouslySetInnerHTML=${{ __html: renderMarkdown(displayContent, onHashtagClick) }}
+                        dangerouslySetInnerHTML=${{ __html: highlightQueryText
+                            ? highlightHtml(renderMarkdown(displayContent, onHashtagClick), highlightQueryText)
+                            : renderMarkdown(displayContent, onHashtagClick) }}
                         onClick=${(e) => {
                             if (e.target.classList.contains('hashtag')) {
                                 e.preventDefault();
