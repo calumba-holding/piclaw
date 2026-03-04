@@ -75,7 +75,18 @@ Common direct commands (no LLM round‑trip):
 - `/session-name`, `/new-session`, `/switch-session`
 - `/fork`, `/forks`, `/tree`, `/labels`
 - `/agent-name`, `/agent-avatar`
-- `/export-html`, `/restart`, `/commands`
+- `/export-html`, `/search`, `/restart`, `/commands`
+
+`/search` performs a workspace full‑text search (notes + skills) without calling the LLM:
+
+```
+/search "graphite power"
+/search --scope notes restic
+/search --scope skills --no-refresh "search_workspace"
+/search --scope notes --limit 20 --offset 20 "token pricing"
+```
+
+Supported flags: `--scope notes|skills|all`, `--limit`, `--offset`, `--refresh`, `--no-refresh`, `--max-kb`.
 
 ## Skill pipeline
 

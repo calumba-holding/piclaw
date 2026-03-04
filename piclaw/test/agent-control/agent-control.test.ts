@@ -101,6 +101,11 @@ test("parseControlCommand parses model and thinking commands", () => {
   expect(agentAvatarCmd && "avatar" in agentAvatarCmd ? agentAvatarCmd.avatar : null).toBe(
     "https://example.com/avatar.png"
   );
+
+  const searchCmd = parseControlCommand("/search --scope notes \"token pricing\"");
+  expect(searchCmd?.type).toBe("search_workspace");
+  expect(searchCmd && "query" in searchCmd ? searchCmd.query : null).toBe("token pricing");
+  expect(searchCmd && "scope" in searchCmd ? searchCmd.scope : null).toBe("notes");
 });
 
 test("applyControlCommand switches model and thinking level", async () => {

@@ -242,6 +242,103 @@ export function parseUserGithub(args: string, raw: string): AgentControlCommand 
   };
 }
 
+export function parseSearch(args: string, raw: string): AgentControlCommand {
+  const tokens = splitArgs(args);
+  let scope: "notes" | "skills" | "all" | undefined;
+  let limit: number | undefined;
+  let offset: number | undefined;
+  let refresh: boolean | undefined;
+  let maxKb: number | undefined;
+  const queryParts: string[] = [];
+
+  const readNumber = (value?: string): number | undefined => {
+    if (!value) return undefined;
+    const parsed = parseInt(value, 10);
+    if (!Number.isNaN(parsed) && parsed >= 0) return parsed;
+    return undefined;
+  };
+
+  let i = 0;
+  while (i < tokens.length) {
+    const token = tokens[i];
+    if (token === "--scope") {
+      const next = tokens[i + 1];
+      if (next && !next.startsWith("--")) {
+        scope = next as any;
+        i += 2;
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+    if (token.startsWith("--scope=")) {
+      scope = token.slice("--scope=".length) as any;
+      i += 1;
+      continue;
+    }
+    if (token === "--notes") { scope = "notes"; i += 1; continue; }
+    if (token === "--skills") { scope = "skills"; i += 1; continue; }
+    if (token === "--all") { scope = "all"; i += 1; continue; }
+    if (token === "--limit") {
+      const next = tokens[i + 1];
+      const parsed = readNumber(next && !next.startsWith("--") ? next : undefined);
+      if (parsed !== undefined) limit = parsed;
+      i += parsed !== undefined ? 2 : 1;
+      continue;
+    }
+    if (token.startsWith("--limit=")) {
+      const parsed = readNumber(token.slice("--limit=".length));
+      if (parsed !== undefined) limit = parsed;
+      i += 1;
+      continue;
+    }
+    if (token === "--offset") {
+      const next = tokens[i + 1];
+      const parsed = readNumber(next && !next.startsWith("--") ? next : undefined);
+      if (parsed !== undefined) offset = parsed;
+      i += parsed !== undefined ? 2 : 1;
+      continue;
+    }
+    if (token.startsWith("--offset=")) {
+      const parsed = readNumber(token.slice("--offset=".length));
+      if (parsed !== undefined) offset = parsed;
+      i += 1;
+      continue;
+    }
+    if (token === "--refresh") { refresh = true; i += 1; continue; }
+    if (token === "--no-refresh") { refresh = false; i += 1; continue; }
+    if (token === "--max-kb") {
+      const next = tokens[i + 1];
+      const parsed = readNumber(next && !next.startsWith("--") ? next : undefined);
+      if (parsed !== undefined) maxKb = parsed;
+      i += parsed !== undefined ? 2 : 1;
+      continue;
+    }
+    if (token.startsWith("--max-kb=")) {
+      const parsed = readNumber(token.slice("--max-kb=".length));
+      if (parsed !== undefined) maxKb = parsed;
+      i += 1;
+      continue;
+    }
+
+    queryParts.push(token);
+    i += 1;
+  }
+
+  const query = queryParts.join(" ").trim();
+
+  return {
+    type: "search_workspace",
+    query: query || undefined,
+    scope,
+    limit,
+    offset,
+    refresh,
+    max_kb: maxKb,
+    raw,
+  };
+}
+
 export const COMMAND_PARSERS: Record<string, CommandParser> = {
   "/model": parseModel,
   "/thinking": parseThinking,
@@ -270,6 +367,7 @@ export const COMMAND_PARSERS: Record<string, CommandParser> = {
   "/fork": parseFork,
   "/forks": simple("forks"),
   "/export-html": parseExportHtml,
+  "/search": parseSearch,
   "/bash": parseBash,
   "/tree": parseTree,
   "/label": parseLabel,

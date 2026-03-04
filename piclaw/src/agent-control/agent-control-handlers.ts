@@ -15,6 +15,7 @@ import {
   handleCommands,
   handleContext,
   handleLast,
+  handleSearchWorkspace,
   handleState,
   handleStats,
 } from "./handlers/info.js";
@@ -91,6 +92,8 @@ export async function applyControlCommand(
       return handleForks(session, command);
     case "export_html":
       return handleExportHtml(session, command);
+    case "search_workspace":
+      return handleSearchWorkspace(session, command);
     case "tree":
       return handleTree(session, command);
     case "label":

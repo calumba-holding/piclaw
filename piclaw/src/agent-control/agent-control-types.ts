@@ -130,6 +130,16 @@ export type AgentControlCommand =
       raw: string;
     }
   | {
+      type: "search_workspace";
+      query?: string;
+      scope?: "notes" | "skills" | "all";
+      limit?: number;
+      offset?: number;
+      refresh?: boolean;
+      max_kb?: number;
+      raw: string;
+    }
+  | {
       type: "tree";
       targetId?: string;
       summarize?: boolean;

@@ -46,6 +46,7 @@ describe("builtin extension factories", () => {
     // Tools from extensions
     expect(fake.tools.has("attach_file")).toBe(true);
     expect(fake.tools.has("search_messages")).toBe(true);
+    expect(fake.tools.has("search_workspace")).toBe(true);
     expect(fake.tools.has("get_model_state")).toBe(true);
     expect(fake.tools.has("list_models")).toBe(true);
     expect(fake.tools.has("switch_model")).toBe(true);
@@ -57,6 +58,6 @@ describe("builtin extension factories", () => {
   });
 
   test("factories array has expected length", () => {
-    expect(builtinExtensionFactories.length).toBe(4);
+    expect(builtinExtensionFactories.length).toBe(5);
   });
 });

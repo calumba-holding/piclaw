@@ -2,12 +2,14 @@ import type { AgentSession } from "@mariozechner/pi-coding-agent";
 import type { AgentControlCommand, AgentControlResult } from "../agent-control-types.js";
 import { formatCompactNumber, formatCurrency } from "../agent-control-helpers.js";
 import { CONTROL_COMMAND_DEFINITIONS } from "../command-registry.js";
+import { searchWorkspace } from "../../workspace-search.js";
 
 type StateCommand = Extract<AgentControlCommand, { type: "state" }>;
 type StatsCommand = Extract<AgentControlCommand, { type: "stats" }>;
 type ContextCommand = Extract<AgentControlCommand, { type: "context" }>;
 type LastCommand = Extract<AgentControlCommand, { type: "last" }>;
 type CommandsCommand = Extract<AgentControlCommand, { type: "commands" }>;
+type SearchCommand = Extract<AgentControlCommand, { type: "search_workspace" }>;
 
 export async function handleState(session: AgentSession, _command: StateCommand): Promise<AgentControlResult> {
   const modelLabel = session.model ? `${session.model.provider}/${session.model.id}` : "none";
@@ -68,6 +70,37 @@ export async function handleLast(session: AgentSession, _command: LastCommand): 
     return { status: "error", message: "No assistant messages yet." };
   }
   return { status: "success", message: `Last assistant response:\n\n${last}` };
+}
+
+export async function handleSearchWorkspace(_session: AgentSession, command: SearchCommand): Promise<AgentControlResult> {
+  const query = command.query?.trim();
+  if (!query) {
+    return {
+      status: "error",
+      message: "Usage: /search <query> [--scope notes|skills|all] [--limit N] [--offset N] [--no-refresh] [--max-kb N]",
+    };
+  }
+
+  const { rows, limit, offset, error } = await searchWorkspace({
+    query,
+    scope: command.scope,
+    limit: command.limit,
+    offset: command.offset,
+    refresh: command.refresh,
+    max_kb: command.max_kb,
+  });
+
+  if (error) {
+    return { status: "error", message: error };
+  }
+
+  if (!rows.length) {
+    return { status: "success", message: "No matching workspace files found." };
+  }
+
+  const header = `Workspace matches (${rows.length} result${rows.length === 1 ? "" : "s"}; limit ${limit}, offset ${offset}):`;
+  const lines = rows.map((row) => `• ${row.path} — ${row.snippet}`);
+  return { status: "success", message: `${header}\n${lines.join("\n")}` };
 }
 
 export async function handleCommands(session: AgentSession, _command: CommandsCommand): Promise<AgentControlResult> {
