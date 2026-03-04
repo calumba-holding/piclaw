@@ -22,6 +22,7 @@ export function parseToggle(value) {
         return false;
     return undefined;
 }
+/** Parse "all" or "one-at-a-time" queue mode string. */
 export function parseQueueMode(value) {
     if (!value)
         return undefined;
@@ -32,6 +33,7 @@ export function parseQueueMode(value) {
         return "one-at-a-time";
     return undefined;
 }
+/** Split an argument string respecting quoted substrings. */
 export function splitArgs(input) {
     const result = [];
     let current = "";
@@ -64,6 +66,7 @@ export function splitArgs(input) {
         result.push(current);
     return result;
 }
+/** Parse the complex argument syntax for /tree commands. */
 export function parseTreeArgs(args) {
     const tokens = splitArgs(args);
     let targetId;
@@ -261,6 +264,7 @@ export function parseTreeArgs(args) {
         summarize = true;
     return { targetId, summarize, customInstructions, replaceInstructions, label, limit, offset, mode };
 }
+/** Remove the @BotName trigger prefix from a message. */
 export function stripTrigger(text, triggerPattern) {
     if (!triggerPattern)
         return text.trim();

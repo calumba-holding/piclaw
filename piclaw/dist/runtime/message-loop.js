@@ -18,6 +18,7 @@
 import { getMessagesSince, getNewMessages } from "../db.js";
 import { parseControlCommand } from "../agent-control/index.js";
 import { detectChannel, formatMessages, formatOutbound } from "../router.js";
+/** Process pending messages for a single chat: send to agent, deliver response. */
 export async function processMessages(chatJid, deps) {
     const since = deps.state.lastAgentTimestamp[chatJid] || "";
     const messages = getMessagesSince(chatJid, since, deps.assistantName);
@@ -102,6 +103,7 @@ export async function processMessages(chatJid, deps) {
     }
     return true;
 }
+/** Start the polling loop that checks for new messages across all chats. */
 export async function runMessageLoop(deps) {
     console.log(`[piclaw] Running (trigger: @${deps.assistantName})`);
     while (true) {

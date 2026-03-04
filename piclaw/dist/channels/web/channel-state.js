@@ -8,6 +8,7 @@
  *            and agent run orchestration.
  */
 import { getRouterState, setRouterState } from "../../db.js";
+/** Persistent per-chat state manager for the web channel. */
 export class WebChannelState {
     stateKey;
     lastAgentTimestamp = {};

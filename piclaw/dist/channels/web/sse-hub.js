@@ -8,6 +8,7 @@
  *            throughout the web channel for real-time event delivery.
  */
 import { broadcastEvent, handleSse } from "./sse.js";
+/** Manages SSE client connections and provides broadcast(). */
 export class SseHub {
     clients = new Set();
     handleRequest() {

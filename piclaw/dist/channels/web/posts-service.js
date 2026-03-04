@@ -7,6 +7,7 @@
  *
  * Consumers: web/handlers/posts.ts calls parsePostPayload() and storePost().
  */
+/** Validate and parse a raw POST body into a PostPayload. */
 export function parsePostPayload(body) {
     if (!body || typeof body !== "object")
         return { ok: false, error: "Invalid JSON" };
@@ -15,11 +16,13 @@ export function parsePostPayload(body) {
         return { ok: false, error: "Missing 'content' field" };
     return { ok: true, data };
 }
+/** Parse a comma-separated media ID string into a number array. */
 export function normalizeMediaIds(ids) {
     if (!Array.isArray(ids))
         return [];
     return ids.map((id) => Number(id)).filter((id) => Number.isFinite(id));
 }
+/** Store a user post, attach media, trigger link previews, and broadcast. */
 export function storePost(channel, chatJid, data, options) {
     if (options.isReply && !data.thread_id) {
         return { status: 400, body: { error: "Missing 'thread_id' field" } };

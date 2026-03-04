@@ -125,6 +125,7 @@ async function isSafeUrl(raw) {
         return false;
     }
 }
+/** Extract HTTP/HTTPS URLs from a text string. */
 export function extractUrls(text, limit = MAX_URLS) {
     if (!text)
         return [];
@@ -187,6 +188,7 @@ function normalizeImage(url, baseUrl) {
         return url;
     }
 }
+/** Fetch OpenGraph metadata for a single URL. */
 export async function fetchLinkPreview(url) {
     const allowed = await isSafeUrl(url);
     if (!allowed)
@@ -239,6 +241,7 @@ export async function fetchLinkPreview(url) {
         clearTimeout(timeoutId);
     }
 }
+/** Fetch OpenGraph metadata for multiple URLs in parallel. */
 export async function fetchLinkPreviews(urls) {
     const previews = [];
     for (const url of urls) {
@@ -248,6 +251,7 @@ export async function fetchLinkPreviews(urls) {
     }
     return previews;
 }
+/** Asynchronously fetch link previews for a message and broadcast updates. */
 export function scheduleLinkPreviews(channel, chatJid, rowId, content, existingPreviews) {
     if (existingPreviews && existingPreviews.length > 0)
         return;

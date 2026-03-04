@@ -7,6 +7,7 @@
  *
  * Consumers: channels/web.ts uses createFallbackTheme() during init.
  */
+/** Return a minimal fallback Theme when no custom theme is loaded. */
 export function createFallbackTheme() {
     const passthrough = (text) => text;
     const identity = () => passthrough;

@@ -12,6 +12,7 @@ import path from "path";
 import { MAX_TREE_ENTRIES } from "./constants.js";
 import { formatMtime } from "./file-utils.js";
 import { shouldExcludeDir, toRelativePath } from "./paths.js";
+/** Recursively build a directory tree starting from the given root. */
 export function buildTree(absPath, depth, state, options) {
     const stats = statSync(absPath);
     const node = {
@@ -60,6 +61,7 @@ export function buildTree(absPath, depth, state, options) {
     }
     return node;
 }
+/** Compress single-child directory chains into combined path nodes. */
 export function compressPaths(paths) {
     const normalized = Array.from(new Set(paths.map((p) => (p || ".").replace(/\\/g, "/"))));
     if (normalized.includes("."))

@@ -10,6 +10,7 @@
 import { USER_AVATAR, USER_NAME, setUserAvatar, setUserAvatarBackground, setUserName, } from "../../core/config.js";
 import { updateUserConfig } from "../agent-control-helpers.js";
 const CLEAR_VALUES = ["clear", "none", "off", "default"];
+/** Handle /user-name: update the user display name. */
 export async function handleUserName(_session, command) {
     if (!command.name) {
         const current = USER_NAME || "(default)";
@@ -26,6 +27,7 @@ export async function handleUserName(_session, command) {
         message: nextName ? `User name set to ${effective}.` : "User name reset to default.",
     };
 }
+/** Handle /user-avatar: update the user avatar URL. */
 export async function handleUserAvatar(_session, command) {
     if (!command.avatar) {
         const current = USER_AVATAR || "(default)";
@@ -67,6 +69,7 @@ function normalizeGithubProfile(input) {
         return null;
     }
 }
+/** Handle /user-github: update the user GitHub profile. */
 export async function handleUserGithub(_session, command) {
     const login = normalizeGithubProfile(command.profile);
     if (!login) {

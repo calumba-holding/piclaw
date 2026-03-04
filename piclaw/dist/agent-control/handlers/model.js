@@ -7,6 +7,7 @@
  * Consumers: agent-control-handlers.ts dispatches to these handlers.
  */
 import { THINKING_LEVELS, normalizeModelMatch } from "../agent-control-helpers.js";
+/** Handle /model: switch model, list models, or show current model. */
 export async function handleModel(session, modelRegistry, command) {
     modelRegistry.refresh();
     if (!command.modelId) {
@@ -84,6 +85,7 @@ export async function handleModel(session, modelRegistry, command) {
         thinking_level: thinkingLevel,
     };
 }
+/** Handle /thinking: set or query the thinking level. */
 export async function handleThinking(session, _modelRegistry, command) {
     if (!session.model) {
         return {
@@ -133,6 +135,7 @@ export async function handleThinking(session, _modelRegistry, command) {
         thinking_level: applied ?? session.thinkingLevel ?? null,
     };
 }
+/** Handle /cycle-model: switch to the next/previous model. */
 export async function handleCycleModel(session, _modelRegistry, command) {
     try {
         const result = await session.cycleModel(command.direction);
@@ -154,6 +157,7 @@ export async function handleCycleModel(session, _modelRegistry, command) {
         return { status: "error", message };
     }
 }
+/** Handle /cycle-thinking: cycle through thinking levels. */
 export async function handleCycleThinking(session, _modelRegistry, _command) {
     const level = session.cycleThinkingLevel();
     if (!level) {

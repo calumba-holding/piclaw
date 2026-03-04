@@ -15,13 +15,16 @@
 import { existsSync } from "fs";
 import { PICLAW_CONFIG_PATH } from "../core/config.js";
 import { readJsonConfig, writeJsonConfig } from "../core/config-store.js";
+/** Ordered list of supported thinking levels from off to xhigh. */
 export const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"];
+/** Return the preferred working directory for shell commands (/workspace or cwd). */
 export function resolveShellCwd() {
     const preferred = "/workspace";
     if (existsSync(preferred))
         return preferred;
     return process.cwd();
 }
+/** Format a shell command and its output as a markdown-style code block. */
 export function formatShellBlock(command, output, meta = []) {
     const lines = [`$ ${command}`];
     const trimmed = output.trimEnd();
@@ -36,6 +39,7 @@ export function formatShellBlock(command, output, meta = []) {
     }
     return ["```", ...lines, "```"].join("\n");
 }
+/** Format a number with K/M suffixes for compact display. */
 export function formatCompactNumber(value) {
     if (!Number.isFinite(value))
         return String(value);
@@ -53,6 +57,7 @@ export function formatCompactNumber(value) {
         return format(1_000, "K");
     return String(value);
 }
+/** Format a number as a USD currency string. */
 export function formatCurrency(value) {
     if (!Number.isFinite(value))
         return String(value);
@@ -62,11 +67,13 @@ export function formatCurrency(value) {
         return `$${value.toFixed(4)}`;
     return `$${value.toFixed(2)}`;
 }
+/** Truncate text to maxLen characters, appending '…' if truncated. */
 export function truncateText(text, maxLength) {
     if (text.length <= maxLength)
         return text;
     return `${text.slice(0, Math.max(0, maxLength - 1))}…`;
 }
+/** Extract plain text from a pi-agent content block array. */
 export function extractTextFromContent(content) {
     if (!content)
         return "";
@@ -80,6 +87,7 @@ export function extractTextFromContent(content) {
     }
     return "";
 }
+/** Persist assistant identity changes (name, avatar) to the config file. */
 export function updateAssistantConfig(patch) {
     const config = readJsonConfig(PICLAW_CONFIG_PATH);
     const assistant = config.assistant && typeof config.assistant === "object"
@@ -124,6 +132,7 @@ export function updateAssistantConfig(patch) {
         avatar: typeof assistant.assistantAvatar === "string" ? assistant.assistantAvatar : undefined,
     };
 }
+/** Persist user identity changes (name, avatar, github) to the config file. */
 export function updateUserConfig(patch) {
     const config = readJsonConfig(PICLAW_CONFIG_PATH);
     const user = config.user && typeof config.user === "object"
@@ -177,6 +186,7 @@ export function updateUserConfig(patch) {
         avatarBackground: typeof user.userAvatarBackground === "string" ? user.userAvatarBackground : undefined,
     };
 }
+/** Inject a prompt into the session and capture the streamed response text. */
 export async function runPromptAndCapture(session, text) {
     let assistantBuffer = "";
     const customBuffers = [];
@@ -210,6 +220,7 @@ export async function runPromptAndCapture(session, text) {
         : customBuffers.join("\n\n").trim();
     return finalText || "(no output)";
 }
+/** Fuzzy-match a model input string against available models. */
 export function normalizeModelMatch(models, provider, modelId) {
     const providerLower = provider.toLowerCase();
     const modelLower = modelId.toLowerCase();

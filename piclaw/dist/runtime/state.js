@@ -12,6 +12,7 @@
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { getRouterState, setRouterState } from "../db.js";
+/** Persistent runtime state: per-chat timestamps, active chat JIDs. */
 export class RuntimeState {
     dataDir;
     lastTimestamp = "";

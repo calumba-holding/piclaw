@@ -30,6 +30,7 @@ function resolveShellConfig() {
     }
     return { shell: "bash", args: ["-c"] };
 }
+/** Create bash tool operations with child process tracking and keychain resolution. */
 export function createTrackedBashOperations() {
     return {
         exec: (command, cwd, { onData, signal, timeout, env }) => {

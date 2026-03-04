@@ -32,6 +32,7 @@ let whatsapp;
 let web;
 let pushover = null;
 const state = new RuntimeState(DATA_DIR);
+/** Boot all subsystems (DB, channels, agent pool, scheduler) and enter the main loop. */
 export async function main() {
     // Ensure directories
     mkdirSync(STORE_DIR, { recursive: true });

@@ -19,6 +19,7 @@ function buildAttachmentBlocks(attachments) {
     }));
     return { mediaIds, contentBlocks };
 }
+/** Persist the accumulated agent turn (text + attachments) to the database. */
 export function storeAgentTurn(channel, emitter, params) {
     const { mediaIds, contentBlocks } = buildAttachmentBlocks(params.attachments);
     const formatted = formatOutbound(params.text, params.channelName);

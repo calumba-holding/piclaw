@@ -17,11 +17,17 @@ export const EXCLUDE_DIRS = new Set([
     "tmp",
     "coverage",
 ]);
+/** Maximum number of entries returned in a workspace tree response. */
 export const MAX_TREE_ENTRIES = 2000;
+/** Maximum bytes to read for file preview in the explorer. */
 export const MAX_PREVIEW_BYTES = 64 * 1024;
+/** Maximum bytes for file attachment to agent context. */
 export const MAX_ATTACH_BYTES = 25 * 1024 * 1024;
+/** Maximum upload file size. */
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+/** Set of file extensions recognised as images. */
 export const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"]);
+/** Set of file extensions recognised as text (previewable). */
 export const TEXT_EXTS = new Set([
     ".md",
     ".txt",

@@ -9,6 +9,7 @@
  * Consumers: channels/web.ts sets up the UI bridge during agent runs.
  */
 import { createFallbackTheme } from "./theme.js";
+/** Bridges extension UI prompts (confirm/input) to SSE events and API responses. */
 export class UiBridge {
     channel;
     pendingUiRequests = new Map();

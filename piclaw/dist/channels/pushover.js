@@ -15,6 +15,7 @@
  */
 import { ASSISTANT_NAME } from "../core/config.js";
 const PUSHOVER_API = "https://api.pushover.net/1/messages.json";
+/** Pushover push notification channel for nudge alerts. */
 export class PushoverChannel {
     opts;
     constructor(opts) {

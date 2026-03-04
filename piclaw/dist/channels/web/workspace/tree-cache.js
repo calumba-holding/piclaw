@@ -9,6 +9,7 @@
  */
 import { buildTree } from "./tree.js";
 import { resolveWorkspacePath } from "./paths.js";
+/** Time-based cache for workspace directory tree builds. */
 export class WorkspaceTreeCache {
     treeCache = new Map();
     treeRequestTimes = [];

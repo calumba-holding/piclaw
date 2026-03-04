@@ -12,6 +12,7 @@ import { parseQueueMode, parseToggle, parseTreeArgs, splitArgs } from "./parser-
 const simple = (type) => {
     return (_args, raw) => ({ type, raw });
 };
+/** Parse /model arguments: provider/modelId or bare model name. */
 export function parseModel(args, raw) {
     const tokens = args.split(/\s+/).filter(Boolean);
     if (tokens.length === 0) {
@@ -42,6 +43,7 @@ export function parseModel(args, raw) {
         raw,
     };
 }
+/** Parse /thinking arguments: level name or empty for query. */
 export function parseThinking(args, raw) {
     const level = args.split(/\s+/).filter(Boolean)[0];
     return {
@@ -50,6 +52,7 @@ export function parseThinking(args, raw) {
         raw,
     };
 }
+/** Parse /shell arguments: optional command string. */
 export function parseShell(args, raw) {
     return {
         type: "shell",
@@ -57,6 +60,7 @@ export function parseShell(args, raw) {
         raw,
     };
 }
+/** Parse /queue arguments: message text to inject. */
 export function parseQueue(args, raw) {
     return {
         type: "queue",
@@ -64,6 +68,7 @@ export function parseQueue(args, raw) {
         raw,
     };
 }
+/** Parse /queue-all arguments: message text for all chats. */
 export function parseQueueAll(args, raw) {
     return {
         type: "queue_all",
@@ -71,6 +76,7 @@ export function parseQueueAll(args, raw) {
         raw,
     };
 }
+/** Parse /compact arguments: optional custom instructions. */
 export function parseCompact(args, raw) {
     return {
         type: "compact",
@@ -78,6 +84,7 @@ export function parseCompact(args, raw) {
         raw,
     };
 }
+/** Parse /auto-compact arguments: on/off toggle. */
 export function parseAutoCompact(args, raw) {
     return {
         type: "auto_compact",
@@ -85,6 +92,7 @@ export function parseAutoCompact(args, raw) {
         raw,
     };
 }
+/** Parse /auto-retry arguments: on/off toggle. */
 export function parseAutoRetry(args, raw) {
     return {
         type: "auto_retry",
@@ -92,6 +100,7 @@ export function parseAutoRetry(args, raw) {
         raw,
     };
 }
+/** Parse /cycle-model arguments: optional forward/backward direction. */
 export function parseCycleModel(args, raw) {
     const dirRaw = args.toLowerCase();
     const direction = ["back", "backward", "prev", "previous"].includes(dirRaw)
@@ -103,6 +112,7 @@ export function parseCycleModel(args, raw) {
         raw,
     };
 }
+/** Parse /steering-mode arguments: "all" or "one-at-a-time". */
 export function parseSteeringMode(args, raw) {
     return {
         type: "steering_mode",
@@ -110,6 +120,7 @@ export function parseSteeringMode(args, raw) {
         raw,
     };
 }
+/** Parse /followup-mode arguments: "all" or "one-at-a-time". */
 export function parseFollowupMode(args, raw) {
     return {
         type: "followup_mode",
@@ -117,6 +128,7 @@ export function parseFollowupMode(args, raw) {
         raw,
     };
 }
+/** Parse /session-name arguments: optional new name. */
 export function parseSessionName(args, raw) {
     return {
         type: "session_name",
@@ -124,6 +136,7 @@ export function parseSessionName(args, raw) {
         raw,
     };
 }
+/** Parse /new-session arguments: optional parent session path. */
 export function parseNewSession(args, raw) {
     return {
         type: "new_session",
@@ -131,6 +144,7 @@ export function parseNewSession(args, raw) {
         raw,
     };
 }
+/** Parse /switch-session arguments: session path. */
 export function parseSwitchSession(args, raw) {
     return {
         type: "switch_session",
@@ -138,6 +152,7 @@ export function parseSwitchSession(args, raw) {
         raw,
     };
 }
+/** Parse /fork arguments: optional entry ID to fork from. */
 export function parseFork(args, raw) {
     return {
         type: "fork",
@@ -145,6 +160,7 @@ export function parseFork(args, raw) {
         raw,
     };
 }
+/** Parse /export-html arguments: optional output file path. */
 export function parseExportHtml(args, raw) {
     return {
         type: "export_html",
@@ -152,6 +168,7 @@ export function parseExportHtml(args, raw) {
         raw,
     };
 }
+/** Parse /bash arguments: optional command string. */
 export function parseBash(args, raw) {
     return {
         type: "bash",
@@ -159,6 +176,7 @@ export function parseBash(args, raw) {
         raw,
     };
 }
+/** Parse /tree arguments: target, mode, limit, offset, summarize flags. */
 export function parseTree(args, raw) {
     const parsed = parseTreeArgs(args);
     return {
@@ -174,6 +192,7 @@ export function parseTree(args, raw) {
         raw,
     };
 }
+/** Parse /label arguments: target entry ID and label text. */
 export function parseLabel(args, raw) {
     const tokens = splitArgs(args);
     const targetId = tokens[0];
@@ -185,6 +204,7 @@ export function parseLabel(args, raw) {
         raw,
     };
 }
+/** Parse /agent-name arguments: new display name. */
 export function parseAgentName(args, raw) {
     return {
         type: "agent_name",
@@ -192,6 +212,7 @@ export function parseAgentName(args, raw) {
         raw,
     };
 }
+/** Parse /agent-avatar arguments: avatar URL or file path. */
 export function parseAgentAvatar(args, raw) {
     return {
         type: "agent_avatar",
@@ -199,6 +220,7 @@ export function parseAgentAvatar(args, raw) {
         raw,
     };
 }
+/** Parse /user-name arguments: new display name. */
 export function parseUserName(args, raw) {
     return {
         type: "user_name",
@@ -206,6 +228,7 @@ export function parseUserName(args, raw) {
         raw,
     };
 }
+/** Parse /user-avatar arguments: avatar URL or file path. */
 export function parseUserAvatar(args, raw) {
     return {
         type: "user_avatar",
@@ -213,6 +236,7 @@ export function parseUserAvatar(args, raw) {
         raw,
     };
 }
+/** Parse /user-github arguments: GitHub profile URL or username. */
 export function parseUserGithub(args, raw) {
     return {
         type: "user_github",
@@ -220,6 +244,7 @@ export function parseUserGithub(args, raw) {
         raw,
     };
 }
+/** Parse /search-workspace arguments: query, scope, limit, offset, flags. */
 export function parseSearch(args, raw) {
     const tokens = splitArgs(args);
     let scope;
@@ -339,6 +364,7 @@ export function parseSearch(args, raw) {
         raw,
     };
 }
+/** Map of normalised command names to their parser functions. */
 export const COMMAND_PARSERS = {
     "/model": parseModel,
     "/thinking": parseThinking,

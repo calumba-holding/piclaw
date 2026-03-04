@@ -10,6 +10,7 @@ import { createTrackedBashOperations } from "../../tools/tracked-bash.js";
 import { formatShellBlock, resolveShellCwd } from "../agent-control-helpers.js";
 const SHELL_OUTPUT_LIMIT = 20000;
 const SHELL_TIMEOUT_SECONDS = 30;
+/** Handle /shell: execute a shell command with process tracking. */
 export async function handleShell(session, command) {
     const rawCommand = command.command?.trim();
     if (!rawCommand) {
@@ -72,6 +73,7 @@ export async function handleShell(session, command) {
         message: formatShellBlock(rawCommand, output, meta),
     };
 }
+/** Handle /bash: execute a raw bash command. */
 export async function handleBash(session, command) {
     const rawCommand = command.command?.trim();
     if (!rawCommand) {

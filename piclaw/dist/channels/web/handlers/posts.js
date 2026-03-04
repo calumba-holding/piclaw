@@ -8,6 +8,7 @@
  * Consumers: web/request-router.ts routes post paths here.
  */
 import { parsePostPayload, storePost } from "../posts-service.js";
+/** Route post requests to create, update, delete, or query handlers. */
 export async function handlePost(channel, req, isReply, chatJid) {
     let data;
     try {

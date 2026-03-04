@@ -14,12 +14,14 @@ export function jsonResponse(data, status = 200) {
         },
     });
 }
+/** Clamp an integer value between min and max bounds. */
 export function clampInt(value, fallback, min, max) {
     const parsed = value ? parseInt(value, 10) : fallback;
     if (Number.isNaN(parsed))
         return fallback;
     return Math.min(Math.max(parsed, min), max);
 }
+/** Parse a string to an integer, returning undefined if invalid. */
 export function parseOptionalInt(value) {
     if (!value)
         return null;

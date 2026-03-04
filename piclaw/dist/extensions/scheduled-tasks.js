@@ -50,6 +50,7 @@ function listTasks(filter) {
         db.close();
     }
 }
+/** Extension factory that registers /tasks and /scheduled slash commands. */
 export const scheduledTasks = (pi) => {
     const handler = async (args) => {
         const token = (args || "").trim().toLowerCase();

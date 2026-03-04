@@ -7,6 +7,7 @@
  */
 import { MediaService } from "../media-service.js";
 const mediaService = new MediaService();
+/** Handle POST /media: file upload. */
 export async function handleMediaUpload(channel, req) {
     let form;
     try {
@@ -21,6 +22,7 @@ export async function handleMediaUpload(channel, req) {
     const result = await mediaService.createFromFile(file);
     return channel.json(result.body, result.status);
 }
+/** Route media requests to upload, download, or info handlers. */
 export function handleMedia(channel, id, thumbnail) {
     const result = mediaService.getMedia(id, thumbnail);
     if (result.status !== 200)
@@ -31,6 +33,7 @@ export function handleMedia(channel, id, thumbnail) {
         },
     });
 }
+/** Handle GET /media/:id/info: metadata query. */
 export function handleMediaInfo(channel, id) {
     const result = mediaService.getInfo(id);
     return channel.json(result.body, result.status);

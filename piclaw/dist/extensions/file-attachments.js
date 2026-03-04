@@ -84,6 +84,7 @@ const ATTACHMENT_HINT = [
     "Use attachment:<filename> only when you want to embed inline (images, links).",
 ].join("\n");
 // ── Factory ───────────────────────────────────────────────
+/** Extension factory that registers the attach_file tool. */
 export const fileAttachments = (pi) => {
     pi.on("before_agent_start", async (event) => {
         return { systemPrompt: `${event.systemPrompt}\n\n${ATTACHMENT_HINT}` };

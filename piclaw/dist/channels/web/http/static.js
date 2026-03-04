@@ -21,6 +21,7 @@ const MIME_TYPES = {
     ".woff2": "font/woff2",
     ".ico": "image/x-icon",
 };
+/** Serve a static file from the web/static directory. */
 export async function serveStatic(relPath, notFound) {
     const filePath = resolve(STATIC_DIR, relPath);
     if (!filePath.startsWith(STATIC_DIR))
@@ -37,6 +38,7 @@ export async function serveStatic(relPath, notFound) {
         },
     });
 }
+/** Serve a static file from the docs directory. */
 export async function serveDocsStatic(relPath, notFound) {
     const filePath = resolve(DOCS_DIR, relPath);
     if (!filePath.startsWith(DOCS_DIR))

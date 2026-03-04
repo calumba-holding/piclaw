@@ -7,6 +7,7 @@
  * Consumers: agent-control-handlers.ts dispatches to these handlers.
  */
 import { runPromptAndCapture } from "../agent-control-helpers.js";
+/** Handle /queue: inject a message into the agent prompt queue. */
 export async function handleQueue(session, command) {
     const queuedText = command.message?.trim();
     const useBatch = command.type === "queue_all";
@@ -45,6 +46,7 @@ export async function handleQueue(session, command) {
         return { status: "error", message };
     }
 }
+/** Handle /steering-mode: set "all" or "one-at-a-time" steering. */
 export async function handleSteeringMode(session, command) {
     const hasArgs = command.raw.trim().split(/\s+/).length > 1;
     if (!command.mode) {
@@ -56,6 +58,7 @@ export async function handleSteeringMode(session, command) {
     session.setSteeringMode(command.mode);
     return { status: "success", message: `Steering mode set to ${command.mode}.` };
 }
+/** Handle /followup-mode: set "all" or "one-at-a-time" followups. */
 export async function handleFollowupMode(session, command) {
     const hasArgs = command.raw.trim().split(/\s+/).length > 1;
     if (!command.mode) {

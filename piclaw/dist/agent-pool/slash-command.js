@@ -17,6 +17,7 @@
 import { AGENT_TIMEOUT } from "../core/config.js";
 import { detectChannel } from "../router.js";
 import { withChatContext } from "../core/chat-context.js";
+/** Execute a /skill or /prompt-template slash command within a session. */
 export async function executeSlashCommand(session, chatJid, rawText) {
     const startTime = Date.now();
     try {

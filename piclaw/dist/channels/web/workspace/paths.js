@@ -10,6 +10,7 @@ import path from "path";
 import { WORKSPACE_DIR } from "../../../core/config.js";
 import { EXCLUDE_DIRS } from "./constants.js";
 const WATCH_IGNORE_DIRS = new Set(["logs"]);
+/** Resolve a relative path against the workspace root, rejecting traversal. */
 export function resolveWorkspacePath(input) {
     const raw = (input || "").trim();
     const resolved = path.resolve(WORKSPACE_DIR, raw);
@@ -20,13 +21,16 @@ export function resolveWorkspacePath(input) {
         return null;
     return resolved;
 }
+/** Convert an absolute path to a workspace-relative path. */
 export function toRelativePath(absPath) {
     const rel = path.relative(WORKSPACE_DIR, absPath) || ".";
     return rel.split(path.sep).join("/");
 }
+/** Check whether a directory name should be excluded from tree listing. */
 export function shouldExcludeDir(name) {
     return EXCLUDE_DIRS.has(name);
 }
+/** Check whether a path should be ignored (hidden, excluded, etc.). */
 export function shouldIgnorePath(absPath) {
     const rel = path.relative(WORKSPACE_DIR, absPath);
     if (!rel || rel === ".")
@@ -42,6 +46,7 @@ export function shouldIgnorePath(absPath) {
     }
     return false;
 }
+/** Check whether a path segment starts with a dot. */
 export function isHiddenPath(absPath) {
     const rel = path.relative(WORKSPACE_DIR, absPath);
     if (!rel || rel === ".")

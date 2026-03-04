@@ -9,6 +9,7 @@
  * Consumers: channels/web.ts wires this up during agent runs.
  */
 import { buildPreview, createToolTitleTracker } from "./agent-utils.js";
+/** Create an AgentEventEmitter that broadcasts via the given SSE hub. */
 export function createAgentEventEmitter(channel, withAgentProfile) {
     return {
         status: (payload) => channel.broadcastEvent("agent_status", withAgentProfile(payload)),
@@ -19,6 +20,7 @@ export function createAgentEventEmitter(channel, withAgentProfile) {
         response: (payload) => channel.broadcastEvent("agent_response", withAgentProfile(payload)),
     };
 }
+/** Create an event handler that translates agent session events to SSE broadcasts. */
 export function createStreamingEventHandler(options) {
     const thoughtPreviewLines = options.thoughtPreviewLines ?? 8;
     const draftPreviewLines = options.draftPreviewLines ?? 8;

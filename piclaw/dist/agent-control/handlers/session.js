@@ -7,6 +7,7 @@
  * Consumers: agent-control-handlers.ts dispatches to these handlers.
  */
 import { truncateText } from "../agent-control-helpers.js";
+/** Handle /session-name: rename the current session. */
 export async function handleSessionName(session, command) {
     if (!command.name) {
         return {
@@ -23,6 +24,7 @@ export async function handleSessionName(session, command) {
     session.setSessionName(name);
     return { status: "success", message: `Session name set to "${name}".` };
 }
+/** Handle /new-session: create a new session, optionally under a parent. */
 export async function handleNewSession(session, command) {
     const ok = await session.newSession(command.parent ? { parentSession: command.parent } : undefined);
     if (!ok) {
@@ -30,6 +32,7 @@ export async function handleNewSession(session, command) {
     }
     return { status: "success", message: "Started a new session." };
 }
+/** Handle /switch-session: switch to an existing session by path. */
 export async function handleSwitchSession(session, command) {
     if (!command.path) {
         return { status: "error", message: "Usage: /switch-session <path>" };
@@ -40,6 +43,7 @@ export async function handleSwitchSession(session, command) {
     }
     return { status: "success", message: `Switched to session: ${command.path.trim()}.` };
 }
+/** Handle /fork: fork the conversation from a specific entry. */
 export async function handleFork(session, command) {
     if (!command.entryId) {
         return { status: "error", message: "Usage: /fork <entryId>" };
@@ -57,6 +61,7 @@ export async function handleFork(session, command) {
         return { status: "error", message };
     }
 }
+/** Handle /fork: fork the conversation from a specific entry. */
 export async function handleForks(session, _command) {
     const messages = session.getUserMessagesForForking();
     if (messages.length === 0) {
@@ -65,6 +70,7 @@ export async function handleForks(session, _command) {
     const lines = ["Forkable messages:", ...messages.map((msg) => `• ${msg.entryId}: ${truncateText(msg.text, 120)}`)];
     return { status: "success", message: lines.join("\n") };
 }
+/** Handle /export-html: export the session as an HTML file. */
 export async function handleExportHtml(session, command) {
     try {
         const outputPath = command.path?.trim() || undefined;

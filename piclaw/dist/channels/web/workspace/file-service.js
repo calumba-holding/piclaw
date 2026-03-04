@@ -14,6 +14,7 @@ import { createMedia } from "../../../db.js";
 import { MAX_ATTACH_BYTES, MAX_PREVIEW_BYTES, MAX_UPLOAD_BYTES } from "./constants.js";
 import { contentTypeForPath, detectBinary, formatMtime, isImageFile, isTextFile } from "./file-utils.js";
 import { isHiddenPath, resolveWorkspacePath, shouldIgnorePath, toRelativePath } from "./paths.js";
+/** File read/write service for the workspace explorer API. */
 export class WorkspaceFileService {
     getFile(pathParam, maxParam) {
         const targetPath = resolveWorkspacePath(pathParam);

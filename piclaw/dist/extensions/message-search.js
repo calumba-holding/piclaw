@@ -165,6 +165,7 @@ const SEARCH_HINT = [
     "#hashtag filtering, and row_id lookup for specific messages.",
 ].join("\n");
 // ── Factory ───────────────────────────────────────────────
+/** Extension factory that registers the search_messages tool. */
 export const messageSearch = (pi) => {
     pi.on("before_agent_start", async (event) => {
         return { systemPrompt: `${event.systemPrompt}\n\n${SEARCH_HINT}` };

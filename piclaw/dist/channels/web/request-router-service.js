@@ -21,6 +21,7 @@ const APPLE_ICON_PATHS = new Set([
     "/apple-touch-icon-167x167.png",
     "/apple-touch-icon-152x152.png",
 ]);
+/** Business logic for handling compose-box submissions and agent runs. */
 export class RequestRouterService {
     channel;
     constructor(channel) {

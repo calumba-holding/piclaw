@@ -7,6 +7,7 @@
  *
  * Consumers: channels/web.ts passes each request to handleWebRequest().
  */
+/** Route an incoming HTTP request to the appropriate handler. */
 export async function handleWebRequest(channel, req) {
     const url = new URL(req.url);
     const pathname = url.pathname;

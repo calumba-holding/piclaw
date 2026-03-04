@@ -7,11 +7,13 @@
  * Consumers: web/posts-service.ts calls resolveThreadId() when storing
  *            new user posts.
  */
+/** Determine the thread_id for a new message (existing thread or new). */
 export function resolveThreadId(explicit, fallback) {
     if (explicit !== null && explicit !== undefined)
         return explicit;
     return fallback ?? null;
 }
+/** Find the root message rowid for a thread chain. */
 export function resolveThreadRootId(channel, chatJid, messageId, explicitThreadId) {
     const fallback = channel.getThreadRootId(chatJid, messageId);
     return resolveThreadId(explicitThreadId, fallback);

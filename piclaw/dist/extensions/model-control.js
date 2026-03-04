@@ -33,6 +33,7 @@ function clamp(value, fallback, min, max) {
 // ---------------------------------------------------------------------------
 // Extension factory
 // ---------------------------------------------------------------------------
+/** Extension factory that registers model control tools (get/list/switch). */
 export const modelControl = (pi) => {
     // Inject tool-usage hint into system prompt
     pi.on("before_agent_start", async (event) => {

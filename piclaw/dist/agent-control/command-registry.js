@@ -9,6 +9,7 @@
  *   - agent-control-parser.ts uses normalizeControlCommandName().
  *   - handlers/info.ts uses CONTROL_COMMAND_DEFINITIONS for /commands output.
  */
+/** Metadata for all control commands: name, description, aliases. */
 export const CONTROL_COMMAND_DEFINITIONS = [
     { name: "/model", description: "Select model or list available models", aliases: ["/models"] },
     { name: "/cycle-model", description: "Cycle to the next available model" },
@@ -58,6 +59,7 @@ for (const def of CONTROL_COMMAND_DEFINITIONS) {
         ALIAS_MAP.set(alias, def.name);
     }
 }
+/** Resolve command aliases (e.g. /models → /model, /ctx → /context). */
 export function normalizeControlCommandName(name) {
     const normalized = name.trim().toLowerCase().replace(/_/g, "-");
     return ALIAS_MAP.get(normalized) ?? normalized;

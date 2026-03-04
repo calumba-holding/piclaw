@@ -19,6 +19,7 @@ import { handleBash, handleShell } from "./handlers/operations.js";
 import { handleFollowupMode, handleQueue, handleSteeringMode } from "./handlers/queue.js";
 import { handleExportHtml, handleFork, handleForks, handleNewSession, handleSessionName, handleSwitchSession, } from "./handlers/session.js";
 import { handleLabel, handleLabels, handleTree } from "./handlers/tree.js";
+/** Dispatch a parsed control command to the appropriate handler and return the result. */
 export async function applyControlCommand(session, modelRegistry, command) {
     switch (command.type) {
         case "restart":

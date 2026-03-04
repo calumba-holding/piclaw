@@ -7,6 +7,7 @@
  * Consumers: web/handlers/media.ts delegates to MediaService methods.
  */
 import { createMedia, getMediaById, getMediaInfoById } from "../../db.js";
+/** File upload/download service wrapping db/media.ts operations. */
 export class MediaService {
     async createFromFile(file) {
         const arrayBuffer = await file.arrayBuffer();

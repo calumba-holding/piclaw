@@ -136,6 +136,7 @@ async function indexWorkspace(roots, maxBytes) {
         }
     }
 }
+/** Full-text search across indexed workspace files. */
 export async function searchWorkspace(params) {
     const query = params.query.trim();
     const limit = clampNumber(params.limit, 10, 1, 50);

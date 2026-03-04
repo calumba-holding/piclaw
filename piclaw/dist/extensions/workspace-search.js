@@ -30,6 +30,7 @@ async function execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
     const lines = rows.map((row) => `• ${row.path} — ${row.snippet}`);
     return { content: [{ type: "text", text: `${header}\n${lines.join("\n")}` }], details: { count: rows.length, results: rows } };
 }
+/** Extension factory that registers the search_workspace tool. */
 export const workspaceSearch = (api) => {
     api.registerTool({
         name: "search_workspace",

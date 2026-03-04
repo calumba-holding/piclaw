@@ -78,6 +78,7 @@ async function decryptPayload(name, row) {
     const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(row.nonce), additionalData }, key, new Uint8Array(row.ciphertext));
     return parseSecretPayload(decoder.decode(plaintext));
 }
+/** Encrypt and store (or update) a keychain entry in the database. */
 export async function setKeychainEntry(entry) {
     if (!entry.name) {
         throw new Error("Keychain entry name is required.");
@@ -105,6 +106,7 @@ export async function setKeychainEntry(entry) {
         kdf_iterations = excluded.kdf_iterations,
         updated_at = CURRENT_TIMESTAMP`).run(entry.name, entry.type, Buffer.from(payload.ciphertext), Buffer.from(payload.nonce), Buffer.from(payload.salt), payload.kdf, payload.kdfIterations);
 }
+/** Retrieve and decrypt a keychain entry by name. Throws if not found. */
 export async function getKeychainEntry(name) {
     const db = getDb();
     const row = db
@@ -121,6 +123,7 @@ export async function getKeychainEntry(name) {
     const payload = await decryptPayload(row.name, row);
     return { name: row.name, type: row.type, secret: payload.secret, username: payload.username };
 }
+/** List all keychain entry names and types (no secrets). */
 export function listKeychainEntries() {
     const db = getDb();
     const rows = db
@@ -130,6 +133,7 @@ export function listKeychainEntries() {
         .all();
     return rows;
 }
+/** Delete a keychain entry by name. Returns true if the entry existed. */
 export function deleteKeychainEntry(name) {
     const db = getDb();
     const result = db.prepare("DELETE FROM keychain_entries WHERE name = ?").run(name);
@@ -149,6 +153,7 @@ function parseKeychainReference(value) {
     }
     throw new Error(`Invalid keychain reference: ${value}`);
 }
+/** Replace "keychain:name" values in an env record with decrypted secrets. */
 export async function resolveKeychainEnv(env) {
     const resolved = {};
     for (const [key, value] of Object.entries(env)) {
@@ -171,6 +176,7 @@ export async function resolveKeychainEnv(env) {
     }
     return resolved;
 }
+/** Replace inline "keychain:name" placeholders in a string with decrypted secrets. */
 export async function resolveKeychainPlaceholders(input) {
     if (!input || !input.includes(KEYCHAIN_PREFIX)) {
         return input;

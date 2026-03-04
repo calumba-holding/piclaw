@@ -11,6 +11,7 @@ import { attachMediaToMessage, clampWebContent, createMedia, getMessageByRowId, 
 import { getWebPreviewMaxChars, shouldPreviewWebContent } from "../../db/web-content.js";
 import { scheduleLinkPreviews } from "./link-previews.js";
 import { createUuid } from "../../utils/ids.js";
+/** Store a web channel message in the database and attach media. */
 export function storeWebMessage(channel, params, options = {}) {
     const timestamp = new Date().toISOString();
     const messageId = createUuid("web");

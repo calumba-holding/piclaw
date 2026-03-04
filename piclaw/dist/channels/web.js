@@ -30,6 +30,7 @@ import { broadcastAgentResponse, broadcastInteractionUpdated } from "./web/inter
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
 const STATE_KEY = "last_agent_timestamp_web";
+/** Web channel: HTTP/SSE server, API endpoints, and agent event bridge. */
 export class WebChannel {
     queue;
     agentPool;

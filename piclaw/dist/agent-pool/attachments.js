@@ -4,6 +4,7 @@
  * The attach_file extension tool registers attachments here; AgentPool
  * reads them via take() after a prompt completes.
  */
+/** Per-session registry of file attachments created during agent runs. */
 export class AttachmentRegistry {
     pending = new Map();
     register(chatJid, info) {
@@ -23,6 +24,7 @@ export class AttachmentRegistry {
 // ── Module-level singleton ────────────────────────────────
 // Shared between AgentPool and the file-attachments extension.
 let _instance = null;
+/** Get or create the AttachmentRegistry for the current chat context. */
 export function getAttachmentRegistry() {
     if (!_instance)
         _instance = new AttachmentRegistry();

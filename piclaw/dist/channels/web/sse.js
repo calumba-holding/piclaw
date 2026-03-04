@@ -7,6 +7,7 @@
  * Consumers: web/sse-hub.ts builds on these primitives.
  */
 const encoder = new TextEncoder();
+/** Create an SSE response stream and register the client. */
 export function handleSse(channel) {
     let clientRef = null;
     const stream = new ReadableStream({
@@ -41,6 +42,7 @@ export function handleSse(channel) {
         },
     });
 }
+/** Encode and send an SSE event to all connected clients. */
 export function broadcastEvent(channel, eventType, data) {
     const payload = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
     const bytes = encoder.encode(payload);

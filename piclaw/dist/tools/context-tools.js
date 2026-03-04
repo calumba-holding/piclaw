@@ -41,6 +41,7 @@ function shouldStoreOutput(text, lineCount) {
     const bytes = Buffer.byteLength(text || "", "utf8");
     return bytes > STORE_THRESHOLD_BYTES || lineCount > STORE_THRESHOLD_LINES;
 }
+/** Create an enhanced bash tool that persists large outputs as tool output files. */
 export function createContextBashTool(cwd) {
     const base = createBashTool(cwd, { operations: createTrackedBashOperations() });
     return {
@@ -85,6 +86,7 @@ export function createContextBashTool(cwd) {
         },
     };
 }
+/** Create a tool that searches across stored tool output snippets. */
 export function createToolOutputSearchTool() {
     return {
         name: "tool_output_search",
@@ -122,6 +124,7 @@ export function createToolOutputSearchTool() {
         },
     };
 }
+/** Create a tool that executes multiple bash commands in a single call. */
 export function createBatchExecTool(cwd, bashTool = createContextBashTool(cwd)) {
     const base = bashTool;
     return {

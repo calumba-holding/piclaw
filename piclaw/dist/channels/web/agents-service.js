@@ -6,6 +6,7 @@
  *
  * Consumers: web/handlers/agent.ts calls getAgentsResponse().
  */
+/** Build the GET /agents response payload with agent profile and model info. */
 export async function getAgentsResponse(agentPool, options) {
     const model = await agentPool.getCurrentModelLabel(options.chatJid).catch(() => null);
     return {

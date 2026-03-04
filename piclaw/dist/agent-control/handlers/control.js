@@ -9,6 +9,7 @@
  */
 import { formatCompactNumber } from "../agent-control-helpers.js";
 import { killTrackedProcesses } from "../../utils/process-tracker.js";
+/** Handle /restart: reload the agent session from disk. */
 export async function handleRestart(session, _command) {
     try {
         await session.abort();
@@ -33,6 +34,7 @@ export async function handleRestart(session, _command) {
         message: `Agent restarted. Killed ${killedLabel}.`,
     };
 }
+/** Handle /compact: manually trigger conversation compaction. */
 export async function handleCompact(session, command) {
     try {
         const result = await session.compact(command.instructions?.trim() || undefined);
@@ -50,6 +52,7 @@ export async function handleCompact(session, command) {
         return { status: "error", message };
     }
 }
+/** Handle /auto-compact: toggle automatic compaction on/off. */
 export async function handleAutoCompact(session, command) {
     const hasArgs = command.raw.trim().split(/\s+/).length > 1;
     if (command.enabled === undefined) {
@@ -67,6 +70,7 @@ export async function handleAutoCompact(session, command) {
         message: `Auto-compaction turned ${command.enabled ? "on" : "off"}.`,
     };
 }
+/** Handle /auto-retry: toggle automatic retry on/off. */
 export async function handleAutoRetry(session, command) {
     const hasArgs = command.raw.trim().split(/\s+/).length > 1;
     if (command.enabled === undefined) {
@@ -84,6 +88,7 @@ export async function handleAutoRetry(session, command) {
         message: `Auto-retry turned ${command.enabled ? "on" : "off"}.`,
     };
 }
+/** Handle /abort: cancel the current agent response. */
 export async function handleAbort(session, _command) {
     try {
         await session.abort();
@@ -94,10 +99,12 @@ export async function handleAbort(session, _command) {
         return { status: "error", message };
     }
 }
+/** Handle /abort: cancel the current agent response. */
 export async function handleAbortRetry(session, _command) {
     session.abortRetry();
     return { status: "success", message: "Retry aborted." };
 }
+/** Handle /abort: cancel the current agent response. */
 export async function handleAbortBash(session, _command) {
     if (!session.isBashRunning) {
         return { status: "success", message: "No bash command is running." };

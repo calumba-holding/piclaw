@@ -12,6 +12,7 @@ import { readdirSync, statSync, watch } from "fs";
 import { WORKSPACE_DIR } from "../../../core/config.js";
 import { buildTree, compressPaths } from "./tree.js";
 import { isHiddenPath, resolveWorkspacePath, shouldIgnorePath, toRelativePath } from "./paths.js";
+/** Create a throttled callback for workspace change events. */
 export function createWorkspaceUpdateThrottle(onUpdate, throttleMs = 1000) {
     let lastEmit = 0;
     let throttleTimer = null;
@@ -52,6 +53,7 @@ export function createWorkspaceUpdateThrottle(onUpdate, throttleMs = 1000) {
     };
     return { schedule, clear };
 }
+/** Start watching the workspace directory for changes via fs.watch(). */
 export function startWorkspaceWatcher(onUpdate, includeHidden) {
     const pending = new Set();
     let flushTimer = null;
