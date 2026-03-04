@@ -1,4 +1,22 @@
 #!/usr/bin/env bun
+/**
+ * skills/token-chart/token-chart.ts – Generates a 7-day token usage chart.
+ *
+ * Standalone script invoked by the token-chart skill (via IPC or scheduler).
+ * Reads token_usage data from the SQLite database, aggregates it into daily
+ * buckets by model/provider, generates an SVG bar chart, and writes it as
+ * an IPC file so piclaw posts it to the web timeline.
+ *
+ * CLI args:
+ *   --days <n>           Number of days to chart (default: 7)
+ *   --sessions-dir <dir> Path to sessions directory
+ *   --ipc-dir <dir>      Path to IPC directory for output
+ *   --store-dir <dir>    Path to piclaw store directory (for DB)
+ *   --width <px>         Chart width in pixels (default: 720)
+ *
+ * Consumers: Scheduled by task-scheduler.ts or invoked manually via /skill:token-chart.
+ */
+
 import { readdirSync, statSync, readFileSync, mkdirSync, writeFileSync, existsSync } from "fs";
 import { join } from "path";
 import Database from "bun:sqlite";

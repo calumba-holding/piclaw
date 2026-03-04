@@ -1,4 +1,24 @@
 #!/usr/bin/env bun
+/**
+ * skills/graphite-power-chart/graphite-power-chart.ts – Generates a Graphite metric chart.
+ *
+ * Standalone script invoked by the graphite-power-chart skill. Fetches time-
+ * series data from a Graphite server for a specified Zigbee device metric,
+ * generates an SVG line chart, and writes it as an IPC file for the web
+ * timeline.
+ *
+ * CLI args:
+ *   --graphite-url <url>  Graphite server base URL
+ *   --target <metric>     Graphite metric target string
+ *   --from <time>         Start time (default: -12h)
+ *   --title <text>        Chart title
+ *   --ipc-dir <dir>       IPC output directory
+ *   --width <px>          Chart width (default: 720)
+ *   --height <px>         Chart height (default: 300)
+ *
+ * Consumers: Invoked via /skill:graphite-power-chart.
+ */
+
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 
