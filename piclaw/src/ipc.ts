@@ -1,3 +1,23 @@
+/**
+ * ipc.ts – Inter-Process Communication watcher for file-based task commands.
+ *
+ * External processes (skills, scripts, the reload flow) communicate with the
+ * running piclaw instance by dropping JSON files into the IPC directories:
+ *   - `<DATA_DIR>/ipc/messages/*.json` – outbound messages to send.
+ *   - `<DATA_DIR>/ipc/tasks/*.json`    – task lifecycle commands (schedule,
+ *     pause, resume, cancel, update, cleanup, resume_chat, resume_pending).
+ *
+ * The watcher polls these directories every IPC_POLL_INTERVAL ms, processes
+ * each file, and deletes it on success (or renames it to `error-*` on failure).
+ *
+ * Consumers:
+ *   - runtime.ts calls startIpcWatcher() at startup, passing in the required
+ *     dependency functions (sendMessage, sendNudge, resolveModel, etc.).
+ *   - The `schedule` skill writes task files to trigger scheduled tasks.
+ *   - The `send-message` skill writes message files for immediate delivery.
+ *   - The reload script writes `resume_pending` tasks to resume after restart.
+ */
+
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync } from "fs";
 import { join } from "path";
 import { CronExpressionParser } from "cron-parser";
@@ -5,16 +25,33 @@ import { DATA_DIR, IPC_POLL_INTERVAL, TIMEZONE } from "./core/config.js";
 import { createTask, deleteTask, getTaskById, updateTask } from "./db.js";
 import { createUuid } from "./utils/ids.js";
 
+/**
+ * Dependency injection interface for IPC handlers.
+ * Provided by runtime.ts so IPC can send messages, resolve models, etc.
+ * without circular imports.
+ */
 export interface IpcDeps {
+  /** Send a text message to a specific chat JID. */
   sendMessage: (jid: string, text: string) => Promise<void>;
+  /** Send a push notification nudge (Pushover). */
   sendNudge?: (text: string) => Promise<void>;
+  /** Validate and resolve a model identifier string. */
   resolveModel?: (input: string) => { model?: string; error?: string };
+  /** Resume processing a chat (after restart or pause). */
   resumeChat?: (data: Record<string, any>) => Promise<void>;
+  /** Resume any pending agent turns after a restart. */
   resumePending?: (data?: Record<string, any>) => Promise<void>;
 }
 
+/** Guard to prevent starting the watcher more than once. */
 let running = false;
 
+/**
+ * Start the IPC directory watcher. Polls for new JSON files in the messages
+ * and tasks directories on a recurring timer.
+ *
+ * Called once by runtime.ts during application startup.
+ */
 export function startIpcWatcher(deps: IpcDeps): void {
   if (running) return;
   running = true;
@@ -26,7 +63,7 @@ export function startIpcWatcher(deps: IpcDeps): void {
   mkdirSync(messagesDir, { recursive: true });
 
   const poll = async () => {
-    // Process outbound messages
+    // --- Process outbound message files ---
     try {
       if (existsSync(messagesDir)) {
         for (const file of readdirSync(messagesDir).filter((f) => f.endsWith(".json"))) {
@@ -45,7 +82,7 @@ export function startIpcWatcher(deps: IpcDeps): void {
       }
     } catch (e) { console.error("[ipc] Error reading messages dir:", e); }
 
-    // Process task commands
+    // --- Process task command files ---
     try {
       if (existsSync(tasksDir)) {
         for (const file of readdirSync(tasksDir).filter((f) => f.endsWith(".json"))) {
@@ -66,8 +103,13 @@ export function startIpcWatcher(deps: IpcDeps): void {
   console.log("[ipc] Watcher started");
 }
 
+/**
+ * Dispatch a single IPC task command. The `data.type` field determines
+ * which operation is performed (schedule, pause, resume, cancel, etc.).
+ */
 async function processTaskCommand(data: Record<string, any>, deps: IpcDeps): Promise<void> {
   switch (data.type) {
+    // --- Create a new scheduled task ---
     case "schedule_task": {
       if (!data.prompt || !data.schedule_type || !data.schedule_value || !data.chatJid) return;
       let nextRun: string | null = null;
@@ -83,6 +125,7 @@ async function processTaskCommand(data: Record<string, any>, deps: IpcDeps): Pro
         nextRun = d.toISOString();
       }
 
+      // Validate the model override if one was requested.
       const requested = typeof data.model === "string" && data.model.trim() ? data.model.trim() : null;
       let model: string | null = null;
       if (requested) {
@@ -111,21 +154,25 @@ async function processTaskCommand(data: Record<string, any>, deps: IpcDeps): Pro
       });
       break;
     }
+    // --- Pause an active task ---
     case "pause_task": {
       const t = data.taskId && getTaskById(data.taskId);
       if (t) updateTask(data.taskId, { status: "paused" });
       break;
     }
+    // --- Resume a paused task ---
     case "resume_task": {
       const t = data.taskId && getTaskById(data.taskId);
       if (t) updateTask(data.taskId, { status: "active" });
       break;
     }
+    // --- Delete a task and its run logs ---
     case "cancel_task": {
       const t = data.taskId && getTaskById(data.taskId);
       if (t) deleteTask(data.taskId);
       break;
     }
+    // --- Partially update a task (prompt, schedule, model) ---
     case "update_task": {
       if (!data.taskId) return;
       const t = getTaskById(data.taskId);
@@ -148,6 +195,7 @@ async function processTaskCommand(data: Record<string, any>, deps: IpcDeps): Pro
           updates.model = data.model.trim();
         }
       }
+      // Recalculate next_run if schedule changed.
       if (updates.schedule_type || updates.schedule_value) {
         const sType = updates.schedule_type || t.schedule_type;
         const sValue = updates.schedule_value || t.schedule_value;
@@ -164,6 +212,7 @@ async function processTaskCommand(data: Record<string, any>, deps: IpcDeps): Pro
       if (Object.keys(updates).length > 0) updateTask(data.taskId, updates);
       break;
     }
+    // --- Bulk-delete all completed tasks ---
     case "cleanup_tasks": {
       const db = (await import("./db/connection.js")).getDb();
       const completed = db.prepare("SELECT id FROM scheduled_tasks WHERE status = 'completed'").all() as { id: string }[];
@@ -175,12 +224,14 @@ async function processTaskCommand(data: Record<string, any>, deps: IpcDeps): Pro
       if (data.chatJid) await deps.sendMessage(data.chatJid, `Cleaned up ${count} completed task(s).`);
       break;
     }
+    // --- Resume a specific chat after restart ---
     case "resume_chat": {
       if (deps.resumeChat) {
         await deps.resumeChat(data);
       }
       break;
     }
+    // --- Resume any pending agent turns after restart ---
     case "resume_pending": {
       if (deps.resumePending) {
         await deps.resumePending(data);
