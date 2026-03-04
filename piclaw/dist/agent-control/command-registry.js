@@ -33,6 +33,7 @@ export const CONTROL_COMMAND_DEFINITIONS = [
     { name: "/user-avatar", description: "Set or show your avatar URL" },
     { name: "/user-github", description: "Set your name/avatar from a GitHub profile URL" },
     { name: "/export-html", description: "Export session to HTML" },
+    { name: "/search", description: "Search notes and skills in the workspace" },
     { name: "/restart", description: "Restart the agent and stop subprocesses" },
     { name: "/commands", description: "List available commands" },
 ];

@@ -1,7 +1,7 @@
 import { handleAbort, handleAbortBash, handleAbortRetry, handleAutoCompact, handleAutoRetry, handleCompact, handleRestart, } from "./handlers/control.js";
 import { handleAgentAvatar, handleAgentName } from "./handlers/agent.js";
 import { handleUserAvatar, handleUserGithub, handleUserName } from "./handlers/user.js";
-import { handleCommands, handleContext, handleLast, handleState, handleStats, } from "./handlers/info.js";
+import { handleCommands, handleContext, handleLast, handleSearchWorkspace, handleState, handleStats, } from "./handlers/info.js";
 import { handleCycleModel, handleCycleThinking, handleModel, handleThinking, } from "./handlers/model.js";
 import { handleBash, handleShell } from "./handlers/operations.js";
 import { handleFollowupMode, handleQueue, handleSteeringMode } from "./handlers/queue.js";
@@ -58,6 +58,8 @@ export async function applyControlCommand(session, modelRegistry, command) {
             return handleForks(session, command);
         case "export_html":
             return handleExportHtml(session, command);
+        case "search_workspace":
+            return handleSearchWorkspace(session, command);
         case "tree":
             return handleTree(session, command);
         case "label":
