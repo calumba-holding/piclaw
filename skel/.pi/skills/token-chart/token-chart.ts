@@ -1,4 +1,11 @@
 #!/usr/bin/env bun
+/**
+ * token-chart.ts – Skel copy of the token usage chart skill.
+ *
+ * Aggregates token usage from the SQLite DB and generates an SVG bar
+ * chart posted to the web timeline via IPC.
+ */
+
 import { readdirSync, statSync, readFileSync, mkdirSync, writeFileSync, existsSync } from "fs";
 import { join } from "path";
 import Database from "bun:sqlite";

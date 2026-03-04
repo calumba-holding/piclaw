@@ -1,3 +1,10 @@
+/**
+ * web-search-summary.ts – Search via SearXNG, fetch top results, summarise.
+ *
+ * Queries a local SearXNG instance, fetches the top N result pages,
+ * converts them to markdown via Turndown, and returns compact summaries.
+ */
+
 import TurndownService from "turndown";
 import { parseHTML } from "linkedom";
 

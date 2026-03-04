@@ -1,4 +1,11 @@
 #!/usr/bin/env bun
+/**
+ * quick-twitter-summary.ts – Lightweight tweet fetcher using linkedom.
+ *
+ * Fetches a Nitter user page with plain HTTP (no browser), parses the
+ * HTML with linkedom, and extracts recent tweets as structured data.
+ */
+
 import { parseHTML } from "linkedom";
 
 function parseArgs(argv: string[]) {

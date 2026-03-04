@@ -1,4 +1,11 @@
 #!/usr/bin/env bun
+/**
+ * graphite-power-chart.ts – Skel copy of the Graphite chart skill.
+ *
+ * Fetches time-series data from a Graphite server and generates an SVG
+ * line chart posted to the web timeline via IPC.
+ */
+
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 

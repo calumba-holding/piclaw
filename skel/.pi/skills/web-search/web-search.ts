@@ -1,3 +1,10 @@
+/**
+ * web-search.ts – Search the web via SearXNG and convert pages to markdown.
+ *
+ * Queries a local SearXNG instance and optionally fetches individual
+ * result pages, converting their HTML to markdown via Turndown.
+ */
+
 import TurndownService from "turndown";
 import { parseHTML } from "linkedom";
 

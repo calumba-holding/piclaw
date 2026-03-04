@@ -1,4 +1,11 @@
 #!/usr/bin/env bun
+/**
+ * feeds-digest.ts – Build a deduped markdown digest from an RSS feed index.
+ *
+ * Fetches the feed index page, extracts individual feed URLs, fetches
+ * and parses each feed, deduplicates entries using simhash, and writes
+ * a markdown digest file plus a JSON links file.
+ */
 
 import { writeFileSync } from "fs";
 

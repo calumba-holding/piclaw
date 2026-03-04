@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# bootstrap-container.sh – First-run setup for a new Pibox workspace.
+#
+# Installs Playwright browsers, creates package.json if missing, and
+# ensures node_modules are present. Idempotent — skips steps already done.
 set -euo pipefail
 
 WORKSPACE="${PICLAW_WORKSPACE:-/workspace}"

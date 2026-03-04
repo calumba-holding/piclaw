@@ -1,4 +1,12 @@
 #!/usr/bin/env bun
+/**
+ * playwright-twitter-summary.ts – Fetch tweets via Playwright + Nitter.
+ *
+ * Launches a headless browser, navigates to Nitter instances, scrapes
+ * recent tweets/replies/retweets for a given user, and outputs a compact
+ * JSON summary.
+ */
+
 import { chromium } from "playwright";
 
 async function run() {

@@ -1,3 +1,11 @@
+/**
+ * skel/.pi/extensions/context-mode.ts – Example extension for context-aware tools.
+ *
+ * Registers batch_exec, tool_output_search, and enhanced bash/read/edit tools
+ * that support tool output persistence and preview. Shipped as a skel template
+ * so new workspaces get these tools automatically.
+ */
+
 import { isBashToolResult } from "@mariozechner/pi-coding-agent";
 
 import {
