@@ -162,7 +162,7 @@ export function WorkspaceEditor({
     // Escape to close when clean. Skips if CodeMirror already handled the
     // event (e.g. closing the search panel) by checking defaultPrevented.
     useEffect(() => {
-        const onKeyDown = (e: KeyboardEvent) => {
+        const onKeyDown = (e) => {
             if (e.key === 'Escape' && !e.defaultPrevented && !dirty) {
                 onClose?.();
             }
