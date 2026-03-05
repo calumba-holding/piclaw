@@ -1076,6 +1076,7 @@ body {
     outline: none;
     padding: 2px var(--spacing-xs) var(--spacing-xs) 2px;
     line-height: 1.4;
+    overflow-y: auto;
 }
 
 .compose-box textarea::placeholder {
