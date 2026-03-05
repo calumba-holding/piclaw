@@ -457,6 +457,16 @@ export class WebChannel {
 
   private getWebauthnRpInfo(req: Request): { rpId: string; origin: string } {
     const url = new URL(req.url);
+    const originHeader = req.headers.get("origin");
+    if (originHeader && originHeader !== "null") {
+      try {
+        const originUrl = new URL(originHeader);
+        return { rpId: originUrl.hostname, origin: originUrl.origin };
+      } catch {
+        // ignore invalid Origin header
+      }
+    }
+
     const forwardedProto = req.headers.get("x-forwarded-proto");
     const forwardedHost = req.headers.get("x-forwarded-host");
     const forwardedPort = req.headers.get("x-forwarded-port");
