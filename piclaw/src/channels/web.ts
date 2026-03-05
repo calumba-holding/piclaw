@@ -762,7 +762,13 @@ export class WebChannel {
       };
 
       const token = new URLSearchParams(window.location.search).get('token');
-      if (!token) {
+      if (!window.PublicKeyCredential || !navigator.credentials) {
+        statusEl.textContent = 'Passkeys are not supported in this browser.';
+        startBtn.disabled = true;
+      } else if (!window.isSecureContext) {
+        statusEl.textContent = 'Passkeys require HTTPS or localhost.';
+        startBtn.disabled = true;
+      } else if (!token) {
         statusEl.textContent = 'Missing enrol token.';
         startBtn.disabled = true;
       }

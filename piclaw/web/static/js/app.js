@@ -633,7 +633,16 @@ function App() {
     const refreshAgentStatus = useCallback(async () => {
         try {
             const res = await getAgentStatus('web:default');
-            if (!res || res.status !== 'active' || !res.data) return;
+            if (!res || res.status !== 'active' || !res.data) {
+                clearAgentRunState();
+                setAgentStatus(null);
+                setAgentDraft({ text: '', totalLines: 0 });
+                setAgentPlan('');
+                setAgentThought({ text: '', totalLines: 0 });
+                setPendingRequest(null);
+                pendingRequestRef.current = null;
+                return;
+            }
             const payload = res.data;
             const activeTurn = payload.turn_id || payload.turnId;
             if (activeTurn) setActiveTurn(activeTurn);
@@ -660,7 +669,7 @@ function App() {
         } catch (err) {
             console.warn('Failed to fetch agent status:', err);
         }
-    }, [clearLastActivityFlag, noteAgentActivity, setActiveTurn]);
+    }, [clearAgentRunState, clearLastActivityFlag, noteAgentActivity, setActiveTurn]);
 
     const handleConnectionStatusChange = useCallback((status) => {
         setConnectionStatus(status);

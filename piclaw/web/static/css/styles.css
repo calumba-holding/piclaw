@@ -651,6 +651,31 @@ body {
     opacity: 0.5;
 }
 
+.editor-codemirror .cm-activeLine {
+    background: rgba(15, 20, 25, 0.06);
+}
+
+.editor-codemirror .cm-activeLineGutter {
+    background: rgba(15, 20, 25, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+    .editor-codemirror .cm-activeLine,
+    .editor-codemirror .cm-activeLineGutter {
+        background: rgba(255, 255, 255, 0.05);
+    }
+}
+
+[data-theme="dark"] .editor-codemirror .cm-activeLine,
+[data-theme="dark"] .editor-codemirror .cm-activeLineGutter {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="light"] .editor-codemirror .cm-activeLine,
+[data-theme="light"] .editor-codemirror .cm-activeLineGutter {
+    background: rgba(15, 20, 25, 0.06);
+}
+
 .editor-status {
     padding: 6px var(--spacing-md) var(--spacing-sm);
     font-size: 11px;

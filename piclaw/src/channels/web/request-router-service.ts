@@ -10,6 +10,7 @@
 
 import { extname, resolve } from "path";
 import type { WebChannel } from "../web.js";
+import { rememberWebOrigin } from "./request-origin.js";
 
 const STATIC_DIR = resolve(import.meta.dir, "..", "..", "..", "..", "web", "static");
 const STATIC_MIME_TYPES: Record<string, string> = {
@@ -60,6 +61,9 @@ export class RequestRouterService {
   async handle(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const pathname = url.pathname;
+
+    // Track the last seen origin so slash commands can build absolute links.
+    rememberWebOrigin("web:default", req);
 
     const isGetOrHead = req.method === "GET" || req.method === "HEAD";
     const authEnabled = this.channel.isAuthEnabled();
