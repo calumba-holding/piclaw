@@ -457,8 +457,20 @@ export class WebChannel {
 
   private getWebauthnRpInfo(req: Request): { rpId: string; origin: string } {
     const url = new URL(req.url);
-    const rpId = url.hostname;
-    return { rpId, origin: url.origin };
+    const forwardedProto = req.headers.get("x-forwarded-proto");
+    const forwardedHost = req.headers.get("x-forwarded-host");
+    const forwardedPort = req.headers.get("x-forwarded-port");
+    const proto = (forwardedProto ? forwardedProto.split(",")[0].trim() : url.protocol.replace(":", "")) || "http";
+    let host = forwardedHost ? forwardedHost.split(",")[0].trim() : url.host;
+    if (forwardedPort && host && !host.includes(":")) {
+      const port = forwardedPort.split(",")[0].trim();
+      if (port && ((proto === "https" && port !== "443") || (proto === "http" && port !== "80"))) {
+        host = `${host}:${port}`;
+      }
+    }
+    const rpId = host ? host.split(":")[0] : url.hostname;
+    const origin = `${proto}://${host || url.host}`;
+    return { rpId, origin };
   }
 
   private bufferToBase64Url(value: Uint8Array): string {
@@ -565,14 +577,21 @@ export class WebChannel {
     };
 
     const { origin } = this.getWebauthnRpInfo(req);
-    const result = await verifyAuthenticationResponse({
-      response: credential,
-      expectedChallenge: pending.challenge,
-      expectedOrigin: origin,
-      expectedRPID: pending.rpId,
-      authenticator,
-      requireUserVerification: false,
-    });
+    let result;
+    try {
+      result = await verifyAuthenticationResponse({
+        response: credential,
+        expectedChallenge: pending.challenge,
+        expectedOrigin: origin,
+        expectedRPID: pending.rpId,
+        authenticator,
+        requireUserVerification: false,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Passkey verification failed";
+      console.warn("[webauthn] Login verification error:", err);
+      return this.json({ error: message }, 401);
+    }
 
     if (!result.verified) {
       return this.json({ error: "Passkey verification failed" }, 401);
@@ -660,12 +679,19 @@ export class WebChannel {
     }
 
     const { origin } = this.getWebauthnRpInfo(req);
-    const result = await verifyRegistrationResponse({
-      response: credential,
-      expectedChallenge: pending.challenge,
-      expectedOrigin: origin,
-      expectedRPID: pending.rpId,
-    });
+    let result;
+    try {
+      result = await verifyRegistrationResponse({
+        response: credential,
+        expectedChallenge: pending.challenge,
+        expectedOrigin: origin,
+        expectedRPID: pending.rpId,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Passkey verification failed";
+      console.warn("[webauthn] Registration verification error:", err);
+      return this.json({ error: message }, 401);
+    }
 
     if (!result.verified || !result.registrationInfo) {
       return this.json({ error: "Passkey verification failed" }, 401);
