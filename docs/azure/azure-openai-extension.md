@@ -25,6 +25,7 @@ This note documents the piclaw extension that registers Azure OpenAI and Azure A
 - **Runtime flags** to disable tools or reasoning (`AOAI_DISABLE_TOOLS`, `AOAI_DISABLE_REASONING`, `AOAI_DISABLE_REASONING_MODELS`).
 - **Phase capture + replay** for GPT‑5.3 Codex output metadata (`AOAI_LOG_PHASES` for debug).
 - **Stream failure logging** for `response.failed` / `error` events with request summaries.
+- **Tool-call trimming + summarisation** to stay under Azure’s 128 tool-call limit (with optional dedupe of `tool_output_search`).
 - **Text output forcing** via `text: { format: { type: "text" }, verbosity: "medium" }`.
 
 ## Pitfalls / guardrails
@@ -158,6 +159,10 @@ include: ["reasoning.encrypted_content"]
 - `AOAI_DISABLE_REASONING` – disable reasoning (`true`/`1`/`yes`)
 - `AOAI_DISABLE_REASONING_MODELS` – comma‑separated model IDs to force reasoning off
 - `AOAI_LOG_PHASES` – log GPT‑5.3 phase replay details (`true`/`1`/`yes`)
+- `AOAI_MAX_TOOL_CALLS` – maximum tool calls per request before trimming (default `96`)
+- `AOAI_TOOL_CALL_SUMMARY_MAX` – max tool-call entries to include in the summary message (default `12`)
+- `AOAI_TOOL_CALL_OUTPUT_CHARS` – max chars per tool output snippet in summaries (default `200`)
+- `AOAI_DEDUPE_TOOL_OUTPUT_SEARCH` – dedupe repeated `tool_output_search` calls (`1` default, set `0` to disable)
 
 - `FOUNDRY_BASE_URL` – Foundry base URL
 - `FOUNDRY_MODEL_IDS` / `FOUNDRY_MODEL_NAMES` – Foundry model list + names
