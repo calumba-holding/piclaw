@@ -1,8 +1,8 @@
-# `piclaw` - A `pi`-based general-purpose agent
+# `piclaw` — A `pi`-based general-purpose agent
 
 ![PiClaw](docs/icon-512.png)
 
-PiClaw is a minimal Docker-based sandbox for running the [Pi Coding Agent](https://github.com/badlogic/pi-mono) in an isolated Debian environment. It bundles `piclaw` - a web-first orchestrator built on the Pi SDK with persistent sessions, a streaming web UI, and scheduled tasks. WhatsApp is optional. Inspired by [agentbox](https://github.com/rcarmo/agentbox) and [nanoclaw](https://github.com/qwibitai/nanoclaw).
+PiClaw is a Docker-based sandbox for running the [Pi Coding Agent](https://github.com/badlogic/pi-mono) in an isolated Debian environment. It bundles `piclaw` — a web-first orchestrator built on the Pi SDK with persistent sessions, a streaming web UI, and scheduled tasks. WhatsApp is optional. Inspired by [agentbox](https://github.com/rcarmo/agentbox) and [nanoclaw](https://github.com/qwibitai/nanoclaw).
 
 ## Highlights
 
@@ -11,7 +11,7 @@ PiClaw is a minimal Docker-based sandbox for running the [Pi Coding Agent](https
 - **Pi Coding Agent** installed globally (`pi` CLI)
 - **`piclaw`** orchestrator (web UI, WhatsApp optional)
 - **Streaming Web UI** with markdown, attachments, link previews, and SSE
-- **Built-in code editor** (CodeMirror 6) with syntax highlighting for 12+ languages
+- **Built-in code editor** (CodeMirror 6) with syntax highlighting for 12 languages
 - **Persistent workspace & SQLite storage** (messages, media, tasks, token usage)
 - **Token usage tracking + charts** (token-chart skill)
 - **Built-in skills** for setup, debugging, Playwright, charts, and scheduling
@@ -29,9 +29,9 @@ make up
 docker logs -f piclaw
 ```
 
-`supervisord` now acts as PID 1 and keeps `piclaw` running (see [`supervisor/conf.d/piclaw.conf`](supervisor/conf.d/piclaw.conf)). On first boot, default supervisor config is copied into `/workspace/.piclaw/supervisor/` so it persists on the workspace volume; edits there survive container rebuilds/restarts.
+`supervisord` acts as PID 1 and keeps `piclaw` running (see [`supervisor/conf.d/piclaw.conf`](supervisor/conf.d/piclaw.conf)). On first boot, the default supervisor configuration is copied into `/workspace/.piclaw/supervisor/` so it persists on the workspace volume; edits there survive container rebuilds and restarts.
 
-Optional services can use [`supervisor/conf.d/optional-service-template.conf`](supervisor/conf.d/optional-service-template.conf) - it guards missing binaries so a failed optional service does not impact `piclaw`.
+Optional services can use [`supervisor/conf.d/optional-service-template.conf`](supervisor/conf.d/optional-service-template.conf) — it guards missing binaries so a failed optional service does not affect `piclaw`.
 
 Once piclaw is running, open the web UI at:
 
@@ -46,14 +46,14 @@ cd /workspace
 pi
 ```
 
-### Provisioning pi & provider logins
+### Provisioning `pi` and provider logins
 
-PiClaw bundles both the Pi CLI and the web UI, so you can provision keys or run setup flows without leaving the container. Two common approaches:
+PiClaw bundles both the Pi CLI and the web UI, so you can provision keys or run setup flows without leaving the container. There are two common approaches:
 
 1. **`/shell` command (from the web UI):**
    - Type `/shell <command>` in the compose box to run a non-interactive command inside the container.
    - Examples: `/shell pi --version`, `/shell piclaw keychain set github/foo --secret ...`, `/shell ANTHROPIC_API_KEY=sk-ant-... pi -c "console.log('ready')"`.
-   - Ideal for short tasks such as exporting API keys, writing config files, or seeding the encrypted keychain. Output streams back into the chat.
+   - Ideal for short tasks such as exporting API keys, writing configuration files, or seeding the encrypted keychain. Output streams back into the chat.
 
 2. **`docker exec` (full TTY):**
    ```bash
@@ -85,8 +85,8 @@ The built-in UI is single-user, mobile-friendly, and streams updates over SSE:
 - **File reference pills** (click a file to add it to the next prompt)
 - **Preview rules**: Markdown renders only for `.md`; other text is monospaced plaintext; images render inline
 - **Link previews** via server-side OpenGraph fetch
-- **Multi-turn threading** - when the agent produces multiple turns in a single response, subsequent turns are visually threaded under the first
-- **Large message previews** - oversized messages are truncated with a download link for the full content
+- **Multi-turn threading** — when the agent produces multiple turns in a single response, subsequent turns are visually threaded under the first
+- **Large message handling** — oversized messages are truncated with a download link for the full content
 - **Dark/Light themes** (system preference)
 - **Mobile-first layout** with webapp manifest
 
@@ -94,11 +94,10 @@ The built-in UI is single-user, mobile-friendly, and streams updates over SSE:
 
 ![Screenshot showing explorer](docs/screenshot-explorer-light.jpg)
 
+The workspace sidebar shows an SVG tree of `/workspace` (auto-refreshes every 60 seconds and only re-renders when the tree changes). Click a file to:
 
-The workspace sidebar shows an SVG tree of `/workspace` (auto-refreshes every 15s and only re-renders when the tree changes). Click a file to:
-
-- Open a preview (images inline, text in monospaced plaintext by default, Markdown rendered only for `.md`).
-- Add a **file reference pill** to the compose box for your next prompt.
+- Open a preview (images render inline; text is shown in monospaced plaintext; Markdown renders only for `.md` files).
+- Add a **file reference pill** to the compose box for the next prompt.
 
 When you send a message with pills, the UI prefixes your prompt with a `Files:` block so the agent sees the paths:
 
@@ -110,7 +109,7 @@ Files:
 <your message>
 ```
 
-Remove pills with the "x" on each tag, or clear them automatically after sending.
+Remove pills with the ✕ on each tag, or let them clear automatically after sending.
 
 ### Code editor
 
@@ -125,19 +124,19 @@ Click the **pencil icon** in the file preview header to open any text file (up t
 - **Resizable pane** — drag the splitter between editor and chat to adjust widths (persisted in localStorage)
 - **Vendored CodeMirror 6** bundle (~245 KB gzip) — no external CDN dependencies
 
-The editor uses your system monospace font stack and respects the current dark/light theme.
+The editor uses the system monospace font stack and respects the current dark/light theme.
 
-Web server settings:
+### Web server settings
 
-- `PICLAW_WEB_PORT` (default `8080`)
-- `PICLAW_WEB_HOST` (default `0.0.0.0`)
-- `PICLAW_WEB_IDLE_TIMEOUT` (seconds, `0` disables)
-- `PICLAW_WEB_TLS_CERT` (path to TLS certificate; enables HTTPS)
-- `PICLAW_WEB_TLS_KEY` (path to TLS private key; enables HTTPS)
-  - If both are omitted but `.piclaw/certs/sandbox.local.crt` and `.piclaw/certs/sandbox.local.key` exist, HTTPS is enabled automatically.
-- `PICLAW_WEB_MAX_CONTENT_CHARS` (default `262144` / 256 KB; oversized messages are truncated with metadata)
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `PICLAW_WEB_PORT` | `8080` | Web UI port |
+| `PICLAW_WEB_HOST` | `0.0.0.0` | Bind address |
+| `PICLAW_WEB_IDLE_TIMEOUT` | `0` (disabled) | Drop idle clients after this many seconds |
+| `PICLAW_WEB_TLS_CERT` / `PICLAW_WEB_TLS_KEY` | _(empty)_ | Paths to TLS certificate and key; enables HTTPS. If omitted, falls back to `.piclaw/certs/sandbox.local.{crt,key}` when present. |
+| `PICLAW_WEB_MAX_CONTENT_CHARS` | `262144` | Max message size in characters; oversized messages are truncated with metadata |
 
-CLI overrides are also available: `piclaw --port`, `--host`, `--idle-timeout`, `--tls-cert`, `--tls-key`.
+CLI overrides: `piclaw --port`, `--host`, `--idle-timeout`, `--tls-cert`, `--tls-key`.
 
 ### Web UI authentication (TOTP)
 
@@ -157,7 +156,7 @@ Flow:
 3. Enter the 6-digit code from your authenticator app to receive an HTTP-only `piclaw_session` cookie.
 4. Sessions expire automatically after `PICLAW_WEB_SESSION_TTL` seconds or when you delete the cookie.
 
-Internal automation still works via `/internal/post` as long as the client supplies the `PICLAW_WEB_INTERNAL_SECRET` header.
+Internal automation still works via `/internal/post` as long as the request includes the configured secret in the `x-piclaw-internal-secret` header or the `Authorization` header.
 
 ## Volumes & Persistence
 
@@ -177,7 +176,7 @@ Everything that should survive container recreation lives on two volumes:
 ├── .piclaw/                 # `piclaw` state (auto-created, gitignored)
 │   ├── store/messages.db    # SQLite database (messages, media, tasks, token usage)
 │   ├── data/sessions/       # Pi session history (per chat JID)
-│   ├── data/ipc/            # IPC files (messages, tasks)
+│   ├── data/ipc/            # IPC files (messages, scheduled tasks)
 │   └── data/chats.json      # Registered chat JIDs
 ├── notes/                   # Agent memory (created by `pi` as needed)
 └── <your projects>/
@@ -214,21 +213,17 @@ WORKSPACE_PATH=/mnt/data/piclaw-workspace docker compose up -d
 | `PICLAW_DATA` | `/workspace/.piclaw/data` | Sessions, IPC, chats.json |
 | `SUPERVISOR_CONF` | `/workspace/.piclaw/supervisor/supervisord.conf` (when `/workspace` exists) | Supervisor config path (`/etc/supervisor/supervisord.conf` fallback) |
 
-### Runtime & UI
+### Runtime and UI
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `PICLAW_AUTOSTART` | `1` | Set to `0` to keep the supervisor service idle (run `pi`/`piclaw` manually) |
 | `PICLAW_AGENT_TIMEOUT` | `1800000` | Max `pi` invocation time (ms) |
-| `PICLAW_BACKGROUND_AGENT_TIMEOUT` | `0` | Max background invocation time (ms, `0` disables) |
-| `PICLAW_ASSISTANT_NAME` | `PiClaw` | Trigger name (`@PiClaw`) |
-| `PICLAW_ASSISTANT_AVATAR` | _(empty)_ | Avatar URL for web UI |
-| `PICLAW_WEB_PORT` | `8080` | Web UI port |
-| `PICLAW_WEB_HOST` | `0.0.0.0` | Web UI bind address |
-| `PICLAW_WEB_IDLE_TIMEOUT` | `0` | Drop idle clients (seconds) |
-| `PICLAW_WEB_MAX_CONTENT_CHARS` | `262144` | Max web message size |
-| `PICLAW_TOOL_OUTPUT_RETENTION_DAYS` | `30` | Retain stored tool outputs |
-| `PICLAW_TOOL_OUTPUT_CLEANUP_INTERVAL_MS` | `43200000` | Cleanup interval |
+| `PICLAW_BACKGROUND_AGENT_TIMEOUT` | `0` | Max background invocation time (ms; `0` disables) |
+| `PICLAW_ASSISTANT_NAME` | `PiClaw` | Display name in the web UI |
+| `PICLAW_ASSISTANT_AVATAR` | _(empty)_ | Avatar URL for the web UI |
+| `PICLAW_TOOL_OUTPUT_RETENTION_DAYS` | `30` | Days to retain stored tool outputs |
+| `PICLAW_TOOL_OUTPUT_CLEANUP_INTERVAL_MS` | `43200000` | Cleanup interval (ms) |
 
 Deprecated env names (still supported): `ASSISTANT_NAME`, `ASSISTANT_AVATAR`, `AGENT_TIMEOUT`, `AGENT_TIMEOUT_BACKGROUND`.
 
@@ -241,7 +236,7 @@ Piclaw ships with an encrypted SQLite-backed keychain that can inject secrets in
 | `PICLAW_KEYCHAIN_KEY` | _(empty)_ | Master key for encrypting/decrypting keychain entries |
 | `PICLAW_KEYCHAIN_KEY_FILE` | _(empty)_ | Read master key from a file (trimmed) |
 
-Entries live in `messages.db` (table `keychain_entries`) encrypted with AES-256-GCM + PBKDF2 (per-entry salt + nonce). Deleting entries uses `PRAGMA secure_delete=ON`.
+Entries live in `messages.db` (table `keychain_entries`) encrypted with AES-256-GCM + PBKDF2 (per-entry salt and nonce). The database runs with `PRAGMA secure_delete=ON`.
 
 Add an entry via the CLI:
 
@@ -282,9 +277,9 @@ You can also store it in `/workspace/.piclaw/config.json`:
 { "whatsappPhone": "1234567890" }
 ```
 
-### Assistant name & avatar
+### Assistant name and avatar
 
-You can set the web UI name/avatar via `PICLAW_ASSISTANT_NAME` / `PICLAW_ASSISTANT_AVATAR` or in `.piclaw/config.json`:
+Set via environment variables (see above) or in `.piclaw/config.json`:
 
 ```json
 {
@@ -297,54 +292,42 @@ You can set the web UI name/avatar via `PICLAW_ASSISTANT_NAME` / `PICLAW_ASSISTA
 
 ### Pushover notifications
 
-`piclaw` can send proactive notifications for scheduled tasks or IPC messages:
+`piclaw` can send push notifications for scheduled tasks and IPC messages. Set the following environment variables or add them to `.piclaw/config.json` under the `pushover` key:
 
 ```bash
 PUSHOVER_APP_TOKEN=your-app-token
 PUSHOVER_USER_KEY=your-user-key
-PUSHOVER_DEVICE=myphone
-PUSHOVER_PRIORITY=0
-PUSHOVER_SOUND=pushover
+PUSHOVER_DEVICE=myphone          # optional
+PUSHOVER_PRIORITY=0              # optional
+PUSHOVER_SOUND=pushover          # optional
 ```
 
-Or via config:
+## Tools and skills
 
-```json
-{
-  "pushover": {
-    "appToken": "your-app-token",
-    "userKey": "your-user-key",
-    "device": "myphone",
-    "priority": 0,
-    "sound": "pushover"
-  }
-}
-```
+`pi` ships with the standard tools (read, bash, edit, write) plus `piclaw` extensions for message search, model control, and file attachments. Skills live under `.pi/skills/` (seeded from a skeleton on first boot). They cover setup, diagnostics, Playwright automation, hot-reload, scheduling, messaging, and chart generation. Each skill bundles its script alongside a `SKILL.md` so it travels with the workspace.
 
-## Tools & skills overview
+See [docs/tools-and-skills.md](docs/tools-and-skills.md) for details.
 
-`pi` ships with the standard tools (read, bash, edit, write) plus `piclaw` extensions for message search, model control, and file attachments. They keep output lean, store messages and media in SQLite, and enable one-shot operations without leaving the chat.
+## Further reading
 
-Skills live under `.pi/skills` and `~/.pi/agent/skills` and are kept in sync. They cover setup, diagnostics, Playwright automation, hot-reload, scheduling, messaging, and chart helpers. Each skill keeps its script alongside the `SKILL.md` so it can travel with the workspace.
-
-## Further documentation
-
-- [Architecture](docs/architecture.md)
-- [Storage model](docs/storage.md)
-- [Runtime flows](docs/runtime-flows.md)
-- [Tools and skills](docs/tools-and-skills.md)
-- [WhatsApp integration (optional)](docs/whatsapp.md)
+- [Architecture](docs/architecture.md) — codebase layout and design decisions
+- [Storage model](docs/storage.md) — SQLite schema and data lifecycle
+- [Runtime flows](docs/runtime-flows.md) — message processing and agent lifecycle
+- [Tools and skills](docs/tools-and-skills.md) — built-in tools and skill catalogue
+- [Keychain](docs/keychain.md) — encrypted secret storage
+- [WhatsApp](docs/whatsapp.md) — optional WhatsApp integration
 
 ## Development
 
 ### Building
 
 ```bash
-cd piclaw
-make build-piclaw    # TypeScript compile + web asset copy
+make build-piclaw    # Full build: vendor bundle + web assets + TypeScript
+make vendor          # Rebuild CodeMirror vendor bundle only
 make lint            # ESLint (flat config)
 make test            # Run all tests
 make test-coverage   # Tests with coverage report
+make local-install   # Pack, install globally, and restart piclaw
 ```
 
 ### Testing
@@ -352,7 +335,7 @@ make test-coverage   # Tests with coverage report
 Tests use the Bun runner. For SQLite safety, tests default to sequential mode:
 
 ```bash
-cd piclaw/piclaw
+cd piclaw
 bun test                              # run all tests
 bun test --max-concurrency=1          # sequential (recommended)
 bun test test/extensions-model-control.test.ts  # single file
@@ -362,9 +345,9 @@ bun test test/extensions-model-control.test.ts  # single file
 
 PiClaw is a standard OCI image and works with any compliant container runtime:
 
-- **Docker** / Docker Desktop - primary development target
-- **Apple Containers** (macOS 26+) - works natively
-- **Podman**, **nerdctl**, etc. - standard `docker compose` equivalents work
+- **Docker** / Docker Desktop — primary development target
+- **Apple Containers** (macOS 26+) — works natively
+- **Podman**, **nerdctl**, etc. — standard `docker compose` equivalents work
 
 Multi-arch images (amd64 + arm64) are published to GHCR on every tag push.
 
@@ -377,8 +360,9 @@ Pushing a version tag triggers `.github/workflows/publish.yml`:
 3. Artifact cleanup (keeps 5 most recent releases/tags/workflows/images)
 
 ```bash
-make bump-patch   # bumps VERSION, commits, creates git tag
-make push         # pushes commits + tag → triggers CI
+make bump-patch   # bump patch version, commit, and create git tag
+make bump-minor   # bump minor version, commit, and create git tag
+make push         # push commits + tag → triggers CI
 ```
 
 ## Credits
