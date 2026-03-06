@@ -1,10 +1,12 @@
 type ToolCallEntry = {
   callId: string;
+  itemId?: string;
   name?: string;
   args?: string;
   output?: string;
   callIndex: number;
   outputIndex?: number;
+  reasoningIndex?: number;
   removed?: boolean;
   deduped?: boolean;
 };
@@ -46,6 +48,50 @@ function parseToolOutputSearchArgs(args?: string): { handle?: string; query?: st
   }
 }
 
+type ReasoningEntry = {
+  index: number;
+  id?: string;
+  paired: boolean;
+};
+
+function findReasoningForCall(item: any, reasoningItems: ReasoningEntry[]): number | undefined {
+  if (!item || typeof item !== "object") return undefined;
+
+  const explicit =
+    (typeof item.reasoning === "string" ? item.reasoning : undefined) ||
+    (typeof item.reasoning_id === "string" ? item.reasoning_id : undefined) ||
+    (typeof item.reasoning?.id === "string" ? item.reasoning.id : undefined);
+
+  const itemId = typeof item.id === "string" ? item.id : "";
+  let candidate = explicit;
+
+  if (!candidate && itemId) {
+    if (itemId.startsWith("fc_")) {
+      candidate = `rs_${itemId.slice(3)}`;
+    } else if (itemId.startsWith("fc-")) {
+      candidate = `rs-${itemId.slice(3)}`;
+    }
+  }
+
+  if (candidate) {
+    const matched = reasoningItems.find((entry) => entry.id === candidate && !entry.paired);
+    if (matched) {
+      matched.paired = true;
+      return matched.index;
+    }
+  }
+
+  for (let i = reasoningItems.length - 1; i >= 0; i -= 1) {
+    const entry = reasoningItems[i];
+    if (!entry.paired) {
+      entry.paired = true;
+      return entry.index;
+    }
+  }
+
+  return undefined;
+}
+
 function describeToolCall(entry: ToolCallEntry, outputChars: number): string {
   const name = entry.name || "tool";
   const outputPreview = formatToolCallSnippet(entry.output || "", outputChars);
@@ -71,22 +117,33 @@ function describeToolCall(entry: ToolCallEntry, outputChars: number): string {
 export function applyToolCallLimit(messages: Array<any>, config: ToolCallLimitConfig): ToolCallLimitResult {
   const entries: ToolCallEntry[] = [];
   const entryByCallId = new Map<string, ToolCallEntry>();
+  const reasoningItems: ReasoningEntry[] = [];
 
   messages.forEach((item, index) => {
     if (!item || typeof item !== "object") return;
+
+    if (item.type === "reasoning") {
+      const id = typeof item.id === "string" ? item.id : undefined;
+      reasoningItems.push({ index, id, paired: false });
+      return;
+    }
+
     if (item.type === "function_call") {
       const callId = String(item.call_id || item.id || "").trim();
       if (!callId) return;
       const entry: ToolCallEntry = {
         callId,
+        itemId: typeof item.id === "string" ? item.id : undefined,
         name: typeof item.name === "string" ? item.name : undefined,
         args: typeof item.arguments === "string" ? item.arguments : undefined,
         callIndex: index,
       };
+      entry.reasoningIndex = findReasoningForCall(item, reasoningItems);
       entries.push(entry);
       entryByCallId.set(callId, entry);
       return;
     }
+
     if (item.type === "function_call_output") {
       const callId = String(item.call_id || "").trim();
       if (!callId) return;
@@ -143,9 +200,19 @@ export function applyToolCallLimit(messages: Array<any>, config: ToolCallLimitCo
   }
 
   const removeIndexes = new Set<number>();
+  const keptReasoningIndexes = new Set<number>();
+  for (const entry of entries) {
+    if (!entry.removed && entry.reasoningIndex !== undefined) {
+      keptReasoningIndexes.add(entry.reasoningIndex);
+    }
+  }
+
   for (const entry of removedEntries) {
     if (entry.callIndex >= 0) removeIndexes.add(entry.callIndex);
     if (entry.outputIndex !== undefined) removeIndexes.add(entry.outputIndex);
+    if (entry.reasoningIndex !== undefined && !keptReasoningIndexes.has(entry.reasoningIndex)) {
+      removeIndexes.add(entry.reasoningIndex);
+    }
   }
 
   const summaryLines = removedEntries

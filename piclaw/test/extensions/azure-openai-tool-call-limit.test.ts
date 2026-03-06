@@ -9,8 +9,9 @@ const config = {
   dedupeToolOutputSearch: true,
 };
 
-const makeCall = (callId: string, name: string, args: Record<string, unknown>) => ({
+const makeCall = (callId: string, itemId: string, name: string, args: Record<string, unknown>) => ({
   type: "function_call",
+  id: itemId,
   call_id: callId,
   name,
   arguments: JSON.stringify(args),
@@ -22,11 +23,19 @@ const makeOutput = (callId: string, output: string) => ({
   output,
 });
 
+const makeReasoning = (id: string) => ({
+  type: "reasoning",
+  id,
+  summary: [{ type: "summary_text", text: "summary" }],
+});
+
 test("applyToolCallLimit trims oldest tool calls and inserts summary", () => {
   const messages = [
-    makeCall("call1", "bash", { command: "ls" }),
+    makeReasoning("rs_old"),
+    makeCall("call1", "fc_old", "bash", { command: "ls" }),
     makeOutput("call1", "first output"),
-    makeCall("call2", "tool_output_search", { handle: "out_1", query: "foo" }),
+    makeReasoning("rs_keep"),
+    makeCall("call2", "fc_keep", "tool_output_search", { handle: "out_1", query: "foo" }),
     makeOutput("call2", "second output"),
   ];
 
@@ -41,6 +50,12 @@ test("applyToolCallLimit trims oldest tool calls and inserts summary", () => {
     .map((item) => item.call_id);
   expect(callIds).toEqual(["call2"]);
 
+  const reasoningIds = result.messages
+    .filter((item) => item?.type === "reasoning")
+    .map((item) => item.id);
+  expect(reasoningIds).toContain("rs_keep");
+  expect(reasoningIds).not.toContain("rs_old");
+
   const summary = result.messages.find((item) => item?.type === "message" && item?.role === "assistant");
   expect(summary).toBeTruthy();
   expect(summary?.content?.[0]?.text || "").toContain("Earlier tool calls (1)");
@@ -49,9 +64,11 @@ test("applyToolCallLimit trims oldest tool calls and inserts summary", () => {
 
 test("applyToolCallLimit dedupes tool_output_search calls", () => {
   const messages = [
-    makeCall("call1", "tool_output_search", { handle: "out_2", query: "alpha" }),
+    makeReasoning("rs_a"),
+    makeCall("call1", "fc_a", "tool_output_search", { handle: "out_2", query: "alpha" }),
     makeOutput("call1", "first result"),
-    makeCall("call2", "tool_output_search", { handle: "out_2", query: "alpha" }),
+    makeReasoning("rs_b"),
+    makeCall("call2", "fc_b", "tool_output_search", { handle: "out_2", query: "alpha" }),
     makeOutput("call2", "second result"),
   ];
 
@@ -65,6 +82,12 @@ test("applyToolCallLimit dedupes tool_output_search calls", () => {
     .filter((item) => item?.type === "function_call")
     .map((item) => item.call_id);
   expect(callIds).toEqual(["call1"]);
+
+  const reasoningIds = result.messages
+    .filter((item) => item?.type === "reasoning")
+    .map((item) => item.id);
+  expect(reasoningIds).toContain("rs_a");
+  expect(reasoningIds).not.toContain("rs_b");
 
   const summary = result.messages.find((item) => item?.type === "message" && item?.role === "assistant");
   expect(summary).toBeTruthy();
