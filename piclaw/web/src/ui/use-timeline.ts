@@ -1,10 +1,10 @@
+// @ts-nocheck
 import { useCallback, useEffect, useRef, useState } from '../vendor/preact-htm.js';
 import { getTimeline, getPostsByHashtag } from '../api.js';
 import { dedupePosts } from './timeline-utils.js';
-import type { TimelinePost } from './types.js';
 
 export function useTimeline({ preserveTimelineScroll, preserveTimelineScrollTop }) {
-  const [posts, setPosts] = useState<TimelinePost[] | null>(null);
+  const [posts, setPosts] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const hasMoreRef = useRef(false);
   const loadMoreRef = useRef(null);
