@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { html, useCallback, useEffect, useMemo, useRef, useState } from '../vendor/preact-htm.js';
+import { getLocalStorageBoolean, setLocalStorageItem } from '../utils/storage.js';
 import {
     EditorState,
     EditorView,
@@ -138,23 +139,12 @@ export function WorkspaceEditor({
     const themeCompartment = useMemo(() => new Compartment(), []);
     const whitespaceCompartment = useMemo(() => new Compartment(), []);
 
-    const [vimEnabled, setVimEnabled] = useState(() => {
-        try {
-            return localStorage.getItem('piclaw_vim_mode') === 'true';
-        } catch {
-            return false;
-        }
-    });
+    const [vimEnabled, setVimEnabled] = useState(() => getLocalStorageBoolean('piclaw_vim_mode', false));
     const vimEnabledRef = useRef(vimEnabled);
 
     const [showWhitespace, setShowWhitespace] = useState(() => {
-        try {
-            const stored = localStorage.getItem('piclaw_show_whitespace');
-            if (stored === null) return true;
-            return stored === 'true';
-        } catch {
-            return true;
-        }
+        const stored = getLocalStorageBoolean('piclaw_show_whitespace', true);
+        return stored;
     });
 
     const [isDark, setIsDark] = useState(() => {
@@ -180,11 +170,7 @@ export function WorkspaceEditor({
 
     useEffect(() => {
         vimEnabledRef.current = vimEnabled;
-        try {
-            localStorage.setItem('piclaw_vim_mode', vimEnabled ? 'true' : 'false');
-        } catch {
-            // ignore
-        }
+        setLocalStorageItem('piclaw_vim_mode', vimEnabled ? 'true' : 'false');
         const view = viewRef.current;
         if (!view) return;
         view.dispatch({
@@ -193,11 +179,7 @@ export function WorkspaceEditor({
     }, [vimEnabled, vimCompartment]);
 
     useEffect(() => {
-        try {
-            localStorage.setItem('piclaw_show_whitespace', showWhitespace ? 'true' : 'false');
-        } catch {
-            // ignore
-        }
+        setLocalStorageItem('piclaw_show_whitespace', showWhitespace ? 'true' : 'false');
         const view = viewRef.current;
         if (!view) return;
         view.dispatch({

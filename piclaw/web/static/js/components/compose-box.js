@@ -1,6 +1,8 @@
 // @ts-nocheck
 import { html, useRef, useState, useEffect, useCallback } from '../vendor/preact-htm.js';
 import { sendAgentMessage, uploadMedia } from '../api.js';
+import { getLocalStorageItem, setLocalStorageItem } from '../utils/storage.js';
+import { FilePill } from './file-pill.js';
 
 /**
  * Slash command definitions for autocomplete.
@@ -142,10 +144,9 @@ export function ComposeBox({
         return cleaned;
     };
     const loadHistory = () => {
-        if (typeof window === 'undefined') return [];
+        const raw = getLocalStorageItem('piclaw_compose_history');
+        if (!raw) return [];
         try {
-            const raw = localStorage.getItem('piclaw_compose_history');
-            if (!raw) return [];
             const parsed = JSON.parse(raw);
             if (!Array.isArray(parsed)) return [];
             return normaliseHistory(parsed);
@@ -154,12 +155,7 @@ export function ComposeBox({
         }
     };
     const saveHistory = (history) => {
-        if (typeof window === 'undefined') return;
-        try {
-            localStorage.setItem('piclaw_compose_history', JSON.stringify(history));
-        } catch {
-            // ignore
-        }
+        setLocalStorageItem('piclaw_compose_history', JSON.stringify(history));
     };
     const historyRef = useRef(loadHistory());
     const historyIndexRef = useRef(-1);
@@ -483,53 +479,26 @@ export function ComposeBox({
                             ${fileRefs.map((path) => {
                                 const label = path.split('/').pop() || path;
                                 return html`
-                                    <span class="compose-file-pill" title=${path}>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                            <polyline points="14 2 14 8 20 8"/>
-                                        </svg>
-                                        <span class="compose-file-name">${label}</span>
-                                        <button
-                                            class="compose-file-remove"
-                                            onClick=${(event) => {
-                                                event.preventDefault();
-                                                event.stopPropagation();
-                                                onRemoveFileRef?.(path);
-                                            }}
-                                            title="Remove file"
-                                            type="button"
-                                        >
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M18 6L6 18M6 6l12 12"/>
-                                            </svg>
-                                        </button>
-                                    </span>
+                                    <${FilePill}
+                                        prefix="compose"
+                                        label=${label}
+                                        title=${path}
+                                        removeTitle="Remove file"
+                                        onRemove=${() => onRemoveFileRef?.(path)}
+                                    />
                                 `;
                             })}
                             ${mediaFiles.map((file, index) => {
                                 const label = file?.name || `image-${index + 1}`;
                                 return html`
-                                    <span key=${label + index} class="compose-file-pill" title=${label}>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                            <polyline points="14 2 14 8 20 8"/>
-                                        </svg>
-                                        <span class="compose-file-name">${label}</span>
-                                        <button
-                                            class="compose-file-remove"
-                                            onClick=${(event) => {
-                                                event.preventDefault();
-                                                event.stopPropagation();
-                                                removeMediaFile(index);
-                                            }}
-                                            title="Remove image"
-                                            type="button"
-                                        >
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M18 6L6 18M6 6l12 12"/>
-                                            </svg>
-                                        </button>
-                                    </span>
+                                    <${FilePill}
+                                        key=${label + index}
+                                        prefix="compose"
+                                        label=${label}
+                                        title=${label}
+                                        removeTitle="Remove image"
+                                        onRemove=${() => removeMediaFile(index)}
+                                    />
                                 `;
                             })}
                         </div>

@@ -19,12 +19,15 @@
  *   import anything from this module tree.
  */
 import { html, render, useState, useEffect, useCallback, useRef } from './vendor/preact-htm.js';
-import { getTimeline, getPostsByHashtag, searchPosts, deletePost, getAgents, getAgentThought, setAgentThoughtVisibility, getAgentStatus, getAgentContext, getWorkspaceFile, updateWorkspaceFile, SSEClient } from './api.js';
+import { getTimeline, getPostsByHashtag, searchPosts, deletePost, getAgents, getAgentThought, setAgentThoughtVisibility, getAgentStatus, getAgentContext, getWorkspaceFile, updateWorkspaceFile } from './api.js';
 import { ComposeBox } from './components/compose-box.js';
 import { AgentRequestModal, AgentStatus, ConnectionStatus } from './components/status.js';
 import { Timeline } from './components/timeline.js';
 import { WorkspaceExplorer } from './components/workspace-explorer.js';
 import { WorkspaceEditor } from './components/editor.js';
+import { getLocalStorageBoolean, getLocalStorageNumber, setLocalStorageItem } from './utils/storage.js';
+import { useSseConnection } from './ui/use-sse-connection.js';
+import { useNotifications } from './ui/use-notifications.js';
 
 function readSilenceOverride(key, fallback) {
     try {
@@ -136,14 +139,14 @@ function App() {
     const [agents, setAgents] = useState({});
     const [activeModel, setActiveModel] = useState(null);
     const [contextUsage, setContextUsage] = useState(null);
-    const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-    const [notificationPermission, setNotificationPermission] = useState('default');
+    const {
+        notificationsEnabled,
+        notificationPermission,
+        toggleNotifications: handleToggleNotifications,
+        notify,
+    } = useNotifications();
     const [removingPostIds, setRemovingPostIds] = useState(() => new Set());
-    const [workspaceOpen, setWorkspaceOpen] = useState(() => {
-        if (typeof window === 'undefined') return true;
-        const stored = localStorage.getItem('workspaceOpen');
-        return stored === null ? true : stored === 'true';
-    });
+    const [workspaceOpen, setWorkspaceOpen] = useState(() => getLocalStorageBoolean('workspaceOpen', true));
     const [editorState, setEditorState] = useState({ open: false, path: null, content: '', loading: false, error: null, mtime: null, size: null });
     const [editorSaving, setEditorSaving] = useState(false);
     const [editorSaveError, setEditorSaveError] = useState(null);
@@ -173,7 +176,6 @@ function App() {
     const editorWidthRef = useRef(0);
     const thoughtExpandedRef = useRef(false);
     const draftExpandedRef = useRef(false);
-    const notificationsEnabledRef = useRef(false);
     const lastNotifiedIdRef = useRef(null);
     const lastAgentResponseRef = useRef(null);
     const lastActivityTimerRef = useRef(null);
@@ -185,13 +187,6 @@ function App() {
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
-        const stored = localStorage.getItem('notificationsEnabled');
-        const enabled = stored === 'true';
-        notificationsEnabledRef.current = enabled;
-        setNotificationsEnabled(enabled);
-        if (typeof Notification !== 'undefined') {
-            setNotificationPermission(Notification.permission);
-        }
 
         const media = window.matchMedia('(prefers-color-scheme: dark)');
         const applyTheme = () => updateThemeColor(media.matches);
@@ -211,12 +206,7 @@ function App() {
     }, []);
 
     useEffect(() => {
-        notificationsEnabledRef.current = notificationsEnabled;
-    }, [notificationsEnabled]);
-
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        localStorage.setItem('workspaceOpen', String(workspaceOpen));
+        setLocalStorageItem('workspaceOpen', String(workspaceOpen));
     }, [workspaceOpen]);
 
     useEffect(() => {
@@ -351,50 +341,8 @@ function App() {
         draftExpandedRef.current = false;
     }, [setCurrentTurnId, setSteerQueuedTurnId]);
 
-    const requestNotificationPermission = useCallback(() => {
-        if (typeof Notification === 'undefined') return Promise.resolve('denied');
-        try {
-            const result = Notification.requestPermission();
-            if (result && typeof result.then === 'function') {
-                return result;
-            }
-            return Promise.resolve(result);
-        } catch {
-            return Promise.resolve('default');
-        }
-    }, []);
-
-    const handleToggleNotifications = useCallback(async () => {
-        if (typeof window === 'undefined' || typeof Notification === 'undefined') return;
-        if (!window.isSecureContext) {
-            alert('Notifications require a secure context (HTTPS or installed app).');
-            return;
-        }
-        if (Notification.permission === 'denied') {
-            setNotificationPermission('denied');
-            alert('Browser notifications are blocked. Enable them in your browser settings.');
-            return;
-        }
-        if (Notification.permission === 'default') {
-            const result = await requestNotificationPermission();
-            setNotificationPermission(result || 'default');
-            if (result !== 'granted') {
-                notificationsEnabledRef.current = false;
-                setNotificationsEnabled(false);
-                localStorage.setItem('notificationsEnabled', 'false');
-                return;
-            }
-        }
-        const next = !notificationsEnabledRef.current;
-        notificationsEnabledRef.current = next;
-        setNotificationsEnabled(next);
-        localStorage.setItem('notificationsEnabled', String(next));
-    }, [requestNotificationPermission]);
 
     const notifyForFinalResponse = useCallback((turnId) => {
-        if (!notificationsEnabledRef.current) return;
-        if (typeof Notification === 'undefined') return;
-        if (Notification.permission !== 'granted') return;
         if (typeof document !== 'undefined') {
             const hasFocus = typeof document.hasFocus === 'function' ? document.hasFocus() : true;
             if (!document.hidden && hasFocus) return;
@@ -412,19 +360,8 @@ function App() {
         const agentsMap = agentsRef.current || {};
         const agent = post?.data?.agent_id ? agentsMap[post.data.agent_id] : null;
         const title = agent?.name || 'Pi';
-        try {
-            const notification = new Notification(title, { body });
-            notification.onclick = () => {
-                try {
-                    window.focus();
-                } catch {
-                    // ignore focus errors
-                }
-            };
-        } catch {
-            // ignore notification failures
-        }
-    }, []);
+        notify(title, body);
+    }, [notify]);
 
     const handlePanelToggle = useCallback(async (panelKey, expanded) => {
         if (panelKey !== 'thought' && panelKey !== 'draft') return;
@@ -911,7 +848,7 @@ function App() {
     useEffect(() => {
         loadAgents();
         // Also apply saved sidebar width imperatively (no state → no re-render)
-        const saved = parseInt(localStorage.getItem('sidebarWidth') || '', 10);
+        const saved = getLocalStorageNumber('sidebarWidth', null);
         const w = Number.isFinite(saved) ? Math.min(Math.max(saved, 160), 600) : 280;
         sidebarWidthRef.current = w;
         if (appShellRef.current) {
@@ -1270,25 +1207,7 @@ function App() {
     }, [clearAgentRunState, finalizeStalledResponse, handleSseEvent, removeStalledPost]);
 
     // Set up SSE connection
-    useEffect(() => {
-        loadPosts();
-
-        const sse = new SSEClient(handleSseEvent, handleConnectionStatusChange);
-
-        sse.connect();
-
-        const handleWindowFocus = () => {
-            sse.reconnectIfNeeded();
-        };
-        window.addEventListener('focus', handleWindowFocus);
-        document.addEventListener('visibilitychange', handleWindowFocus);
-
-        return () => {
-            window.removeEventListener('focus', handleWindowFocus);
-            document.removeEventListener('visibilitychange', handleWindowFocus);
-            sse.disconnect();
-        };
-    }, [handleConnectionStatusChange, handleSseEvent, loadPosts]);
+    useSseConnection({ handleSseEvent, handleConnectionStatusChange, loadPosts });
 
     // Adaptive backstop poller — SSE is the primary event source; this is
     // a safety net only. 15 s when a turn is active (keeps compaction status
@@ -1338,7 +1257,7 @@ function App() {
             splitter.classList.remove('dragging');
             document.body.style.cursor = '';
             document.body.style.userSelect = '';
-            localStorage.setItem('sidebarWidth', String(Math.round(w)));
+            setLocalStorageItem('sidebarWidth', String(Math.round(w)));
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
         };
@@ -1369,7 +1288,7 @@ function App() {
         const onUp = () => {
             splitter.classList.remove('dragging');
             document.body.style.userSelect = '';
-            localStorage.setItem('sidebarWidth', String(Math.round(sidebarWidthRef.current || startW)));
+            setLocalStorageItem('sidebarWidth', String(Math.round(sidebarWidthRef.current || startW)));
             document.removeEventListener('touchmove', onMove);
             document.removeEventListener('touchend', onUp);
             document.removeEventListener('touchcancel', onUp);
@@ -1403,7 +1322,7 @@ function App() {
             splitter.classList.remove('dragging');
             document.body.style.cursor = '';
             document.body.style.userSelect = '';
-            localStorage.setItem('editorWidth', String(Math.round(w)));
+            setLocalStorageItem('editorWidth', String(Math.round(w)));
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
         };
@@ -1434,7 +1353,7 @@ function App() {
         const onUp = () => {
             splitter.classList.remove('dragging');
             document.body.style.userSelect = '';
-            localStorage.setItem('editorWidth', String(Math.round(editorWidthRef.current || startW)));
+            setLocalStorageItem('editorWidth', String(Math.round(editorWidthRef.current || startW)));
             document.removeEventListener('touchmove', onMove);
             document.removeEventListener('touchend', onUp);
             document.removeEventListener('touchcancel', onUp);
@@ -1454,7 +1373,7 @@ function App() {
         const shell = appShellRef.current;
         if (!shell) return;
         if (!editorWidthRef.current) {
-            const stored = parseInt(localStorage.getItem('editorWidth') || '', 10);
+            const stored = getLocalStorageNumber('editorWidth', null);
             const fallback = sidebarWidthRef.current || 280;
             editorWidthRef.current = Number.isFinite(stored) ? stored : fallback;
         }

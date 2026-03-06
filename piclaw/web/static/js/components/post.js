@@ -1,10 +1,11 @@
 // @ts-nocheck
-import { html, useEffect, useRef, useState } from '../vendor/preact-htm.js';
+import { html, useEffect, useMemo, useRef, useState } from '../vendor/preact-htm.js';
 import { getMediaInfo, getMediaUrl, getThumbnailUrl } from '../api.js';
-import { renderMarkdown, renderMermaidDiagrams } from '../markdown.js';
+import { renderMarkdown, renderMermaidDiagrams, sanitizeUrl } from '../markdown.js';
 import { formatCount, formatFileSize, formatTime, formatTimestamp } from '../utils/format.js';
 import { DEFAULT_AGENT_NAME, getAvatarInfo } from '../ui/agent-utils.js';
 import { ImageModal } from './image-modal.js';
+import { FilePill } from './file-pill.js';
 
 /**
  * File attachment component - displays downloadable file with icon
@@ -498,23 +499,19 @@ export function Post({ post, onClick, onHashtagClick, agentName, agentAvatarUrl,
                         ${fileRefs.map((ref) => {
                             const label = ref.split('/').pop() || ref;
                             return html`
-                                <span class="post-file-pill" title=${ref}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                        <polyline points="14 2 14 8 20 8"/>
-                                    </svg>
-                                    <span class="post-file-name">${label}</span>
-                                </span>
+                                <${FilePill}
+                                    prefix="post"
+                                    label=${label}
+                                    title=${ref}
+                                />
                             `;
                         })}
                         ${attachmentPills.map((attachment) => html`
-                            <span class="post-file-pill" title=${attachment.label}>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                    <polyline points="14 2 14 8 20 8"/>
-                                </svg>
-                                <span class="post-file-name">${attachment.label}</span>
-                            </span>
+                            <${FilePill}
+                                prefix="post"
+                                label=${attachment.label}
+                                title=${attachment.label}
+                            />
                         `)}
                     </div>
                 `}

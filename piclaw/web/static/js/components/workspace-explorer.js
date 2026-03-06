@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { html, useCallback, useEffect, useMemo, useRef, useState } from '../vendor/preact-htm.js';
+import { getLocalStorageBoolean, getLocalStorageNumber, setLocalStorageItem } from '../utils/storage.js';
 import {
     attachWorkspaceFile,
     getMediaInfo,
@@ -138,10 +139,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, onOpenEditor }
     const [initialLoad,   setInitialLoad]   = useState(true);
     const [loadingPreview,setLoadingPreview]= useState(false);
     const [error,         setError]         = useState(null);
-    const [showHidden,    setShowHidden]    = useState(() => {
-        if (typeof window === 'undefined') return false;
-        return localStorage.getItem('workspaceShowHidden') === 'true';
-    });
+    const [showHidden,    setShowHidden]    = useState(() => getLocalStorageBoolean('workspaceShowHidden', false));
     const [dragActive,   setDragActive]    = useState(false);
     const [dropTarget,   setDropTarget]    = useState(null);
     const [uploading,    setUploading]     = useState(false);
@@ -310,7 +308,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, onOpenEditor }
         updateVisibility();
         const timer = setInterval(() => loadTreeFnRef.current(), REFRESH_INTERVAL_MS);
         // Apply saved preview height
-        const saved = parseInt(localStorage.getItem('previewHeight') || '', 10);
+        const saved = getLocalStorageNumber('previewHeight', null);
         const h = Number.isFinite(saved) ? Math.min(Math.max(saved, 80), 600) : 280;
         previewHeightRef.current = h;
         if (sidebarRef.current) {
@@ -404,7 +402,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, onOpenEditor }
         setShowHidden((prev) => {
             const next = !prev;
             if (typeof window !== 'undefined') {
-                localStorage.setItem('workspaceShowHidden', String(next));
+                setLocalStorageItem('workspaceShowHidden', String(next));
             }
             showHiddenRef.current = next;
             setWorkspaceVisibility(true, next).catch(() => {});
@@ -449,7 +447,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, onOpenEditor }
             splitter.classList.remove('dragging');
             document.body.style.cursor = '';
             document.body.style.userSelect = '';
-            localStorage.setItem('previewHeight', String(Math.round(h)));
+            setLocalStorageItem('previewHeight', String(Math.round(h)));
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
         };
@@ -481,7 +479,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, onOpenEditor }
         const onUp = () => {
             splitter.classList.remove('dragging');
             document.body.style.userSelect = '';
-            localStorage.setItem('previewHeight', String(Math.round(previewHeightRef.current || startH)));
+            setLocalStorageItem('previewHeight', String(Math.round(previewHeightRef.current || startH)));
             document.removeEventListener('touchmove', onMove);
             document.removeEventListener('touchend', onUp);
             document.removeEventListener('touchcancel', onUp);
