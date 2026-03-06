@@ -1080,12 +1080,12 @@ body {
 .compose-box textarea {
     flex: 1;
     width: 100%;
-    min-height: 30px;
-    max-height: 52px;
+    min-height: 50px;
+    max-height: 180px;
     border: none;
     resize: none;
     font-family: inherit;
-    font-size: var(--font-size-md);
+    font-size: var(--font-size-sm);
     color: var(--text-primary);
     background-color: transparent;
     outline: none;
@@ -2730,8 +2730,8 @@ body {
     }
     
     .compose-box textarea {
-        min-height: 30px;
-        font-size: var(--font-size-md);
+        min-height: 50px;
+        font-size: var(--font-size-sm);
     }
     
     .post {
@@ -2811,7 +2811,7 @@ body {
     }
     
     .compose-box textarea {
-        min-height: 30px;
+        min-height: 70px;
     }
 }
 

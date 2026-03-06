@@ -178,7 +178,7 @@ export function ComposeBox({
     const notificationActive = notificationPermission === 'granted' && notificationsEnabled;
     const notificationTitle = notificationActive ? 'Disable notifications' : 'Enable notifications';
 
-    const MAX_TEXTAREA_HEIGHT = 52;
+    const MAX_TEXTAREA_HEIGHT = 180;
 
     const resizeTextarea = () => {
         const textarea = textareaRef.current;
