@@ -49,8 +49,8 @@ export async function main() {
         const hasAzure = registry.getAll?.().some((model) => model.provider === "azure-openai");
         if (!hasAzure) {
             try {
-                const azurePath = new URL("../extensions/azure-openai.ts", import.meta.url).pathname;
-                const azureModule = (await import(azurePath));
+                const azureUrl = new URL("../extensions/azure-openai.ts", import.meta.url);
+                const azureModule = (await import(azureUrl.href));
                 if (typeof azureModule.registerAzureProviders === "function") {
                     azureModule.registerAzureProviders((name, config) => registry.registerProvider(name, config), azureToken);
                 }
