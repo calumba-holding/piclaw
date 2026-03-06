@@ -329,7 +329,7 @@ test("processChat advances cursor to pending steering timestamp", async () => {
   expect(web.state.lastAgentTimestamp["web:default"]).toBe(pendingTs);
 });
 
-test("web channel restores agent status from state", async () => {
+test("web channel clears stale agent status on load", async () => {
   const ws = createTempWorkspace("piclaw-web-channel-");
   cleanupWorkspace = ws.cleanup;
   restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
@@ -347,12 +347,14 @@ test("web channel restores agent status from state", async () => {
 
   first.updateAgentStatus("web:default", { type: "auto_compact", title: "Auto-compacting", turn_id: "turn-42" });
 
+  // After a process restart (simulated by creating a new instance and
+  // loading state), stale agent statuses should be cleared — no agent is
+  // actually running in the new process.
   const second = new (webMod.WebChannel as any)({
     queue: { enqueue: () => {} },
     agentPool: { runAgent: async () => ({ status: "success", result: "ok" }) },
   });
   second.loadState();
   const restored = second.getAgentStatus("web:default");
-  expect(restored).not.toBeNull();
-  expect(restored?.turn_id || restored?.turnId).toBe("turn-42");
+  expect(restored).toBeNull();
 });

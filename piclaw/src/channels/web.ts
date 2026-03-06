@@ -320,8 +320,17 @@ export class WebChannel {
 
   loadState(): void {
     this.state.load();
+    // Clear any persisted agent statuses from the previous process.
+    // After a restart no agents are running, so stale "intent" or "tool_call"
+    // statuses would otherwise be served to the UI indefinitely.
     const restored = this.state.getAgentStatuses();
-    this.activeAgentStatuses = new Map(Object.entries(restored));
+    if (Object.keys(restored).length > 0) {
+      for (const jid of Object.keys(restored)) {
+        this.state.setAgentStatus(jid, null);
+      }
+      this.state.save();
+    }
+    this.activeAgentStatuses = new Map();
   }
 
   saveState(): void {
