@@ -850,7 +850,7 @@ function streamSimpleFoundryOpenAICompletions(model: any, context: any, options:
   return streamSimpleOpenAICompletions(overrideModel, context, options);
 }
 
-function registerProvider(pi: ExtensionAPI, token: string) {
+export function registerAzureProviders(register: (name: string, config: any) => void, token: string) {
   const openaiModels = MODEL_IDS.map((id, idx) => {
     const spec = MODEL_SPECS[id] || DEFAULT_AZURE_SPEC;
     return {
@@ -865,7 +865,7 @@ function registerProvider(pi: ExtensionAPI, token: string) {
     };
   });
 
-  pi.registerProvider(PROVIDER, {
+  register(PROVIDER, {
     baseUrl: BASE_URL,
     api: AZURE_API,
     apiKey: token,
@@ -888,7 +888,7 @@ function registerProvider(pi: ExtensionAPI, token: string) {
   });
 
   if (foundryModels.length > 0) {
-    pi.registerProvider(FOUNDRY_PROVIDER, {
+    register(FOUNDRY_PROVIDER, {
       baseUrl: FOUNDRY_BASE_URL,
       api: FOUNDRY_API,
       apiKey: token,
@@ -896,6 +896,10 @@ function registerProvider(pi: ExtensionAPI, token: string) {
       models: foundryModels,
     });
   }
+}
+
+function registerProvider(pi: ExtensionAPI, token: string) {
+  registerAzureProviders((name, config) => pi.registerProvider(name, config), token);
 }
 
 export default function (pi: ExtensionAPI) {

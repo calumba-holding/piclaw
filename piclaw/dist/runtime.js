@@ -42,6 +42,24 @@ export async function main() {
     startToolOutputCleanup(TOOL_OUTPUT_RETENTION_DAYS, TOOL_OUTPUT_CLEANUP_INTERVAL_MS);
     state.loadTimestamps();
     state.loadChats();
+    // Ensure Azure providers are registered for model listing at startup.
+    const azureToken = process.env.AOAI_API_KEY || process.env.FOUNDRY_API_KEY;
+    const registry = agentPool.modelRegistry;
+    if (registry && process.env.AOAI_BASE_URL && azureToken) {
+        const hasAzure = registry.getAll?.().some((model) => model.provider === "azure-openai");
+        if (!hasAzure) {
+            try {
+                const azurePath = new URL("../extensions/azure-openai.ts", import.meta.url).pathname;
+                const azureModule = (await import(azurePath));
+                if (typeof azureModule.registerAzureProviders === "function") {
+                    azureModule.registerAzureProviders((name, config) => registry.registerProvider(name, config), azureToken);
+                }
+            }
+            catch (err) {
+                console.warn("[runtime] Failed to register Azure providers:", err);
+            }
+        }
+    }
     console.log("=== Piclaw - Pi Coding Agent Assistant ===");
     let shuttingDown = false;
     const withTimeout = async (promise, ms, label) => {
