@@ -119,6 +119,21 @@ export class RequestRouterService {
         const isManifest = isGetOrHead && pathname === "/manifest.json";
         const isFavicon = isGetOrHead && pathname === "/favicon.ico";
         const isAppleIcon = isGetOrHead && APPLE_ICON_PATHS.has(pathname);
+        // TODO: Auth-gate the app bundle
+        // ─────────────────────────────
+        // isStaticAsset currently whitelists ALL /static/ paths past auth. This
+        // means the full app JS (app.js, api.js, components/, etc.) is served to
+        // unauthenticated visitors. The login page (login.html) is self-contained
+        // with inline JS and does NOT load any /static/js/ files.
+        //
+        // To fix, either:
+        //   (a) Move the app bundle to an auth-gated path (e.g. /app/bundle.js)
+        //       and only whitelist /static/css/, /static/fonts/, and vendor libs, OR
+        //   (b) Replace the blanket isStaticAsset check with an allowlist of public
+        //       paths (CSS, icons, vendor libs) and require auth for app JS.
+        //
+        // The app bundle exposes API endpoint paths, component structure, and
+        // workspace logic that should not be visible to unauthenticated users.
         const isStaticAsset = pathname.startsWith("/static/");
         const isDocsAsset = pathname.startsWith("/docs/");
         const isAvatar = isGetOrHead && pathname === "/avatar/agent";

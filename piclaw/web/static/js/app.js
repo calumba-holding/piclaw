@@ -1,4 +1,23 @@
 // @ts-nocheck
+/**
+ * app.ts – Main web UI entry point.
+ *
+ * This file is the root of the authenticated SPA. It imports all components,
+ * the API client, and the markdown renderer. Today it's copied to
+ * web/static/js/app.js and loaded as an ES module by index.html.
+ *
+ * Build plan (TODO):
+ *   Bundle this file and all its local imports into a single minified
+ *   app.bundle.js using `bun build --target=browser --format=esm --minify`.
+ *   Mark vendor/codemirror.js as --external (loaded separately).
+ *   The vendor/preact-htm.js re-export can be inlined by the bundler.
+ *
+ * Auth segmentation (TODO):
+ *   The resulting bundle should be served from an auth-gated path so
+ *   unauthenticated users (login.html) never receive it. login.html is
+ *   fully self-contained with inline JS for TOTP/WebAuthn and does not
+ *   import anything from this module tree.
+ */
 import { html, render, useState, useEffect, useCallback, useRef } from './vendor/preact-htm.js';
 import { getTimeline, getPostsByHashtag, searchPosts, deletePost, getAgents, getAgentThought, setAgentThoughtVisibility, getAgentStatus, getWorkspaceFile, updateWorkspaceFile, SSEClient } from './api.js';
 import { ComposeBox } from './components/compose-box.js';
