@@ -1,6 +1,53 @@
 // @ts-nocheck
-import { html, useRef, useState } from '../vendor/preact-htm.js';
+import { html, useRef, useState, useEffect, useCallback } from '../vendor/preact-htm.js';
 import { sendAgentMessage, uploadMedia } from '../api.js';
+
+/**
+ * Slash command definitions for autocomplete.
+ * Kept in sync with agent-control/command-registry.ts.
+ */
+const SLASH_COMMANDS = [
+  { name: "/model", description: "Select model or list available models" },
+  { name: "/cycle-model", description: "Cycle to the next available model" },
+  { name: "/thinking", description: "Show or set thinking level" },
+  { name: "/cycle-thinking", description: "Cycle thinking level" },
+  { name: "/state", description: "Show current session state" },
+  { name: "/stats", description: "Show session token and cost stats" },
+  { name: "/context", description: "Show context window usage" },
+  { name: "/last", description: "Show last assistant response" },
+  { name: "/compact", description: "Manually compact the session" },
+  { name: "/auto-compact", description: "Toggle auto-compaction" },
+  { name: "/auto-retry", description: "Toggle auto-retry" },
+  { name: "/abort", description: "Abort the current response" },
+  { name: "/abort-retry", description: "Abort retry backoff" },
+  { name: "/abort-bash", description: "Abort running bash command" },
+  { name: "/shell", description: "Run a shell command and return output" },
+  { name: "/bash", description: "Run a shell command and add output to context" },
+  { name: "/queue", description: "Queue a follow-up message (one-at-a-time)" },
+  { name: "/queue-all", description: "Queue a follow-up message (batch all)" },
+  { name: "/steering-mode", description: "Set steering mode (all|one)" },
+  { name: "/followup-mode", description: "Set follow-up mode (all|one)" },
+  { name: "/session-name", description: "Set or show the session name" },
+  { name: "/new-session", description: "Start a new session" },
+  { name: "/switch-session", description: "Switch to a session file" },
+  { name: "/fork", description: "Fork from a previous message" },
+  { name: "/forks", description: "List forkable messages" },
+  { name: "/tree", description: "List the session tree" },
+  { name: "/label", description: "Set or clear a label on a tree entry" },
+  { name: "/labels", description: "List labeled entries" },
+  { name: "/agent-name", description: "Set or show the agent display name" },
+  { name: "/agent-avatar", description: "Set or show the agent avatar URL" },
+  { name: "/user-name", description: "Set or show your display name" },
+  { name: "/user-avatar", description: "Set or show your avatar URL" },
+  { name: "/user-github", description: "Set name/avatar from GitHub profile" },
+  { name: "/export-html", description: "Export session to HTML" },
+  { name: "/passkey", description: "Manage passkeys (enrol/list/delete)" },
+  { name: "/totp", description: "Show a TOTP enrolment QR code" },
+  { name: "/qr", description: "Generate a QR code for text or URL" },
+  { name: "/search", description: "Search notes and skills in the workspace" },
+  { name: "/restart", description: "Restart the agent and stop subprocesses" },
+  { name: "/commands", description: "List available commands" },
+];
 
 /**
  * Tiny SVG pie chart showing context window usage.
@@ -75,7 +122,11 @@ export function ComposeBox({
     const [loading, setLoading] = useState(false);
     const [mediaFiles, setMediaFiles] = useState([]);
     const [isDragActive, setIsDragActive] = useState(false);
+    const [slashMatches, setSlashMatches] = useState([]);
+    const [slashIndex, setSlashIndex] = useState(0);
+    const [showSlash, setShowSlash] = useState(false);
     const textareaRef = useRef(null);
+    const slashRef = useRef(null);
     const dragCounterRef = useRef(0);
     const historyMax = 200;
     const normaliseHistory = (items) => {
@@ -132,11 +183,62 @@ export function ComposeBox({
         textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
     };
 
+    /** Update slash autocomplete matches based on current input. */
+    const updateSlashAutocomplete = (value) => {
+        // Only trigger when the entire input is a slash command (starts with /)
+        // and contains no newlines (single-line command)
+        if (!value.startsWith('/') || value.includes('\n')) {
+            setShowSlash(false);
+            setSlashMatches([]);
+            return;
+        }
+        const prefix = value.toLowerCase().split(' ')[0]; // only match the command part
+        if (prefix.length < 1) {
+            setShowSlash(false);
+            setSlashMatches([]);
+            return;
+        }
+        const matches = SLASH_COMMANDS.filter(cmd =>
+            cmd.name.startsWith(prefix) || cmd.name.replace(/-/g, '').startsWith(prefix.replace(/-/g, ''))
+        );
+        if (matches.length > 0 && !(matches.length === 1 && matches[0].name === prefix)) {
+            setSlashMatches(matches);
+            setSlashIndex(0);
+            setShowSlash(true);
+        } else {
+            setShowSlash(false);
+            setSlashMatches([]);
+        }
+    };
+
+    /** Accept the currently highlighted slash command. */
+    const acceptSlashCommand = (cmd) => {
+        const current = content;
+        // Replace the command portion, keep any args after a space
+        const spaceIdx = current.indexOf(' ');
+        const args = spaceIdx >= 0 ? current.slice(spaceIdx) : '';
+        const newVal = cmd.name + args;
+        setContent(newVal);
+        setShowSlash(false);
+        setSlashMatches([]);
+        requestAnimationFrame(() => {
+            const textarea = textareaRef.current;
+            if (!textarea) return;
+            // Place cursor at end
+            const len = newVal.length;
+            textarea.selectionStart = len;
+            textarea.selectionEnd = len;
+            textarea.focus();
+            resizeTextarea();
+        });
+    };
+
     const updateValue = (value) => {
         if (searchMode) {
             setSearchText(value);
         } else {
             setContent(value);
+            updateSlashAutocomplete(value);
         }
         requestAnimationFrame(resizeTextarea);
     };
@@ -210,6 +312,30 @@ export function ComposeBox({
             setSearchText('');
             onExitSearch?.();
             return;
+        }
+        // Slash autocomplete navigation
+        if (showSlash && slashMatches.length > 0) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setSlashIndex(i => (i + 1) % slashMatches.length);
+                return;
+            }
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setSlashIndex(i => (i - 1 + slashMatches.length) % slashMatches.length);
+                return;
+            }
+            if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
+                e.preventDefault();
+                acceptSlashCommand(slashMatches[slashIndex]);
+                return;
+            }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                setShowSlash(false);
+                setSlashMatches([]);
+                return;
+            }
         }
         if (!searchMode && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
             const textarea = textareaRef.current;
@@ -419,6 +545,21 @@ export function ComposeBox({
                         disabled=${loading}
                         rows="1"
                     />
+                    ${showSlash && slashMatches.length > 0 && html`
+                        <div class="slash-autocomplete" ref=${slashRef}>
+                            ${slashMatches.map((cmd, i) => html`
+                                <div
+                                    key=${cmd.name}
+                                    class=${`slash-item${i === slashIndex ? ' active' : ''}`}
+                                    onMouseDown=${(e) => { e.preventDefault(); acceptSlashCommand(cmd); }}
+                                    onMouseEnter=${() => setSlashIndex(i)}
+                                >
+                                    <span class="slash-name">${cmd.name}</span>
+                                    <span class="slash-desc">${cmd.description}</span>
+                                </div>
+                            `)}
+                        </div>
+                    `}
                     ${!searchMode && activeModel && html`
                         <span class="compose-model-hint" title=${activeModel}>
                             ${activeModel}
