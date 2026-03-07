@@ -162,6 +162,11 @@ export class WebChannel {
       hostname: WEB_HOST,
       port: WEB_PORT,
       idleTimeout: WEB_IDLE_TIMEOUT,
+      // Hard limit on request body size. Individual endpoints enforce tighter
+      // limits (e.g., 10 MB for media uploads, 100 KB for message content).
+      // This is the outermost safety net; Bun rejects bodies exceeding this
+      // before any handler code runs.
+      maxRequestBodySize: 50 * 1024 * 1024, // 50 MB hard cap
       fetch: (req) => this.handleRequest(req),
       ...(tls ? { tls } : {}),
     });
@@ -1237,8 +1242,13 @@ export class WebChannel {
     return this.json(result.body, result.status);
   }
 
+  /**
+   * PATCH /post/:id – Update a post's content and optionally set thread_id.
+   * Validates: id is a positive integer, content ≤ 100 KB, thread_id is a
+   * positive integer if provided. Uses parameterized queries (no SQL injection).
+   */
   async handleUpdatePost(req: Request, id: number | null): Promise<Response> {
-    if (!id) return this.json({ error: "Missing post id" }, 400);
+    if (!id || id < 1) return this.json({ error: "Missing or invalid post id" }, 400);
     let body: { content?: string; thread_id?: number };
     try {
       body = await req.json();
@@ -1248,10 +1258,16 @@ export class WebChannel {
     if (!body.content && body.content !== "") {
       return this.json({ error: "Missing content" }, 400);
     }
+    if (typeof body.content === "string" && body.content.length > 100 * 1024) {
+      return this.json({ error: "Content too large (max 100 KB)" }, 400);
+    }
     const updated = replaceMessageContent(DEFAULT_CHAT_JID, id, body.content!, {});
     if (!updated) return this.json({ error: "Post not found" }, 404);
 
     if (body.thread_id) {
+      if (typeof body.thread_id !== "number" || !Number.isInteger(body.thread_id) || body.thread_id < 1) {
+        return this.json({ error: "Invalid thread_id" }, 400);
+      }
       const { getDb } = await import("../db/connection.js");
       getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(body.thread_id, id);
       updated.data.thread_id = body.thread_id;
@@ -1269,6 +1285,11 @@ export class WebChannel {
     return this.json({ ok: true, id: updated.id });
   }
 
+  /**
+   * POST /internal/post – Create an internal agent message.
+   * Requires internal secret when WEB_INTERNAL_SECRET is configured.
+   * Content is capped at 100 KB to prevent DB bloat.
+   */
   async handleInternalPost(req: Request): Promise<Response> {
     let body: { content?: string; thread_id?: number };
     try {
@@ -1277,6 +1298,9 @@ export class WebChannel {
       return this.json({ error: "Invalid JSON" }, 400);
     }
     if (!body.content) return this.json({ error: "Missing content" }, 400);
+    if (body.content.length > 100 * 1024) {
+      return this.json({ error: "Content too large (max 100 KB)" }, 400);
+    }
 
     const threadId = body.thread_id || this.lastCommandInteractionId || undefined;
     const interaction = this.storeMessage(
@@ -1358,6 +1382,10 @@ export class WebChannel {
     return this.json(payload, 200);
   }
 
+  /**
+   * POST /agent/respond – Handle a UI response to an agent request (e.g., confirmation dialog).
+   * Validates request_id is a non-empty string of ≤ 256 chars.
+   */
   async handleAgentRespond(req: Request): Promise<Response> {
     let data: { request_id?: string; outcome?: unknown };
     try {
@@ -1366,7 +1394,12 @@ export class WebChannel {
       return this.json({ error: "Invalid JSON" }, 400);
     }
 
-    if (!data.request_id) return this.json({ error: "Missing request_id" }, 400);
+    if (!data.request_id || typeof data.request_id !== "string") {
+      return this.json({ error: "Missing or invalid request_id" }, 400);
+    }
+    if (data.request_id.length > 256) {
+      return this.json({ error: "request_id too long" }, 400);
+    }
 
     const status = this.uiBridge.handleUiResponse(data.request_id, data.outcome);
     return this.json(status);

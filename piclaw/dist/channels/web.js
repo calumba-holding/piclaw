@@ -77,6 +77,7 @@ export class WebChannel {
             hostname: WEB_HOST,
             port: WEB_PORT,
             idleTimeout: WEB_IDLE_TIMEOUT,
+            maxRequestBodySize: 50 * 1024 * 1024, // 50 MB hard cap
             fetch: (req) => this.handleRequest(req),
             ...(tls ? { tls } : {}),
         });

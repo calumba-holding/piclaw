@@ -9,6 +9,13 @@
 
 const encoder = new TextEncoder();
 
+/**
+ * Maximum number of concurrent SSE clients.
+ * Prevents resource exhaustion from opening too many connections.
+ * Each client holds a ReadableStream controller and a heartbeat interval.
+ */
+const MAX_SSE_CLIENTS = 50;
+
 /** An SSE client waiting to be registered (response + controller). */
 export interface PendingClient {
   controller: ReadableStreamDefaultController<Uint8Array>;
@@ -20,8 +27,19 @@ export interface SseClientContainer {
   clients: Set<PendingClient>;
 }
 
-/** Create an SSE response stream and register the client. */
+/**
+ * Create an SSE response stream and register the client.
+ * Returns 503 if the maximum client limit has been reached.
+ */
 export function handleSse(channel: SseClientContainer): Response {
+  // Guard against connection exhaustion — reject if at capacity
+  if (channel.clients.size >= MAX_SSE_CLIENTS) {
+    return new Response(JSON.stringify({ error: "Too many connections" }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   let clientRef: PendingClient | null = null;
 
   const stream = new ReadableStream<Uint8Array>({

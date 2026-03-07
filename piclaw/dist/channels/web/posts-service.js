@@ -7,6 +7,8 @@
  *
  * Consumers: web/handlers/posts.ts calls parsePostPayload() and storePost().
  */
+/** Max allowed message content length (100 KB). */
+const MAX_POST_CONTENT_LENGTH = 100 * 1024;
 /** Validate and parse a raw POST body into a PostPayload. */
 export function parsePostPayload(body) {
     if (!body || typeof body !== "object")
@@ -14,6 +16,9 @@ export function parsePostPayload(body) {
     const data = body;
     if (!data.content)
         return { ok: false, error: "Missing 'content' field" };
+    if (typeof data.content === "string" && data.content.length > MAX_POST_CONTENT_LENGTH) {
+        return { ok: false, error: `Content too large (max ${MAX_POST_CONTENT_LENGTH} bytes)` };
+    }
     return { ok: true, data };
 }
 /** Parse a comma-separated media ID string into a number array. */

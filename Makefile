@@ -25,17 +25,11 @@
 #   (preact-htm, codemirror, katex, marked, mermaid) stay as separate pre-built
 #   files since they're already minified.
 #
-#   TODO: Auth-gate the app bundle
-#   ──────────────────────────────
-#   Currently ALL /static/ paths skip auth (see request-router-service.ts
-#   skipAuthCheck). This means the full app JS is served to unauthenticated
-#   users. The login page (login.html) is already self-contained with inline
-#   JS, so it doesn't need app.bundle.js.
-#
-#   To fix: either move app.bundle.js behind an auth-gated path (e.g. /app/),
-#   or split the static whitelist so only CSS, icons, and vendor libs are public.
-#   The app bundle contains API endpoints, component logic, and workspace
-#   structure that should not be exposed to unauthenticated visitors.
+#   Auth-gating the app bundle (DONE)
+#   ──────────────────────────────────
+#   Only CSS, fonts, vendor libs, and static images are whitelisted past auth
+#   in request-router-service.ts (isPublicStaticPath). The app JS bundle
+#   (app.js, api.js, components/) now requires authentication.
 
 IMAGE ?= pibox
 TAG ?= latest

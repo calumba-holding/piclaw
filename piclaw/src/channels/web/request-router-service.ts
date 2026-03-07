@@ -1,11 +1,27 @@
 /**
- * web/request-router-service.ts – High-level request processing logic.
+ * web/request-router-service.ts – HTTP request dispatcher and security layer.
  *
- * Contains the business logic for handling compose-box submissions:
- * detecting control commands, routing agent runs, managing steering/followup
- * modes, and coordinating with the agent queue.
+ * Handles all incoming HTTP requests for the web channel:
+ *   - Applies security headers (CSP, HSTS, X-Frame-Options, etc.) to every response
+ *   - Enforces TOTP / WebAuthn authentication when configured
+ *   - Validates CSRF Origin on all state-changing (POST/PUT/DELETE/PATCH) requests
+ *   - Rate-limits auth endpoints (brute-force protection) and data endpoints
+ *     (posts, uploads, deletes, workspace writes)
+ *   - Auth-gates the app JS bundle; only CSS, fonts, vendor libs, and images
+ *     are served to unauthenticated visitors
+ *   - Routes requests to the appropriate handler (posts, media, workspace,
+ *     agent control, SSE streaming, static files)
  *
- * Consumers: web/request-router.ts delegates to functions defined here.
+ * Security architecture:
+ *   1. rememberWebOrigin (tracking)
+ *   2. Auth rate limiting (auth/verify, WebAuthn login/enrol)
+ *   3. Session auth check (TOTP/WebAuthn cookie)
+ *   4. CSRF Origin validation (state-changing methods, exempt: auth endpoints)
+ *   5. Data rate limiting (posts, uploads, deletes, writes)
+ *   6. Route to handler
+ *   7. withSecurityHeaders() wraps the final response
+ *
+ * Consumers: channels/web.ts delegates each request to handle().
  */
 
 import { extname, resolve } from "path";
@@ -27,21 +43,38 @@ const APPLE_ICON_PATHS = new Set([
   "/apple-touch-icon-152x152.png",
 ]);
 
-const ENROLL_RATE_WINDOW_MS = 5 * 60 * 1000;
-const ENROLL_RATE_LIMIT = 20;
-const AUTH_RATE_WINDOW_MS = 5 * 60 * 1000;
-const AUTH_RATE_LIMIT = 10;
+// ── Auth rate limiting ──
+// Limits brute-force attempts on login and enrolment endpoints.
+const ENROLL_RATE_WINDOW_MS = 5 * 60 * 1000;  // 5-minute sliding window
+const ENROLL_RATE_LIMIT = 20;                   // max 20 enrol attempts per window
+const AUTH_RATE_WINDOW_MS = 5 * 60 * 1000;      // 5-minute sliding window
+const AUTH_RATE_LIMIT = 10;                      // max 10 login attempts per window
+
+// ── Data endpoint rate limiting ──
+// Limits abuse of state-changing endpoints (message flooding, upload spam,
+// mass deletion). Applied per client IP, after auth check passes.
+const DATA_RATE_WINDOW_MS = 60 * 1000;  // 1-minute sliding window
+const DATA_POST_LIMIT = 30;              // max 30 posts/replies per minute
+const DATA_UPLOAD_LIMIT = 20;            // max 20 media/file uploads per minute
+const DATA_DELETE_LIMIT = 60;            // max 60 deletions per minute
+const DATA_WRITE_LIMIT = 30;             // max 30 workspace file writes per minute
+
+// ── Rate bucket storage ──
+// Per-IP sliding-window counters for all rate-limited endpoints.
+// Keys are "ip:bucket" strings, values are arrays of timestamps.
 const rateBuckets = new Map<string, number[]>();
 
 // Prune stale IP entries every 10 minutes to prevent unbounded memory growth.
 const RATE_PRUNE_INTERVAL_MS = 10 * 60 * 1000;
 let lastRatePrune = Date.now();
 
+/** Remove expired entries from all rate buckets. Called lazily on each check. */
+
 function pruneRateBuckets(): void {
   const now = Date.now();
   if (now - lastRatePrune < RATE_PRUNE_INTERVAL_MS) return;
   lastRatePrune = now;
-  const maxWindow = Math.max(ENROLL_RATE_WINDOW_MS, AUTH_RATE_WINDOW_MS);
+  const maxWindow = Math.max(ENROLL_RATE_WINDOW_MS, AUTH_RATE_WINDOW_MS, DATA_RATE_WINDOW_MS);
   const cutoff = now - maxWindow;
   for (const [key, entries] of rateBuckets.entries()) {
     const live = entries.filter((ts) => ts > cutoff);
@@ -53,6 +86,10 @@ function pruneRateBuckets(): void {
   }
 }
 
+/**
+ * Extract the client IP from the request for rate limiting.
+ * Trusts x-forwarded-for and x-real-ip from reverse proxies (Caddy/nginx).
+ */
 function getClientKey(req: Request): string {
   const forwarded = req.headers.get("x-forwarded-for");
   if (forwarded) {
@@ -64,6 +101,10 @@ function getClientKey(req: Request): string {
   return "unknown";
 }
 
+/**
+ * Check if a client has exceeded its rate limit for a given bucket.
+ * Records the current attempt and returns true if over the limit.
+ */
 function isRateLimited(req: Request, bucket: string, windowMs: number, limit: number): boolean {
   pruneRateBuckets();
   const key = `${getClientKey(req)}:${bucket}`;
@@ -74,6 +115,109 @@ function isRateLimited(req: Request, bucket: string, windowMs: number, limit: nu
   trimmed.push(now);
   rateBuckets.set(key, trimmed);
   return trimmed.length > limit;
+}
+
+// ── Security headers ──
+// Applied to every response via withSecurityHeaders(). These defend against:
+//   X-Content-Type-Options: nosniff    → MIME sniffing attacks
+//   X-Frame-Options: DENY              → clickjacking (iframe embedding)
+//   Referrer-Policy                    → referrer leakage on navigation
+//   Permissions-Policy                 → disable camera/mic/geolocation APIs
+//   Content-Security-Policy            → XSS mitigation (inline scripts allowed
+//                                        for login page; blob: for file downloads)
+//   Strict-Transport-Security          → HSTS (TLS only, added dynamically)
+const SECURITY_HEADERS: Record<string, string> = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "Content-Security-Policy":
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; " +
+    "frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+};
+
+/**
+ * Clone a response with security headers appended.
+ * Called once at the end of handle() so ALL responses (API, static, SSE)
+ * get consistent security headers. Existing headers are not overwritten.
+ * HSTS is only added when the connection is TLS.
+ */
+function withSecurityHeaders(response: Response, isTls: boolean): Response {
+  const headers = new Headers(response.headers);
+  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+    if (!headers.has(key)) headers.set(key, value);
+  }
+  if (isTls && !headers.has("Strict-Transport-Security")) {
+    headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+/**
+ * Determine which /static/ paths are safe to serve without authentication.
+ * The login page is fully self-contained (inline CSS/JS) and doesn't need
+ * any /static/js/ files. Only CSS, fonts, vendor libs, and image assets
+ * are whitelisted. The app JS bundle (app.js, api.js, components/) requires
+ * authentication to prevent exposing API structure and application logic.
+ */
+function isPublicStaticPath(pathname: string): boolean {
+  // CSS and fonts are needed for basic styling; JS bundle is gated behind auth
+  if (pathname.startsWith("/static/css/")) return true;
+  if (pathname.startsWith("/static/fonts/")) return true;
+  // Allow vendor libs (preact etc.) — they contain no app-specific logic
+  if (pathname.startsWith("/static/js/vendor/")) return true;
+  // Static images/icons
+  if (pathname.startsWith("/static/") && /\.(png|ico|svg|jpg|jpeg|webp|gif)$/i.test(pathname)) return true;
+  return false;
+}
+
+/**
+ * CSRF origin validation for state-changing requests (POST/PUT/DELETE/PATCH).
+ *
+ * Compares the Origin header against the Host header to ensure the request
+ * comes from the same origin. This prevents cross-origin form submissions
+ * and fetch attacks when the user has an active session cookie.
+ *
+ * Design choices:
+ *   - No Origin header → allow (non-browser clients like curl, internal tools)
+ *   - Origin "null" → block (sandboxed iframes, data: URLs)
+ *   - No Host header → allow (direct connections without proxy)
+ *   - Hostname comparison ignores port (works behind port-forwarding proxies)
+ *   - Auth endpoints are exempt (handled before this check by the caller)
+ *
+ * Note: SameSite=Strict cookies provide the primary CSRF defense; this is
+ * a defense-in-depth layer against same-site but cross-origin attacks.
+ */
+function checkCsrfOrigin(req: Request): boolean {
+  const origin = req.headers.get("origin");
+  // Non-browser clients (curl, internal) may not send Origin — allow
+  if (!origin) return true;
+  // "null" origin comes from sandboxed iframes — block
+  if (origin === "null") return false;
+
+  const host = req.headers.get("host");
+  if (!host) return true; // No host header means non-proxy environment
+
+  try {
+    const originUrl = new URL(origin);
+    // Compare hostname (ignoring port for flexibility behind proxies)
+    return originUrl.hostname === host.split(":")[0];
+  } catch {
+    return false;
+  }
+}
+
+/** Return a 429 JSON response. */
+function rateLimitResponse(msg: string): Response {
+  return new Response(JSON.stringify({ error: msg }), {
+    status: 429,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 /** Business logic for handling compose-box submissions and agent runs. */
@@ -107,7 +251,24 @@ export class RequestRouterService {
     return new Response(file, { status: 200, headers });
   }
 
+  /**
+   * Main entry point for all HTTP requests.
+   * Delegates to route() for path dispatch, then wraps the response
+   * with security headers (CSP, HSTS, X-Frame-Options, etc.).
+   */
   async handle(req: Request): Promise<Response> {
+    const response = await this.route(req);
+    // Determine TLS from the request URL scheme to conditionally add HSTS
+    const isTls = req.url.startsWith("https://");
+    return withSecurityHeaders(response, isTls);
+  }
+
+  /**
+   * Internal request router. Processes the request through the security
+   * pipeline (auth → CSRF → rate limiting) and dispatches to the
+   * appropriate handler. See the module-level JSDoc for the full pipeline.
+   */
+  private async route(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const pathname = url.pathname;
 
@@ -131,22 +292,11 @@ export class RequestRouterService {
     const isManifest = isGetOrHead && pathname === "/manifest.json";
     const isFavicon = isGetOrHead && pathname === "/favicon.ico";
     const isAppleIcon = isGetOrHead && APPLE_ICON_PATHS.has(pathname);
-    // TODO: Auth-gate the app bundle
-    // ─────────────────────────────
-    // isStaticAsset currently whitelists ALL /static/ paths past auth. This
-    // means the full app JS (app.js, api.js, components/, etc.) is served to
-    // unauthenticated visitors. The login page (login.html) is self-contained
-    // with inline JS and does NOT load any /static/js/ files.
-    //
-    // To fix, either:
-    //   (a) Move the app bundle to an auth-gated path (e.g. /app/bundle.js)
-    //       and only whitelist /static/css/, /static/fonts/, and vendor libs, OR
-    //   (b) Replace the blanket isStaticAsset check with an allowlist of public
-    //       paths (CSS, icons, vendor libs) and require auth for app JS.
-    //
-    // The app bundle exposes API endpoint paths, component structure, and
-    // workspace logic that should not be visible to unauthenticated users.
+    // Auth-gate the app JS bundle: only CSS, fonts, vendor libs, and static
+    // images are served to unauthenticated visitors. The login page is fully
+    // self-contained (inline CSS/JS) and loads nothing from /static/js/.
     const isStaticAsset = pathname.startsWith("/static/");
+    const isPublicStatic = isStaticAsset && isPublicStaticPath(pathname);
     const isDocsAsset = pathname.startsWith("/docs/");
     const isAvatar = isGetOrHead && pathname === "/avatar/agent";
 
@@ -198,7 +348,7 @@ export class RequestRouterService {
       isManifest ||
       isFavicon ||
       isAppleIcon ||
-      isStaticAsset ||
+      isPublicStatic ||
       isAvatar;
 
     if (authEnabled) {
@@ -219,6 +369,48 @@ export class RequestRouterService {
       }
     } else if (isLoginPage) {
       return this.channel.json({ error: "Not found" }, 404);
+    }
+
+    // ── CSRF origin check on state-changing methods ──
+    // Auth endpoints are exempt: they have their own rate limiting and are
+    // needed before the user has a session (Origin may vary in edge cases).
+    const isMutating = req.method === "POST" || req.method === "PUT" || req.method === "DELETE" || req.method === "PATCH";
+    const isAuthEndpoint =
+      isAuthVerify ||
+      isWebauthnLoginStart ||
+      isWebauthnLoginFinish ||
+      isWebauthnRegisterStart ||
+      isWebauthnRegisterFinish;
+    if (isMutating && !hasInternalAccess && !isAuthEndpoint) {
+      if (!checkCsrfOrigin(req)) {
+        console.warn(`[security] CSRF origin check failed (ip=${getClientKey(req)}, origin=${req.headers.get("origin")})`);
+        return this.channel.json({ error: "Origin not allowed" }, 403);
+      }
+    }
+
+    // ── Rate limiting on data endpoints ──
+    if (isMutating && !hasInternalAccess) {
+      if ((req.method === "POST" && (pathname === "/post" || pathname === "/reply")) ||
+          (req.method === "POST" && pathname.endsWith("/message"))) {
+        if (isRateLimited(req, "data/post", DATA_RATE_WINDOW_MS, DATA_POST_LIMIT)) {
+          return rateLimitResponse("Too many messages. Slow down.");
+        }
+      }
+      if (req.method === "POST" && (pathname === "/media/upload" || pathname === "/workspace/upload")) {
+        if (isRateLimited(req, "data/upload", DATA_RATE_WINDOW_MS, DATA_UPLOAD_LIMIT)) {
+          return rateLimitResponse("Too many uploads. Slow down.");
+        }
+      }
+      if (req.method === "DELETE") {
+        if (isRateLimited(req, "data/delete", DATA_RATE_WINDOW_MS, DATA_DELETE_LIMIT)) {
+          return rateLimitResponse("Too many deletions. Slow down.");
+        }
+      }
+      if (req.method === "PUT" && pathname === "/workspace/file") {
+        if (isRateLimited(req, "data/write", DATA_RATE_WINDOW_MS, DATA_WRITE_LIMIT)) {
+          return rateLimitResponse("Too many file writes. Slow down.");
+        }
+      }
     }
 
     if (isWebauthnEnrollPage) {
@@ -406,8 +598,9 @@ export class RequestRouterService {
       return this.channel.handleAgentRespond(req);
     }
 
+    // /agent/whitelist — deprecated no-op stub, removed for security hygiene.
     if (req.method === "POST" && pathname === "/agent/whitelist") {
-      return this.channel.json({ status: "ok" });
+      return this.channel.json({ error: "Not found" }, 404);
     }
 
     if (req.method === "POST" && pathname === "/media/upload") {
