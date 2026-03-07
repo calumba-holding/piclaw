@@ -215,3 +215,38 @@ test("/model uses session registry when available", async () => {
   expect(result.message).toContain("anthropic/claude-test");
   expect(result.message).not.toContain("openai/gpt-test");
 });
+
+test("/model rejects provider without model id", async () => {
+  const session = new StubSession();
+  const parsed = parseControlCommand("/model openai/");
+
+  expect(parsed?.type).toBe("model");
+  expect(parsed && "provider" in parsed ? parsed.provider : null).toBe("openai");
+  expect(parsed && "modelId" in parsed ? parsed.modelId : null).toBeUndefined();
+
+  const result = await applyControlCommand(session as any, registry, parsed as any);
+  expect(result.status).toBe("error");
+  expect(result.message).toContain("model");
+  expect(result.message.toLowerCase()).toContain("provider");
+});
+
+test("/model warns when model id matches multiple providers", async () => {
+  const session = new StubSession();
+  const duplicateModel = { provider: "azure", id: "gpt-test", reasoning: true } as any;
+  const dupRegistry = {
+    refresh: () => {},
+    getAvailable: () => [modelReasoning, duplicateModel, modelSimple],
+    getAll: () => [modelReasoning, duplicateModel, modelSimple],
+  } as any;
+
+  const result = await applyControlCommand(session as any, dupRegistry, {
+    type: "model",
+    modelId: "gpt-test",
+    raw: "/model gpt-test",
+  });
+
+  expect(result.status).toBe("error");
+  expect(result.message).toContain("matches multiple providers");
+  expect(result.message).toContain("openai/gpt-test");
+  expect(result.message).toContain("azure/gpt-test");
+});

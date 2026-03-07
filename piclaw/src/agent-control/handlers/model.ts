@@ -24,6 +24,13 @@ export async function handleModel(session: AgentSession, modelRegistry: ModelReg
   registry.refresh();
 
   if (!command.modelId) {
+    if (command.provider) {
+      return {
+        status: "error",
+        message: "Invalid model format. Use /model <provider>/<modelId>.",
+      };
+    }
+
     const available = registry.getAvailable();
     if (available.length === 0) {
       return {
