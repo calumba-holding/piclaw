@@ -1,0 +1,206 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 820" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="10" markerHeight="7" orient="auto-start-auto">
+      <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#475569"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="10" markerHeight="7" orient="auto-start-auto">
+      <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="10" markerHeight="7" orient="auto-start-auto">
+      <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#16a34a"/>
+    </marker>
+    <marker id="arrow-orange" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="10" markerHeight="7" orient="auto-start-auto">
+      <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#ea580c"/>
+    </marker>
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="112%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.1"/>
+    </filter>
+    <linearGradient id="headerA" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="headerB" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1100" height="820" rx="12" fill="#f8fafc"/>
+
+  <!-- Title -->
+  <text x="550" y="36" text-anchor="middle" font-size="18" font-weight="700" fill="#0f172a">Cross-Instance IPC — Architecture &amp; Pairing Flow</text>
+
+  <!-- ==================== INSTANCE A ==================== -->
+  <g transform="translate(30, 60)">
+    <rect width="460" height="310" rx="10" fill="white" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
+    <rect width="460" height="38" rx="10" fill="url(#headerA)"/>
+    <rect y="28" width="460" height="10" fill="url(#headerA)"/>
+    <text x="20" y="25" font-size="14" font-weight="600" fill="white">Instance A — "pibox"</text>
+    <text x="440" y="25" text-anchor="end" font-size="11" fill="#bfdbfe">https://pibox.tailnet:8080</text>
+
+    <!-- Identity box -->
+    <rect x="15" y="50" width="200" height="80" rx="6" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1"/>
+    <text x="25" y="68" font-size="11" font-weight="600" fill="#1e40af">🔑 Identity</text>
+    <text x="25" y="86" font-size="10" fill="#475569">id: pi_abc123def456</text>
+    <text x="25" y="100" font-size="10" fill="#475569">key: Ed25519 keypair</text>
+    <text x="25" y="114" font-size="10" fill="#475569">fp: SHA256:A7:3F:...</text>
+
+    <!-- Peers table -->
+    <rect x="230" y="50" width="215" height="80" rx="6" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+    <text x="240" y="68" font-size="11" font-weight="600" fill="#166534">📋 Peers Table (SQLite)</text>
+    <text x="240" y="86" font-size="10" fill="#475569">buildbox → paired ✓</text>
+    <text x="240" y="100" font-size="10" fill="#475569">azurevm  → pending ⏳</text>
+    <text x="240" y="114" font-size="10" fill="#475569">unknown  → blocked ✗</text>
+
+    <!-- Remote API -->
+    <rect x="15" y="145" width="200" height="90" rx="6" fill="#fef3c7" stroke="#fcd34d" stroke-width="1"/>
+    <text x="25" y="163" font-size="11" font-weight="600" fill="#92400e">🌐 Remote API</text>
+    <text x="25" y="181" font-size="10" fill="#475569">POST /api/remote/pair-request</text>
+    <text x="25" y="195" font-size="10" fill="#475569">POST /api/remote/pair-confirm</text>
+    <text x="25" y="209" font-size="10" fill="#475569">POST /api/remote/ask</text>
+    <text x="25" y="223" font-size="10" fill="#475569">GET  /api/remote/ping</text>
+
+    <!-- Agent + Tools -->
+    <rect x="230" y="145" width="215" height="90" rx="6" fill="#faf5ff" stroke="#d8b4fe" stroke-width="1"/>
+    <text x="240" y="163" font-size="11" font-weight="600" fill="#6b21a8">🤖 Agent</text>
+    <text x="240" y="181" font-size="10" fill="#475569">remote_agent tool</text>
+    <text x="240" y="195" font-size="10" fill="#475569">/ask &lt;instance&gt; &lt;prompt&gt;</text>
+    <text x="240" y="209" font-size="10" fill="#475569">/pair accept|deny|revoke</text>
+    <text x="240" y="223" font-size="10" fill="#475569">/pair list|block|permissions</text>
+
+    <!-- Signing layer -->
+    <rect x="15" y="250" width="430" height="45" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+    <text x="25" y="270" font-size="11" font-weight="600" fill="#334155">🔏 Request Signing</text>
+    <text x="25" y="284" font-size="10" fill="#64748b">sign(privkey, method + path + timestamp + body_hash) → X-Signature header</text>
+  </g>
+
+  <!-- ==================== INSTANCE B ==================== -->
+  <g transform="translate(610, 60)">
+    <rect width="460" height="310" rx="10" fill="white" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
+    <rect width="460" height="38" rx="10" fill="url(#headerB)"/>
+    <rect y="28" width="460" height="10" fill="url(#headerB)"/>
+    <text x="20" y="25" font-size="14" font-weight="600" fill="white">Instance B — "buildbox"</text>
+    <text x="440" y="25" text-anchor="end" font-size="11" fill="#ddd6fe">https://buildbox.tailnet:8080</text>
+
+    <!-- Identity box -->
+    <rect x="15" y="50" width="200" height="80" rx="6" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1"/>
+    <text x="25" y="68" font-size="11" font-weight="600" fill="#5b21b6">🔑 Identity</text>
+    <text x="25" y="86" font-size="10" fill="#475569">id: pi_def789ghi012</text>
+    <text x="25" y="100" font-size="10" fill="#475569">key: Ed25519 keypair</text>
+    <text x="25" y="114" font-size="10" fill="#475569">fp: SHA256:C2:9E:...</text>
+
+    <!-- Peers table -->
+    <rect x="230" y="50" width="215" height="80" rx="6" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+    <text x="240" y="68" font-size="11" font-weight="600" fill="#166534">📋 Peers Table (SQLite)</text>
+    <text x="240" y="86" font-size="10" fill="#475569">pibox    → paired ✓</text>
+    <text x="240" y="100" font-size="10" fill="#475569">permissions: restricted</text>
+    <text x="240" y="114" font-size="10" fill="#475569">last_seen: 2m ago</text>
+
+    <!-- Auth middleware -->
+    <rect x="15" y="145" width="200" height="90" rx="6" fill="#fef2f2" stroke="#fca5a5" stroke-width="1"/>
+    <text x="25" y="163" font-size="11" font-weight="600" fill="#991b1b">🛡️ Auth Middleware</text>
+    <text x="25" y="181" font-size="10" fill="#475569">1. Look up X-Instance-Id</text>
+    <text x="25" y="195" font-size="10" fill="#475569">2. Verify status = paired</text>
+    <text x="25" y="209" font-size="10" fill="#475569">3. Verify Ed25519 signature</text>
+    <text x="25" y="223" font-size="10" fill="#475569">4. Check timestamp ±60s</text>
+
+    <!-- Permission enforcement -->
+    <rect x="230" y="145" width="215" height="90" rx="6" fill="#fff7ed" stroke="#fed7aa" stroke-width="1"/>
+    <text x="240" y="163" font-size="11" font-weight="600" fill="#9a3412">⚙️ Permission Gate</text>
+    <text x="240" y="181" font-size="10" fill="#475569">full → all tools enabled</text>
+    <text x="240" y="195" font-size="10" fill="#475569">restricted → no bash/write</text>
+    <text x="240" y="209" font-size="10" fill="#475569">read-only → status only</text>
+    <text x="240" y="223" font-size="10" fill="#475569">custom → tool allowlist</text>
+
+    <!-- Audit log -->
+    <rect x="15" y="250" width="430" height="45" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+    <text x="25" y="270" font-size="11" font-weight="600" fill="#334155">📝 Audit Log</text>
+    <text x="25" y="284" font-size="10" fill="#64748b">All remote requests logged: peer_id, prompt, tools_used, duration, result_summary</text>
+  </g>
+
+  <!-- ==================== PAIRING FLOW ==================== -->
+  <g transform="translate(30, 400)">
+    <rect width="1040" height="400" rx="10" fill="white" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
+    <rect width="1040" height="38" rx="10" fill="#1e293b"/>
+    <rect y="28" width="1040" height="10" fill="#1e293b"/>
+    <text x="20" y="25" font-size="14" font-weight="600" fill="white">Pairing &amp; Request Sequence</text>
+
+    <!-- Lifelines -->
+    <line x1="180" y1="55" x2="180" y2="385" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6,4"/>
+    <line x1="520" y1="55" x2="520" y2="385" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6,4"/>
+    <line x1="860" y1="55" x2="860" y2="385" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6,4"/>
+
+    <!-- Lifeline headers -->
+    <rect x="115" y="48" width="130" height="28" rx="6" fill="#2563eb"/>
+    <text x="180" y="67" text-anchor="middle" font-size="12" font-weight="600" fill="white">User A / Agent A</text>
+    <rect x="470" y="48" width="100" height="28" rx="6" fill="#475569"/>
+    <text x="520" y="67" text-anchor="middle" font-size="12" font-weight="600" fill="white">Network</text>
+    <rect x="795" y="48" width="130" height="28" rx="6" fill="#7c3aed"/>
+    <text x="860" y="67" text-anchor="middle" font-size="12" font-weight="600" fill="white">User B / Agent B</text>
+
+    <!-- Phase 1: Pairing -->
+    <rect x="30" y="88" width="80" height="20" rx="4" fill="#dbeafe"/>
+    <text x="70" y="102" text-anchor="middle" font-size="10" font-weight="600" fill="#1e40af">PAIRING</text>
+
+    <!-- Step 1 -->
+    <text x="80" y="128" font-size="10" fill="#475569" font-style="italic">/pair https://b:8080</text>
+    <line x1="180" y1="132" x2="510" y2="132" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+    <text x="345" y="128" text-anchor="middle" font-size="10" font-weight="500" fill="#2563eb">POST /api/remote/pair-request</text>
+    <text x="345" y="142" text-anchor="middle" font-size="9" fill="#64748b">{ id, name, url, public_key }</text>
+
+    <!-- Forward to B -->
+    <line x1="530" y1="132" x2="850" y2="132" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+
+    <!-- Step 2: B notifies user -->
+    <rect x="690" y="158" width="340" height="42" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
+    <text x="700" y="174" font-size="10" fill="#92400e" font-weight="500">📬 "pibox (SHA256:A7:3F) wants to pair"</text>
+    <text x="700" y="190" font-size="10" fill="#92400e">/pair accept pibox  ·  /pair deny pibox</text>
+
+    <!-- Step 3: Accept -->
+    <text x="950" y="218" font-size="10" fill="#475569" font-style="italic">/pair accept pibox</text>
+    <line x1="860" y1="224" x2="530" y2="224" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+    <text x="695" y="220" text-anchor="middle" font-size="10" font-weight="500" fill="#16a34a">POST /api/remote/pair-confirm</text>
+    <text x="695" y="234" text-anchor="middle" font-size="9" fill="#64748b">{ id, name, public_key, signed_challenge }</text>
+
+    <!-- Forward to A -->
+    <line x1="510" y1="224" x2="190" y2="224" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+
+    <!-- Step 4: Paired -->
+    <rect x="100" y="244" width="160" height="22" rx="4" fill="#dcfce7" stroke="#86efac" stroke-width="1"/>
+    <text x="180" y="259" text-anchor="middle" font-size="10" font-weight="600" fill="#166534">✓ Peer stored, paired</text>
+    <rect x="780" y="244" width="160" height="22" rx="4" fill="#dcfce7" stroke="#86efac" stroke-width="1"/>
+    <text x="860" y="259" text-anchor="middle" font-size="10" font-weight="600" fill="#166534">✓ Peer stored, paired</text>
+
+    <!-- Divider -->
+    <line x1="30" y1="280" x2="1010" y2="280" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4,3"/>
+
+    <!-- Phase 2: Authenticated request -->
+    <rect x="30" y="288" width="120" height="20" rx="4" fill="#fee2e2"/>
+    <text x="90" y="302" text-anchor="middle" font-size="10" font-weight="600" fill="#991b1b">AUTH REQUEST</text>
+
+    <!-- Step 5: Ask -->
+    <text x="35" y="328" font-size="10" fill="#475569" font-style="italic">/ask buildbox check disk</text>
+    <line x1="180" y1="332" x2="510" y2="332" stroke="#ea580c" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
+    <text x="345" y="328" text-anchor="middle" font-size="10" font-weight="500" fill="#ea580c">POST /api/remote/ask (signed)</text>
+    <text x="345" y="342" text-anchor="middle" font-size="9" fill="#64748b">X-Instance-Id · X-Timestamp · X-Signature</text>
+
+    <line x1="530" y1="332" x2="850" y2="332" stroke="#ea580c" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
+
+    <!-- Step 6: Verify + run + respond -->
+    <rect x="780" y="348" width="160" height="18" rx="4" fill="#f1f5f9"/>
+    <text x="860" y="361" text-anchor="middle" font-size="9" fill="#475569">verify → gate → run agent</text>
+
+    <line x1="850" y1="374" x2="530" y2="374" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+    <text x="695" y="370" text-anchor="middle" font-size="10" font-weight="500" fill="#16a34a">200 { result, tools_used, duration_ms }</text>
+
+    <line x1="510" y1="374" x2="190" y2="374" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+    <rect x="100" y="380" width="160" height="18" rx="4" fill="#f0fdf4"/>
+    <text x="180" y="393" text-anchor="middle" font-size="9" fill="#166534">Display response in timeline</text>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(30, 390)">
+    <text x="580" y="0" font-size="9" fill="#94a3b8">Ed25519 signatures · No shared secrets · Consent-based pairing · Revocable trust</text>
+  </g>
+</svg>
