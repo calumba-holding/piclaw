@@ -73,7 +73,7 @@ const FOUNDRY_IMAGE_MODEL_ID = process.env.FOUNDRY_IMAGE_MODEL_ID || "flux-2-pro
 // Even when running through a proxy, these env vars should be settable locally
 // so the extension can be pointed at Azure endpoints directly without code changes.
 const FOUNDRY_API_VERSION = process.env.FOUNDRY_API_VERSION || AOAI_API_VERSION;
-const FOUNDRY_IMAGE_API_VERSION = process.env.FOUNDRY_IMAGE_API_VERSION || FOUNDRY_API_VERSION;
+const FOUNDRY_IMAGE_API_VERSION = process.env.FOUNDRY_IMAGE_API_VERSION || "preview";
 const FOUNDRY_IMAGE_BASE_URL = process.env.FOUNDRY_IMAGE_BASE_URL || "";
 const FOUNDRY_TEXT_MODEL_IDS = FOUNDRY_MODEL_IDS.filter(
   (id) => id !== FOUNDRY_IMAGE_MODEL_ID && !id.startsWith("flux-")
@@ -427,9 +427,51 @@ function parseArgs(input: string): ImageArgs | null {
     promptParts.push(token);
   }
 
-  args.prompt = promptParts.join(" ").trim();
-  if (!args.prompt) return null;
+  let prompt = promptParts.join(" ").trim();
+  if (!prompt) return null;
+
+  // Convenience: if the last prompt token looks like "WxH" (e.g. 1280x720),
+  // treat it as size and remove it from the prompt.
+  if (!args.size) {
+    const trailing = prompt.match(/\s+(\d{2,5}\s*x\s*\d{2,5})$/i) || prompt.match(/^(\d{2,5}\s*x\s*\d{2,5})$/i);
+    if (trailing && trailing[1]) {
+      const normalized = trailing[1].replace(/\s+/g, "").toLowerCase();
+      const stripped = prompt.slice(0, prompt.length - trailing[0].length).trim();
+      if (stripped) {
+        args.size = normalized;
+        prompt = stripped;
+      }
+    }
+  }
+
+  args.prompt = prompt;
   return args;
+}
+
+// Supported sizes for gpt-image models. Snap user-specified WxH to the
+// nearest proportionally matching size.
+const AOAI_IMAGE_SIZES = ["1024x1024", "1024x1536", "1536x1024"] as const;
+
+function snapToSupportedSize(size: string | undefined): string {
+  if (!size || size === "auto") return "auto";
+  const m = size.toLowerCase().match(/(\d+)\s*x\s*(\d+)/);
+  if (!m) return "1024x1024";
+  const w = Number(m[1]);
+  const h = Number(m[2]);
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return "1024x1024";
+  const ratio = w / h;
+  // Pick the supported size whose aspect ratio is closest
+  let best = AOAI_IMAGE_SIZES[0];
+  let bestDiff = Infinity;
+  for (const candidate of AOAI_IMAGE_SIZES) {
+    const [cw, ch] = candidate.split("x").map(Number);
+    const diff = Math.abs(ratio - cw / ch);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = candidate;
+    }
+  }
+  return best;
 }
 
 async function generateImage(baseUrl: string, model: string, args: ImageArgs, includeStyle: boolean) {
@@ -439,7 +481,7 @@ async function generateImage(baseUrl: string, model: string, args: ImageArgs, in
   const payload: Record<string, any> = {
     model,
     prompt: args.prompt,
-    size: args.size || "1024x1024",
+    size: snapToSupportedSize(args.size),
     quality: args.quality || "high",
     n: args.count || 1,
   };
@@ -470,9 +512,31 @@ function createAzureClient(baseUrl: string, headers: Record<string, string>) {
 
 function getFoundryImageEndpoint(): string {
   if (FOUNDRY_IMAGE_BASE_URL) return FOUNDRY_IMAGE_BASE_URL.replace(/\/+$/, "");
+
+  // When using a proxy (STATIC_API_KEY / AOAI_API_KEY set), rewrite the
+  // FOUNDRY_BASE_URL to use the /bfl/ route which forwards to the AI Foundry
+  // services endpoint (not the OpenAI endpoint).
+  // e.g. http://proxy:3100/foundry/v1 → http://proxy:3100/bfl
+  if (STATIC_API_KEY) {
+    try {
+      const u = new URL(FOUNDRY_BASE_URL);
+      // Strip /foundry/v1 or /foundry path and replace with /bfl
+      u.pathname = u.pathname.replace(/\/foundry(\/v\d+)?\/?$/, "/bfl");
+      if (!u.pathname.endsWith("/bfl")) {
+        // Fallback: just append /bfl to the proxy origin
+        u.pathname = "/bfl";
+      }
+      return u.toString().replace(/\/+$/, "");
+    } catch {
+      // Fall through to hostname-based rewrite
+    }
+  }
+
   const base = getAzureEndpoint(FOUNDRY_BASE_URL);
   try {
     const url = new URL(base);
+    // Strip /openai/v1 path for direct access
+    url.pathname = url.pathname.replace(/\/openai(\/v\d+)?\/?$/, "");
     if (url.hostname.endsWith(".cognitiveservices.azure.com")) {
       url.hostname = url.hostname.replace(".cognitiveservices.azure.com", ".services.ai.azure.com");
       return url.toString().replace(/\/+$/, "");
@@ -481,7 +545,7 @@ function getFoundryImageEndpoint(): string {
       url.hostname = url.hostname.replace(".openai.azure.com", ".services.ai.azure.com");
       return url.toString().replace(/\/+$/, "");
     }
-    return base;
+    return url.toString().replace(/\/+$/, "");
   } catch {
     return base;
   }
@@ -516,6 +580,7 @@ async function generateFoundryImage(model: string, args: ImageArgs) {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
+      "Accept-Encoding": "identity",
     },
     body: JSON.stringify(payload),
   });
@@ -552,11 +617,15 @@ function saveImages(prefix: string, prompt: string, images: Array<{ b64_json?: s
   return lines;
 }
 
-const PICLAW_PORT = process.env.PICLAW_PORT || "3000";
+const PICLAW_PORT = process.env.PICLAW_WEB_PORT || process.env.PICLAW_PORT || "8080";
 const PICLAW_BASE = `http://localhost:${PICLAW_PORT}`;
-const INTERNAL_SECRET = process.env.PICLAW_INTERNAL_SECRET || process.env.PICLAW_WEB_INTERNAL_SECRET || "";
+const INTERNAL_SECRET =
+  process.env.PICLAW_INTERNAL_SECRET ||
+  process.env.PICLAW_WEB_INTERNAL_SECRET ||
+  process.env.WEB_INTERNAL_SECRET ||
+  "";
 
-async function postPlaceholder(content: string, threadId?: number): Promise<number | null> {
+async function postPlaceholder(content: string, threadId?: number): Promise<number | string | null> {
   try {
     const body: Record<string, unknown> = { content };
     if (threadId) body.thread_id = threadId;
@@ -568,7 +637,7 @@ async function postPlaceholder(content: string, threadId?: number): Promise<numb
       body: JSON.stringify(body),
     });
     if (!res.ok) return null;
-    const data = (await res.json()) as { id?: number };
+    const data = (await res.json()) as { id?: number | string };
     return data.id ?? null;
   } catch {
     return null;
@@ -591,6 +660,7 @@ async function updatePost(id: number, content: string, threadId?: number): Promi
     return false;
   }
 }
+
 
 function streamAzureOpenAIResponses(model: any, context: any, options: any) {
   const stream = new AssistantMessageEventStream();
@@ -981,6 +1051,60 @@ export default function (pi: ExtensionAPI) {
     return { messages };
   });
 
+  // ── Delivery helper: update placeholder or post new message ──────────
+  async function deliver(
+    customType: "image" | "flux",
+    placeholderId: number | string | null,
+    content: string,
+  ): Promise<void> {
+    // Try updating the placeholder post first
+    if (typeof placeholderId === "number" && Number.isFinite(placeholderId)) {
+      if (await updatePost(placeholderId, content)) return;
+    }
+    // Fallback: create a new post or use pi.sendMessage
+    const posted = await postPlaceholder(content);
+    if (!posted) {
+      await pi.sendMessage({ customType, content, display: true });
+    }
+  }
+
+  function formatError(prefix: string, error: unknown): string {
+    if (error instanceof Error) {
+      const raw = error.message || String(error);
+      // Try to extract structured API error details
+      const jsonMatch = raw.match(/\{[\s\S]*"error"[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          const err = parsed.error || parsed;
+          const code = err.code || err.statusCode || "";
+          const msg = err.message || err.error || raw;
+          return `❌ ${prefix}: ${code ? `[${code}] ` : ""}${msg}`;
+        } catch { /* fall through */ }
+      }
+      // Extract HTTP status prefix like "400 ..." or "500 ..."
+      const httpMatch = raw.match(/^(\d{3})\s+(.+)/s);
+      if (httpMatch) {
+        const [, status, body] = httpMatch;
+        // Try parsing body as JSON
+        try {
+          const parsed = JSON.parse(body);
+          const err = parsed.error || parsed;
+          const code = err.code || status;
+          const msg = err.message || body;
+          return `❌ ${prefix}: [${code}] ${msg}`;
+        } catch { /* fall through */ }
+        return `❌ ${prefix}: HTTP ${status} — ${body.slice(0, 300)}`;
+      }
+      // ZlibError or other named errors
+      if (raw.includes("ZlibError")) {
+        return `❌ ${prefix}: Response decompression failed (ZlibError). The upstream response may be too large or corrupt.`;
+      }
+      return `❌ ${prefix}: ${raw.slice(0, 500)}`;
+    }
+    return `❌ ${prefix}: ${String(error).slice(0, 500)}`;
+  }
+
   pi.registerCommand("image", {
     description: "Generate an image with Azure OpenAI",
     handler: async (input, _ctx) => {
@@ -995,28 +1119,23 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
-      const statusText = `⏳ Generating image… (${AOAI_IMAGE_MODEL_ID})`;
+      const snappedSize = snapToSupportedSize(parsed.size);
+      const sizeNote = parsed.size && parsed.size !== snappedSize ? ` (${parsed.size} → ${snappedSize})` : "";
+      const statusText = `⏳ Generating image… (${AOAI_IMAGE_MODEL_ID}, ${snappedSize}${sizeNote})`;
       const placeholderId = await postPlaceholder(statusText);
+      if (!placeholderId) {
+        pi.sendMessage({ customType: "image", content: statusText, display: true });
+      }
 
       void (async () => {
         try {
           const images = await generateImage(BASE_URL, AOAI_IMAGE_MODEL_ID, parsed, true);
           const lines = saveImages("azure-image", parsed.prompt, images);
-          const caption = `Azure image (${AOAI_IMAGE_MODEL_ID}) — ${parsed.prompt}`;
+          const caption = `Azure image (${AOAI_IMAGE_MODEL_ID}, ${snappedSize}) — ${parsed.prompt}`;
           const message = [caption, "", ...lines].join("\n");
-          if (placeholderId) {
-            await updatePost(placeholderId, message);
-          } else {
-            pi.sendMessage({ customType: "image", content: message, display: true });
-          }
+          await deliver("image", placeholderId, message);
         } catch (error) {
-          const errMsg = error instanceof Error ? error.message : String(error);
-          const failContent = `Image generation failed: ${errMsg}`;
-          if (placeholderId) {
-            await updatePost(placeholderId, failContent);
-          } else {
-            pi.sendMessage({ customType: "image", content: failContent, display: true });
-          }
+          await deliver("image", placeholderId, formatError("Image generation failed", error));
         }
       })();
     },
@@ -1036,28 +1155,22 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
-      const statusText = `⏳ Generating Foundry image… (${FOUNDRY_IMAGE_MODEL_ID})`;
+      const size = parseSize(parsed.size);
+      const statusText = `⏳ Generating Foundry image… (${FOUNDRY_IMAGE_MODEL_ID}, ${size.width}×${size.height})`;
       const placeholderId = await postPlaceholder(statusText);
+      if (!placeholderId) {
+        pi.sendMessage({ customType: "flux", content: statusText, display: true });
+      }
 
       void (async () => {
         try {
           const images = await generateFoundryImage(FOUNDRY_IMAGE_MODEL_ID, parsed);
           const lines = saveImages("foundry-image", parsed.prompt, images);
-          const caption = `Foundry image (${FOUNDRY_IMAGE_MODEL_ID}) — ${parsed.prompt}`;
+          const caption = `Foundry image (${FOUNDRY_IMAGE_MODEL_ID}, ${size.width}×${size.height}) — ${parsed.prompt}`;
           const message = [caption, "", ...lines].join("\n");
-          if (placeholderId) {
-            await updatePost(placeholderId, message);
-          } else {
-            pi.sendMessage({ customType: "flux", content: message, display: true });
-          }
+          await deliver("flux", placeholderId, message);
         } catch (error) {
-          const errMsg = error instanceof Error ? error.message : String(error);
-          const failContent = `Foundry image generation failed: ${errMsg}`;
-          if (placeholderId) {
-            await updatePost(placeholderId, failContent);
-          } else {
-            pi.sendMessage({ customType: "flux", content: failContent, display: true });
-          }
+          await deliver("flux", placeholderId, formatError("Foundry image generation failed", error));
         }
       })();
     },

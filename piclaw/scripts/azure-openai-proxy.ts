@@ -16,6 +16,8 @@
  *   AOAI_BASE_URL     – Azure OpenAI base URL (required)
  *   FOUNDRY_BASE_URL  – Azure Foundry base URL (optional)
  *   AOAI_RESOURCE     – AAD resource scope (default: https://cognitiveservices.azure.com/)
+ *   FOUNDRY_SERVICES_BASE_URL – Azure AI Foundry services base URL for BFL/non-OpenAI models
+ *                        (auto-derived from FOUNDRY_BASE_URL if not set)
  */
 
 const BIND = process.env.PROXY_BIND || "0.0.0.0";
@@ -24,6 +26,30 @@ const PROXY_KEY = process.env.PROXY_KEY || "";
 const AOAI_BASE_URL = process.env.AOAI_BASE_URL || "";
 const FOUNDRY_BASE_URL = process.env.FOUNDRY_BASE_URL || "";
 const RESOURCE = process.env.AOAI_RESOURCE || process.env.FOUNDRY_RESOURCE || "https://cognitiveservices.azure.com/";
+
+// Derive the AI Foundry services base URL for non-OpenAI providers (BFL, etc.).
+// The services endpoint uses .services.ai.azure.com without the /openai/v1 path.
+function deriveServicesBaseUrl(foundryUrl: string): string {
+  if (!foundryUrl) return "";
+  try {
+    const u = new URL(foundryUrl);
+    // Strip /openai/v1 or /openai path suffix
+    u.pathname = u.pathname.replace(/\/openai(\/v\d+)?\/?$/, "");
+    // Rewrite known Azure hostnames to .services.ai.azure.com
+    if (u.hostname.endsWith(".cognitiveservices.azure.com")) {
+      u.hostname = u.hostname.replace(".cognitiveservices.azure.com", ".services.ai.azure.com");
+    } else if (u.hostname.endsWith(".openai.azure.com")) {
+      u.hostname = u.hostname.replace(".openai.azure.com", ".services.ai.azure.com");
+    }
+    return u.toString().replace(/\/+$/, "");
+  } catch {
+    return "";
+  }
+}
+
+const FOUNDRY_SERVICES_BASE_URL =
+  (process.env.FOUNDRY_SERVICES_BASE_URL || "").trim().replace(/\/+$/, "") ||
+  deriveServicesBaseUrl(FOUNDRY_BASE_URL);
 
 // Allowed target base URLs — requests must target one of these.
 const ALLOWED_TARGETS = (process.env.PROXY_TARGETS || [AOAI_BASE_URL, FOUNDRY_BASE_URL].filter(Boolean).join(","))
@@ -68,10 +94,11 @@ async function getToken(): Promise<string> {
 
 // ── Request handling ──────────────────────────────────────────────────
 
-function matchTarget(requestUrl: URL): { target: string; pathPrefix: string } | null {
+function matchTarget(requestUrl: URL): { target: string; pathPrefix: string; stripV1?: boolean } | null {
   // Path-based routing:
   //   /v1/...          → first allowed target (AOAI)
-  //   /foundry/v1/...  → second allowed target (Foundry)
+  //   /foundry/v1/...  → second allowed target (Foundry OpenAI)
+  //   /bfl/...         → Foundry services base (BFL/non-OpenAI providers, no /v1 strip)
   //   /t/<index>/v1/...→ target by index
   const path = requestUrl.pathname;
 
@@ -81,6 +108,14 @@ function matchTarget(requestUrl: URL): { target: string; pathPrefix: string } | 
     const idx = parseInt(indexMatch[1], 10);
     if (idx >= 0 && idx < ALLOWED_TARGETS.length) {
       return { target: ALLOWED_TARGETS[idx], pathPrefix: `/t/${idx}` };
+    }
+    return null;
+  }
+
+  // /bfl/... — Black Forest Labs / AI Foundry services providers (no /v1 stripping)
+  if (path.startsWith("/bfl/") || path === "/bfl") {
+    if (FOUNDRY_SERVICES_BASE_URL) {
+      return { target: FOUNDRY_SERVICES_BASE_URL, pathPrefix: "/bfl", stripV1: false };
     }
     return null;
   }
@@ -123,6 +158,9 @@ const server = Bun.serve({
         url: t,
         path: i === 0 ? "/v1/..." : i === 1 ? "/foundry/v1/..." : `/t/${i}/v1/...`,
       }));
+      if (FOUNDRY_SERVICES_BASE_URL) {
+        info.push({ index: -1, url: FOUNDRY_SERVICES_BASE_URL, path: "/bfl/..." });
+      }
       return Response.json(info);
     }
 
@@ -146,7 +184,7 @@ const server = Bun.serve({
     if (routing.pathPrefix) {
       upstreamPath = upstreamPath.slice(routing.pathPrefix.length);
     }
-    if (upstreamPath.startsWith("/v1/") || upstreamPath === "/v1") {
+    if (routing.stripV1 !== false && (upstreamPath.startsWith("/v1/") || upstreamPath === "/v1")) {
       upstreamPath = upstreamPath.slice(3); // "/v1/responses" → "/responses"
     }
     const upstreamUrl = `${routing.target}${upstreamPath}${url.search || ""}`;
@@ -207,3 +245,6 @@ if (!PROXY_KEY) {
 }
 console.log(`[proxy] Azure OpenAI proxy listening on ${BIND}:${PORT}`);
 console.log(`[proxy] Allowed targets: ${ALLOWED_TARGETS.join(", ")}`);
+if (FOUNDRY_SERVICES_BASE_URL) {
+  console.log(`[proxy] Foundry services (BFL) base: ${FOUNDRY_SERVICES_BASE_URL} → /bfl/...`);
+}
