@@ -215,3 +215,32 @@ export function rollbackInflightRun(chatJid, prevTs) {
     WHERE chat_jid = ?
   `).run(prevTs, chatJid);
 }
+/**
+ * Clear the inflight marker without rolling back the cursor.
+ * Used when the run actually completed (agent replies exist in DB)
+ * but endChatRun() wasn't reached before the process was killed.
+ */
+export function clearInflightMarker(chatJid) {
+    const db = getDb();
+    db.prepare(`
+    UPDATE chat_cursors
+    SET inflight_prev_ts    = NULL,
+        inflight_message_id = NULL,
+        inflight_started_at = NULL
+    WHERE chat_jid = ?
+  `).run(chatJid);
+}
+/**
+ * Check whether any bot (agent) messages exist after a given timestamp
+ * for a chat. Used to detect whether an inflight run actually completed
+ * (agent stored replies) before the process was killed.
+ */
+export function hasAgentRepliesAfter(chatJid, afterTs) {
+    const db = getDb();
+    const row = db.prepare(`
+    SELECT 1 FROM messages
+    WHERE chat_jid = ? AND timestamp > ? AND is_bot_message = 1
+    LIMIT 1
+  `).get(chatJid, afterTs);
+    return row != null;
+}

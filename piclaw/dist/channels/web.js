@@ -21,7 +21,7 @@ import { handleWorkspaceAttach, handleWorkspaceDownload, handleWorkspaceFile, ha
 import { SseHub } from "./web/sse-hub.js";
 import { UiBridge } from "./web/ui-bridge.js";
 import { ResponseService } from "./web/http/response-service.js";
-import { getMessageRowIdById, getMessagesSince, replaceMessageContent, createWebSession, getWebSession, deleteExpiredWebSessions, DEFAULT_WEB_USER_ID, getWebauthnEnrollment, consumeWebauthnEnrollment, getWebauthnCredentialsForRpId, getWebauthnCredentialById, storeWebauthnCredential, updateWebauthnCredentialCounter, getAllChatCursors, getChatCursor, setChatCursor, getFailedRun, clearFailedRun, getInflightRuns, rollbackInflightRun, getDb, } from "../db.js";
+import { getMessageRowIdById, getMessagesSince, replaceMessageContent, createWebSession, getWebSession, deleteExpiredWebSessions, DEFAULT_WEB_USER_ID, getWebauthnEnrollment, consumeWebauthnEnrollment, getWebauthnCredentialsForRpId, getWebauthnCredentialById, storeWebauthnCredential, updateWebauthnCredentialCounter, getAllChatCursors, getChatCursor, setChatCursor, getFailedRun, clearFailedRun, getInflightRuns, rollbackInflightRun, clearInflightMarker, hasAgentRepliesAfter, getDb, } from "../db.js";
 import { WebChannelState } from "./web/channel-state.js";
 import { storeWebMessage } from "./web/message-store.js";
 import { deletePostResponse, getHashtagResponse, getSearchResponse, getThreadResponse, getTimelineResponse, } from "./web/timeline-service.js";
@@ -190,7 +190,19 @@ export class WebChannel {
         try {
             getDb().transaction(() => {
                 for (const inflight of inflights) {
-                    rollbackInflightRun(inflight.chatJid, inflight.prevTs);
+                    // Check if agent already stored replies after the inflight message.
+                    // If so, the run completed successfully but endChatRun() wasn't
+                    // reached before the process was killed. In that case, just clear
+                    // the inflight marker — do NOT roll back the cursor, as that would
+                    // cause the same user message to be re-processed (duplicate reply).
+                    if (hasAgentRepliesAfter(inflight.chatJid, inflight.prevTs)) {
+                        console.log(`[web] Inflight run for ${inflight.chatJid} (started ${inflight.startedAt}) ` +
+                            `already has agent replies — clearing marker without rollback`);
+                        clearInflightMarker(inflight.chatJid);
+                    }
+                    else {
+                        rollbackInflightRun(inflight.chatJid, inflight.prevTs);
+                    }
                 }
             })();
         }
@@ -199,10 +211,13 @@ export class WebChannel {
             return;
         }
         for (const inflight of inflights) {
-            console.log(`[web] Recovering interrupted run for ${inflight.chatJid} (started ${inflight.startedAt})`);
-            this.queue.enqueue(async () => {
-                await this.processChat(inflight.chatJid, DEFAULT_AGENT_ID);
-            }, `inflight-recovery:${inflight.chatJid}`);
+            // Only re-enqueue if the cursor was actually rolled back (no agent replies existed)
+            if (!hasAgentRepliesAfter(inflight.chatJid, inflight.prevTs)) {
+                console.log(`[web] Recovering interrupted run for ${inflight.chatJid} (started ${inflight.startedAt})`);
+                this.queue.enqueue(async () => {
+                    await this.processChat(inflight.chatJid, DEFAULT_AGENT_ID);
+                }, `inflight-recovery:${inflight.chatJid}`);
+            }
         }
     }
     /**

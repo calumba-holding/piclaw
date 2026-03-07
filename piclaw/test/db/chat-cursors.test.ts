@@ -495,4 +495,49 @@ describe("idempotency", () => {
   test("rollbackInflightRun is safe to call when there is no row", () => {
     expect(() => db.rollbackInflightRun(jid("rollback-missing"), "")).not.toThrow();
   });
+
+  test("clearInflightMarker clears inflight without rolling back cursor", () => {
+    const chatJid = jid("clear-inflight-no-rollback");
+    const prevTs = "2025-01-01T00:00:00.000Z";
+    const cursorTs = "2025-01-01T01:00:00.000Z";
+    db.beginChatRun(chatJid, cursorTs, {
+      prevTs,
+      messageId: "msg-1",
+      startedAt: "2025-01-01T01:00:00.001Z",
+    });
+    // Inflight marker exists and cursor advanced
+    expect(db.getInflightRuns().some((r) => r.chatJid === chatJid)).toBe(true);
+    expect(db.getChatCursor(chatJid)).toBe(cursorTs);
+
+    // Clear inflight WITHOUT rollback
+    db.clearInflightMarker(chatJid);
+
+    // Inflight gone, but cursor stays at the advanced position
+    expect(db.getInflightRuns().some((r) => r.chatJid === chatJid)).toBe(false);
+    expect(db.getChatCursor(chatJid)).toBe(cursorTs);
+  });
+
+  test("hasAgentRepliesAfter returns false when no agent messages exist", () => {
+    const chatJid = jid("no-agent-replies-" + Date.now());
+    expect(db.hasAgentRepliesAfter(chatJid, "2025-01-01T00:00:00.000Z")).toBe(false);
+  });
+
+  test("hasAgentRepliesAfter returns true when agent messages exist after timestamp", () => {
+    const chatJid = jid("has-agent-replies-" + Date.now());
+    // Insert a user message and an agent message
+    const dbConn = db.getDb();
+    dbConn.prepare(`
+      INSERT INTO messages (id, chat_jid, sender, sender_name, content, timestamp, is_bot_message)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run("user-msg-har-1", chatJid, "user", "User", "hello", "2025-01-01T00:00:00.000Z", 0);
+    dbConn.prepare(`
+      INSERT INTO messages (id, chat_jid, sender, sender_name, content, timestamp, is_bot_message)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run("agent-msg-har-1", chatJid, "agent", "Agent", "hi!", "2025-01-01T00:01:00.000Z", 1);
+
+    // Agent reply exists after the user message
+    expect(db.hasAgentRepliesAfter(chatJid, "2025-01-01T00:00:00.000Z")).toBe(true);
+    // No agent reply after a later timestamp
+    expect(db.hasAgentRepliesAfter(chatJid, "2025-01-01T00:02:00.000Z")).toBe(false);
+  });
 });

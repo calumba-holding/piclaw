@@ -63,6 +63,8 @@ export {
   clearFailedRun,
   getInflightRuns,
   rollbackInflightRun,
+  clearInflightMarker,
+  hasAgentRepliesAfter,
 } from "./db/chat-cursors.js";
 export type { InflightRun, FailedRunRecord } from "./db/chat-cursors.js";
 export { storeTokenUsage } from "./db/token-usage.js";
