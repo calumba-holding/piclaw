@@ -70,6 +70,19 @@ export {
 export type { InflightRun, FailedRunRecord } from "./db/chat-cursors.js";
 export { storeTokenUsage } from "./db/token-usage.js";
 export {
+  upsertRemotePeer,
+  getRemotePeer,
+  updateRemotePeer,
+  createPairRequest,
+  getPairRequestById,
+  getPendingPairRequest,
+  updatePairRequestStatus,
+  storeRemoteRequest,
+  updateRemoteRequest,
+  getRemoteRequestById,
+  logRemoteAudit,
+} from "./db/remote-interop.js";
+export {
   DEFAULT_PASSKEY_USER_ID,
   createWebauthnEnrollment,
   getWebauthnEnrollment,

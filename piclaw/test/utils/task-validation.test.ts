@@ -2,6 +2,7 @@
  * test/utils/task-validation.test.ts – Validation tests for scheduled shell tasks.
  */
 import { describe, expect, test } from "bun:test";
+import "../helpers.js";
 import { WORKSPACE_DIR } from "../../src/core/config.js";
 import { validateShellCommand, validateShellCwd } from "../../src/utils/task-validation.js";
 

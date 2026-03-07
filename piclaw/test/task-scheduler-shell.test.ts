@@ -2,6 +2,7 @@
  * test/task-scheduler-shell.test.ts – Scheduled shell task execution.
  */
 import { beforeEach, afterEach, expect, test } from "bun:test";
+import "./helpers.js";
 import { initDatabase, getDb, createTask, getTaskById } from "../src/db.js";
 import { runScheduledTask } from "../src/task-scheduler.js";
 

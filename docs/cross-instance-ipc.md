@@ -1,6 +1,6 @@
 # Cross-Instance IPC (Experimental)
 
-> **Status:** Draft design. Not implemented yet.
+> **Status:** Experimental. Implemented behind `PICLAW_REMOTE_INTEROP_ENABLED` (default off).
 >
 > This feature enables one piclaw instance to interact with another instance in a
 > secure, consent-driven way.
@@ -10,6 +10,10 @@
 ## 1) Design Intent
 
 Cross-instance IPC must be secure by default and operator-controlled.
+
+> Note: We considered broader federation-style protocols, but this design is intentionally
+> scoped to small, interconnected groups of agents behind corporate firewalls with
+> pre-defined addresses.
 
 A key design decision:
 
@@ -23,7 +27,23 @@ This avoids turning pairing into unconditional remote code execution.
 
 ---
 
-## 2) Threat Model
+## 2) Feature flag & configuration
+
+Remote interop is **disabled by default**. Set `PICLAW_REMOTE_INTEROP_ENABLED=1`
+to serve `/api/remote/*` endpoints. When disabled, the router returns `404` for
+remote interop routes.
+
+Optional configuration:
+
+- `PICLAW_REMOTE_INTEROP_ALLOW_HTTP=1` – allow `http://` callback URLs (testing only).
+- `PICLAW_REMOTE_SHORT_CIRCUIT_ENABLED=1` – allow short-circuit execution if the peer
+  is configured with `mode=short-circuit` and `profile=full`.
+- `PICLAW_REMOTE_INSTANCE_NAME` – display name in metadata.
+- `PICLAW_REMOTE_INTEROP_DECISION_MODEL` – label for the mediation model (metadata only).
+
+---
+
+## 3) Threat Model
 
 ### Adversaries
 
@@ -59,7 +79,7 @@ This avoids turning pairing into unconditional remote code execution.
 
 ---
 
-## 3) Identity and Peer Model
+## 4) Identity and Peer Model
 
 Each instance has a stable Ed25519 identity.
 
@@ -79,7 +99,7 @@ Each instance has a stable Ed25519 identity.
 
 ---
 
-## 4) Pairing Protocol (Consent + Proof)
+## 5) Pairing Protocol (Consent + Proof)
 
 ## Step A — Request
 
@@ -87,7 +107,7 @@ Initiator sends `POST /api/remote/pair-request` with:
 
 - `instance_id`, `public_key`, `display_name`
 - callback URL
-- protocol version
+- protocol version (`1`)
 - nonce + expiry
 
 ## Step B — Review
@@ -103,6 +123,33 @@ Receiver stores request as `pending_inbound` and prompts operator with:
 ## Step C — URL Control Proof
 
 Receiver verifies initiator controls claimed URL via signed challenge callback.
+
+Callback request (receiver → initiator `callback_url`):
+
+```json
+{
+  "request_id": "pair_123",
+  "challenge": "nonce_from_pair_request",
+  "receiver_instance_id": "...",
+  "receiver_public_key": "...",
+  "receiver_fingerprint": "...",
+  "timestamp": "2026-03-06T12:34:56Z"
+}
+```
+
+Callback response (initiator → receiver):
+
+```json
+{
+  "request_id": "pair_123",
+  "challenge": "nonce_from_pair_request",
+  "instance_id": "<initiator_instance_id>",
+  "signature": "<base64url(ed25519(request_id\nchallenge\nreceiver_instance_id))>"
+}
+```
+
+Receiver validates the signature using the initiator `public_key` from the
+pair request before accepting.
 
 ## Step D — Accept / Deny / Block
 
@@ -122,7 +169,7 @@ Initiator verifies signature + challenge binding and marks peer as paired.
 
 ---
 
-## 5) Interaction Modes
+## 6) Interaction Modes
 
 ## 5.1 Default: LLM-Mediated Mode (Recommended)
 
@@ -162,7 +209,7 @@ Use cases: low-latency trusted automation between tightly controlled peers.
 
 ---
 
-## 6) Request Authentication Protocol
+## 7) Request Authentication Protocol
 
 All remote requests are signed after pairing.
 
@@ -171,6 +218,7 @@ All remote requests are signed after pairing.
 | Header | Purpose |
 |---|---|
 | `X-Instance-Id` | Sender identity |
+| `X-Trust-Epoch` | Peer trust epoch |
 | `X-Timestamp` | Request time |
 | `X-Nonce` | Unique request nonce |
 | `X-Sig-Version` | Signature/canonicalization version |
@@ -186,7 +234,8 @@ SHA256(BODY_BYTES) + "\n" +
 X-Timestamp + "\n" +
 X-Nonce + "\n" +
 X-Instance-Id + "\n" +
-X-Sig-Version
+X-Sig-Version + "\n" +
+X-Trust-Epoch
 ```
 
 ### Verification sequence
@@ -202,7 +251,7 @@ X-Sig-Version
 
 ---
 
-## 7) API Shape (Experimental)
+## 8) API Shape (Experimental)
 
 | Endpoint | Purpose | Auth |
 |---|---|---|
@@ -212,6 +261,8 @@ X-Sig-Version
 | `POST /api/remote/proposal` | default mediated inbound prompt | signed |
 | `POST /api/remote/execute` | optional short-circuit direct exec | signed + mode gate |
 | `POST /api/remote/revoke` | revoke relationship | signed |
+
+All POST endpoints require `Content-Type: application/json`.
 
 ### Proposal response envelope
 
@@ -247,7 +298,7 @@ X-Sig-Version
 
 ---
 
-## 8) Authorization and Scope
+## 9) Authorization and Scope
 
 Pairing grants identity trust, not blanket execution rights.
 
@@ -276,7 +327,7 @@ Only explicitly granted tools/capabilities are enabled.
 
 ---
 
-## 9) Abuse Resistance
+## 10) Abuse Resistance
 
 ### Mandatory controls
 
@@ -299,7 +350,7 @@ Reject if hop exceeds configured max.
 
 ---
 
-## 10) SSRF and URL Safety
+## 11) SSRF and URL Safety
 
 Pairing/callback URLs are untrusted input.
 
@@ -313,7 +364,7 @@ Must enforce:
 
 ---
 
-## 11) Revocation, Rotation, Recovery
+## 12) Revocation, Rotation, Recovery
 
 ### Revocation
 
@@ -337,7 +388,7 @@ Key changes require re-verification/re-pair flow; no silent key swaps.
 
 ---
 
-## 12) Logging, Privacy, Retention
+## 13) Logging, Privacy, Retention
 
 Audit logs required, but minimize sensitive payload retention.
 
@@ -355,7 +406,7 @@ Avoid logging raw secrets and full payloads by default.
 
 ---
 
-## 13) Minimum Viable Secure Defaults
+## 14) Minimum Viable Secure Defaults
 
 These defaults are recommended for first implementation.
 
@@ -369,7 +420,11 @@ These defaults are recommended for first implementation.
 | nonce cache size | 10k per peer (bounded LRU) |
 | pending pair request TTL | 24h |
 | pair-request rate | 3 / 10 min / source + ID |
+| pair-confirm rate | 6 / 10 min / source + ID |
 | proposal rate | 12 / min / peer |
+| ping rate | 60 / min / peer |
+| execute rate | 6 / min / peer |
+| revoke rate | 6 / min / peer |
 | concurrent runs | 1 / peer, 4 global remote |
 | max prompt size | 32 KB |
 | max response size | 256 KB |
@@ -380,7 +435,7 @@ These defaults are recommended for first implementation.
 
 ---
 
-## 14) Command UX (Proposed)
+## 15) Command UX (Proposed)
 
 ```text
 /pair request <url>
@@ -402,7 +457,7 @@ UX requirements:
 
 ---
 
-## 15) Implementation Plan (Security-Gated)
+## 16) Implementation Plan (Security-Gated)
 
 | Phase | Scope | Security gate |
 |---|---|---|
@@ -418,25 +473,44 @@ UX requirements:
 
 ---
 
-## 16) Must-Fix Checklist Before Enabling
+## 17) Must-Fix Checklist Before Enabling
 
-- [ ] canonical signature spec implemented and versioned
-- [ ] nonce replay cache enforced per peer
+- [x] canonical signature spec implemented and versioned
+- [x] nonce replay cache enforced per peer
 - [ ] acceptance/revocation only by immutable ID/fingerprint
-- [ ] URL ownership challenge implemented in pairing
+- [x] URL ownership challenge implemented in pairing
 - [ ] strict SSRF protections for callback URLs
 - [ ] deterministic policy ceiling (LLM cannot escalate)
 - [ ] mediated mode default with dedicated channel
-- [ ] short-circuit mode explicit opt-in only
+- [x] short-circuit mode explicit opt-in only
 - [ ] per-peer quotas, concurrency caps, and queue isolation
-- [ ] loop/hop prevention implemented
-- [ ] trust-epoch revocation checks in request path
+- [x] loop/hop prevention implemented
+- [x] trust-epoch revocation checks in request path
 - [ ] TLS enforcement (no silent plaintext fallback)
 - [ ] audit logging with redaction and retention controls
 
+### Checklist status (completed/missing)
+
+Completed:
+- Canonical signature spec + versioning (v1)
+- Nonce replay cache per peer
+- URL ownership challenge callback
+- Short-circuit explicit opt-in gate
+- Loop/hop limit checks
+- Trust-epoch checks on signed requests
+
+Missing (or partial):
+- Acceptance/revocation UX by immutable ID/fingerprint
+- SSRF hardening beyond baseline allow/deny rules (e.g., DNS rebinding defenses)
+- Deterministic policy ceiling + scoped tool enforcement
+- Dedicated mediated channel UI + decision workflow
+- Quotas/queue isolation beyond basic concurrency limits
+- TLS-only enforcement for interop endpoints
+- Audit redaction + retention controls
+
 ---
 
-## 17) Diagram
+## 18) Diagram
 
 See [`cross-instance-ipc-design.svg`](cross-instance-ipc-design.svg).
 

@@ -107,16 +107,37 @@ const DISABLE_REASONING_MODELS = new Set(
 const LOG_PHASES = /^(1|true|yes)$/i.test(process.env.AOAI_LOG_PHASES || "");
 
 // Per-model overrides: contextWindow, maxTokens, reasoning
+// Sources: Azure docs (learn.microsoft.com/azure/ai-services/openai/concepts/models),
+//          OpenRouter /api/v1/models (2026-03-07).
+// All GPT-5 series: 400K context (272K input + 128K output), 1.05M coming soon.
+// Mistral Large 3 (25.12): 262K context, 16K max output.
 const MODEL_SPECS: Record<string, { contextWindow?: number; maxTokens?: number; reasoning?: boolean }> = {
-  "gpt-5-2-codex":      { contextWindow: 200000, maxTokens: 64000,  reasoning: true },
-  "gpt-5-3-codex":      { contextWindow: 200000, maxTokens: 64000,  reasoning: true },
-  "gpt-5-1-codex-mini": { contextWindow: 200000, maxTokens: 64000,  reasoning: true },
-  "gpt-5-1":            { contextWindow: 1048576, maxTokens: 100000, reasoning: true },
-  "gpt-5-mini":         { contextWindow: 1048576, maxTokens: 64000,  reasoning: true },
-  "mistral-large-3":    { contextWindow: 131072, maxTokens: 16384,  reasoning: false },
+  "gpt-5-2-codex":      { contextWindow: 400000, maxTokens: 128000, reasoning: true },
+  "gpt-5-3-codex":      { contextWindow: 400000, maxTokens: 128000, reasoning: true },
+  "gpt-5-1-codex-mini": { contextWindow: 400000, maxTokens: 100000, reasoning: true },
+  "gpt-5-1-codex-max":  { contextWindow: 400000, maxTokens: 128000, reasoning: true },
+  "gpt-5-1-codex":      { contextWindow: 400000, maxTokens: 128000, reasoning: true },
+  "gpt-5-1":            { contextWindow: 400000, maxTokens: 128000, reasoning: true },
+  "gpt-5":              { contextWindow: 400000, maxTokens: 128000, reasoning: true },
+  "gpt-5-pro":          { contextWindow: 400000, maxTokens: 128000, reasoning: true },
+  "gpt-5-mini":         { contextWindow: 400000, maxTokens: 128000, reasoning: true },
+  "gpt-5-nano":         { contextWindow: 400000, maxTokens: 128000, reasoning: true },
+  "gpt-5-chat":         { contextWindow: 128000, maxTokens: 16384,  reasoning: true },
+  "gpt-5-1-chat":       { contextWindow: 128000, maxTokens: 16384,  reasoning: true },
+  "gpt-5-2":            { contextWindow: 400000, maxTokens: 128000, reasoning: true },
+  "gpt-5-2-chat":       { contextWindow: 128000, maxTokens: 16384,  reasoning: true },
+  "gpt-5-3-chat":       { contextWindow: 128000, maxTokens: 16384,  reasoning: true },
+  "gpt-5-4":            { contextWindow: 1050000, maxTokens: 128000, reasoning: true },
+  "gpt-5-4-pro":        { contextWindow: 1050000, maxTokens: 128000, reasoning: true },
+  "gpt-4o":             { contextWindow: 128000, maxTokens: 16384,  reasoning: false },
+  "gpt-4o-mini":        { contextWindow: 128000, maxTokens: 16384,  reasoning: false },
+  "gpt-4.1":            { contextWindow: 1048576, maxTokens: 32768, reasoning: false },
+  "gpt-4.1-mini":       { contextWindow: 1048576, maxTokens: 32768, reasoning: false },
+  "gpt-4.1-nano":       { contextWindow: 1048576, maxTokens: 32768, reasoning: false },
+  "mistral-large-3":    { contextWindow: 262144, maxTokens: 16384,  reasoning: false },
   "flux-2-pro":         { contextWindow: 4096,   maxTokens: 4096,   reasoning: false },
 };
-const DEFAULT_AZURE_SPEC = { contextWindow: 200000, maxTokens: 64000, reasoning: true };
+const DEFAULT_AZURE_SPEC = { contextWindow: 400000, maxTokens: 128000, reasoning: true };
 const DEFAULT_FOUNDRY_SPEC = { contextWindow: 200000, maxTokens: 64000, reasoning: false };
 let extensionLogged = false;
 

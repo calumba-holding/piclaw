@@ -95,6 +95,7 @@ import {
 import { getAgentsResponse } from "./web/agents-service.js";
 import { buildAvatarResponse, ensureAvatarCache, resolveAvatarUrl } from "./web/avatar-service.js";
 import { broadcastAgentResponse, broadcastInteractionUpdated } from "./web/interaction-service.js";
+import { RemoteInteropService } from "../remote/service.js";
 
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
@@ -118,6 +119,7 @@ export class WebChannel {
   state = new WebChannelState(STATE_KEY);
   sse = new SseHub();
   uiBridge: UiBridge;
+  remoteInterop: RemoteInteropService;
   responses = new ResponseService();
   pendingLinkPreviews = new Set<number>();
   workspaceWatcher: { close: () => Promise<void> } | null = null;
@@ -144,6 +146,7 @@ export class WebChannel {
     this.queue = opts.queue;
     this.agentPool = opts.agentPool;
     this.uiBridge = new UiBridge(this);
+    this.remoteInterop = new RemoteInteropService(this.agentPool);
     if (typeof (this.agentPool as any).setSessionBinder === "function") {
       (this.agentPool as any).setSessionBinder((session: AgentSession, chatJid: string) =>
         this.uiBridge.bindSession(session, chatJid)
@@ -1460,6 +1463,10 @@ export class WebChannel {
 
   handleMediaInfo(id: number): Response {
     return handleMediaInfo(this, id);
+  }
+
+  async handleRemote(req: Request): Promise<Response> {
+    return this.remoteInterop.handleRequest(req);
   }
 
   handleWorkspaceTree(req: Request): Response {

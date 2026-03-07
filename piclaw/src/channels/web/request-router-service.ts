@@ -277,6 +277,10 @@ export class RequestRouterService {
     const url = new URL(req.url);
     const pathname = url.pathname;
 
+    if (pathname.startsWith("/api/remote/")) {
+      return await this.channel.handleRemote(req);
+    }
+
     // Track the last seen origin so slash commands can build absolute links.
     rememberWebOrigin("web:default", req);
 
