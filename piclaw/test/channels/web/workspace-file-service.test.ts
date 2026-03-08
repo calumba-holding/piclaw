@@ -64,10 +64,11 @@ test("getFile handles invalid, directory, text/json/image and binary modes", () 
   }
 });
 
-test("updateFile and getRaw handle success and errors", () => {
+test("updateFile/deleteFile and getRaw handle success and errors", () => {
   const { prefix, base, cleanup, service } = setupWorkspaceDir();
   try {
     writeFileSync(join(base, "edit.txt"), "before", "utf8");
+    mkdirSync(join(base, "dir"), { recursive: true });
 
     expect(service.getRaw(`${prefix}/missing.txt`).status).toBe(404);
 
@@ -81,6 +82,14 @@ test("updateFile and getRaw handle success and errors", () => {
     const updated = service.updateFile(`${prefix}/edit.txt`, "after");
     expect(updated.status).toBe(200);
     expect(readFileSync(join(base, "edit.txt"), "utf8")).toBe("after");
+
+    expect(service.deleteFile(`${prefix}/missing.txt`).status).toBe(404);
+    expect(service.deleteFile(`${prefix}/dir`).status).toBe(400);
+
+    const deleted = service.deleteFile(`${prefix}/edit.txt`);
+    expect(deleted.status).toBe(200);
+    expect((deleted.body as any).deleted).toBe(true);
+    expect(service.getRaw(`${prefix}/edit.txt`).status).toBe(404);
   } finally {
     cleanup();
   }

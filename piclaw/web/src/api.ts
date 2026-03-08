@@ -282,6 +282,12 @@ export async function uploadWorkspaceFile(file, targetPath = '', options = {}) {
     return response.json();
 }
 
+/** Delete a file from the workspace. */
+export async function deleteWorkspaceFile(path) {
+    const url = `/workspace/file?path=${encodeURIComponent(path || '')}`;
+    return request(url, { method: 'DELETE' });
+}
+
 /** Toggle workspace explorer visibility and hidden-file display. */
 export async function setWorkspaceVisibility(visible, showHidden = false) {
     return request('/workspace/visibility', {

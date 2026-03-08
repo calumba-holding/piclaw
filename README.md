@@ -1,10 +1,12 @@
 # `piclaw` — A `pi`-based general-purpose agent
 
-![PiClaw](docs/icon-512.png)
+![PiClaw](docs/icon-256.png)
 
 PiClaw is a Docker-based sandbox for running the [Pi Coding Agent](https://github.com/badlogic/pi-mono) in an isolated Debian environment. It bundles `piclaw` — a web-first orchestrator built on the Pi SDK with persistent sessions, a streaming web UI, and scheduled tasks. WhatsApp is optional. Inspired by [agentbox](https://github.com/rcarmo/agentbox) and [nanoclaw](https://github.com/qwibitai/nanoclaw).
 
 ## Highlights
+
+![Demo Animation](docs/demo.gif)
 
 - **Streaming web UI** — real-time token-by-token updates over SSE, with Markdown, KaTeX, and Mermaid rendering
 - **Workspace explorer** — file tree sidebar with previews, file reference pills, and downloads
@@ -32,8 +34,6 @@ Provision provider credentials via `/shell <command>` in the web UI or `docker e
 
 ## Web UI
 
-![Screenshot showing thought](docs/screenshot-dark.png)
-
 The UI is single-user, mobile-friendly, and streams updates over SSE:
 
 - **Thought/Draft panels** — visible during streaming
@@ -45,8 +45,6 @@ The UI is single-user, mobile-friendly, and streams updates over SSE:
 - **Mobile-first layout** with webapp manifest
 
 ### Workspace explorer
-
-![Screenshot showing explorer](docs/screenshot-explorer-light.jpg)
 
 The sidebar shows a file tree of `/workspace` with auto-refresh. Click a file to preview it or add a **file reference pill** to the next prompt. Drag and drop files onto the tree to upload them.
 

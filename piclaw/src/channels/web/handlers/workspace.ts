@@ -1,8 +1,8 @@
 /**
  * web/handlers/workspace.ts – HTTP handlers for the workspace explorer API.
  *
- * Handles GET /workspace/tree, GET /workspace/file, PUT /workspace/file,
- * and POST /workspace/folder for the web UI's sidebar file explorer.
+ * Handles GET /workspace/tree, GET /workspace/file, PUT/DELETE /workspace/file,
+ * and upload/download/attach workspace endpoints for the web UI sidebar.
  *
  * Consumers: web/request-router.ts routes workspace paths here.
  */
@@ -56,6 +56,13 @@ export async function handleWorkspaceUpdate(_channel: WebChannel, req: Request):
   }
 
   const result = workspaceService.updateFile(data.path, data.content ?? "");
+  return jsonResponse(result.body, result.status);
+}
+
+/** Handle DELETE /workspace/file: delete a workspace file. */
+export function handleWorkspaceDelete(_channel: WebChannel, req: Request): Response {
+  const url = new URL(req.url);
+  const result = workspaceService.deleteFile(url.searchParams.get("path"));
   return jsonResponse(result.body, result.status);
 }
 

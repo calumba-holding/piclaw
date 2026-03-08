@@ -205,6 +205,7 @@ body {
 .workspace-refresh,
 .workspace-download,
 .workspace-edit,
+.workspace-delete,
 .workspace-toggle-hidden {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
@@ -225,6 +226,7 @@ body {
 .workspace-refresh svg,
 .workspace-download svg,
 .workspace-edit svg,
+.workspace-delete svg,
 .workspace-toggle-hidden svg {
     width: 16px;
     height: 16px;
@@ -240,6 +242,7 @@ body {
 .workspace-refresh:hover,
 .workspace-download:hover,
 .workspace-edit:hover,
+.workspace-delete:hover,
 .workspace-toggle-hidden:hover {
     color: var(--text-primary);
     border-color: var(--accent-color);
@@ -251,7 +254,8 @@ body {
 }
 
 .workspace-download:disabled,
-.workspace-edit:disabled {
+.workspace-edit:disabled,
+.workspace-delete:disabled {
     opacity: 0.45;
     cursor: not-allowed;
     border-color: var(--border-color);

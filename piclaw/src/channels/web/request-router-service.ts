@@ -444,6 +444,11 @@ export class RequestRouterService {
           return rateLimitResponse("Too many file writes. Slow down.");
         }
       }
+      if (req.method === "DELETE" && pathname === "/workspace/file") {
+        if (isRateLimited(req, "data/write", DATA_RATE_WINDOW_MS, DATA_WRITE_LIMIT)) {
+          return rateLimitResponse("Too many file writes. Slow down.");
+        }
+      }
     }
 
     if (isWebauthnEnrollPage) {
@@ -537,6 +542,10 @@ export class RequestRouterService {
 
     if (req.method === "PUT" && pathname === "/workspace/file") {
       return await this.channel.handleWorkspaceUpdate(req);
+    }
+
+    if (req.method === "DELETE" && pathname === "/workspace/file") {
+      return this.channel.handleWorkspaceDelete(req);
     }
 
     if (req.method === "GET" && pathname === "/workspace/raw") {

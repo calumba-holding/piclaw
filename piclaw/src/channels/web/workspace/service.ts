@@ -43,6 +43,10 @@ export class WorkspaceService {
     return this.fileService.updateFile(pathParam, content);
   }
 
+  deleteFile(pathParam: string | null) {
+    return this.fileService.deleteFile(pathParam);
+  }
+
   downloadZip(pathParam: string | null, includeHidden = false) {
     return this.fileService.downloadZip(pathParam, includeHidden);
   }

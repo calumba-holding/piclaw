@@ -46,6 +46,7 @@ import {
 import { handleMedia, handleMediaInfo, handleMediaUpload } from "./web/handlers/media.js";
 import {
   handleWorkspaceAttach,
+  handleWorkspaceDelete,
   handleWorkspaceDownload,
   handleWorkspaceFile,
   handleWorkspaceRaw,
@@ -1479,6 +1480,10 @@ export class WebChannel {
 
   async handleWorkspaceUpdate(req: Request): Promise<Response> {
     return handleWorkspaceUpdate(this, req);
+  }
+
+  handleWorkspaceDelete(req: Request): Response {
+    return handleWorkspaceDelete(this, req);
   }
 
   handleWorkspaceRaw(req: Request): Response {

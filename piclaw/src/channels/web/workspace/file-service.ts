@@ -7,7 +7,7 @@
  * Consumers: web/handlers/workspace.ts delegates file operations here.
  */
 
-import { existsSync, readFileSync, statSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, statSync, unlinkSync, writeFileSync } from "fs";
 import { readdir } from "fs/promises";
 import path from "path";
 
@@ -259,6 +259,35 @@ export class WorkspaceFileService {
       };
     } catch {
       return { status: 500, body: { error: "Failed to write file" } };
+    }
+  }
+
+  deleteFile(pathParam: string | null): { status: number; body: unknown } {
+    const targetPath = resolveWorkspacePath(pathParam);
+    if (!targetPath) return { status: 400, body: { error: "Invalid path" } };
+
+    try {
+      const stats = statSync(targetPath);
+      if (stats.isDirectory()) {
+        return { status: 400, body: { error: "Path is a directory" } };
+      }
+    } catch {
+      return { status: 404, body: { error: "File not found" } };
+    }
+
+    try {
+      unlinkSync(targetPath);
+      const relPath = toRelativePath(targetPath);
+      return {
+        status: 200,
+        body: {
+          path: relPath,
+          name: path.basename(targetPath),
+          deleted: true,
+        },
+      };
+    } catch {
+      return { status: 500, body: { error: "Failed to delete file" } };
     }
   }
 
