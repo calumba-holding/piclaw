@@ -4,6 +4,7 @@
 
 import { getRequestOriginParts } from "./http/client.js";
 
+/** In-memory challenge entry for pending WebAuthn login/registration flows. */
 export type PendingWebauthnChallenge = {
   challenge: string;
   rpId: string;
@@ -13,6 +14,7 @@ export type PendingWebauthnChallenge = {
 
 const DEFAULT_CHALLENGE_TTL_MS = 10 * 60 * 1000;
 
+/** Tracks pending login/registration WebAuthn challenges with TTL-based pruning. */
 export class WebauthnChallengeTracker {
   private readonly pendingRegistrations = new Map<string, PendingWebauthnChallenge>();
   private readonly pendingLogins = new Map<string, PendingWebauthnChallenge>();
@@ -58,6 +60,7 @@ export class WebauthnChallengeTracker {
   }
 }
 
+/** Resolve RP ID and origin tuple for WebAuthn ceremony options. */
 export function resolveWebauthnRpInfo(req: Request): { rpId: string; origin: string } {
   const url = new URL(req.url);
   const originHeader = req.headers.get("origin");
@@ -77,10 +80,12 @@ export function resolveWebauthnRpInfo(req: Request): { rpId: string; origin: str
   return { rpId, origin };
 }
 
+/** Encode binary data as base64url for WebAuthn JSON payloads. */
 export function bufferToBase64Url(value: Uint8Array): string {
   return Buffer.from(value).toString("base64url");
 }
 
+/** Decode a base64url string into binary bytes for WebAuthn verification. */
 export function base64UrlToBuffer(value: string): Uint8Array<ArrayBuffer> {
   return Buffer.from(value, "base64url") as Uint8Array<ArrayBuffer>;
 }
