@@ -41,9 +41,10 @@ import { WebChannel } from "./channels/web.js";
 import { PushoverChannel } from "./channels/pushover.js";
 import { startToolOutputCleanup } from "./tool-output.js";
 import { createUuid } from "./utils/ids.js";
-import { RuntimeState } from "./runtime/state.js";
 import { processMessages, runMessageLoop } from "./runtime/message-loop.js";
-import { getApiProvider, streamSimpleAzureOpenAIResponses, streamSimpleOpenAICompletions } from "@mariozechner/pi-ai";
+import { registerOptionalProviders } from "./runtime/provider-bootstrap.js";
+import { RuntimeState } from "./runtime/state.js";
+import { createShutdownHandler } from "./runtime/shutdown.js";
 
 const queue = new AgentQueue();
 const agentPool = new AgentPool();
@@ -66,139 +67,9 @@ export async function main(): Promise<void> {
   state.loadTimestamps();
   state.loadChats();
 
-  // Ensure Azure providers are visible in /model listing at startup.
-  // This is metadata-only registration for discovery; the extension still
-  // registers API streaming handlers for real requests.
-  const splitCsv = (value: string | undefined): string[] =>
-    (value ?? "")
-      .split(",")
-      .map((v) => v.trim())
-      .filter((v) => v.length > 0);
-
-  const registry = (agentPool as unknown as { modelRegistry?: any }).modelRegistry;
-  const aoaiToken = process.env.AOAI_API_KEY;
-  const aoaiBaseUrl = process.env.AOAI_BASE_URL;
-  if (registry && aoaiToken && aoaiBaseUrl) {
-    const hasAzureModels = registry.getAll?.().some((model: any) => model.provider === "azure-openai");
-    const azureApiRegistered = Boolean(getApiProvider("azure-openai-responses-mi" as any));
-    if (!hasAzureModels) {
-      const ids = splitCsv(process.env.AOAI_MODEL_IDS);
-      const names = splitCsv(process.env.AOAI_MODEL_NAMES);
-      const defaultIds = ["gpt-5-2-codex", "gpt-5-3-codex", "gpt-5-1-codex-mini", "gpt-5-1", "gpt-5-mini"];
-      const modelIds = ids.length > 0 ? ids : defaultIds;
-      const models = modelIds.map((id: string, idx: number) => ({
-        id,
-        name: names[idx] || `Azure ${id}`,
-        api: "azure-openai-responses-mi",
-        reasoning: true,
-        input: ["text"],
-        contextWindow: 200000,
-        maxTokens: 64000,
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-      }));
-
-      registry.registerProvider("azure-openai", {
-        baseUrl: aoaiBaseUrl,
-        api: "azure-openai-responses-mi",
-        apiKey: aoaiToken,
-        streamSimple: streamSimpleAzureOpenAIResponses,
-        models,
-      });
-    } else if (!azureApiRegistered) {
-      registry.registerProvider("azure-openai", {
-        baseUrl: aoaiBaseUrl,
-        api: "azure-openai-responses-mi",
-        apiKey: aoaiToken,
-        streamSimple: streamSimpleAzureOpenAIResponses,
-      });
-    }
-  }
-
-  const foundryToken = process.env.FOUNDRY_API_KEY || process.env.AOAI_API_KEY;
-  const foundryBaseUrl = process.env.FOUNDRY_BASE_URL;
-  if (registry && foundryToken && foundryBaseUrl) {
-    const hasFoundryModels = registry.getAll?.().some((model: any) => model.provider === "azure-foundry");
-    const foundryApiRegistered = Boolean(getApiProvider("azure-foundry-openai-completions-mi" as any));
-    if (!hasFoundryModels) {
-      const ids = splitCsv(process.env.FOUNDRY_MODEL_IDS);
-      const names = splitCsv(process.env.FOUNDRY_MODEL_NAMES);
-      const modelIds = ids.length > 0 ? ids : ["mistral-large-3"];
-      const models = modelIds.map((id: string, idx: number) => ({
-        id,
-        name: names[idx] || `Azure Foundry ${id}`,
-        api: "azure-foundry-openai-completions-mi",
-        reasoning: false,
-        input: ["text"],
-        contextWindow: 200000,
-        maxTokens: 64000,
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-      }));
-
-      registry.registerProvider("azure-foundry", {
-        baseUrl: foundryBaseUrl,
-        api: "azure-foundry-openai-completions-mi",
-        apiKey: foundryToken,
-        streamSimple: streamSimpleOpenAICompletions,
-        models,
-      });
-    } else if (!foundryApiRegistered) {
-      registry.registerProvider("azure-foundry", {
-        baseUrl: foundryBaseUrl,
-        api: "azure-foundry-openai-completions-mi",
-        apiKey: foundryToken,
-        streamSimple: streamSimpleOpenAICompletions,
-      });
-    }
-  }
+  registerOptionalProviders(agentPool);
 
   console.log("=== Piclaw - Pi Coding Agent Assistant ===");
-
-  let shuttingDown = false;
-  const withTimeout = async <T>(promise: Promise<T>, ms: number, label: string): Promise<T | null> => {
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    const timeout = new Promise<null>((resolve) => {
-      timeoutId = setTimeout(() => {
-        console.warn(`[piclaw] ${label} timed out after ${ms}ms`);
-        resolve(null);
-      }, ms);
-    });
-
-    try {
-      const result = await Promise.race([promise.then((value) => ({ value })), timeout]);
-      if (result && typeof result === "object" && "value" in result) {
-        return (result as { value: T }).value;
-      }
-      return null;
-    } catch (err) {
-      console.error(`[piclaw] ${label} failed:`, err);
-      return null;
-    } finally {
-      if (timeoutId) clearTimeout(timeoutId);
-    }
-  };
-
-  const shutdown = async (signal: string) => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    console.log(`[piclaw] ${signal} received, shutting down...`);
-    const forceExit = setTimeout(() => {
-      console.warn("[piclaw] Forcing shutdown after 15000ms");
-      process.exit(0);
-    }, 15000);
-
-    stopIpcWatcher();
-    stopSchedulerLoop();
-    await withTimeout(queue.shutdown(5000), 7000, "queue shutdown");
-    await withTimeout(agentPool.shutdown(), 8000, "agent pool shutdown");
-    await withTimeout(whatsapp.disconnect(), 8000, "whatsapp disconnect");
-    await withTimeout(web?.stop() ?? Promise.resolve(), 4000, "web stop");
-    await withTimeout(pushover?.stop() ?? Promise.resolve(), 4000, "pushover stop");
-
-    clearTimeout(forceExit);
-    process.exit(0);
-  };
-  process.on("SIGTERM", () => shutdown("SIGTERM"));
-  process.on("SIGINT", () => shutdown("SIGINT"));
 
   web = new WebChannel({ queue, agentPool });
   await web.start();
@@ -247,6 +118,18 @@ export async function main(): Promise<void> {
     },
     onChatMetadata: (chatJid, timestamp) => storeChatMetadata(chatJid, timestamp),
   });
+
+  const shutdown = createShutdownHandler({
+    queue,
+    agentPool,
+    whatsapp,
+    web,
+    pushover,
+    stopIpcWatcher,
+    stopSchedulerLoop,
+  });
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 
   const sendMessage = async (
     jid: string,
