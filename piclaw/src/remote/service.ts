@@ -105,18 +105,40 @@ function checkContentLength(req: Request, maxBytes: number): { ok: true } | { ok
   return { ok: true };
 }
 
-function parseJsonBytes(buffer: Uint8Array, maxBytes: number): { data?: any; error?: string } {
+type JsonBody = Record<string, unknown>;
+type JsonParseResult = { data?: JsonBody; error?: string };
+
+function asJsonBody(value: unknown): JsonBody {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as JsonBody;
+}
+
+function getStringField(data: JsonBody | undefined, key: string): string {
+  const value = data?.[key];
+  return typeof value === "string" ? value : "";
+}
+
+function getTrimmedStringField(data: JsonBody | undefined, key: string): string {
+  return getStringField(data, key).trim();
+}
+
+function getOptionalTrimmedStringField(data: JsonBody | undefined, key: string): string | null {
+  const value = getTrimmedStringField(data, key);
+  return value.length > 0 ? value : null;
+}
+
+function parseJsonBytes(buffer: Uint8Array, maxBytes: number): JsonParseResult {
   if (buffer.length > maxBytes) return { error: "Request too large." };
   if (buffer.length === 0) return { data: {} };
   try {
     const text = new TextDecoder().decode(buffer);
-    return { data: JSON.parse(text) };
+    return { data: asJsonBody(JSON.parse(text)) };
   } catch {
     return { error: "Invalid JSON." };
   }
 }
 
-async function readJsonBody(req: Request, maxBytes: number): Promise<{ data?: any; error?: string }> {
+async function readJsonBody(req: Request, maxBytes: number): Promise<JsonParseResult> {
   let buffer: Uint8Array;
   try {
     const arrayBuffer = await req.arrayBuffer();
@@ -194,10 +216,10 @@ async function verifyCallbackProof(
   }
 
   const data = parsed.data ?? {};
-  const responseRequestId = typeof data.request_id === "string" ? data.request_id : "";
-  const responseChallenge = typeof data.challenge === "string" ? data.challenge : "";
-  const responseInstanceId = typeof data.instance_id === "string" ? data.instance_id : "";
-  const responseSignature = typeof data.signature === "string" ? data.signature : "";
+  const responseRequestId = getStringField(data, "request_id");
+  const responseChallenge = getStringField(data, "challenge");
+  const responseInstanceId = getStringField(data, "instance_id");
+  const responseSignature = getStringField(data, "signature");
 
   if (!responseRequestId || !responseChallenge || !responseInstanceId || !responseSignature) {
     return { ok: false, error: "Invalid callback response." };
@@ -287,13 +309,13 @@ export class RemoteInteropService {
     const { data, error } = await readJsonBody(req, DEFAULT_MAX_PROMPT_BYTES);
     if (error) return jsonResponse({ error }, 400);
 
-    const instanceId = typeof data?.instance_id === "string" ? data.instance_id.trim() : "";
-    const publicKey = typeof data?.public_key === "string" ? data.public_key.trim() : "";
-    const displayName = typeof data?.display_name === "string" ? data.display_name.trim() : null;
-    const callbackUrl = typeof data?.callback_url === "string" ? data.callback_url.trim() : "";
-    const protocolVersion = typeof data?.protocol_version === "string" ? data.protocol_version.trim() : "";
-    const nonce = typeof data?.nonce === "string" ? data.nonce.trim() : null;
-    const expiresAtRaw = typeof data?.expires_at === "string" ? data.expires_at.trim() : "";
+    const instanceId = getTrimmedStringField(data, "instance_id");
+    const publicKey = getTrimmedStringField(data, "public_key");
+    const displayName = getOptionalTrimmedStringField(data, "display_name");
+    const callbackUrl = getTrimmedStringField(data, "callback_url");
+    const protocolVersion = getTrimmedStringField(data, "protocol_version");
+    const nonce = getOptionalTrimmedStringField(data, "nonce");
+    const expiresAtRaw = getTrimmedStringField(data, "expires_at");
 
     if (!instanceId || !publicKey || !callbackUrl || !expiresAtRaw || !nonce || !protocolVersion) {
       return jsonResponse({ error: "Missing required fields." }, 400);
@@ -392,8 +414,8 @@ export class RemoteInteropService {
     const { data, error } = parseJsonBytes(bodyBytes, DEFAULT_MAX_PROMPT_BYTES);
     if (error) return jsonResponse({ error }, 400);
 
-    const requestId = typeof data?.request_id === "string" ? data.request_id.trim() : "";
-    const challenge = typeof data?.challenge === "string" ? data.challenge.trim() : "";
+    const requestId = getTrimmedStringField(data, "request_id");
+    const challenge = getTrimmedStringField(data, "challenge");
     if (!requestId || !challenge) {
       return jsonResponse({ error: "Missing request_id or challenge." }, 400);
     }
@@ -532,7 +554,7 @@ export class RemoteInteropService {
     const payload = parseJsonBytes(bodyBytes, DEFAULT_MAX_PROMPT_BYTES);
     if (payload.error) return jsonResponse({ error: payload.error }, 400);
 
-    const prompt = typeof payload.data?.prompt === "string" ? payload.data.prompt.trim() : "";
+    const prompt = getTrimmedStringField(payload.data, "prompt");
     if (!prompt) return jsonResponse({ error: "Missing prompt." }, 400);
 
     const hop = Number(req.headers.get("x-request-hop") || "0");
@@ -600,7 +622,7 @@ export class RemoteInteropService {
     const payload = parseJsonBytes(bodyBytes, DEFAULT_MAX_PROMPT_BYTES);
     if (payload.error) return jsonResponse({ error: payload.error }, 400);
 
-    const prompt = typeof payload.data?.prompt === "string" ? payload.data.prompt.trim() : "";
+    const prompt = getTrimmedStringField(payload.data, "prompt");
     if (!prompt) return jsonResponse({ error: "Missing prompt." }, 400);
 
     if (!this.agentPool) {
