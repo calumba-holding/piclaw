@@ -3,7 +3,7 @@
  *
  * Verifies that builtinExtensionFactories register the expected tools
  * (attach_file, search_messages/get_message, model control, tool discovery, keychain, SQL introspection, workspace search)
- * and slash commands (/tasks, /scheduled) on a mock ExtensionAPI.
+ * and slash commands (/tasks, /scheduled, /theme, /tint) on a mock ExtensionAPI.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -65,12 +65,14 @@ describe("builtin extension factories", () => {
     expect(fake.tools.has("keychain")).toBe(true);
     expect(fake.tools.has("sql_introspect")).toBe(true);
 
-    // Commands from scheduled-tasks
+    // Commands from scheduled-tasks + ui-theme extensions
     expect(fake.commands.has("tasks")).toBe(true);
     expect(fake.commands.has("scheduled")).toBe(true);
+    expect(fake.commands.has("theme")).toBe(true);
+    expect(fake.commands.has("tint")).toBe(true);
   });
 
   test("factories array has expected length", () => {
-    expect(builtinExtensionFactories.length).toBe(8);
+    expect(builtinExtensionFactories.length).toBe(9);
   });
 });

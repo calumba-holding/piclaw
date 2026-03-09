@@ -10,15 +10,13 @@
 import { isBashToolResult } from "@mariozechner/pi-coding-agent";
 
 import {
+  buildPreview,
   createBatchExecTool,
   createToolOutputSearchTool,
-} from "../src/tools/context-tools.js";
-import {
-  buildPreview,
-  saveToolOutput,
   readToolOutputFile,
+  saveToolOutput,
   startToolOutputCleanup,
-} from "../src/tool-output.js";
+} from "../src/extensions/context-mode-api.js";
 
 const STORE_THRESHOLD_BYTES = parseInt(process.env.PICLAW_TOOL_OUTPUT_STORE_BYTES || "4096", 10);
 const STORE_THRESHOLD_LINES = parseInt(process.env.PICLAW_TOOL_OUTPUT_STORE_LINES || "40", 10);

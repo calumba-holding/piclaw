@@ -7,7 +7,7 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
 
 - Backend size: **169 TS files / 22,946 LOC** (`src/`)
 - Frontend size: **7,095 LOC** (`web/src/`)
-- Tests: baseline **613 passing, 0 failing** on prior clean tranche; current workspace run is **612 passing, 1 failing** due to an unrelated in-progress extension-count expectation drift in `test/agent-pool/agent-pool-tools.test.ts` (`8 -> 9` factories).
+- Tests: **613 passing, 0 failing**
 - Lint: passing (for current backend tranche)
 - Coverage (line): **57.97%** (`coverage/lcov.info`)
 - Review comment coverage: Added focused regression/unit tests for each recent extraction seam (`web/recovery.ts`, `web/agent-buffers.ts`, `web/auth-runtime.ts`, `web/auth-gateway.ts`, `web/auth-endpoints.ts`, `web/channel-endpoint-context-factory.ts`, `web/endpoint-contexts.ts`, `web/agent-status-store.ts`, `web/pending-steering.ts`, `web/interaction-broadcaster.ts`, `web/followup-placeholders.ts`, `web/chat-run-control.ts`, `web/message-write-flows.ts`, `web/handlers/workspace.ts`, `web/http/dispatch-workspace.ts`, `web/http/dispatch-media.ts`, `web/http/dispatch-auth.ts`, `web/http/request-guards.ts`, `runtime/composition.ts`, `runtime/bootstrap.ts`, runtime wiring/provider bootstrap) so refactors remain behavior-preserving.
@@ -98,9 +98,12 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
   - added exported JSDoc coverage for challenge tracking and RP/base64 helper contracts in `src/channels/web/webauthn-challenges.ts`
   - added exported JSDoc coverage for WebAuthn login/register endpoint context/handler contracts in `src/channels/web/webauthn-auth.ts`
   - completed remaining exported-JSDoc burn-down across residual `src/` seams (message-write flows, chat-run-control, identity/status helpers, auth/http dispatch contracts, workspace constants/tree contracts, runtime/provider/task scheduler seams, IPC/task validation, and agent-control helper contracts), bringing heuristic misses to zero.
+  - extension contract hardening phase-1: replaced fragile `../node_modules/...` extension imports with package-scoped imports in `extensions/azure-openai.ts`, introduced stable extension bridge modules (`src/extensions/azure-openai-api.ts`, `src/extensions/context-mode-api.ts`), migrated extension consumers to bridge surfaces, and updated built-in extension registration tests for 9 factories (`uiThemeExtension` included).
 
 ### Recent commit sequence (latest first)
 
+- `1d72377` Harden extension import boundaries and update factory coverage
+- `1b99938` Complete src exported JSDoc coverage sweep
 - `1ea15c5` Document webauthn auth endpoint exports
 - `7f14e8d` Document webauthn challenge helper exports
 - `74172cc` Document web content endpoint helper exports
@@ -235,7 +238,10 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
   - Pending: remove remaining internal peeking/casts and formalize service interfaces/ports.
 
 - [ ] **Extension contract hardening**
-  - Pending: remove deep/dist imports and `src/*` coupling where avoidable.
+  - In progress: hardened extension import boundaries in `extensions/azure-openai.ts` by replacing fragile `../node_modules/...` deep relative imports with package-scoped imports (e.g., `@mariozechner/pi-ai` and `@mariozechner/pi-ai/dist/providers/...`) while preserving behavior.
+  - In progress: introduced stable extension-facing bridge modules (`src/extensions/azure-openai-api.ts`, `src/extensions/context-mode-api.ts`) and migrated `extensions/context-mode.ts` + `extensions/azure-openai.ts` to those bridge surfaces instead of multiple direct internal imports.
+  - In progress: aligned extension registration coverage by updating built-in extension factory tests for the active 9-factory set (including `uiThemeExtension` command registration).
+  - Pending: continue reducing avoidable deep dist imports (`@mariozechner/pi-ai/dist/providers/*`) by upstreaming/using stable exports where possible.
 
 - [ ] **Type quality pass**
   - In progress: removed high-risk `any` usage from `src/ipc.ts` payload/update paths, from runtime provider bootstrap + `AgentPool` provider-registration boundary, unified web thought/draft buffer typing via shared `web/agent-buffers.ts` contracts, introduced typed recovery/resume context boundaries in `web/recovery.ts`, introduced typed auth-runtime config/context builders in `web/auth-runtime.ts`, added typed auth/session/passkey gateway boundaries in `web/auth-gateway.ts`, added typed auth endpoint delegation boundaries in `web/auth-endpoints.ts`, introduced typed endpoint context builder boundaries in `web/endpoint-contexts.ts`, introduced typed channel endpoint-context assembly boundaries in `web/channel-endpoint-context-factory.ts`, added typed runtime core factory/signal registrar boundaries in `runtime/composition.ts`, added typed runtime bootstrap dependency boundaries in `runtime/bootstrap.ts`, centralized agent-status lifecycle typing in `web/agent-status-store.ts`, typed pending-steering queue semantics in `web/pending-steering.ts`, generalized interaction broadcast channel typing in `web/interaction-service.ts`/`web/interaction-broadcaster.ts`, isolated follow-up placeholder queue typing in `web/followup-placeholders.ts`, added typed chat run control boundaries in `web/chat-run-control.ts`, extracted typed message-write flow boundaries in `web/message-write-flows.ts`, narrowed workspace/media handler contracts to explicit minimal interfaces, narrowed auth dispatch/request-guard contracts to `authGateway` + `AuthEndpointsContext`, narrowed message-store/link-preview channel contract boundaries via `LinkPreviewChannel`, removed an agent-handler fallback cast on model-label lookup, removed `any` hotspots in `src/agent-pool.ts` session/message extraction plus `src/agent-pool/usage.ts` token usage parsing, replaced `any`-typed slash-command event/content handling with guarded `AgentSessionEvent` parsing in `src/agent-pool/slash-command.ts`, hardened remote interop JSON/body parsing contracts in `src/remote/service.ts` with typed payload guards/helpers, removed `any`-typed message/reasoning parsing in `src/utils/azure-tool-call-limit.ts` through guarded record access helpers, eliminated residual SQL spread casts (`as [any, ...any[]]`) in `src/db/tasks.ts` plus `src/db/remote-interop.ts`, and tightened `src/agent-control/agent-control-helpers.ts` event/content/model typing to remove `any` from control helper seams.
