@@ -30,6 +30,7 @@ import { rememberWebOrigin } from "./request-origin.js";
 import { handleAgentRoutes } from "./http/dispatch-agent.js";
 import { handleContentPrimaryRoutes, handleContentSecondaryRoutes } from "./http/dispatch-content.js";
 import { handleMediaRoutes } from "./http/dispatch-media.js";
+import { handleShellRoutes } from "./http/dispatch-shell.js";
 import { handleWorkspaceRoutes } from "./http/dispatch-workspace.js";
 import { enforceRequestGuards } from "./http/request-guards.js";
 import { getRouteFlags } from "./http/route-flags.js";
@@ -133,53 +134,15 @@ export class RequestRouterService {
       return this.channel.handleWebauthnRegisterFinish(req);
     }
 
-    if (flags.isIndex) {
-      return this.channel.serveStatic("index.html");
-    }
-
-    if (flags.isManifest) {
-      return this.channel.handleManifest(req);
-    }
-
-    if (flags.isFavicon) {
-      // Prefer agent avatar for favicon if configured
-      const avatarResp = await this.channel.handleAvatar("agent", req);
-      if (avatarResp.status === 200) return avatarResp;
-      return this.serveStaticAsset(req, "favicon.ico");
-    }
-
-    if (flags.isAppleIcon) {
-      // If a custom agent avatar is configured, serve it for apple-touch-icon paths
-      // so the PWA home-screen icon matches the configured avatar.
-      const avatarResp = await this.channel.handleAvatar("agent", req);
-      if (avatarResp.status === 200) return avatarResp;
-      return this.serveStaticAsset(req, pathname.slice(1));
-    }
-
-    if (flags.isStaticAsset) {
-      const rel = pathname.replace("/static/", "");
-      return this.channel.serveStatic(rel);
-    }
-
-    if (flags.isDocsAsset) {
-      const rel = pathname.replace("/docs/", "");
-      return this.channel.serveDocsStatic(rel);
-    }
-
-    if (pathname === "/sse/stream") {
-      return this.channel.handleSse();
-    }
-
-    if (req.method === "GET" && pathname === "/agents") {
-      return await this.channel.handleAgents();
-    }
-
-    if (flags.isAvatar) {
-      return await this.channel.handleAvatar("agent", req);
-    }
-
-    if (flags.isGetOrHead && pathname === "/avatar/user") {
-      return await this.channel.handleAvatar("user", req);
+    const shellResponse = await handleShellRoutes(
+      this.channel,
+      req,
+      pathname,
+      flags,
+      this.serveStaticAsset.bind(this)
+    );
+    if (shellResponse) {
+      return shellResponse;
     }
 
     const primaryContentResponse = await handleContentPrimaryRoutes(this.channel, req, pathname, url);
