@@ -107,6 +107,12 @@ import {
   handleUpdatePostRequest,
   type PostMutationsContext,
 } from "./web/post-mutations.js";
+import {
+  handleAgentRespondRequest,
+  handleThoughtVisibilityRequest,
+  handleWorkspaceVisibilityRequest,
+  type UiEndpointsContext,
+} from "./web/ui-endpoints.js";
 import { broadcastAgentResponse, broadcastInteractionUpdated } from "./web/interaction-service.js";
 import { RemoteInteropService } from "../remote/service.js";
 import { getClientKey as getRequestClientKey } from "./web/http/client.js";
@@ -590,6 +596,24 @@ export class WebChannel {
     };
   }
 
+  private getUiEndpointsContext(): UiEndpointsContext {
+    return {
+      json: (payload, status = 200) => this.json(payload, status),
+      getWorkspaceVisible: () => this.workspaceVisible,
+      setWorkspaceVisible: (value) => {
+        this.workspaceVisible = value;
+      },
+      getWorkspaceShowHidden: () => this.workspaceShowHidden,
+      setWorkspaceShowHidden: (value) => {
+        this.workspaceShowHidden = value;
+      },
+      setPanelExpanded: (turnId, panel, expanded) => {
+        this.setPanelExpanded(turnId, panel, expanded);
+      },
+      handleUiResponse: (requestId, outcome) => this.uiBridge.handleUiResponse(requestId, outcome),
+    };
+  }
+
   async handleAuthVerify(req: Request): Promise<Response> {
     return await handleAuthVerifyRequest(req, this.getTotpAuthContext());
   }
@@ -663,23 +687,7 @@ export class WebChannel {
   }
 
   async handleWorkspaceVisibility(req: Request): Promise<Response> {
-    let data: { visible?: boolean; show_hidden?: boolean; showHidden?: boolean };
-    try {
-      data = await req.json();
-    } catch {
-      return this.json({ error: "Invalid JSON" }, 400);
-    }
-    if (typeof data.visible === "boolean") {
-      this.workspaceVisible = data.visible;
-    } else {
-      this.workspaceVisible = Boolean(data.visible);
-    }
-    if (typeof data.show_hidden === "boolean") {
-      this.workspaceShowHidden = data.show_hidden;
-    } else if (typeof data.showHidden === "boolean") {
-      this.workspaceShowHidden = data.showHidden;
-    }
-    return this.json({ status: "ok", visible: this.workspaceVisible, show_hidden: this.workspaceShowHidden });
+    return await handleWorkspaceVisibilityRequest(req, this.getUiEndpointsContext());
   }
 
   handleTimeline(limit: number, before?: number): Response {
@@ -711,18 +719,7 @@ export class WebChannel {
   }
 
   async handleThoughtVisibility(req: Request): Promise<Response> {
-    let data: { turn_id?: string; turnId?: string; panel?: string; expanded?: boolean };
-    try {
-      data = await req.json();
-    } catch {
-      return this.json({ error: "Invalid JSON" }, 400);
-    }
-    const turnId = (data.turn_id || data.turnId || "").trim();
-    const panel = data.panel === "draft" ? "draft" : "thought";
-    const expanded = Boolean(data.expanded);
-    if (!turnId) return this.json({ error: "Missing turn_id" }, 400);
-    this.setPanelExpanded(turnId, panel, expanded);
-    return this.json({ status: "ok", turn_id: turnId, panel, expanded });
+    return await handleThoughtVisibilityRequest(req, this.getUiEndpointsContext());
   }
 
   handleDeletePost(id: number | null, cascade = false): Response {
@@ -783,22 +780,7 @@ export class WebChannel {
    * Validates request_id is a non-empty string of ≤ 256 chars.
    */
   async handleAgentRespond(req: Request): Promise<Response> {
-    let data: { request_id?: string; outcome?: unknown };
-    try {
-      data = await req.json();
-    } catch {
-      return this.json({ error: "Invalid JSON" }, 400);
-    }
-
-    if (!data.request_id || typeof data.request_id !== "string") {
-      return this.json({ error: "Missing or invalid request_id" }, 400);
-    }
-    if (data.request_id.length > 256) {
-      return this.json({ error: "request_id too long" }, 400);
-    }
-
-    const status = this.uiBridge.handleUiResponse(data.request_id, data.outcome);
-    return this.json(status);
+    return await handleAgentRespondRequest(req, this.getUiEndpointsContext());
   }
 
   async handleAgentMessage(req: Request, pathname: string): Promise<Response> {

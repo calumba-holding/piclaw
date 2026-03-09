@@ -10,18 +10,24 @@
 import type { AgentSession, ExtensionUIContext } from "@mariozechner/pi-coding-agent";
 
 import type { WebChannel } from "../web.js";
-import { UiBridge } from "./ui-bridge.js";
+import { UiBridge, type UiBridgeChannel } from "./ui-bridge.js";
 
-function getBridge(channel: WebChannel): UiBridge {
-  return (channel as any).uiBridge ?? new UiBridge(channel);
+export type UiContextChannel = UiBridgeChannel & { uiBridge?: UiBridge };
+
+function getBridge(channel: UiContextChannel): UiBridge {
+  return channel.uiBridge ?? new UiBridge(channel);
 }
 
 /** Attach a UiBridge to an agent session for extension UI interactions. */
-export async function bindSessionUiContext(channel: WebChannel, session: AgentSession, chatJid: string): Promise<void> {
+export async function bindSessionUiContext(
+  channel: WebChannel | UiContextChannel,
+  session: AgentSession,
+  chatJid: string
+): Promise<void> {
   return getBridge(channel).bindSession(session, chatJid);
 }
 
 /** Create an ExtensionUIContext backed by the given UiBridge. */
-export function createUiContext(channel: WebChannel, chatJid: string): ExtensionUIContext {
+export function createUiContext(channel: WebChannel | UiContextChannel, chatJid: string): ExtensionUIContext {
   return getBridge(channel).createUiContext(chatJid);
 }

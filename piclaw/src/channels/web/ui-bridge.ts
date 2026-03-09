@@ -11,11 +11,14 @@
 
 import type { AgentSession, ExtensionUIContext } from "@mariozechner/pi-coding-agent";
 
-import type { WebChannel } from "../web.js";
 import { createFallbackTheme } from "./theme.js";
 
+export interface UiBridgeChannel {
+  broadcastEvent(eventType: string, data: unknown): void;
+}
+
 interface PendingUiRequest {
-  resolve: (value: any) => void;
+  resolve: (value: unknown) => void;
   reject: (err: Error) => void;
   timeoutId: ReturnType<typeof setTimeout>;
   kind: string;
@@ -28,7 +31,7 @@ export class UiBridge {
   editorTextByChat = new Map<string, string>();
   fallbackTheme = createFallbackTheme();
 
-  constructor(private channel: WebChannel) {}
+  constructor(private channel: UiBridgeChannel) {}
 
   async bindSession(session: AgentSession, chatJid: string): Promise<void> {
     if (!chatJid.startsWith("web:")) return;
@@ -137,9 +140,9 @@ export class UiBridge {
       setTitle: (title) => {
         this.channel.broadcastEvent("extension_ui_title", { chat_jid: chatJid, title });
       },
-      custom: async (_factory, _options) => {
+      custom: async <T>(_factory, _options) => {
         const result = await requestUiResponse("custom", { title: "Custom UI" });
-        return result as any;
+        return result as T;
       },
       pasteToEditor: (text) => {
         const current = this.editorTextByChat.get(chatJid) || "";

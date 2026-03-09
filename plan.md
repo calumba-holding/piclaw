@@ -5,9 +5,9 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
 
 ## Review snapshot (updated)
 
-- Backend size: **154 TS files / 21,857 LOC** (`src/`)
+- Backend size: **155 TS files / 21,927 LOC** (`src/`)
 - Frontend size: **7,095 LOC** (`web/src/`)
-- Tests: **562 passing, 0 failing**
+- Tests: **565 passing, 0 failing**
 - Lint: passing (for current backend tranche)
 - Coverage (line): **57.97%** (`coverage/lcov.info`)
 
@@ -45,7 +45,9 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
   - extracted manifest generation/headers logic from `web.ts` into `web/manifest.ts`
   - extracted post update/internal-post endpoint orchestration from `web.ts` into `web/post-mutations.ts`
   - extracted agent status/context/models endpoint orchestration from `web.ts` into `web/agent-status.ts`
+  - extracted workspace/thought visibility + agent respond endpoint orchestration from `web.ts` into `web/ui-endpoints.ts`
   - replaced `as any` session-binder bridge with typed helper `web/agent-pool-binder.ts`
+  - removed `any` from web UI bridge pending/custom flow and narrowed UI-context channel typing
 
 ### Recent commit sequence (latest first)
 
@@ -127,7 +129,7 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
   - Behavior preserved (non-destructive).
 
 - [ ] **Refactor `src/channels/web.ts` into narrower services**
-  - In progress: extracted route dispatching, TOTP lockout bookkeeping, session cookie/auth helpers, internal-secret verification helper, WebAuthn challenge helpers, WebAuthn auth endpoint orchestration, passkey enrol page response, TOTP verify endpoint orchestration, manifest response helper, post mutation endpoint orchestration, and agent status/context/models helpers.
+  - In progress: extracted route dispatching, TOTP lockout bookkeeping, session cookie/auth helpers, internal-secret verification helper, WebAuthn challenge helpers, WebAuthn auth endpoint orchestration, passkey enrol page response, TOTP verify endpoint orchestration, manifest response helper, post mutation endpoint orchestration, agent status/context/models helpers, and workspace/thought/ui-response endpoint helpers.
   - Pending: split auth/session/status/passkey and orchestration responsibilities further.
 
 - [ ] **Refactor `src/runtime.ts` into composition root + startup/shutdown managers**
@@ -135,7 +137,8 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
   - Pending: finalize interface narrowing around runtime-owned dependencies and reduce remaining global composition coupling.
 
 - [ ] **Architectural dependency boundaries**
-  - Pending: remove internal peeking/casts and formalize service interfaces/ports.
+  - In progress: removed web session-binder `as any` cast path and tightened UI bridge/context typing.
+  - Pending: remove remaining internal peeking/casts and formalize service interfaces/ports.
 
 - [ ] **Extension contract hardening**
   - Pending: remove deep/dist imports and `src/*` coupling where avoidable.
