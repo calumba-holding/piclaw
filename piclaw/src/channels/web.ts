@@ -87,6 +87,7 @@ import {
 import type { InteractionRow } from "../db.js";
 import { WebChannelState } from "./web/channel-state.js";
 import { AgentStatusStore } from "./web/agent-status-store.js";
+import { PendingSteeringStore } from "./web/pending-steering.js";
 import { storeWebMessage } from "./web/message-store.js";
 import { deletePostResponse } from "./web/timeline-service.js";
 import { ensureAvatarCache, resolveAvatarUrl } from "./web/avatar-service.js";
@@ -156,7 +157,7 @@ export class WebChannel {
   workspaceWatcher: { close: () => Promise<void> } | null = null;
   workspaceVisible = false;
   workspaceShowHidden = false;
-  pendingSteering = new Map<string, string[]>();
+  pendingSteeringStore = new PendingSteeringStore();
   agentStatusStore: AgentStatusStore;
   lastCommandInteractionId: number | null = null;
   webauthnChallenges = new WebauthnChallengeTracker();
@@ -260,18 +261,11 @@ export class WebChannel {
   }
 
   queuePendingSteering(chatJid: string, timestamp: string | undefined): void {
-    if (!timestamp) return;
-    const existing = this.pendingSteering.get(chatJid) ?? [];
-    existing.push(timestamp);
-    this.pendingSteering.set(chatJid, existing);
+    this.pendingSteeringStore.queue(chatJid, timestamp);
   }
 
   consumePendingSteering(chatJid: string): string | null {
-    const entries = this.pendingSteering.get(chatJid);
-    if (!entries || entries.length === 0) return null;
-    this.pendingSteering.delete(chatJid);
-    entries.sort();
-    return entries[entries.length - 1] ?? null;
+    return this.pendingSteeringStore.consumeLatest(chatJid);
   }
 
   updateAgentStatus(chatJid: string, status: Record<string, unknown>): void {

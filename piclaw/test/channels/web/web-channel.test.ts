@@ -290,8 +290,8 @@ test("web channel queues steering without advancing cursor", async () => {
   const json = await res.json();
   expect(json.queued).toBe("steer");
   expect(db.getChatCursor("web:default")).toBe("");
-  const pending = (web as any).pendingSteering.get("web:default") ?? [];
-  expect(pending.length).toBe(1);
+  const pending = (web as any).consumePendingSteering("web:default");
+  expect(pending).toBeTruthy();
   expect(events.some((event) => event.type === "agent_steer_queued")).toBe(true);
 });
 
