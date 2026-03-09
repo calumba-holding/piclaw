@@ -28,6 +28,7 @@ import { extname, resolve } from "path";
 import type { WebChannel } from "../web.js";
 import { rememberWebOrigin } from "./request-origin.js";
 import { handleAgentRoutes } from "./http/dispatch-agent.js";
+import { handleContentPrimaryRoutes, handleContentSecondaryRoutes } from "./http/dispatch-content.js";
 import { handleMediaRoutes } from "./http/dispatch-media.js";
 import { handleWorkspaceRoutes } from "./http/dispatch-workspace.js";
 import { enforceRequestGuards } from "./http/request-guards.js";
@@ -181,10 +182,9 @@ export class RequestRouterService {
       return await this.channel.handleAvatar("user", req);
     }
 
-    if (req.method === "GET" && pathname === "/timeline") {
-      const limit = this.channel.clampInt(url.searchParams.get("limit"), 10, 1, 100);
-      const before = this.channel.parseOptionalInt(url.searchParams.get("before"));
-      return this.channel.handleTimeline(limit, before ?? undefined);
+    const primaryContentResponse = await handleContentPrimaryRoutes(this.channel, req, pathname, url);
+    if (primaryContentResponse) {
+      return primaryContentResponse;
     }
 
     const workspaceResponse = await handleWorkspaceRoutes(this.channel, req, pathname);
@@ -192,51 +192,14 @@ export class RequestRouterService {
       return workspaceResponse;
     }
 
-    if (req.method === "GET" && pathname.startsWith("/hashtag/")) {
-      const tag = decodeURIComponent(pathname.replace("/hashtag/", ""));
-      const limit = this.channel.clampInt(url.searchParams.get("limit"), 50, 1, 100);
-      const offset = this.channel.clampInt(url.searchParams.get("offset"), 0, 0, Number.MAX_SAFE_INTEGER);
-      return this.channel.handleHashtag(tag, limit, offset);
-    }
-
-    if (req.method === "GET" && pathname === "/search") {
-      const query = (url.searchParams.get("q") || "").trim();
-      const limit = this.channel.clampInt(url.searchParams.get("limit"), 50, 1, 100);
-      const offset = this.channel.clampInt(url.searchParams.get("offset"), 0, 0, Number.MAX_SAFE_INTEGER);
-      return this.channel.handleSearch(query, limit, offset);
-    }
-
-    if (req.method === "POST" && pathname === "/post") {
-      return this.channel.handlePost(req, false);
-    }
-
-    if (req.method === "POST" && pathname === "/reply") {
-      return this.channel.handlePost(req, true);
-    }
-
-    if (req.method === "PATCH" && pathname.startsWith("/post/")) {
-      const id = this.channel.parseOptionalInt(pathname.replace("/post/", ""));
-      return this.channel.handleUpdatePost(req, id);
-    }
-
-    if (req.method === "GET" && pathname.startsWith("/thread/")) {
-      const id = this.channel.parseOptionalInt(pathname.replace("/thread/", ""));
-      return this.channel.handleThread(id);
-    }
-
     const agentResponse = await handleAgentRoutes(this.channel, req, pathname, url);
     if (agentResponse) {
       return agentResponse;
     }
 
-    if (req.method === "DELETE" && pathname.startsWith("/post/")) {
-      const id = this.channel.parseOptionalInt(pathname.replace("/post/", ""));
-      const cascade = url.searchParams.get("cascade") === "true" || url.searchParams.get("cascade") === "1";
-      return this.channel.handleDeletePost(id, cascade);
-    }
-
-    if (req.method === "POST" && pathname === "/internal/post") {
-      return this.channel.handleInternalPost(req);
+    const secondaryContentResponse = await handleContentSecondaryRoutes(this.channel, req, pathname, url);
+    if (secondaryContentResponse) {
+      return secondaryContentResponse;
     }
 
     const mediaResponse = await handleMediaRoutes(this.channel, req, pathname);
