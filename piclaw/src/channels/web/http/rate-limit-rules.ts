@@ -2,11 +2,16 @@
  * web/http/rate-limit-rules.ts – Route-to-limit mapping for web endpoint throttling.
  */
 
+/** Sliding-window duration for passkey enrol endpoints. */
 export const ENROLL_RATE_WINDOW_MS = 5 * 60 * 1000;
+/** Request cap for passkey enrol endpoints per window. */
 export const ENROLL_RATE_LIMIT = 20;
+/** Sliding-window duration for auth endpoints. */
 export const AUTH_RATE_WINDOW_MS = 5 * 60 * 1000;
+/** Request cap for auth endpoints per window. */
 export const AUTH_RATE_LIMIT = 10;
 
+/** Sliding-window duration for data-mutating endpoints. */
 export const DATA_RATE_WINDOW_MS = 60 * 1000;
 
 const DATA_POST_LIMIT = 30;
@@ -17,6 +22,7 @@ const DATA_WORKSPACE_UPLOAD_LIMIT = 20;
 const DATA_DELETE_LIMIT = 60;
 const DATA_WRITE_LIMIT = 30;
 
+/** Rate-limit rule returned for a specific method/path endpoint. */
 export type DataRateLimitRule = {
   bucket: string;
   limit: number;

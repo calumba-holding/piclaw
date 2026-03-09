@@ -9,6 +9,7 @@ import { getRequestOriginParts } from "./http/client.js";
 
 const originByChatJid = new Map<string, string>();
 
+/** Persist the latest request origin for a web chat thread. */
 export function rememberWebOrigin(chatJid: string, req: Request): void {
   try {
     const { proto, host } = getRequestOriginParts(req);
@@ -19,6 +20,7 @@ export function rememberWebOrigin(chatJid: string, req: Request): void {
   }
 }
 
+/** Return the remembered browser origin for a web chat, if available. */
 export function getWebOrigin(chatJid: string): string | null {
   return originByChatJid.get(chatJid) || null;
 }
