@@ -26,6 +26,11 @@ import {
   type WebAuthnCredential,
 } from "@simplewebauthn/server";
 import { randomSessionToken, safeEqual, verifyTotp } from "./web/auth.js";
+import {
+  buildSessionCookieHeader,
+  isRequestAuthenticated,
+  isRequestTotpSession,
+} from "./web/session-auth.js";
 import { TotpFailureTracker } from "./web/totp-failure-tracker.js";
 import {
   ASSISTANT_AVATAR,
@@ -64,8 +69,6 @@ import {
   getMessagesSince,
   replaceMessageContent,
   createWebSession,
-  getWebSession,
-  deleteExpiredWebSessions,
   DEFAULT_WEB_USER_ID,
   getWebauthnEnrollment,
   consumeWebauthnEnrollment,
@@ -487,28 +490,7 @@ export class WebChannel {
   }
 
   isTotpSession(req: Request): boolean {
-    if (!this.isTotpEnabled()) return false;
-    this.cleanupAuthSessions();
-    const token = this.getSessionToken(req);
-    if (!token) return false;
-    const session = getWebSession(token);
-    if (!session) return false;
-    return session.auth_method === "totp";
-  }
-
-  private cleanupAuthSessions(): void {
-    deleteExpiredWebSessions();
-  }
-
-  private parseCookies(req: Request): Record<string, string> {
-    const header = req.headers.get("cookie") || "";
-    if (!header) return {};
-    return header.split(";").reduce((acc, part) => {
-      const [rawKey, ...rest] = part.trim().split("=");
-      if (!rawKey) return acc;
-      acc[rawKey] = decodeURIComponent(rest.join("=") || "");
-      return acc;
-    }, {} as Record<string, string>);
+    return isRequestTotpSession(req, this.isTotpEnabled());
   }
 
   private getClientKey(req: Request): string {
@@ -533,34 +515,12 @@ export class WebChannel {
     return false;
   }
 
-  private getSessionToken(req: Request): string | null {
-    const cookies = this.parseCookies(req);
-    return cookies.piclaw_session || null;
-  }
-
   isAuthenticated(req: Request): boolean {
-    if (!this.isAuthEnabled()) return true;
-    this.cleanupAuthSessions();
-    const token = this.getSessionToken(req);
-    if (!token) return false;
-    const session = getWebSession(token);
-    if (!session) return false;
-    return true;
+    return isRequestAuthenticated(req, this.isAuthEnabled());
   }
 
   private buildSessionCookie(token: string, req: Request): string {
-    const rawTtl = Number.isFinite(WEB_SESSION_TTL) ? WEB_SESSION_TTL : 0;
-    const ttl = Math.max(60, rawTtl || 0);
-    const secure = req.url.startsWith("https://") || Boolean(WEB_TLS_CERT && WEB_TLS_KEY);
-    const parts = [
-      `piclaw_session=${encodeURIComponent(token)}`,
-      `Max-Age=${ttl}`,
-      "Path=/",
-      "HttpOnly",
-      "SameSite=Strict",
-    ];
-    if (secure) parts.push("Secure");
-    return parts.join("; ");
+    return buildSessionCookieHeader(token, req, WEB_SESSION_TTL, Boolean(WEB_TLS_CERT && WEB_TLS_KEY));
   }
 
   private cleanupWebauthnChallenges(now = Date.now()): void {
