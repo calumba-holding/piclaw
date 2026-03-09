@@ -15,12 +15,48 @@
  *     extension command).
  */
 
-import type { AgentSession } from "@mariozechner/pi-coding-agent";
+import type { AgentSession, AgentSessionEvent } from "@mariozechner/pi-coding-agent";
 
 import type { AgentControlResult } from "../agent-control/agent-control-types.js";
 import { AGENT_TIMEOUT } from "../core/config.js";
 import { detectChannel } from "../router.js";
 import { withChatContext } from "../core/chat-context.js";
+
+interface TextContentBlock {
+  type?: unknown;
+  text?: unknown;
+}
+
+interface SlashCommandMessage {
+  role?: unknown;
+  content?: unknown;
+  customType?: unknown;
+}
+
+interface CapturedSlashMessage {
+  role: string;
+  text: string;
+  customType?: string;
+}
+
+function extractTextFromContent(content: unknown): string {
+  if (!content) return "";
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((block) => {
+        const contentBlock = block as TextContentBlock;
+        if (contentBlock?.type !== "text") return "";
+        return typeof contentBlock.text === "string" ? contentBlock.text : "";
+      })
+      .join("");
+  }
+  return "";
+}
+
+function toMessageRole(value: unknown): string {
+  return typeof value === "string" ? value : "unknown";
+}
 
 /** Execute a /skill or /prompt-template slash command within a session. */
 export async function executeSlashCommand(
@@ -71,45 +107,37 @@ export async function executeSlashCommand(
     // Collect textual output from events (both streaming deltas and final message_end)
     let assistantBuffer = "";
     const customBuffers: string[] = [];
-    const capturedMessages: Array<{ role: string; text: string; customType?: string }> = [];
+    const capturedMessages: CapturedSlashMessage[] = [];
 
-    const extractTextFromContent = (content: any): string => {
-      if (!content) return "";
-      if (typeof content === "string") return content;
-      if (Array.isArray(content)) {
-        return content
-          .filter((b) => b && b.type === "text")
-          .map((b) => b.text)
-          .join("") || "";
-      }
-      return "";
-    };
-
-    const onEvent = (event: any) => {
+    const onEvent = (event: AgentSessionEvent) => {
       try {
         if (event.type === "message_update") {
-          const me = event.assistantMessageEvent;
-          if (me && me.type === "text_delta") {
-            assistantBuffer += me.delta || "";
+          const messageUpdate = event.assistantMessageEvent;
+          if (messageUpdate?.type === "text_delta") {
+            assistantBuffer += messageUpdate.delta || "";
           }
+          return;
         }
-        if (event.type === "message_end") {
-          const msg = event.message;
-          const text = extractTextFromContent(msg.content);
-          if (text) {
-            capturedMessages.push({
-              role: msg.role,
-              text,
-              customType: msg.customType,
-            });
-          }
-          if (msg.role === "assistant") {
-            assistantBuffer = text || assistantBuffer;
-          } else if (msg.role === "custom" || msg.role === "toolResult" || msg.role === "user") {
-            if (text) customBuffers.push(text);
-          } else {
-            if (text) customBuffers.push(text);
-          }
+
+        if (event.type !== "message_end") return;
+
+        const message = event.message as SlashCommandMessage;
+        const text = extractTextFromContent(message.content);
+        if (text) {
+          capturedMessages.push({
+            role: toMessageRole(message.role),
+            text,
+            customType: typeof message.customType === "string" ? message.customType : undefined,
+          });
+        }
+
+        if (message.role === "assistant") {
+          assistantBuffer = text || assistantBuffer;
+          return;
+        }
+
+        if (text) {
+          customBuffers.push(text);
         }
       } catch {
         // ignore
@@ -147,7 +175,7 @@ export async function executeSlashCommand(
     const finalText = (assistantBuffer && assistantBuffer.trim())
       ? assistantBuffer.trim()
       : customBuffers.join("\n\n").trim();
-    const message = finalText || capturedMessages.map((m) => m.text).join("\n\n").trim();
+    const message = finalText || capturedMessages.map((captured) => captured.text).join("\n\n").trim();
 
     console.log(`[agent-pool] Slash command completed in ${Date.now() - startTime}ms (${message.length} chars)`);
     return { status: "success", message, messages: capturedMessages };
