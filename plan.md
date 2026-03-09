@@ -5,12 +5,13 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
 
 ## Review snapshot (updated)
 
-- Backend size: **169 TS files / 22,933 LOC** (`src/`)
+- Backend size: **169 TS files / 22,946 LOC** (`src/`)
 - Frontend size: **7,095 LOC** (`web/src/`)
 - Tests: **605 passing, 0 failing**
 - Lint: passing (for current backend tranche)
 - Coverage (line): **57.97%** (`coverage/lcov.info`)
 - Review comment coverage: Added focused regression/unit tests for each recent extraction seam (`web/recovery.ts`, `web/agent-buffers.ts`, `web/auth-runtime.ts`, `web/auth-gateway.ts`, `web/endpoint-contexts.ts`, `web/agent-status-store.ts`, `web/pending-steering.ts`, `web/interaction-broadcaster.ts`, `web/followup-placeholders.ts`, `web/chat-run-control.ts`, `runtime/composition.ts`, `runtime/bootstrap.ts`, runtime wiring/provider bootstrap) so refactors remain behavior-preserving.
+- Commenting standards coverage: New extraction seams include module headers plus exported type/function JSDoc, and this remains an explicit tracked goal (see checklist + quality bars below).
 
 ---
 
@@ -33,6 +34,7 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
   - extracted runtime bootstrap orchestration and default dependency wiring into `runtime/bootstrap.ts`
   - narrowed runtime coordinator/wiring to interface-based contracts (message-loop/scheduler/IPC deps) and localized channel instances inside `main()` composition
   - extracted runtime core composition + signal binding helpers into `runtime/composition.ts` and removed module-level runtime singletons from `runtime.ts`
+  - maintained module headers + JSDoc coverage for newly extracted runtime seams (`runtime/composition.ts`, `runtime/bootstrap.ts`) as part of refactor acceptance criteria
   - removed provider-bootstrap access to private `AgentPool` internals by introducing typed provider registration methods on `AgentPool`
 - Web architecture decomposition (P1, non-destructive)
   - `src/channels/web/http/` modular namespace introduced and standardized
@@ -124,7 +126,8 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
 | Type safety / best practices | `any` usage still elevated in selected core modules | Medium | P1 | Add typed DTO/schemas for IPC/runtime/events and reduce high-density `any` hotspots |
 | Security (local/web/remote) | P0 hardening implemented and covered by tests | Low | P0 (done) | Maintain + regressions + audit for new surfaces |
 | Dead code / stale artifacts | Stale-dist detection in place (allowlist-based); destructive cleanup deferred due in-progress feature constraint | Medium | P1 | Non-destructive inventory -> confirm ownership -> gradual allowlist burn-down |
-| Quality gates | Lint/tests/package guard checks in use; coverage bar still below target | Medium | P1 | Add CI coverage floor + architecture/static analysis guardrails |
+| Quality gates | Lint/tests/package guard checks in use; coverage bar still below target and redundancy analysis not yet formalized | Medium | P1 | Add CI coverage floor + architecture/static analysis guardrails + test redundancy audit |
+| Documentation/commenting standards | Partial consistency; recently extracted seams are documented but standards were not explicit in plan goals | Medium | P1 | Track and enforce module headers + exported API JSDoc for new/refactored seams |
 
 ---
 
@@ -181,6 +184,14 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
   - In progress: removed high-risk `any` usage from `src/ipc.ts` payload/update paths, from runtime provider bootstrap + `AgentPool` provider-registration boundary, unified web thought/draft buffer typing via shared `web/agent-buffers.ts` contracts, introduced typed recovery/resume context boundaries in `web/recovery.ts`, introduced typed auth-runtime config/context builders in `web/auth-runtime.ts`, added typed auth/session/passkey gateway boundaries in `web/auth-gateway.ts`, introduced typed endpoint context builder boundaries in `web/endpoint-contexts.ts`, added typed runtime core factory/signal registrar boundaries in `runtime/composition.ts`, added typed runtime bootstrap dependency boundaries in `runtime/bootstrap.ts`, centralized agent-status lifecycle typing in `web/agent-status-store.ts`, typed pending-steering queue semantics in `web/pending-steering.ts`, generalized interaction broadcast channel typing in `web/interaction-service.ts`/`web/interaction-broadcaster.ts`, isolated follow-up placeholder queue typing in `web/followup-placeholders.ts`, and added typed chat run control boundaries in `web/chat-run-control.ts`.
   - Pending: continue reducing `any` density in remaining hotspots (`src/runtime.ts`, `src/channels/web.ts`, and broader `src/agent-pool.ts` paths).
 
+- [ ] **Commenting/documentation standards consistency**
+  - In progress: extracted seam modules include module-level purpose headers and JSDoc on exported contracts/helpers (recently reaffirmed for `runtime/composition.ts` and `runtime/bootstrap.ts`).
+  - Pending: apply same standards to remaining large hotspots touched in upcoming tranches and enforce in review checklist.
+
+- [ ] **Test redundancy analysis (suite signal-to-noise)**
+  - Pending: inventory overlapping tests/assertions and near-duplicate fixture setups across hot suites (`test/channels/web/*`, runtime wiring/bootstrap/coordinator suites, and script guard suites).
+  - Pending: consolidate redundant cases while preserving behavior-critical/security regression coverage.
+
 - [ ] **Dead code review and removal**
   - Pending confirmation for `src/db/auto-compaction.ts`, `src/channels/web/ui-context.ts`, and stale dist allowlist items.
 
@@ -223,9 +234,11 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
 - [ ] `any` usage reduced to target threshold.
 - [x] Shared web request helpers and routing logic centralized.
 - [ ] Optional extensions depend only on stable exported APIs.
+- [ ] New/refactored seam modules include module headers + JSDoc on exported contracts/functions.
 
 ## Testing/quality bars
 - [ ] Line coverage >= 75% overall and >= 85% for security-critical modules.
+- [ ] Redundancy audit completed: overlapping/duplicate tests identified, justified, and reduced without coverage regressions.
 - [ ] CI checks for dead exports/modules and import-boundary rules.
 - [x] Packaging CI-style checks in place (`check:pack-hygiene`, `check:stale-dist`).
 
@@ -247,5 +260,7 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
    - Remove deep/internal imports and define stable integration surface.
 5. **Dead-code and stale-artifact burn-down (safe mode first)**
    - Produce non-destructive reports, then remove with explicit confirmation.
-6. **Coverage/CI bars uplift**
+6. **Test redundancy analysis tranche**
+   - Inventory and reduce redundant overlapping tests while preserving critical regression coverage.
+7. **Coverage/CI bars uplift**
    - Raise coverage and enforce architecture/packaging gates in CI.
