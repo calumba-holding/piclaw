@@ -5,9 +5,9 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
 
 ## Review snapshot (updated)
 
-- Backend size: **151 TS files / 21,724 LOC** (`src/`)
+- Backend size: **152 TS files / 21,788 LOC** (`src/`)
 - Frontend size: **7,095 LOC** (`web/src/`)
-- Tests: **553 passing, 0 failing**
+- Tests: **556 passing, 0 failing**
 - Lint: passing (for current backend tranche)
 - Coverage (line): **57.97%** (`coverage/lcov.info`)
 
@@ -43,6 +43,7 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
   - extracted passkey enrol page response from `web.ts` into `web/webauthn-enrol-page.ts`
   - extracted TOTP verify endpoint orchestration from `web.ts` into `web/totp-auth.ts`
   - extracted manifest generation/headers logic from `web.ts` into `web/manifest.ts`
+  - extracted post update/internal-post endpoint orchestration from `web.ts` into `web/post-mutations.ts`
 
 ### Recent commit sequence (latest first)
 
@@ -122,7 +123,7 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
   - Behavior preserved (non-destructive).
 
 - [ ] **Refactor `src/channels/web.ts` into narrower services**
-  - In progress: extracted route dispatching, TOTP lockout bookkeeping, session cookie/auth helpers, internal-secret verification helper, WebAuthn challenge helpers, WebAuthn auth endpoint orchestration, passkey enrol page response, TOTP verify endpoint orchestration, and manifest response helper.
+  - In progress: extracted route dispatching, TOTP lockout bookkeeping, session cookie/auth helpers, internal-secret verification helper, WebAuthn challenge helpers, WebAuthn auth endpoint orchestration, passkey enrol page response, TOTP verify endpoint orchestration, manifest response helper, and post mutation endpoint orchestration.
   - Pending: split auth/session/status/passkey and orchestration responsibilities further.
 
 - [ ] **Refactor `src/runtime.ts` into composition root + startup/shutdown managers**

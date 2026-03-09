@@ -95,6 +95,11 @@ import {
 import { getAgentsResponse } from "./web/agents-service.js";
 import { buildAvatarResponse, ensureAvatarCache, resolveAvatarUrl } from "./web/avatar-service.js";
 import { handleManifestRequest } from "./web/manifest.js";
+import {
+  handleInternalPostRequest,
+  handleUpdatePostRequest,
+  type PostMutationsContext,
+} from "./web/post-mutations.js";
 import { broadcastAgentResponse, broadcastInteractionUpdated } from "./web/interaction-service.js";
 import { RemoteInteropService } from "../remote/service.js";
 import { getClientKey as getRequestClientKey } from "./web/http/client.js";
@@ -533,6 +538,42 @@ export class WebChannel {
     };
   }
 
+  private getPostMutationsContext(): PostMutationsContext {
+    return {
+      defaultChatJid: DEFAULT_CHAT_JID,
+      lastCommandInteractionId: this.lastCommandInteractionId,
+      json: (payload, status = 200) => this.json(payload, status),
+      replaceMessageContent: (chatJid, id, content) => replaceMessageContent(chatJid, id, content, {}),
+      setThreadId: (messageId, threadId) => {
+        getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(threadId, messageId);
+      },
+      broadcastInteractionUpdated: (interaction) => {
+        broadcastInteractionUpdated(
+          this,
+          interaction,
+          ASSISTANT_NAME,
+          resolveAvatarUrl("agent", ASSISTANT_AVATAR),
+          USER_NAME || null,
+          resolveAvatarUrl("user", USER_AVATAR),
+          USER_AVATAR_BACKGROUND || null
+        );
+      },
+      storeMessage: (chatJid, content, isBot, mediaIds, options = {}) =>
+        this.storeMessage(chatJid, content, isBot, mediaIds, options),
+      broadcastAgentResponse: (interaction) => {
+        broadcastAgentResponse(
+          this,
+          interaction,
+          ASSISTANT_NAME,
+          resolveAvatarUrl("agent", ASSISTANT_AVATAR),
+          USER_NAME || null,
+          resolveAvatarUrl("user", USER_AVATAR),
+          USER_AVATAR_BACKGROUND || null
+        );
+      },
+    };
+  }
+
   async handleAuthVerify(req: Request): Promise<Response> {
     return await handleAuthVerifyRequest(req, this.getTotpAuthContext());
   }
@@ -682,41 +723,7 @@ export class WebChannel {
    * positive integer if provided. Uses parameterized queries (no SQL injection).
    */
   async handleUpdatePost(req: Request, id: number | null): Promise<Response> {
-    if (!id || id < 1) return this.json({ error: "Missing or invalid post id" }, 400);
-    let body: { content?: string; thread_id?: number };
-    try {
-      body = await req.json();
-    } catch {
-      return this.json({ error: "Invalid JSON" }, 400);
-    }
-    if (!body.content && body.content !== "") {
-      return this.json({ error: "Missing content" }, 400);
-    }
-    if (typeof body.content === "string" && body.content.length > 100 * 1024) {
-      return this.json({ error: "Content too large (max 100 KB)" }, 400);
-    }
-    const updated = replaceMessageContent(DEFAULT_CHAT_JID, id, body.content!, {});
-    if (!updated) return this.json({ error: "Post not found" }, 404);
-
-    if (body.thread_id) {
-      if (typeof body.thread_id !== "number" || !Number.isInteger(body.thread_id) || body.thread_id < 1) {
-        return this.json({ error: "Invalid thread_id" }, 400);
-      }
-      const { getDb } = await import("../db/connection.js");
-      getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(body.thread_id, id);
-      updated.data.thread_id = body.thread_id;
-    }
-
-    broadcastInteractionUpdated(
-      this,
-      updated,
-      ASSISTANT_NAME,
-      resolveAvatarUrl("agent", ASSISTANT_AVATAR),
-      USER_NAME || null,
-      resolveAvatarUrl("user", USER_AVATAR),
-      USER_AVATAR_BACKGROUND || null
-    );
-    return this.json({ ok: true, id: updated.id });
+    return await handleUpdatePostRequest(req, id, this.getPostMutationsContext());
   }
 
   /**
@@ -725,37 +732,7 @@ export class WebChannel {
    * Content is capped at 100 KB to prevent DB bloat.
    */
   async handleInternalPost(req: Request): Promise<Response> {
-    let body: { content?: string; thread_id?: number };
-    try {
-      body = await req.json();
-    } catch {
-      return this.json({ error: "Invalid JSON" }, 400);
-    }
-    if (!body.content) return this.json({ error: "Missing content" }, 400);
-    if (body.content.length > 100 * 1024) {
-      return this.json({ error: "Content too large (max 100 KB)" }, 400);
-    }
-
-    const threadId = body.thread_id || this.lastCommandInteractionId || undefined;
-    const interaction = this.storeMessage(
-      DEFAULT_CHAT_JID,
-      body.content,
-      true,
-      [],
-      threadId ? { threadId } : undefined
-    );
-    if (!interaction) return this.json({ error: "Failed to store" }, 500);
-
-    broadcastAgentResponse(
-      this,
-      interaction,
-      ASSISTANT_NAME,
-      resolveAvatarUrl("agent", ASSISTANT_AVATAR),
-      USER_NAME || null,
-      resolveAvatarUrl("user", USER_AVATAR),
-      USER_AVATAR_BACKGROUND || null
-    );
-    return this.json({ ok: true, id: interaction.id }, 201);
+    return await handleInternalPostRequest(req, this.getPostMutationsContext());
   }
 
   handleSse(): Response {
