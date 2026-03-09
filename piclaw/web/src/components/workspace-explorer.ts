@@ -132,6 +132,220 @@ function replaceNodeAtPath(node, targetPath, nextNode) {
     return changed ? { ...node, children } : node;
 }
 
+const STARBURST_MAX_DEPTH = 2;
+const STARBURST_MAX_CHILDREN = 14;
+
+function computeSubtreeBytes(node) {
+    if (!node) return 0;
+    if (node.type === 'file') {
+        const size = Math.max(0, Number(node.size) || 0);
+        node.__bytes = size;
+        return size;
+    }
+    const children = Array.isArray(node.children) ? node.children : [];
+    let total = 0;
+    for (const child of children) total += computeSubtreeBytes(child);
+    node.__bytes = total;
+    return total;
+}
+
+function buildFolderSizeHierarchy(node, depth = 0) {
+    const size = Math.max(0, Number(node?.__bytes ?? node?.size ?? 0));
+    const out = {
+        name: node?.name || node?.path || '.',
+        path: node?.path || '.',
+        size,
+        children: [],
+    };
+
+    if (!node || node.type !== 'dir' || depth >= STARBURST_MAX_DEPTH) return out;
+    const children = Array.isArray(node.children) ? node.children : [];
+    const entries = [];
+    let filesBytes = 0;
+
+    for (const child of children) {
+        const childSize = Math.max(0, Number(child?.__bytes ?? child?.size ?? 0));
+        if (childSize <= 0) continue;
+        if (child.type === 'dir') {
+            entries.push({ kind: 'dir', node: child, size: childSize });
+        } else {
+            filesBytes += childSize;
+        }
+    }
+
+    if (filesBytes > 0) {
+        entries.push({
+            kind: 'files',
+            name: '[files]',
+            path: `${out.path}/[files]`,
+            size: filesBytes,
+        });
+    }
+
+    entries.sort((a, b) => b.size - a.size);
+    let trimmed = entries;
+    if (entries.length > STARBURST_MAX_CHILDREN) {
+        const head = entries.slice(0, STARBURST_MAX_CHILDREN - 1);
+        const tail = entries.slice(STARBURST_MAX_CHILDREN - 1);
+        const tailSize = tail.reduce((acc, entry) => acc + entry.size, 0);
+        head.push({
+            kind: 'other',
+            name: `+${tail.length} more`,
+            path: `${out.path}/[other]`,
+            size: tailSize,
+        });
+        trimmed = head;
+    }
+
+    out.children = trimmed.map((entry) => {
+        if (entry.kind === 'dir') return buildFolderSizeHierarchy(entry.node, depth + 1);
+        return { name: entry.name, path: entry.path, size: entry.size, children: [] };
+    });
+
+    return out;
+}
+
+function hashColorSeed(value) {
+    const text = String(value || 'seed');
+    let hash = 0;
+    for (let i = 0; i < text.length; i += 1) {
+        hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
+    }
+    return Math.abs(hash);
+}
+
+function segmentColor(path, depth) {
+    const hue = hashColorSeed(path) % 360;
+    const sat = depth === 1 ? 72 : 62;
+    const light = depth === 1 ? 52 : 62;
+    return `hsl(${hue} ${sat}% ${light}%)`;
+}
+
+function polar(cx, cy, radius, angle) {
+    return {
+        x: cx + radius * Math.cos(angle),
+        y: cy + radius * Math.sin(angle),
+    };
+}
+
+function describeDonutSegment(cx, cy, innerRadius, outerRadius, startAngle, endAngle) {
+    const outerStart = polar(cx, cy, outerRadius, startAngle);
+    const outerEnd = polar(cx, cy, outerRadius, endAngle);
+    const innerEnd = polar(cx, cy, innerRadius, endAngle);
+    const innerStart = polar(cx, cy, innerRadius, startAngle);
+    const largeArc = endAngle - startAngle > Math.PI ? 1 : 0;
+    return [
+        `M ${outerStart.x.toFixed(3)} ${outerStart.y.toFixed(3)}`,
+        `A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${outerEnd.x.toFixed(3)} ${outerEnd.y.toFixed(3)}`,
+        `L ${innerEnd.x.toFixed(3)} ${innerEnd.y.toFixed(3)}`,
+        `A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${innerStart.x.toFixed(3)} ${innerStart.y.toFixed(3)}`,
+        'Z',
+    ].join(' ');
+}
+
+function createFolderStarburstPayload(root, truncated = false) {
+    if (!root) return null;
+    const totalSize = computeSubtreeBytes(root);
+    const hierarchy = buildFolderSizeHierarchy(root, 0);
+    const segments = [];
+    const legend = [];
+    const ringByDepth = {
+        1: [30, 68],
+        2: [70, 104],
+    };
+
+    const walk = (node, start, end, depth) => {
+        const children = Array.isArray(node?.children) ? node.children : [];
+        if (!children.length) return;
+        const nodeSize = Math.max(0, Number(node.size) || 0);
+        if (nodeSize <= 0) return;
+
+        const span = end - start;
+        let cursor = start;
+        children.forEach((child, index) => {
+            const childSize = Math.max(0, Number(child.size) || 0);
+            if (childSize <= 0) return;
+            const ratio = childSize / nodeSize;
+            const childStart = cursor;
+            const childEnd = index === children.length - 1 ? end : cursor + (span * ratio);
+            cursor = childEnd;
+            if (childEnd - childStart < 0.003) return;
+
+            const ring = ringByDepth[depth];
+            if (ring) {
+                const color = segmentColor(child.path, depth);
+                segments.push({
+                    key: `${child.path}:${depth}`,
+                    path: child.path,
+                    label: child.name,
+                    size: childSize,
+                    color,
+                    depth,
+                    d: describeDonutSegment(120, 120, ring[0], ring[1], childStart, childEnd),
+                });
+                if (depth === 1) {
+                    legend.push({
+                        key: child.path,
+                        name: child.name,
+                        size: childSize,
+                        pct: totalSize > 0 ? (childSize / totalSize) * 100 : 0,
+                        color,
+                    });
+                }
+            }
+
+            if (depth < STARBURST_MAX_DEPTH) {
+                walk(child, childStart, childEnd, depth + 1);
+            }
+        });
+    };
+
+    walk(hierarchy, -Math.PI / 2, (Math.PI * 3) / 2, 1);
+    return {
+        root: hierarchy,
+        totalSize,
+        segments,
+        legend,
+        truncated,
+    };
+}
+
+function FolderStarburstChart({ payload }) {
+    if (!payload) return null;
+    const totalLabel = payload.totalSize > 0 ? formatFileSize(payload.totalSize) : '0 B';
+    const legend = Array.isArray(payload.legend) ? payload.legend.slice(0, 8) : [];
+    return html`
+        <div class="workspace-folder-starburst">
+            <svg viewBox="0 0 240 240" class="workspace-folder-starburst-svg" role="img"
+                aria-label=${`Folder sizes for ${payload?.root?.path || '.'}`}>
+                ${payload.segments.map((segment) => html`
+                    <path key=${segment.key} d=${segment.d} fill=${segment.color} stroke="var(--bg-primary)" stroke-width="1">
+                        <title>${segment.label} — ${formatFileSize(segment.size)}</title>
+                    </path>
+                `)}
+                <circle cx="120" cy="120" r="24" fill="var(--bg-secondary)" stroke="var(--border-color)" stroke-width="1" />
+                <text x="120" y="116" text-anchor="middle" class="workspace-folder-starburst-total-label">Total</text>
+                <text x="120" y="132" text-anchor="middle" class="workspace-folder-starburst-total-value">${totalLabel}</text>
+            </svg>
+            ${legend.length > 0 && html`
+                <div class="workspace-folder-starburst-legend">
+                    ${legend.map((entry) => html`
+                        <div key=${entry.key} class="workspace-folder-starburst-legend-item">
+                            <span class="workspace-folder-starburst-swatch" style=${`background:${entry.color}`}></span>
+                            <span class="workspace-folder-starburst-name" title=${entry.name}>${entry.name}</span>
+                            <span class="workspace-folder-starburst-size">${formatFileSize(entry.size)}</span>
+                            <span class="workspace-folder-starburst-pct">${entry.pct.toFixed(1)}%</span>
+                        </div>
+                    `)}
+                </div>
+            `}
+            ${payload.truncated && html`
+                <div class="workspace-folder-starburst-note">Preview is truncated by tree depth/entry limits.</div>
+            `}
+        </div>
+    `;
+}
+
 // ── FileAttachmentCard ────────────────────────────────────────────────────────
 
 function FileAttachmentCard({ mediaId }) {
@@ -182,6 +396,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
     const [dragActive,   setDragActive]    = useState(false);
     const [dropTarget,   setDropTarget]    = useState(null);
     const [uploading,    setUploading]     = useState(false);
+    const [folderChart,  setFolderChart]   = useState(null);
 
     // ── Stable refs (never trigger re-renders) ────────────────────────────────
     const expandedRef     = useRef(expanded);
@@ -203,6 +418,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
     const uploadTargetRef = useRef('.');
     const longPressTimerRef = useRef(null);
     const previewHeightRef= useRef(0);
+    const folderChartRequestRef = useRef(0);
     const showHiddenRef   = useRef(showHidden);
     const visibleRef      = useRef(visible);
     const activeRef       = useRef(active ?? visible);
@@ -418,6 +634,29 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
     nodeMapRef.current = nodeMap;
     const selectedNode = selectedPath ? nodeMapRef.current.get(selectedPath) : null;
     const selectedIsDir = selectedNode?.type === 'dir';
+
+    useEffect(() => {
+        if (!selectedPath || !selectedIsDir) {
+            setFolderChart(null);
+            return;
+        }
+
+        const requestId = Date.now();
+        folderChartRequestRef.current = requestId;
+        setFolderChart({ loading: true, error: null, payload: null });
+
+        getWorkspaceTree(selectedPath, 8, showHidden)
+            .then((data) => {
+                if (folderChartRequestRef.current !== requestId) return;
+                const payload = createFolderStarburstPayload(data?.root, Boolean(data?.truncated));
+                setFolderChart({ loading: false, error: null, payload });
+            })
+            .catch((err) => {
+                if (folderChartRequestRef.current !== requestId) return;
+                setFolderChart({ loading: false, error: err?.message || 'Failed to load folder size chart', payload: null });
+            });
+    }, [selectedPath, selectedIsDir, showHidden]);
+
     const canEdit = Boolean(preview && preview.kind === 'text' && !selectedIsDir && (!preview.size || preview.size <= 256 * 1024));
     const editTitle = canEdit
         ? 'Open in editor'
@@ -1024,6 +1263,14 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
                     ${preview?.error && html`<div class="workspace-error">${preview.error}</div>`}
                     ${selectedIsDir && html`
                         <div class="workspace-preview-text">Folder selected — upload files or download as zip.</div>
+                        ${folderChart?.loading && html`<div class="workspace-loading">Loading folder size preview…</div>`}
+                        ${folderChart?.error && html`<div class="workspace-error">${folderChart.error}</div>`}
+                        ${folderChart?.payload && folderChart.payload.totalSize > 0 && html`
+                            <${FolderStarburstChart} payload=${folderChart.payload} />
+                        `}
+                        ${folderChart?.payload && folderChart.payload.totalSize <= 0 && html`
+                            <div class="workspace-preview-text">No file size data available for this folder yet.</div>
+                        `}
                     `}
                     ${preview && !preview.error && !selectedIsDir && html`
                         <div class="workspace-preview-meta">

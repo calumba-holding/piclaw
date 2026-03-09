@@ -540,6 +540,76 @@ body {
     transition: background-color var(--ui-transition-fast), border-color var(--ui-transition-fast), color var(--ui-transition-fast);
 }
 
+.workspace-folder-starburst {
+    margin-top: var(--spacing-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+    padding: var(--spacing-sm);
+}
+
+.workspace-folder-starburst-svg {
+    display: block;
+    width: 100%;
+    max-width: 260px;
+    height: auto;
+    margin: 0 auto var(--spacing-sm) auto;
+}
+
+.workspace-folder-starburst-total-label {
+    fill: var(--text-secondary);
+    font-size: 9px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.workspace-folder-starburst-total-value {
+    fill: var(--text-primary);
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.workspace-folder-starburst-legend {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px;
+}
+
+.workspace-folder-starburst-legend-item {
+    display: grid;
+    grid-template-columns: 8px minmax(0, 1fr) auto auto;
+    gap: 6px;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.workspace-folder-starburst-swatch {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    display: inline-block;
+}
+
+.workspace-folder-starburst-name {
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.workspace-folder-starburst-size,
+.workspace-folder-starburst-pct {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.workspace-folder-starburst-note {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
 .workspace-preview-image img {
     max-width: 100%;
     max-height: 100%;
@@ -1153,6 +1223,16 @@ body {
     overflow-y: hidden;
     overflow-wrap: anywhere;
     word-break: break-word;
+}
+
+/* iOS Safari: keep compose textarea at >=16px to avoid keyboard-triggered
+   viewport zoom/scroll jumps while typing (notably on iPad). */
+@supports (-webkit-touch-callout: none) {
+    @media (hover: none) and (pointer: coarse) {
+        .compose-box textarea {
+            font-size: 16px;
+        }
+    }
 }
 
 .compose-box textarea::placeholder {
