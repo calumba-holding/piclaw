@@ -76,12 +76,7 @@ import { SseHub } from "./web/sse-hub.js";
 import { UiBridge } from "./web/ui-bridge.js";
 import { ResponseService } from "./web/http/response-service.js";
 import {
-  getMessageRowIdById,
   replaceMessageContent,
-  getChatCursor,
-  setChatCursor,
-  getFailedRun,
-  clearFailedRun,
   getDb,
 } from "../db.js";
 import type { InteractionRow } from "../db.js";
@@ -115,6 +110,12 @@ import {
   type AvatarEndpointContext,
 } from "./web/identity-endpoints.js";
 import { handleManifestRequest } from "./web/manifest.js";
+import {
+  getThreadRootId as getThreadRootIdForChat,
+  resumeChat as resumeWebChat,
+  skipFailedOnModelSwitch as skipFailedOnModelSwitchForChat,
+  type ResumeChatContext,
+} from "./web/chat-run-control.js";
 import {
   recoverInflightRuns as recoverWebInflightRuns,
   resumePendingChats as resumeWebPendingChats,
@@ -293,23 +294,23 @@ export class WebChannel {
   }
 
   getThreadRootId(chatJid: string, messageId: string): number | null {
-    return getMessageRowIdById(chatJid, messageId);
+    return getThreadRootIdForChat(chatJid, messageId);
+  }
+
+  private getResumeChatContext(): ResumeChatContext {
+    return {
+      defaultAgentId: DEFAULT_AGENT_ID,
+      enqueue: (task, key) => this.queue.enqueue(task, key),
+      processChat: (chatJid, agentId, threadRootId) => this.processChat(chatJid, agentId, threadRootId),
+    };
   }
 
   resumeChat(chatJid: string, threadRootId?: number | null): void {
-    this.queue.enqueue(async () => {
-      await this.processChat(chatJid, DEFAULT_AGENT_ID, threadRootId ?? undefined);
-    }, `resume:${chatJid}:${Date.now()}`);
+    resumeWebChat(chatJid, threadRootId, this.getResumeChatContext());
   }
 
   skipFailedOnModelSwitch(chatJid: string): void {
-    const failed = getFailedRun(chatJid);
-    if (!failed) return;
-    const current = getChatCursor(chatJid);
-    if (!current || current < failed.failedTs) {
-      setChatCursor(chatJid, failed.failedTs);
-    }
-    clearFailedRun(chatJid);
+    skipFailedOnModelSwitchForChat(chatJid);
   }
 
   private getRecoveryContext(): WebRecoveryContext {
