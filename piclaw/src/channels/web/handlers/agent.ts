@@ -24,6 +24,7 @@ import {
   parseAgentMessageRequest,
   storeAgentUserMessage,
 } from "../agent-message-service.js";
+import { handleUiThemeCommand } from "../ui-theme-commands.js";
 import {
   beginChatRun,
   endChatRun,
@@ -166,8 +167,26 @@ export async function handleAgentMessage(
     );
   }
 
-  // If message looks like an extension slash command (starts with '/'), execute it directly
   const trimmed = content.trim();
+  const themeCommand = handleUiThemeCommand(trimmed);
+  if (themeCommand) {
+    if (themeCommand.payload) {
+      channel.broadcastEvent("ui_theme", { chat_jid: chatJid, ...themeCommand.payload });
+    }
+
+    const formatted = formatOutbound(themeCommand.message, "web");
+    if (formatted) {
+      await channel.sendMessage(chatJid, formatted, interaction.id);
+    }
+
+    markCommandHandled();
+    return channel.json(
+      { user_message: interaction, thread_id: threadId, command: themeCommand },
+      201
+    );
+  }
+
+  // If message looks like an extension slash command (starts with '/'), execute it directly
   if (trimmed.startsWith("/")) {
     const commandTurnId = createUuid("turn");
     const slashName = trimmed.split(/\s+/, 1)[0] || "/command";
