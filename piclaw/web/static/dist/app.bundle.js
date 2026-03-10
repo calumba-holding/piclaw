@@ -643,21 +643,27 @@ ${i}
                         <title>${A.label} — ${mn(A.size)}</title>
                     </path>
                 `)}
-                <circle
-                    cx="120"
-                    cy="120"
-                    r="24"
-                    fill="var(--bg-secondary)"
-                    stroke="var(--border-color)"
-                    stroke-width="1"
-                    class=${`workspace-folder-starburst-center${q?" is-drill":""}`}
+                <g
+                    class=${`workspace-folder-starburst-center-hit${q?" is-drill":""}`}
                     onClick=${_}
-                />
-                <text x="120" y="114" text-anchor="middle" class="workspace-folder-starburst-total-label">${k}</text>
-                <text x="120" y="130" text-anchor="middle" class="workspace-folder-starburst-total-value">${$}</text>
-                ${T&&G`
-                    <text x="120" y="144" text-anchor="middle" class="workspace-folder-starburst-total-pct">${T}</text>
-                `}
+                    role="button"
+                    aria-label="Zoom out"
+                >
+                    <circle
+                        cx="120"
+                        cy="120"
+                        r="24"
+                        fill="var(--bg-secondary)"
+                        stroke="var(--border-color)"
+                        stroke-width="1"
+                        class="workspace-folder-starburst-center"
+                    />
+                    <text x="120" y="114" text-anchor="middle" class="workspace-folder-starburst-total-label">${k}</text>
+                    <text x="120" y="130" text-anchor="middle" class="workspace-folder-starburst-total-value">${$}</text>
+                    ${T&&G`
+                        <text x="120" y="144" text-anchor="middle" class="workspace-folder-starburst-total-pct">${T}</text>
+                    `}
+                </g>
             </svg>
             ${t&&G`
                 <div class="workspace-folder-starburst-hover">
@@ -1129,5 +1135,5 @@ mark	line	col
         </div>
     `}cp(G`<${z_} />`,document.getElementById("app"));
 
-//# debugId=851B58EA5EEE8DF864756E2164756E21
+//# debugId=9D575AFA3B41DD8964756E2164756E21
 //# sourceMappingURL=app.bundle.js.map

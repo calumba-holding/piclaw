@@ -415,21 +415,27 @@ function FolderStarburstChart({ payload }) {
                         <title>${segment.label} — ${formatFileSize(segment.size)}</title>
                     </path>
                 `)}
-                <circle
-                    cx="120"
-                    cy="120"
-                    r="24"
-                    fill="var(--bg-secondary)"
-                    stroke="var(--border-color)"
-                    stroke-width="1"
-                    class=${`workspace-folder-starburst-center${canZoomOut ? ' is-drill' : ''}`}
+                <g
+                    class=${`workspace-folder-starburst-center-hit${canZoomOut ? ' is-drill' : ''}`}
                     onClick=${handleZoomOut}
-                />
-                <text x="120" y="114" text-anchor="middle" class="workspace-folder-starburst-total-label">${activeLabel}</text>
-                <text x="120" y="130" text-anchor="middle" class="workspace-folder-starburst-total-value">${activeValue}</text>
-                ${activePct && html`
-                    <text x="120" y="144" text-anchor="middle" class="workspace-folder-starburst-total-pct">${activePct}</text>
-                `}
+                    role="button"
+                    aria-label="Zoom out"
+                >
+                    <circle
+                        cx="120"
+                        cy="120"
+                        r="24"
+                        fill="var(--bg-secondary)"
+                        stroke="var(--border-color)"
+                        stroke-width="1"
+                        class="workspace-folder-starburst-center"
+                    />
+                    <text x="120" y="114" text-anchor="middle" class="workspace-folder-starburst-total-label">${activeLabel}</text>
+                    <text x="120" y="130" text-anchor="middle" class="workspace-folder-starburst-total-value">${activeValue}</text>
+                    ${activePct && html`
+                        <text x="120" y="144" text-anchor="middle" class="workspace-folder-starburst-total-pct">${activePct}</text>
+                    `}
+                </g>
             </svg>
             ${hovered && html`
                 <div class="workspace-folder-starburst-hover">

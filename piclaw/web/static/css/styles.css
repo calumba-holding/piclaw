@@ -555,39 +555,44 @@ body {
     height: auto;
     margin: 0 auto var(--spacing-sm) auto;
     transform-origin: center;
+    transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
 .workspace-folder-starburst-svg.is-zooming {
-    animation: starburst-zoom 0.2s ease;
+    transform: scale(0.985);
+    opacity: 0.88;
 }
 
 .workspace-folder-starburst-svg path {
     cursor: pointer;
-    transition: opacity 0.15s ease, filter 0.15s ease;
+    transition: opacity 0.15s ease, filter 0.15s ease, transform 0.15s ease;
+    transform-origin: 120px 120px;
 }
 
 .workspace-folder-starburst-segment.is-hovered {
     opacity: 0.92;
     filter: brightness(1.08);
+    transform: scale(1.01);
 }
 
-.workspace-folder-starburst-center.is-drill {
+.workspace-folder-starburst-center-hit {
+    cursor: default;
+}
+
+.workspace-folder-starburst-center-hit text {
+    pointer-events: none;
+}
+
+.workspace-folder-starburst-center-hit.is-drill {
     cursor: pointer;
 }
 
-.workspace-folder-starburst-center.is-drill:hover {
+.workspace-folder-starburst-center-hit.is-drill .workspace-folder-starburst-center {
     stroke: var(--accent-color);
 }
 
-@keyframes starburst-zoom {
-    from {
-        transform: scale(0.98);
-        opacity: 0.8;
-    }
-    to {
-        transform: scale(1);
-        opacity: 1;
-    }
+.workspace-folder-starburst-center-hit.is-drill:hover .workspace-folder-starburst-center {
+    filter: brightness(1.05);
 }
 
 .workspace-folder-starburst-total-label {
