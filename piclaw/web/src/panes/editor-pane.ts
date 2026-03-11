@@ -199,4 +199,5 @@ export const editorPaneExtension: WebPaneExtension = {
     },
 };
 
+/** Public type alias for the editor pane instance (used for host-side helpers). */
 export type { EditorPaneInstance };

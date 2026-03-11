@@ -7,6 +7,7 @@
  * UI layer can re-render.
  */
 
+/** State of a single open tab — identity, dirty flag, pin status, and cached view state. */
 export interface TabState {
     /** Unique tab id (usually the file path). */
     id: string;
@@ -22,6 +23,7 @@ export interface TabState {
     viewState?: TabViewState;
 }
 
+/** Saved editor view state for restoring cursor position and scroll on tab switch. */
 export interface TabViewState {
     /** Cursor line number. */
     cursorLine?: number;
@@ -230,4 +232,5 @@ class TabStoreImpl {
 /** Global tab store singleton. */
 export const tabStore = new TabStoreImpl();
 
+/** Public type alias for the TabStore singleton. */
 export type TabStore = TabStoreImpl;

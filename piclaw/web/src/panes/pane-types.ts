@@ -19,10 +19,15 @@ export type PaneCapability = "edit" | "readonly" | "terminal" | "preview";
  * For non-file panes (terminal): path is undefined.
  */
 export interface PaneContext {
+    /** File path (undefined for non-file panes like terminal). */
     path?: string;
+    /** File content as string. */
     content?: string;
+    /** Last-modified timestamp (ISO string or epoch). */
     mtime?: string;
+    /** File size in bytes. */
     size?: number;
+    /** Whether the pane should open in edit or read-only mode. */
     mode: "edit" | "view";
 }
 

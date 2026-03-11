@@ -83,4 +83,5 @@ class PaneRegistryImpl {
 /** The global pane registry singleton. */
 export const paneRegistry = new PaneRegistryImpl();
 
+/** Public type alias for the PaneRegistry singleton. */
 export type PaneRegistry = PaneRegistryImpl;
