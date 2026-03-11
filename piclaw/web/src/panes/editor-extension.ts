@@ -170,6 +170,7 @@ export class StandaloneEditorInstance implements PaneInstance {
     private view: EditorView | null = null;
     private vimCompartment = new Compartment();
     private themeCompartment = new Compartment();
+    private accentCompartment = new Compartment();
     private whitespaceCompartment = new Compartment();
 
     // State
@@ -394,6 +395,7 @@ export class StandaloneEditorInstance implements PaneInstance {
             search(),
             this.vimCompartment.of(this.vimEnabled ? vim() : []),
             this.themeCompartment.of(isDark ? githubDark : githubLight),
+            this.accentCompartment.of(this.buildAccentTheme()),
             showPanel.of(createStatusPanel(this.vimEnabledRef)),
             keymap.of([
                 ...searchKeymap,
@@ -468,11 +470,40 @@ export class StandaloneEditorInstance implements PaneInstance {
 
     // ── Theme ───────────────────────────────────────────────────
 
+    /** Build an EditorView.theme override that uses the host's --accent-color. */
+    private buildAccentTheme(): ReturnType<typeof EditorView.theme> {
+        const style = getComputedStyle(document.documentElement);
+        const accent = style.getPropertyValue('--accent-color').trim() || '#1d9bf0';
+        // Parse hex to extract RGB for alpha variants
+        const hexToRgb = (hex: string): string => {
+            const h = hex.replace('#', '');
+            const r = parseInt(h.substring(0, 2), 16);
+            const g = parseInt(h.substring(2, 4), 16);
+            const b = parseInt(h.substring(4, 6), 16);
+            return `${r}, ${g}, ${b}`;
+        };
+        let rgb: string;
+        try { rgb = hexToRgb(accent); } catch { rgb = '29, 155, 240'; }
+
+        return EditorView.theme({
+            '.cm-cursor, .cm-dropCursor': { borderLeftColor: accent },
+            '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
+                backgroundColor: `rgba(${rgb}, 0.2) !important`,
+            },
+            '.cm-activeLine': { backgroundColor: `rgba(${rgb}, 0.06)` },
+            '.cm-selectionMatch': { backgroundColor: `rgba(${rgb}, 0.15)` },
+        });
+    }
+
     private handleThemeChange(): void {
         if (!this.view || this.disposed) return;
         const isDark = getThemeMode() === 'dark';
+
         this.view.dispatch({
-            effects: this.themeCompartment.reconfigure(isDark ? githubDark : githubLight),
+            effects: [
+                this.themeCompartment.reconfigure(isDark ? githubDark : githubLight),
+                this.accentCompartment.reconfigure(this.buildAccentTheme()),
+            ],
         });
     }
 

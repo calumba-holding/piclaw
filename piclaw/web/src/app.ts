@@ -162,7 +162,11 @@ function App() {
         // Mount new instance
         const context = { path: activeId, mode: 'edit' };
         const ext = paneRegistry.resolve(context) || paneRegistry.get('editor');
-        if (!ext) return;
+        if (!ext) {
+            // No pane extension available — show fallback message
+            container.innerHTML = '<div style="padding:2em;color:var(--text-secondary);text-align:center;">No editor available for this file.</div>';
+            return;
+        }
 
         const instance = ext.mount(container, context);
         editorInstanceRef.current = instance;
