@@ -649,6 +649,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
     const moveEntryToTargetRef = useRef(null);
     const selectedPathRef = useRef(selectedPath);
     const renamingPathRef = useRef(renamingPath);
+    const renameTimerRef = useRef(null);
     const previewRef      = useRef(preview);
 
     // Sync mutable refs each render
@@ -1225,6 +1226,21 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
         return target?.parentElement || null;
     };
 
+    // ── Double-click to open file in editor ────────────────────────────────
+    const handleTreeDblClick = useRef((e) => {
+        // Cancel pending rename from single-click
+        if (renameTimerRef.current) { clearTimeout(renameTimerRef.current); renameTimerRef.current = null; }
+        const targetEl = getEventTargetElement(e);
+        const rowEl = targetEl?.closest?.('[data-path]');
+        if (!rowEl) return;
+        const clickedPath = rowEl.dataset.path;
+        const clickedType = rowEl.dataset.type;
+        if (clickedType === 'dir' || !clickedPath) return;
+        // Cancel any rename that single-click may have started
+        if (renamingPathRef.current === clickedPath) cancelRename();
+        onOpenEditorRef.current?.(clickedPath);
+    }).current;
+
     // ── Single stable click handler via event delegation ──────────────────────
     // Created once; reads live state through refs so it never needs recreation.
     const handleTreeClick = useRef((e) => {
@@ -1249,7 +1265,12 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
         }
 
         if (isSelected && !isCaretClick && !isActionClick && clickedPath !== '.') {
-            beginRename(clickedPath);
+            // Delay rename to allow double-click to fire first
+            if (renameTimerRef.current) clearTimeout(renameTimerRef.current);
+            renameTimerRef.current = setTimeout(() => {
+                renameTimerRef.current = null;
+                beginRename(clickedPath);
+            }, 350);
             return;
         }
 
@@ -1890,6 +1911,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
                         ref=${treeListRef}
                         tabIndex="0"
                         onClick=${handleTreeClick}
+                        onDblClick=${handleTreeDblClick}
                         onKeyDown=${handleTreeKeyDown}
                         onTouchStart=${handleRowTouchStart}
                         onTouchEnd=${handleRowTouchEnd}
