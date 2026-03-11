@@ -21,6 +21,7 @@ import { AgentRequestModal, AgentStatus, ConnectionStatus } from './components/s
 import { Timeline } from './components/timeline.js';
 import { WorkspaceExplorer } from './components/workspace-explorer.js';
 import { WorkspaceEditor } from './components/editor.js';
+import { paneRegistry, editorPaneExtension } from './panes/index.js';
 import { getLocalStorageBoolean, getLocalStorageNumber, setLocalStorageItem } from './utils/storage.js';
 import { useSseConnection } from './ui/use-sse-connection.js';
 import { useNotifications } from './ui/use-notifications.js';
@@ -73,6 +74,9 @@ if (window.marked) {
 /**
  * Main App component
  */
+// Register built-in pane extensions
+paneRegistry.register(editorPaneExtension);
+
 function App() {
     const [connectionStatus, setConnectionStatus] = useState('disconnected');
     const [currentHashtag, setCurrentHashtag] = useState(null);
