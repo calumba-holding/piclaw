@@ -561,22 +561,24 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, agentName, a
                 ${(fileRefs.length > 0 || messageRefs.length > 0 || attachmentPills.length > 0) && html`
                     <div class="post-file-refs">
                         ${messageRefs.map((id) => {
+                            const scrollToRef = (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const el = document.getElementById('post-' + id);
+                                if (el) {
+                                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    el.classList.add('post-highlight');
+                                    setTimeout(() => el.classList.remove('post-highlight'), 2000);
+                                }
+                            };
                             return html`
-                                <a href=${`#msg-${id}`} class="post-msg-pill-link" onClick=${(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    const el = document.getElementById('post-' + id);
-                                    if (el) {
-                                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                        el.classList.add('post-highlight');
-                                        setTimeout(() => el.classList.remove('post-highlight'), 2000);
-                                    }
-                                }}>
+                                <a href=${`#msg-${id}`} class="post-msg-pill-link" onClick=${scrollToRef}>
                                     <${FilePill}
                                         prefix="post"
                                         label=${'msg:' + id}
                                         title=${'Message ' + id}
                                         icon="message"
+                                        onClick=${scrollToRef}
                                     />
                                 </a>
                             `;

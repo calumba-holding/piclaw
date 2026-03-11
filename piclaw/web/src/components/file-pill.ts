@@ -5,6 +5,7 @@ export function FilePill({
   label,
   title,
   onRemove,
+  onClick,
   removeTitle = 'Remove',
   icon = 'file',
 }) {
@@ -22,7 +23,7 @@ export function FilePill({
       </svg>`;
 
   return html`
-    <span class=${pillClass} title=${title || label}>
+    <span class=${pillClass} title=${title || label} onClick=${onClick}>
       ${iconSvg}
       <span class=${nameClass}>${label}</span>
       ${onRemove && html`

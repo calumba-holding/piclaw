@@ -2181,10 +2181,15 @@ body {
 .post-msg-pill-link {
     text-decoration: none;
     color: inherit;
+    cursor: pointer;
 }
 
 .post-msg-pill-link:hover {
     text-decoration: none;
+}
+
+.post-msg-pill-link .post-file-pill {
+    cursor: pointer;
 }
 
 .post-file-refs {
