@@ -3400,6 +3400,21 @@ body {
         min-height: 50px;
         font-size: var(--font-size-md);
     }
+
+    .compose-meta-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+
+    .compose-model-hint,
+    .compose-model-usage-hint {
+        max-width: 100%;
+    }
+
+    .compose-model-usage-hint {
+        line-height: 1.2;
+    }
     
     .post {
         padding: var(--spacing-sm) var(--spacing-md);
@@ -3445,6 +3460,23 @@ body {
         bottom: var(--spacing-sm);
         right: var(--spacing-sm);
         font-size: 12px;
+    }
+}
+
+@media (max-width: 900px) and (orientation: portrait) {
+    .compose-meta-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+
+    .compose-model-hint,
+    .compose-model-usage-hint {
+        max-width: 100%;
+    }
+
+    .compose-model-usage-hint {
+        line-height: 1.2;
     }
 }
 

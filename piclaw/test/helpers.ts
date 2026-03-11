@@ -50,26 +50,43 @@ export function getTestWorkspace(): TempWorkspace {
   return sharedWorkspace;
 }
 
+const ENFORCED_TEST_ENV: Readonly<Record<string, string>> = {
+  PICLAW_DB_IN_MEMORY: "1",
+};
+
 const shared = getTestWorkspace();
 process.env.PICLAW_WORKSPACE = shared.workspace;
 process.env.PICLAW_STORE = shared.store;
 process.env.PICLAW_DATA = shared.data;
-if (!process.env.PICLAW_DB_IN_MEMORY) {
-  process.env.PICLAW_DB_IN_MEMORY = "1";
+for (const [key, value] of Object.entries(ENFORCED_TEST_ENV)) {
+  process.env[key] = value;
 }
 
-/** Temporarily override env vars; returns a restore function. */
+/**
+ * Temporarily override env vars; returns a restore function.
+ *
+ * Tests always enforce an in-memory database fixture.
+ */
 export function setEnv(vars: Record<string, string | undefined>): () => void {
+  const requested: Record<string, string | undefined> = {
+    ...vars,
+    ...ENFORCED_TEST_ENV,
+  };
+
   const previous: Record<string, string | undefined> = {};
-  for (const [key, value] of Object.entries(vars)) {
+  for (const [key, value] of Object.entries(requested)) {
     previous[key] = process.env[key];
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
   }
+
   return () => {
     for (const [key, value] of Object.entries(previous)) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
+    }
+    for (const [key, value] of Object.entries(ENFORCED_TEST_ENV)) {
+      process.env[key] = value;
     }
   };
 }

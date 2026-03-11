@@ -32,6 +32,7 @@ import { writeAgentLog } from "./agent-pool/logging.js";
 import { pruneOrphanToolResults } from "./agent-pool/orphan-tool-results.js";
 import { createDefaultSession, ensureSessionDir } from "./agent-pool/session.js";
 import { executeSlashCommand } from "./agent-pool/slash-command.js";
+import { getProviderUsage } from "./agent-pool/provider-usage.js";
 import { recordMessageUsage } from "./agent-pool/usage.js";
 import { resolveModelLabel } from "./utils/model-utils.js";
 import { withChatContext } from "./core/chat-context.js";
@@ -176,7 +177,16 @@ export class AgentPool {
         const supportsThinking = typeof session.supportsThinking === "function"
             ? session.supportsThinking()
             : Boolean(session.model?.reasoning);
-        return { current: currentModel, models, thinking_level: thinkingLevel, supports_thinking: supportsThinking };
+        const providerUsage = session.model?.provider
+            ? await getProviderUsage(this.authStorage, session.model.provider)
+            : null;
+        return {
+            current: currentModel,
+            models,
+            thinking_level: thinkingLevel,
+            supports_thinking: supportsThinking,
+            provider_usage: providerUsage,
+        };
     }
     /** Return the current context token usage for a chat session, or null if unknown. */
     async getContextUsageForChat(chatJid) {

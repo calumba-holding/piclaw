@@ -444,7 +444,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
     };
 
     // Separate images from files using content_blocks info
-    const imageItems = [];
+    const imageItems: Array<{ id: number; annotations?: unknown; mimeType?: string }> = [];
     const fileIds = [];
     const attachmentEntries = [];
     const resourceLinks = [];
@@ -472,7 +472,9 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
             } else if (block?.type === 'image' || !block?.type) {
                 const id = mediaIds[mediaIndex++];
                 if (id) {
-                    imageItems.push({ id, annotations: block?.annotations });
+                    const mimeType =
+                        typeof block?.mime_type === 'string' ? block.mime_type : undefined;
+                    imageItems.push({ id, annotations: block?.annotations, mimeType });
                     attachmentEntries.push({ id, name: block?.name || block?.filename || block?.title });
                 }
             }
@@ -632,15 +634,19 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                 `}
                 ${filteredImageItems.length > 0 && html`
                     <div class="media-preview">
-                        ${filteredImageItems.map(({ id }) => html`
-                            <img 
-                                key=${id} 
-                                src=${getThumbnailUrl(id)} 
-                                alt="Media" 
-                                loading="lazy"
-                                onClick=${(e) => handleImageClick(e, id)}
-                            />
-                        `)}
+                        ${filteredImageItems.map(({ id, mimeType }) => {
+                            const isSvg = typeof mimeType === 'string' && mimeType.toLowerCase().startsWith('image/svg');
+                            const imageSrc = isSvg ? getMediaUrl(id) : getThumbnailUrl(id);
+                            return html`
+                                <img 
+                                    key=${id} 
+                                    src=${imageSrc} 
+                                    alt="Media" 
+                                    loading="lazy"
+                                    onClick=${(e) => handleImageClick(e, id)}
+                                />
+                            `;
+                        })}
                     </div>
                 `}
                 ${filteredImageItems.length > 0 && html`

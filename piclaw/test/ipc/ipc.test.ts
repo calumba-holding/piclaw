@@ -6,7 +6,7 @@
  */
 
 import { beforeAll, afterAll, expect, test } from "bun:test";
-import { mkdirSync, writeFileSync, readdirSync, unlinkSync } from "fs";
+import { mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from "fs";
 import { join } from "path";
 import { getTestWorkspace, setEnv, waitFor } from "../helpers.js";
 
@@ -20,6 +20,39 @@ const sentMessages: Array<{ jid: string; text: string; options?: { mediaIds?: nu
 const sentNudges: string[] = [];
 const resumedChats: Array<Record<string, any>> = [];
 const resumePendingCalls: Array<Record<string, any> | undefined> = [];
+
+function findUndocumentedExports(source: string): Array<{ line: number; text: string }> {
+  const lines = source.split("\n");
+  const missing: Array<{ line: number; text: string }> = [];
+  const exportPattern = /^export\s+(?:interface|type|class|const|let|var|(?:async\s+)?function)\b/;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const current = lines[i].trim();
+    if (!exportPattern.test(current)) continue;
+
+    let cursor = i - 1;
+    while (cursor >= 0 && lines[cursor].trim() === "") cursor -= 1;
+    if (cursor < 0 || !lines[cursor].trim().endsWith("*/")) {
+      missing.push({ line: i + 1, text: current });
+      continue;
+    }
+
+    let hasJSDoc = false;
+    for (let j = cursor; j >= 0; j -= 1) {
+      const text = lines[j].trim();
+      if (text.startsWith("/**")) {
+        hasJSDoc = true;
+        break;
+      }
+      if (text.startsWith("/*") && !text.startsWith("/**")) break;
+      if (!(text.startsWith("*") || text.endsWith("*/"))) break;
+    }
+
+    if (!hasJSDoc) missing.push({ line: i + 1, text: current });
+  }
+
+  return missing;
+}
 
 beforeAll(async () => {
   const ws = getTestWorkspace();
@@ -100,10 +133,46 @@ test("IPC message with media attaches files and supports inline rendering hints"
   expect(msg.text).toBe("Kanban board");
   expect(msg.options?.mediaIds?.length).toBe(1);
   expect(msg.options?.mediaIds?.[0]).toBeGreaterThan(0);
-  expect(msg.options?.contentBlocks?.[0]).toMatchObject({ type: "image" });
+  expect(msg.options?.contentBlocks?.[0]).toMatchObject({
+    type: "image",
+    mime_type: "image/svg+xml",
+  });
 
   unlinkSync(mediaPath);
 
+});
+
+test("IPC string inline hint is parsed for SVG media", async () => {
+  const dataDir = config.DATA_DIR;
+  const mediaPath = join(dataDir, `ipc_media_string_inline_${Date.now()}.svg`);
+  writeFileSync(mediaPath, "<svg xmlns='http://www.w3.org/2000/svg'><rect width='10' height='10' /></svg>");
+
+  const start = sentMessages.length;
+  await ipc.processMessageCommand(
+    {
+      type: "message",
+      chatJid: "web:default",
+      text: "String inline hint",
+      media: [
+        {
+          path: mediaPath,
+          content_type: "image/svg+xml",
+          inline: "true",
+        } as { path: string; content_type: string; inline: string },
+      ],
+    },
+    deps,
+  );
+  await waitFor(() => sentMessages.length > start);
+
+  const msg = sentMessages[sentMessages.length - 1];
+  expect(msg.options?.mediaIds?.length).toBe(1);
+  expect(msg.options?.contentBlocks?.[0]).toMatchObject({
+    type: "image",
+    mime_type: "image/svg+xml",
+  });
+
+  unlinkSync(mediaPath);
 });
 
 test("IPC message with missing media file still posts with warning", async () => {
@@ -210,6 +279,64 @@ test("IPC media-only message can post with no text", async () => {
   expect(msg.jid).toBe("web:default");
   expect(msg.text).toBe("");
   expect(msg.options?.mediaIds?.length).toBe(1);
+  unlinkSync(mediaPath);
+});
+
+test("IPC injected SVG text is indexed and searchable via FTS", async () => {
+  const chatJid = `web:ipc-fts-${Date.now()}`;
+  const timestamp = new Date().toISOString();
+  db.storeChatMetadata(chatJid, timestamp, "IPC FTS");
+
+  const token = `ipc_svg_fts_${Date.now()}`;
+  const mediaPath = join(config.DATA_DIR, `ipc_media_fts_${Date.now()}.svg`);
+  writeFileSync(
+    mediaPath,
+    `<svg xmlns='http://www.w3.org/2000/svg'><text>${token}</text></svg>`,
+    "utf-8",
+  );
+
+  const ftsDeps: import("../../src/ipc.js").IpcDeps = {
+    ...deps,
+    sendMessage: async (jid, text, options) => {
+      const rowId = db.storeMessage({
+        id: `ipc-fts-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        chat_jid: jid,
+        sender: "web-agent",
+        sender_name: "PiClaw",
+        content: text,
+        timestamp: new Date().toISOString(),
+        is_from_me: false,
+        is_bot_message: true,
+        content_blocks: options?.contentBlocks,
+      });
+
+      const mediaIds = options?.mediaIds || [];
+      if (mediaIds.length > 0) {
+        db.attachMediaToMessage(rowId, mediaIds);
+      }
+    },
+  };
+
+  await ipc.processMessageCommand(
+    {
+      type: "message",
+      chatJid,
+      text: "FTS media test",
+      media: [
+        {
+          path: mediaPath,
+          content_type: "image/svg+xml",
+          inline: true,
+        },
+      ],
+    },
+    ftsDeps,
+  );
+
+  const searchResults = db.searchMessages(chatJid, token, 10, 0);
+  expect(searchResults.length).toBeGreaterThan(0);
+  expect(searchResults.some((entry) => entry.data.content.includes("FTS media test"))).toBe(true);
+
   unlinkSync(mediaPath);
 });
 
@@ -383,4 +510,17 @@ test("IPC cleanup_tasks removes completed tasks and logs", async () => {
   expect(db.getTaskById(completedId)).toBeNull();
   expect(db.getTaskRunLogs(completedId).length).toBe(0);
   expect(db.getTaskById(activeId)).not.toBeNull();
+});
+
+test("IPC-related exported symbols keep JSDoc coverage", () => {
+  const files = [
+    new URL("../../src/ipc.ts", import.meta.url),
+    new URL("../../src/channels/web/media-service.ts", import.meta.url),
+  ];
+
+  for (const fileUrl of files) {
+    const source = readFileSync(fileUrl, "utf-8");
+    const missing = findUndocumentedExports(source);
+    expect(missing).toEqual([]);
+  }
 });

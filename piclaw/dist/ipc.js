@@ -18,9 +18,10 @@
  *   - The reload script writes `resume_pending` tasks to resume after restart.
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync } from "fs";
-import { join } from "path";
+import { basename, join } from "path";
 import { CronExpressionParser } from "cron-parser";
 import { DATA_DIR, IPC_POLL_INTERVAL, TIMEZONE } from "./core/config.js";
+import { MediaService } from "./channels/web/media-service.js";
 import { createTask, deleteTask, getTaskById, updateTask } from "./db.js";
 import { createUuid } from "./utils/ids.js";
 import { validateShellCommand, validateShellCwd } from "./utils/task-validation.js";
@@ -38,8 +39,76 @@ function getFiniteNumberField(data, key) {
     const value = data[key];
     return Number.isFinite(value) ? Number(value) : undefined;
 }
+function getBooleanField(data, key) {
+    const value = data[key];
+    if (typeof value === "boolean")
+        return value;
+    if (typeof value === "number")
+        return value === 1;
+    if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase();
+        if (normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "on")
+            return true;
+        if (normalized === "false" || normalized === "0" || normalized === "no" || normalized === "off")
+            return false;
+    }
+    return undefined;
+}
+function normalizeMediaContentType(value) {
+    if (!value)
+        return "";
+    return value.split(";")[0].trim().toLowerCase();
+}
+function getArrayField(data, key) {
+    const value = data[key];
+    return Array.isArray(value) ? value : undefined;
+}
 function isScheduleType(value) {
     return value === "cron" || value === "interval" || value === "once";
+}
+const ipcMediaService = new MediaService();
+async function buildMediaPayloadFromIpcEntries(media) {
+    const mediaEntries = media;
+    const mediaIds = [];
+    const contentBlocks = [];
+    const warnings = [];
+    for (const item of mediaEntries) {
+        if (!item || typeof item !== "object") {
+            warnings.push("Skipped invalid media entry.");
+            continue;
+        }
+        const normalized = item;
+        const mediaPath = getStringField(normalized, "path");
+        if (!mediaPath) {
+            warnings.push("Skipped media entry with missing path.");
+            continue;
+        }
+        const filename = getStringField(normalized, "filename") || basename(mediaPath);
+        const contentType = getStringField(normalized, "content_type");
+        const inline = getBooleanField(normalized, "inline");
+        const result = await ipcMediaService.createFromPath(mediaPath, contentType, filename);
+        if (result.status !== 200) {
+            warnings.push(`Failed to attach ${filename}: ${result.body.error || `HTTP ${result.status}`}`);
+            continue;
+        }
+        const body = result.body;
+        const mediaId = Number(body.id);
+        const mediaContentType = normalizeMediaContentType((typeof body.contentType === "string" ? body.contentType : contentType) || "");
+        if (!Number.isFinite(mediaId) || mediaId <= 0) {
+            warnings.push(`Failed to attach ${filename}: invalid media id`);
+            continue;
+        }
+        const isImage = mediaContentType.startsWith("image/");
+        const finalInline = inline === undefined ? isImage : inline && isImage;
+        mediaIds.push(mediaId);
+        contentBlocks.push({
+            type: finalInline ? "image" : "file",
+            media_id: mediaId,
+            name: filename,
+            mime_type: mediaContentType,
+        });
+    }
+    return { mediaIds, contentBlocks, warnings };
 }
 async function processIpcDir(dirPath, ipcDir, kind, handler) {
     if (!existsSync(dirPath))
@@ -139,12 +208,26 @@ export function stopIpcWatcher() {
 export async function processMessageCommand(data, deps) {
     const type = getStringField(data, "type");
     const chatJid = getStringField(data, "chatJid");
-    const text = getStringField(data, "text");
-    if (type === "message" && chatJid && text) {
-        await deps.sendMessage(chatJid, text);
-        if (data.noNudge !== true) {
-            await deps.sendNudge?.(text);
-        }
+    const text = getStringField(data, "text") || "";
+    if (type !== "message" || !chatJid)
+        return;
+    const media = getArrayField(data, "media") || [];
+    const { mediaIds, contentBlocks, warnings } = await buildMediaPayloadFromIpcEntries(media);
+    const warningSuffix = warnings.length > 0
+        ? `\n\n⚠️ Media attachment warnings:\n${warnings.map((warning) => `- ${warning}`).join("\n")}`
+        : "";
+    const finalText = `${text}${warningSuffix}`;
+    const hasPayload = Boolean(text) || warnings.length > 0 || mediaIds.length > 0;
+    if (!hasPayload)
+        return;
+    const options = {};
+    if (mediaIds.length > 0)
+        options.mediaIds = mediaIds;
+    if (contentBlocks.length > 0)
+        options.contentBlocks = contentBlocks;
+    await deps.sendMessage(chatJid, finalText, options);
+    if (data.noNudge !== true) {
+        await deps.sendNudge?.(finalText || "Message with attachment(s)");
     }
 }
 /**

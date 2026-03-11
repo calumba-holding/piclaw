@@ -5,15 +5,26 @@ function normalizeSendMessageOptions(options) {
     const normalized = typeof options === "number" || options === null
         ? { threadId: options ?? null }
         : (options ?? {});
+    const mediaIds = Array.isArray(normalized.mediaIds)
+        ? normalized.mediaIds.filter((id) => Number.isFinite(id) && id > 0)
+        : [];
+    const contentBlocks = Array.isArray(normalized.contentBlocks)
+        ? normalized.contentBlocks.filter((block) => block && typeof block === "object")
+        : undefined;
     return {
         threadId: normalized.threadId ?? null,
         forceRoot: Boolean(normalized.forceRoot),
+        mediaIds: mediaIds,
+        contentBlocks,
     };
 }
 /** Store and broadcast an agent message response to web clients. */
 export function sendWebMessage(chatJid, text, options, ctx) {
-    const { threadId, forceRoot } = normalizeSendMessageOptions(options);
-    const interaction = ctx.store.storeMessage(chatJid, text, true, [], threadId ? { threadId } : undefined);
+    const { threadId, forceRoot, mediaIds, contentBlocks } = normalizeSendMessageOptions(options);
+    const interaction = ctx.store.storeMessage(chatJid, text, true, mediaIds, {
+        ...(threadId !== null ? { threadId } : {}),
+        ...(contentBlocks && contentBlocks.length ? { contentBlocks } : {}),
+    });
     if (!interaction)
         return;
     if (forceRoot && !threadId) {

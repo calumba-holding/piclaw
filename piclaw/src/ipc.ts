@@ -29,9 +29,8 @@ import { createUuid } from "./utils/ids.js";
 import { validateShellCommand, validateShellCwd } from "./utils/task-validation.js";
 
 /**
- * Dependency injection interface for IPC handlers.
- * Provided by runtime.ts so IPC can send messages, resolve models, etc.
- * without circular imports.
+ * Options bag accepted by the injected `sendMessage` callback.
+ * Kept local to IPC so runtime wiring can evolve without cross-module coupling.
  */
 interface IpcMessageOptions {
   forceRoot?: boolean;
@@ -41,6 +40,12 @@ interface IpcMessageOptions {
   contentBlocks?: Array<Record<string, unknown>>;
 }
 
+/**
+ * Dependency injection contract for IPC command handlers.
+ *
+ * Provided by runtime wiring so IPC can send messages, resolve models,
+ * and resume chats without importing runtime modules directly.
+ */
 export interface IpcDeps {
   /** Send a text message to a specific chat JID. */
   sendMessage: (jid: string, text: string, options?: IpcMessageOptions) => Promise<void>;
@@ -78,7 +83,19 @@ function getFiniteNumberField(data: JsonRecord, key: string): number | undefined
 
 function getBooleanField(data: JsonRecord, key: string): boolean | undefined {
   const value = data[key];
-  return typeof value === "boolean" ? value : undefined;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "on") return true;
+    if (normalized === "false" || normalized === "0" || normalized === "no" || normalized === "off") return false;
+  }
+  return undefined;
+}
+
+function normalizeMediaContentType(value: string | undefined): string {
+  if (!value) return "";
+  return value.split(";")[0].trim().toLowerCase();
 }
 
 function getArrayField(data: JsonRecord, key: string): unknown[] | undefined {
@@ -129,7 +146,9 @@ async function buildMediaPayloadFromIpcEntries(media: unknown[]): Promise<{
 
     const body = result.body as { id?: number; contentType?: string };
     const mediaId = Number(body.id);
-    const mediaContentType = typeof body.contentType === "string" ? body.contentType : (contentType || "");
+    const mediaContentType = normalizeMediaContentType(
+      (typeof body.contentType === "string" ? body.contentType : contentType) || ""
+    );
     if (!Number.isFinite(mediaId) || mediaId <= 0) {
       warnings.push(`Failed to attach ${filename}: invalid media id`);
       continue;
@@ -138,7 +157,12 @@ async function buildMediaPayloadFromIpcEntries(media: unknown[]): Promise<{
     const isImage = mediaContentType.startsWith("image/");
     const finalInline = inline === undefined ? isImage : inline && isImage;
     mediaIds.push(mediaId);
-    contentBlocks.push({ type: finalInline ? "image" : "file", media_id: mediaId, name: filename });
+    contentBlocks.push({
+      type: finalInline ? "image" : "file",
+      media_id: mediaId,
+      name: filename,
+      mime_type: mediaContentType,
+    });
   }
 
   return { mediaIds, contentBlocks, warnings };

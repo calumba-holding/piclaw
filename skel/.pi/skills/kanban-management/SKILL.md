@@ -372,10 +372,29 @@ When refining a ticket, use this structure:
 
 ## 9. Board Visualisation
 
-When asked to render the kanban board, use a Mermaid `graph LR` flowchart with
-subgraphs for each lane.  The bundled Mermaid version does **not** support
-`kanban`, `block-beta`, or YAML front matter headers — stick to classic
-`graph`/`flowchart` syntax.
+Primary board renderer for this skill is:
+
+- `/workspace/.pi/skills/kanban-management/kanban-board-svg.ts`
+
+When asked to render/share the board in chat, **always run the script with `--post`**.
+
+Theme policy:
+
+- If `--theme` is provided, honor it (`dark|light|css|auto`).
+- If `--theme` is omitted, the script auto-selects by local time:
+  - `dark` from `18:00` through `07:59`
+  - `light` from `08:00` through `17:59`
+
+Recommended command:
+
+```bash
+bun run /workspace/.pi/skills/kanban-management/kanban-board-svg.ts --post
+```
+
+Mermaid remains available as a fallback, but the default should be the SVG script.
+When Mermaid is needed, use a `graph LR` flowchart with subgraphs for each lane.
+The bundled Mermaid version does **not** support `kanban`, `block-beta`, or YAML
+front matter headers — stick to classic `graph`/`flowchart` syntax.
 
 ```mermaid
 graph LR
