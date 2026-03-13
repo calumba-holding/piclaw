@@ -1,10 +1,11 @@
 ---
 id: workspace-explorer-first-upload-click-misses-pill
 title: Fix workspace explorer first-click not creating a file pill for newly uploaded files
-status: doing
+status: done
 priority: medium
 created: 2026-03-12
-updated: 2026-03-12
+updated: 2026-03-13
+completed: 2026-03-13
 estimate: S
 risk: low
 tags:
@@ -47,14 +48,14 @@ compose.
 
 ## Acceptance Criteria
 
-- [ ] Reproduce and document the first-click failure path for a newly uploaded file from the workspace explorer item itself.
-- [ ] Identify whether the problem is caused by stale tree state, preview state,
+- [x] Reproduce and document the first-click failure path for a newly uploaded file from the workspace explorer item itself.
+- [x] Identify whether the problem is caused by stale tree state, preview state,
   event ordering, path normalization, or compose attach wiring.
-- [ ] First click after upload reliably creates the file pill without requiring a refresh or second click.
-- [ ] That same first click continues to update explorer selection and preview state correctly.
-- [ ] Behaviour is verified across representative file types, not just one MIME class.
-- [ ] Existing explorer selection and preview behaviour for long-existing files remains unchanged.
-- [ ] Add regression coverage if the affected code path is testable.
+- [x] First click after upload reliably creates the file pill without requiring a refresh or second click.
+- [x] That same first click continues to update explorer selection and preview state correctly.
+- [x] Behaviour is verified across representative file types, not just one MIME class.
+- [x] Existing explorer selection and preview behaviour for long-existing files remains unchanged.
+- [x] Add regression coverage if the affected code path is testable.
 
 ## Relevant Files
 
@@ -103,6 +104,11 @@ Prefer a minimal fix that preserves rename-on-second-click for ordinary rows whi
 This patch is lower risk than globally changing selected-row click semantics, because it only alters the first explicit click after a programmatic selection rather than every click on a selected file.
 
 ## Updates
+
+### 2026-03-13
+- Moved from doing to done after landing the pending-programmatic-selection fix in `workspace-explorer.ts`.
+- Implemented the low-risk path described in this ticket: the first explicit click after upload now falls through to the normal attach/preview path instead of being consumed by rename intent.
+- Validation recorded during implementation/build work: `bun run build:web` and `make build-web` passed, and the patch was included in the workspace explorer refactor commit.
 
 ### 2026-03-12
 - Added from report that newly uploaded files in the workspace explorer may fail to create a pill on first click.

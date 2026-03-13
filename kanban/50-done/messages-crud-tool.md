@@ -4,7 +4,8 @@ title: Unified messages CRUD tool (add/get/delete/search)
 status: done
 priority: medium
 created: 2026-03-11
-updated: 2026-03-12
+updated: 2026-03-13
+completed: 2026-03-13
 estimate: M
 risk: medium
 tags:
@@ -67,6 +68,11 @@ Direct DB access via the existing `connection.ts` helpers (`getDb()`, prepared s
 - `piclaw/test/extensions/extensions-message-search.test.ts` — existing tests (to be migrated)
 
 ## Updates
+
+### 2026-03-13
+- Moved from doing to done to match the implemented `messages` tool work already landed in the codebase.
+- Release-relevant follow-up also landed: reusable `runMessagesTool(...)` helper and wildcard `query: "*"` support for all-row search.
+- Implementation/test evidence was captured in the shipped work: unified CRUD actions, legacy tool cleanup, migrated tests, and helper/wildcard follow-up were all completed before this board move.
 
 ### 2026-03-12
 - Board quality review: ticket already had strong problem framing and acceptance criteria; kept in inbox pending prioritization and API-shape discussion.

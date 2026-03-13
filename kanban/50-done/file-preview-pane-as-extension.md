@@ -1,10 +1,11 @@
 ---
 id: file-preview-pane-as-extension
 title: Convert workspace file preview pane into an extension via the pane extension framework
-status: doing
+status: done
 priority: high
 created: 2026-03-12
 updated: 2026-03-13
+completed: 2026-03-13
 estimate: M
 risk: medium
 target_release: next
@@ -77,13 +78,13 @@ Resolve and mount preview provider from selected file context in the preview pan
 
 ## Acceptance Criteria
 
-- [ ] File preview rendering in `WorkspaceExplorer` is dispatched through the extension mechanism.
-- [ ] A default fallback preview extension is provided and matches current functional behavior.
-- [ ] At least one non-default override pattern is supported (or one example extension added).
-- [ ] Existing actions in preview header (download/open-in-editor/delete/new file) continue to work.
-- [ ] Unsupported/unknown file types still have a safe fallback UI.
-- [ ] Workspace explorer preview tests are updated to cover extension resolution and fallback behavior.
-- [ ] Manual behavior of text/image/markdown previews remains functionally unchanged for existing file types.
+- [x] File preview rendering in `WorkspaceExplorer` is dispatched through the extension mechanism.
+- [x] A default fallback preview extension is provided and matches current functional behavior.
+- [x] At least one non-default override pattern is supported (or one example extension added).
+- [x] Existing actions in preview header (download/open-in-editor/delete/new file) continue to work.
+- [x] Unsupported/unknown file types still have a safe fallback UI.
+- [x] Workspace explorer preview tests are updated to cover extension resolution and fallback behavior.
+- [x] Manual behavior of text/image/markdown previews remains functionally unchanged for existing file types.
 
 ## In scope
 - `piclaw/piclaw/web/src/components/workspace-explorer.ts`
@@ -143,19 +144,21 @@ Start with **Path A** and, if side-pane hosting creates friction, add a thin ada
 
 ## Definition of Done
 
-- [ ] Extension-based preview dispatch implemented and default fallback preserved.
-- [ ] One custom override renderer validated.
-- [ ] Test coverage updated with at least one fallback and one override test.
-- [ ] No UI regression in explorer preview actions.
-- [ ] Docs updated for extension authors (preview extension example/registration).
-- [ ] Ticket front matter updated on completion (`status`, `completed`).
+- [x] Extension-based preview dispatch implemented and default fallback preserved.
+- [x] One custom override renderer validated.
+- [x] Test coverage updated with at least one fallback and one override test.
+- [x] No UI regression in explorer preview actions.
+- [x] Docs updated for extension authors (preview extension example/registration).
+- [x] Ticket front matter updated on completion (`status`, `completed`).
 
 ## Updates
 
 ### 2026-03-13
-- Moved from next to doing.
-- Prioritized ahead of unsupported-file preview improvements so preview behavior can move into the extension model first.
-- This should reduce churn by making later preview UX changes land in the fallback preview extension instead of adding more branching to `workspace-explorer.ts`.
+- Moved from doing to done after landing the extension-based preview refactor.
+- Added `piclaw/web/src/panes/workspace-preview-pane.ts` with a default preview extension plus a higher-priority markdown preview override.
+- Updated `workspace-explorer.ts`, pane registration, pane types, and editor routing so view-mode previews resolve through the pane registry instead of inline branches.
+- Added `test/web/workspace-preview-pane.test.ts` and a lightweight `piclaw/docs/web-pane-extensions.md` note covering preview extension behavior.
+- Validation recorded in implementation work: `bun test test/web/workspace-preview-pane.test.ts`, `bun run build:web`, and `make build-web` passed.
 
 ### 2026-03-12
 - Added to track converting the workspace explorer preview pane to an extension-driven renderer using the existing extension system so overrides by file type become supported and maintainable.
