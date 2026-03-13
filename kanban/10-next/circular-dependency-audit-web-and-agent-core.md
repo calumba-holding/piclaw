@@ -112,6 +112,7 @@ Current cycle list (from latest audit):
 - Root cause: static cycle edges were mostly type-level seams via `import type { WebChannel }` in web submodules.
 - Mitigation: introduced `src/channels/web/web-channel-contracts.ts` (`WebChannelLike = any`) and switched all web request/router/handler modules in this slice to that shared contract.
 - `bunx madge --circular src/index.ts` now reports **1 remaining cycle**: `agent-pool.ts > agent-pool/session.ts > extensions/index.ts > extensions/scheduled-tasks.ts > task-scheduler.ts`
+- Commit: `b8a1b85`
 - Test evidence captured on branch: `bun run quality` (pass)
 
 ### 2026-03-12
