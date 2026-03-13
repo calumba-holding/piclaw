@@ -273,6 +273,11 @@ test("web channel queues steering without advancing cursor", async () => {
       queueStreamingMessage: async () => ({ queued: true }),
       runAgent: async () => ({ status: "success", result: "ok" }),
       getContextUsageForChat: async () => null,
+      applyControlCommand: async (_chatJid, command) => ({
+        status: command?.type === "steer" ? "success" : "error",
+        message: command?.type === "steer" ? "Steering queued: steer" : "Unsupported command.",
+        queued_steer: command?.type === "steer" ? true : undefined,
+      }),
     },
   });
   web.broadcastEvent = (type: string, data: unknown) => {
@@ -282,7 +287,7 @@ test("web channel queues steering without advancing cursor", async () => {
   const req = new Request("http://test/agent/default/message", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content: "steer this" }),
+    body: JSON.stringify({ content: "/steer this" }),
   });
 
   const res = await (web as any).handleRequest(req);

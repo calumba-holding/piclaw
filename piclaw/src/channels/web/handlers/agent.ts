@@ -101,6 +101,84 @@ export async function handleAgentMessage(
   };
 
   const command = parseControlCommand(content, TRIGGER_PATTERN);
+  const requestMode = normalized.mode ?? "auto";
+  const trimmed = content.trim();
+
+  const queueFollowupPlaceholder = (text: string) => {
+    const placeholder = channel.queueFollowupPlaceholder(chatJid, text, interaction.id);
+    if (placeholder) {
+      channel.broadcastEvent("agent_followup_queued", {
+        chat_jid: chatJid,
+        thread_id: placeholder.data.thread_id ?? interaction.data?.thread_id ?? null,
+        row_id: placeholder.id,
+      });
+    }
+  };
+
+  const queueFollowupMessage = async (): Promise<Response | null> => {
+    const queueFollowupResult = await channel.agentPool.queueStreamingMessage(chatJid, content, "followUp");
+    if (queueFollowupResult.queued) {
+      const followupText = formatOutbound("Queued as a follow-up (one-at-a-time).", "web");
+      if (followupText) {
+        queueFollowupPlaceholder(followupText);
+      }
+      return channel.json(
+        {
+          user_message: interaction,
+          thread_id: threadId,
+          queued: "followup",
+        },
+        201
+      );
+    }
+
+    if (queueFollowupResult.error) {
+      console.warn(`[web] Failed to queue follow-up message: ${queueFollowupResult.error}`);
+    }
+
+    return null;
+  };
+
+  const queueSteerMessage = async (source?: string): Promise<Response | null> => {
+    const steerResult = await channel.agentPool.queueStreamingMessage(chatJid, content, "steer");
+    if (!steerResult.queued) {
+      return null;
+    }
+
+    const inflightMessageId = getInflightMessageId(chatJid);
+    const rootRowId = inflightMessageId ? getMessageRowIdById(chatJid, inflightMessageId) : null;
+    if (rootRowId && rootRowId !== interaction.id) {
+      getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(rootRowId, interaction.id);
+      interaction.data.thread_id = rootRowId;
+      threadId = rootRowId;
+      broadcastInteractionUpdated(
+        channel,
+        interaction,
+        ASSISTANT_NAME,
+        resolveAvatarUrl("agent", ASSISTANT_AVATAR),
+        USER_NAME || null,
+        resolveAvatarUrl("user", USER_AVATAR),
+        USER_AVATAR_BACKGROUND || null
+      );
+    }
+
+    channel.queuePendingSteering(chatJid, interaction.timestamp);
+    channel.broadcastEvent("agent_steer_queued", {
+      chat_jid: chatJid,
+      thread_id: threadId ?? null,
+      source,
+    });
+
+    return channel.json(
+      {
+        user_message: interaction,
+        thread_id: threadId,
+        queued: "steer",
+      },
+      201
+    );
+  };
+
   if (command) {
     const commandTurnId = createUuid("turn");
     const commandTitle = content.trim().split(/\s+/, 1)[0] || "command";
@@ -109,15 +187,22 @@ export async function handleAgentMessage(
       agent_id: agentId,
       turn_id: commandTurnId,
       type: "intent",
-      title: `Running ${commandTitle}...`,
+      title: "Running " + commandTitle + "...",
     });
 
     const result = await channel.agentPool.applyControlCommand(chatJid, command);
     const formatted = formatOutbound(result.message, "web");
     const isQueueCommand = command.type === "queue" || command.type === "queue_all";
+    const isSteerCommand = command.type === "steer";
+
     if (formatted) {
       if (isQueueCommand && result.queued_followup) {
-        channel.queueFollowupPlaceholder(chatJid, formatted, interaction.id);
+        queueFollowupPlaceholder(formatted);
+      } else if (isSteerCommand && (result as { queued_steer?: boolean }).queued_steer) {
+        const steerResponse = await queueSteerMessage("command");
+        if (steerResponse) {
+          return steerResponse;
+        }
       } else {
         await channel.sendMessage(chatJid, formatted, interaction.id);
       }
@@ -158,8 +243,12 @@ export async function handleAgentMessage(
       agent_id: agentId,
       turn_id: commandTurnId,
       type: result.status === "success" ? "done" : "error",
-      title: result.status === "success" ? `Completed ${commandTitle}` : (result.message || "Command failed"),
+      title: result.status === "success" ? "Completed " + commandTitle : (result.message || "Command failed"),
     });
+
+    if (isSteerCommand && (result as { queued_steer?: boolean }).queued_steer) {
+      return channel.json({ user_message: interaction, thread_id: threadId, command: result, queued: "steer" }, 201);
+    }
 
     markCommandHandled();
     return channel.json(
@@ -168,7 +257,6 @@ export async function handleAgentMessage(
     );
   }
 
-  const trimmed = content.trim();
   const themeCommand = handleUiThemeCommand(trimmed);
   if (themeCommand) {
     if (themeCommand.payload) {
@@ -187,7 +275,7 @@ export async function handleAgentMessage(
     );
   }
 
-  // If message looks like an extension slash command (starts with '/'), execute it directly
+  // If message looks like an extension slash command (starts with "/"), execute it directly
   if (trimmed.startsWith("/")) {
     const commandTurnId = createUuid("turn");
     const slashName = trimmed.split(/\s+/, 1)[0] || "/command";
@@ -196,7 +284,7 @@ export async function handleAgentMessage(
       agent_id: agentId,
       turn_id: commandTurnId,
       type: "intent",
-      title: `Running ${slashName}...`,
+      title: "Running " + slashName + "...",
     });
 
     channel.lastCommandInteractionId = interaction.id;
@@ -228,7 +316,7 @@ export async function handleAgentMessage(
         agent_id: agentId,
         turn_id: commandTurnId,
         type: cmdResult.status === "success" ? "done" : "error",
-        title: cmdResult.status === "success" ? `Completed ${slashName}` : (cmdResult.message || "Command failed"),
+        title: cmdResult.status === "success" ? "Completed " + slashName : (cmdResult.message || "Command failed"),
       });
     }
 
@@ -239,41 +327,18 @@ export async function handleAgentMessage(
     );
   }
 
-  const steerResult = await channel.agentPool.queueStreamingMessage(chatJid, content, "steer");
-  if (steerResult.queued) {
-    // Parent steering messages to the original inflight turn root so they
-    // render as thread replies (indented like agent responses).
-    const inflightMessageId = getInflightMessageId(chatJid);
-    const rootRowId = inflightMessageId ? getMessageRowIdById(chatJid, inflightMessageId) : null;
-    if (rootRowId && rootRowId !== interaction.id) {
-      getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(rootRowId, interaction.id);
-      interaction.data.thread_id = rootRowId;
-      threadId = rootRowId;
-      broadcastInteractionUpdated(
-        channel,
-        interaction,
-        ASSISTANT_NAME,
-        resolveAvatarUrl("agent", ASSISTANT_AVATAR),
-        USER_NAME || null,
-        resolveAvatarUrl("user", USER_AVATAR),
-        USER_AVATAR_BACKGROUND || null
-      );
+  if (requestMode === "steer") {
+    const steerResponse = await queueSteerMessage("compose");
+    if (steerResponse) {
+      return steerResponse;
     }
-
-    channel.queuePendingSteering(chatJid, interaction.timestamp);
-    channel.broadcastEvent("agent_steer_queued", { chat_jid: chatJid, thread_id: threadId ?? null });
-    return channel.json(
-      {
-        user_message: interaction,
-        thread_id: threadId,
-        queued: "steer",
-      },
-      201
-    );
   }
 
-  if (steerResult.error) {
-    console.warn(`[web] Failed to queue steering message: ${steerResult.error}`);
+  if (requestMode === "queue" || requestMode === "auto") {
+    const followupResponse = await queueFollowupMessage();
+    if (followupResponse) {
+      return followupResponse;
+    }
   }
 
   channel.queue.enqueue(async () => {
@@ -281,6 +346,7 @@ export async function handleAgentMessage(
   }, `chat:${chatJid}:${interaction.id}`);
 
   return channel.json({ user_message: interaction, thread_id: threadId }, 201);
+
 }
 
 /** Process a chat message: detect commands, queue agent run, or store post. */

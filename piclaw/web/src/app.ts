@@ -62,6 +62,9 @@ const getAgentContext = typeof api.getAgentContext === 'function'
 const getAgentModels = typeof api.getAgentModels === 'function'
     ? api.getAgentModels
     : missingApi('getAgentModels', { current: null, models: [] });
+const getAgentQueueState = typeof api.getAgentQueueState === 'function'
+    ? api.getAgentQueueState
+    : missingApi('getAgentQueueState', { count: 0 });
 
 // Configure marked for safe rendering
 if (window.marked) {
@@ -129,6 +132,7 @@ function App() {
     const [supportsThinking, setSupportsThinking] = useState(false);
     const [activeModelUsage, setActiveModelUsage] = useState(null);
     const [contextUsage, setContextUsage] = useState(null);
+    const [followupQueueCount, setFollowupQueueCount] = useState(0);
     const {
         notificationsEnabled,
         notificationPermission,
@@ -1036,13 +1040,35 @@ function App() {
             .catch(() => {});
     }, [applyModelState]);
 
-    useEffect(() => {
+    const refreshQueueState = useCallback(() => {
+        getAgentQueueState()
+            .then((payload) => {
+                const next = Number(payload?.count);
+                if (Number.isFinite(next)) setFollowupQueueCount(next);
+            })
+            .catch(() => {});
+    }, []);
+
+    const handleMessageResponse = useCallback((response) => {
+        if (!response || typeof response !== "object") return;
+        if (response?.queued === "followup" || response?.queued === "steer") {
+            refreshQueueState();
+        }
+    }, [refreshQueueState]);
+
+    const refreshModelAndQueueState = useCallback(() => {
         refreshModelState();
+        refreshQueueState();
+    }, [refreshModelState, refreshQueueState]);
+
+    useEffect(() => {
+        refreshModelAndQueueState();
         const interval = setInterval(() => {
             refreshModelState();
+            refreshQueueState();
         }, 60_000);
         return () => clearInterval(interval);
-    }, [refreshModelState]);
+    }, [refreshModelAndQueueState, refreshModelState, refreshQueueState]);
 
     const handleSseEvent = useCallback((eventType, data) => {
         const turnId = data?.turn_id;
@@ -1091,7 +1117,7 @@ function App() {
                 .catch((err) => {
                     console.warn('Failed to fetch agent status:', err);
                 });
-            refreshModelState();
+            refreshModelAndQueueState();
             return;
         }
 
@@ -1145,6 +1171,18 @@ function App() {
             if (!targetTurn) return;
             steerQueuedTurnIdRef.current = targetTurn;
             setSteerQueuedTurnId(targetTurn);
+            return;
+        }
+
+        if (eventType === 'agent_followup_queued') {
+            setFollowupQueueCount((count) => count + 1);
+            void refreshQueueState();
+            return;
+        }
+
+        if (eventType === 'agent_followup_consumed') {
+            setFollowupQueueCount((count) => Math.max(0, count - 1));
+            void refreshQueueState();
             return;
         }
 
@@ -1541,6 +1579,8 @@ function App() {
                     activeEditorPath=${tabStripActiveId}
                     onAttachEditorFile=${attachActiveEditorFile}
                     onOpenFilePill=${openFileFromPill}
+                    followupQueueCount=${followupQueueCount}
+                    onMessageResponse=${handleMessageResponse}
                     activeModel=${activeModel}
                     modelUsage=${activeModelUsage}
                     thinkingLevel=${activeThinkingLevel}

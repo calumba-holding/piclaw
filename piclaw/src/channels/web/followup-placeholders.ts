@@ -12,6 +12,10 @@ export class FollowupPlaceholderStore {
     this.queuedFollowupPlaceholders.set(chatJid, existing);
   }
 
+  count(chatJid: string): number {
+    return this.queuedFollowupPlaceholders.get(chatJid)?.length ?? 0;
+  }
+
   consume(chatJid: string): number | null {
     const queue = this.queuedFollowupPlaceholders.get(chatJid);
     if (!queue || queue.length === 0) return null;

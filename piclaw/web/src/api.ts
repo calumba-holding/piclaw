@@ -88,10 +88,10 @@ export async function deletePost(postId, cascade = false) {
 /**
  * Send message to agent
  */
-export async function sendAgentMessage(agentId, content, threadId = null, mediaIds = []) {
+export async function sendAgentMessage(agentId, content, threadId = null, mediaIds = [], mode = null) {
     return request(`/agent/${agentId}/message`, {
         method: 'POST',
-        body: JSON.stringify({ content, thread_id: threadId, media_ids: mediaIds }),
+        body: JSON.stringify({ content, thread_id: threadId, media_ids: mediaIds, mode }),
     });
 }
 
@@ -117,6 +117,14 @@ export async function getAgentStatus(chatJid = null) {
 export async function getAgentContext(chatJid = null) {
     const query = chatJid ? `?chat_jid=${encodeURIComponent(chatJid)}` : '';
     return request(`/agent/context${query}`);
+}
+
+/**
+ * Get queued follow-up count for the default web chat.
+ */
+export async function getAgentQueueState(chatJid = null) {
+    const query = chatJid ? `?chat_jid=${encodeURIComponent(chatJid)}` : '';
+    return request(`/agent/queue-state${query}`);
 }
 
 /**

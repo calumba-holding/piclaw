@@ -29,6 +29,7 @@ const SLASH_COMMANDS = [
   { name: "/bash", description: "Run a shell command and add output to context" },
   { name: "/queue", description: "Queue a follow-up message (one-at-a-time)" },
   { name: "/queue-all", description: "Queue a follow-up message (batch all)" },
+  { name: "/steer", description: "Steer the current response" },
   { name: "/steering-mode", description: "Set steering mode (all|one)" },
   { name: "/followup-mode", description: "Set follow-up mode (all|one)" },
   { name: "/session-name", description: "Set or show the session name" },
@@ -130,6 +131,8 @@ export function ComposeBox({
     activeEditorPath = null,
     onAttachEditorFile,
     onOpenFilePill,
+    followupQueueCount = 0,
+    onMessageResponse,
 }) {
     const [content, setContent] = useState('');
     const [searchText, setSearchText] = useState('');
@@ -389,7 +392,8 @@ export function ComposeBox({
             const message = [baseContent, fileBlock, messageRefBlock, mediaBlock].filter(Boolean).join('\n\n');
 
             // Send to agent by default
-            const response = await sendAgentMessage('default', message, null, mediaIds);
+            const response = await sendAgentMessage('default', message, null, mediaIds, submitMode);
+            onMessageResponse?.(response);
             if (response?.command) {
                 emitModelState({
                     model: response.command.model_label ?? activeModel ?? null,
@@ -524,6 +528,19 @@ export function ComposeBox({
                 return;
             }
         }
+        if (e.key === 'Enter' && !e.shiftKey && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            const currentValue = textareaRef.current?.value ?? (searchMode ? searchText : content);
+            if (searchMode) {
+                if (currentValue.trim()) {
+                    onSearch?.(currentValue.trim());
+                }
+            } else {
+                void handleSubmit(currentValue, "steer");
+            }
+            return;
+        }
+
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             const currentValue = textareaRef.current?.value ?? (searchMode ? searchText : content);
@@ -794,8 +811,9 @@ export function ComposeBox({
                     `}
                 </div>
                 <div class="compose-footer">
-                    ${!searchMode && activeModel && html`
-                        <div class="compose-meta-row">
+                    ${!searchMode && (activeModel || followupQueueCount > 0) && html`
+                    <div class="compose-meta-row">
+                        ${!searchMode && activeModel && html`
                             <div class="compose-model-meta">
                                 <button
                                     ref=${modelHintRef}
@@ -816,7 +834,14 @@ export function ComposeBox({
                                     `}
                                 </div>
                             </div>
-                        </div>
+                        `}
+                        ${!searchMode && followupQueueCount > 0 && html`
+                            <div class="compose-queue-indicator" title="Queued follow-up messages waiting for an assistant turn">
+                                <span class="compose-queue-dot" aria-hidden="true"></span>
+                                <span>${followupQueueCount} queued follow-up${followupQueueCount > 1 ? "s" : ""}</span>
+                            </div>
+                        `}
+                    </div>
                     `}
                     <div class="compose-actions ${searchMode ? 'search-mode' : ''}">
                     ${!searchMode && contextUsage && contextUsage.percent != null && html`
@@ -887,9 +912,18 @@ export function ComposeBox({
                             type="button"
                             onClick=${() => { void handleSubmit(); }}
                             disabled=${!canSend}
-                            title="Send (Ctrl+Enter)"
+                            title="Send (Enter)"
                         >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                        </button>
+                        <button 
+                            class="icon-btn send-btn compose-steer-btn"
+                            type="button"
+                            onClick=${() => { void handleSubmit(null, "steer"); }}
+                            disabled=${!canSend}
+                            title="Steer current response now (Ctrl/Cmd+Enter)"
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3L4 21l8-5 8 5L12 3Z" /></svg>
                         </button>
                     `}
                 </div>

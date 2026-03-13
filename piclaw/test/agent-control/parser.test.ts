@@ -133,6 +133,11 @@ describe("parseControlCommand", () => {
     expect(cmd).toEqual({ type: "queue_all", message: "do this", raw: "/queue-all do this" });
   });
 
+  test("/steer with message", () => {
+    const cmd = parseControlCommand("/steer focus on pricing");
+    expect(cmd).toEqual({ type: "steer", message: "focus on pricing", raw: "/steer focus on pricing" });
+  });
+
   // /compact
   test("/compact with instructions", () => {
     const cmd = parseControlCommand("/compact keep the important stuff");

@@ -62,7 +62,14 @@ export function storeAgentTurn(
         contentBlocks.length > 0 ? contentBlocks : undefined,
         undefined
       );
-      if (updated) return;
+      if (updated) {
+        channel.broadcastEvent?.("agent_followup_consumed", {
+          chat_jid: params.chatJid,
+          thread_id: params.threadId ?? null,
+          row_id: placeholderId,
+        });
+        return;
+      }
     }
   }
 

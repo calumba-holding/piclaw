@@ -35,6 +35,7 @@ import {
   WEB_PASSKEY_MODE,
 } from "../core/config.js";
 import { startWorkspaceWatcher } from "./web/handlers/workspace.js";
+import type { WebChannelLike } from "./web/web-channel-contracts.js";
 import { RequestRouterService } from "./web/request-router-service.js";
 import { handlePost as handlePostRequest } from "./web/handlers/posts.js";
 import {
@@ -120,7 +121,7 @@ export interface WebChannelOpts {
 }
 
 /** Web channel: HTTP/SSE server, API endpoints, and agent event bridge. */
-export class WebChannel {
+export class WebChannel implements WebChannelLike {
   queue: AgentQueue;
   agentPool: AgentPool;
   server: ReturnType<typeof Bun.serve> | null = null;
@@ -254,6 +255,10 @@ export class WebChannel {
 
   consumeQueuedFollowupPlaceholder(chatJid: string): number | null {
     return this.followupPlaceholderStore.consume(chatJid);
+  }
+
+  getQueuedFollowupCount(chatJid: string): number {
+    return this.followupPlaceholderStore.count(chatJid);
   }
 
   queuePendingSteering(chatJid: string, timestamp: string | undefined): void {
@@ -477,6 +482,15 @@ export class WebChannel {
   /** GET /agent/context — return context window usage for the compose box indicator. */
   async handleAgentContext(req: Request): Promise<Response> {
     return await handleAgentContextRequest(req, this.endpointContexts.agentStatus());
+  }
+
+  /** GET /agent/queue-state — return queued follow-up placeholder count. */
+  async handleAgentQueueState(req: Request): Promise<Response> {
+    const url = new URL(req.url);
+    const chatJid = url.searchParams.get("chat_jid") ?? DEFAULT_CHAT_JID;
+    return this.json({
+      count: this.getQueuedFollowupCount(chatJid),
+    });
   }
 
   /** GET /agent/models — return available model labels and current selection. */

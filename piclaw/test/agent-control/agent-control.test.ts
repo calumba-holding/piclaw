@@ -19,6 +19,8 @@ class StubSession {
   thinkingLevel: ThinkingLevel = "low";
   reloadCalls = 0;
   abortCalls = 0;
+  isStreaming = false;
+  promptCalls: Array<{ text: string; opts: { streamingBehavior: string } }> = [];
 
   async setModel(model: any) {
     this.model = model;
@@ -35,6 +37,11 @@ class StubSession {
   setThinkingLevel(level: ThinkingLevel) {
     const available = this.getAvailableThinkingLevels();
     this.thinkingLevel = available.includes(level) ? level : available[0];
+  }
+
+  async prompt(text: string, opts: { streamingBehavior: string }) {
+    this.promptCalls.push({ text, opts });
+    return;
   }
 
   supportsThinking() {
@@ -78,6 +85,10 @@ test("parseControlCommand parses model and thinking commands", () => {
   const queueAllCmd = parseControlCommand("/queue-all batch this");
   expect(queueAllCmd?.type).toBe("queue_all");
   expect(queueAllCmd && "message" in queueAllCmd ? queueAllCmd.message : null).toBe("batch this");
+
+  const steerCmd = parseControlCommand("/steer zoom in");
+  expect(steerCmd?.type).toBe("steer");
+  expect(steerCmd && "message" in steerCmd ? steerCmd.message : null).toBe("zoom in");
 
   const stateCmd = parseControlCommand("/state");
   expect(stateCmd?.type).toBe("state");
@@ -157,6 +168,36 @@ test("applyControlCommand reports unsupported thinking", async () => {
 
   expect(result.status).toBe("error");
   expect(session.thinkingLevel).toBe("off");
+});
+
+test("applyControlCommand sends immediate steering when stream active", async () => {
+  const session = new StubSession();
+  session.isStreaming = true;
+
+  const result = await applyControlCommand(session as any, registry, {
+    type: "steer",
+    message: "focus on pricing",
+    raw: "/steer focus on pricing",
+  } as any);
+
+  expect(result.status).toBe("success");
+  expect(result.queued_steer).toBe(true);
+  expect(session.promptCalls.length).toBe(1);
+  expect(session.promptCalls[0].text).toBe("focus on pricing");
+  expect(session.promptCalls[0].opts.streamingBehavior).toBe("steer");
+});
+
+test("applyControlCommand errors if steering with no active response", async () => {
+  const session = new StubSession();
+
+  const result = await applyControlCommand(session as any, registry, {
+    type: "steer",
+    message: "focus on pricing",
+    raw: "/steer focus on pricing",
+  } as any);
+
+  expect(result.status).toBe("error");
+  expect(result.message).toContain("No active response to steer");
 });
 
 test("applyControlCommand restarts agent", async () => {

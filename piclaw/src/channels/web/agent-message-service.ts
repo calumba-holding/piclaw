@@ -16,6 +16,7 @@ export interface AgentMessagePayload {
   content?: string;
   thread_id?: number | null;
   media_ids?: number[];
+  mode?: "auto" | "queue" | "steer";
   content_blocks?: unknown[];
   link_previews?: unknown[];
 }
@@ -54,6 +55,7 @@ export function normalizeAgentMessagePayload(payload: AgentMessagePayload): {
   mediaIds: number[];
   contentBlocks?: unknown[];
   linkPreviews?: unknown[];
+  mode?: "auto" | "queue" | "steer";
 } {
   return {
     content: payload.content,
@@ -61,6 +63,7 @@ export function normalizeAgentMessagePayload(payload: AgentMessagePayload): {
     mediaIds: normalizeMediaIds(payload.media_ids),
     contentBlocks: Array.isArray(payload.content_blocks) ? payload.content_blocks : undefined,
     linkPreviews: Array.isArray(payload.link_previews) ? payload.link_previews : undefined,
+    mode: payload.mode,
   };
 }
 

@@ -37,6 +37,7 @@ export const CONTROL_COMMAND_DEFINITIONS: ControlCommandDefinition[] = [
   { name: "/bash", description: "Run a shell command and add output to context" },
   { name: "/queue", description: "Queue a follow-up message (one-at-a-time)" },
   { name: "/queue-all", description: "Queue a follow-up message (batch all)" },
+  { name: "/steer", description: "Send immediate steering input" },
   { name: "/steering-mode", description: "Set steering mode (all|one)" },
   { name: "/followup-mode", description: "Set follow-up mode (all|one)" },
   { name: "/session-name", description: "Set or show the session name" },

@@ -1885,8 +1885,47 @@ body {
     outline: none;
 }
 
-.compose-model-hint-btn:disabled {
+ .compose-model-hint-btn:disabled {
     cursor: default;
+}
+
+.compose-queue-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    padding: 2px 6px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-elevated);
+    color: var(--text-tertiary, var(--text-secondary));
+    font-size: 10.5px;
+    line-height: 1;
+    white-space: nowrap;
+    letter-spacing: 0.01em;
+    max-width: min(45vw, 190px);
+}
+
+.compose-queue-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-color);
+    flex: 0 0 auto;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-color) 20%, transparent);
+}
+
+.compose-queue-indicator span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.compose-steer-btn {
+    position: relative;
+}
+
+.compose-steer-btn svg {
+    transform: rotate(-12deg);
 }
 
 .compose-model-usage-hint {

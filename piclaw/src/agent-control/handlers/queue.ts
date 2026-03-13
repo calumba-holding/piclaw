@@ -14,6 +14,7 @@ import { runPromptAndCapture } from "../agent-control-helpers.js";
 type QueueCommand = Extract<AgentControlCommand, { type: "queue" | "queue_all" }>;
 type SteeringCommand = Extract<AgentControlCommand, { type: "steering_mode" }>;
 type FollowupCommand = Extract<AgentControlCommand, { type: "followup_mode" }>;
+type SteerCommand = Extract<AgentControlCommand, { type: "steer" }>;
 
 /** Handle /queue: inject a message into the agent prompt queue. */
 export async function handleQueue(session: AgentSession, command: QueueCommand): Promise<AgentControlResult> {
@@ -56,6 +57,38 @@ export async function handleQueue(session: AgentSession, command: QueueCommand):
     const message = err instanceof Error ? err.message : String(err);
     return { status: "error", message };
   }
+}
+
+/** Handle /steer: inject an immediate steering instruction into the active stream. */
+export async function handleSteer(session: AgentSession, command: SteerCommand): Promise<AgentControlResult> {
+  const steerText = command.message?.trim();
+
+  if (!steerText) {
+    return {
+      status: "error",
+      message: "Usage: /steer <message>",
+    };
+  }
+
+  if (!session.isStreaming) {
+    return {
+      status: "error",
+      message: "No active response to steer. Please send a message first.",
+    };
+  }
+
+  try {
+    await session.prompt(steerText, { streamingBehavior: "steer" });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { status: "error", message };
+  }
+
+  return {
+    status: "success",
+    message: `Steering queued: ${steerText}`,
+    queued_steer: true,
+  };
 }
 
 /** Handle /steering-mode: set "all" or "one-at-a-time" steering. */

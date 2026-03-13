@@ -113,6 +113,15 @@ export function parseQueueAll(args: string, raw: string): AgentControlCommand {
   };
 }
 
+/** Parse /steer arguments: immediate steering message text. */
+export function parseSteer(args: string, raw: string): AgentControlCommand {
+  return {
+    type: "steer",
+    message: args || undefined,
+    raw,
+  };
+}
+
 /** Parse /compact arguments: optional custom instructions. */
 export function parseCompact(args: string, raw: string): AgentControlCommand {
   return {
@@ -440,6 +449,7 @@ export const COMMAND_PARSERS: Record<string, CommandParser> = {
   "/shell": parseShell,
   "/queue": parseQueue,
   "/queue-all": parseQueueAll,
+  "/steer": parseSteer,
   "/state": simple("state"),
   "/stats": simple("stats"),
   "/context": simple("context"),
