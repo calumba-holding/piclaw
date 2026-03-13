@@ -132,11 +132,13 @@ export function ComposeBox({
     onAttachEditorFile,
     onOpenFilePill,
     followupQueueCount = 0,
+    followupQueueItems = [],
+    onInjectQueuedFollowup,
     onMessageResponse,
+    isAgentActive = false,
 }) {
     const [content, setContent] = useState('');
     const [searchText, setSearchText] = useState('');
-    const [loading, setLoading] = useState(false);
     const [mediaFiles, setMediaFiles] = useState([]);
     const [isDragActive, setIsDragActive] = useState(false);
     const [slashMatches, setSlashMatches] = useState([]);
@@ -181,7 +183,7 @@ export function ComposeBox({
     const historyRef = useRef(loadHistory());
     const historyIndexRef = useRef(-1);
     const historyDraftRef = useRef('');
-    const canSend = !loading && (content.trim() || mediaFiles.length > 0 || fileRefs.length > 0 || messageRefs.length > 0);
+    const canSend = content.trim() || mediaFiles.length > 0 || fileRefs.length > 0 || messageRefs.length > 0;
     const canShareLocation = typeof window !== 'undefined'
         && typeof navigator !== 'undefined'
         && Boolean(navigator.geolocation)
@@ -315,7 +317,7 @@ export function ComposeBox({
     };
 
     const runModelCommand = async (commandText) => {
-        if (searchMode || loading || switchingModel) return;
+        if (searchMode || switchingModel) return;
 
         setSwitchingModel(true);
         try {
@@ -357,79 +359,126 @@ export function ComposeBox({
         setShowModelPopup((prev) => !prev);
     };
 
-    const handleSubmit = async (overrideContent) => {
+    const resolveSubmitMode = (mode) => {
+        if (mode === 'queue' || mode === 'steer' || mode === 'auto') {
+            return mode;
+        }
+        return isAgentActive ? 'queue' : null;
+    };
+
+    const handleSubmit = async (overrideContent, submitMode, submitOptions = {}) => {
+        const {
+            includeMedia = true,
+            includeFileRefs = true,
+            includeMessageRefs = true,
+            clearAfterSubmit = true,
+            recordHistory = true,
+        } = submitOptions || {};
+
         const inferred = typeof overrideContent === 'string'
             ? overrideContent
             : (overrideContent && typeof overrideContent?.target?.value === 'string'
                 ? overrideContent.target.value
                 : content);
         const currentContent = typeof inferred === 'string' ? inferred : '';
-        if (!currentContent.trim() && mediaFiles.length === 0 && fileRefs.length === 0 && messageRefs.length === 0) return;
+        if (
+            !currentContent.trim() &&
+            (includeMedia ? mediaFiles.length === 0 : true) &&
+            (includeFileRefs ? fileRefs.length === 0 : true) &&
+            (includeMessageRefs ? messageRefs.length === 0 : true)
+        ) return;
 
-        setLoading(true);
-        try {
-            // Upload media files first
-            const mediaIds = [];
-            for (const file of mediaFiles) {
-                const result = await uploadMedia(file);
-                mediaIds.push(result.id);
+        setShowSlash(false);
+        setSlashMatches([]);
+
+        // Capture media/refs before clearing so the async send can use them
+        const capturedMediaFiles = includeMedia ? [...mediaFiles] : [];
+        const capturedFileRefs = includeFileRefs ? [...fileRefs] : [];
+        const capturedMessageRefs = includeMessageRefs ? [...messageRefs] : [];
+        const baseContent = currentContent.trim();
+
+        // Record history synchronously
+        if (recordHistory && baseContent) {
+            const current = historyRef.current;
+            const deduped = normaliseHistory(current.filter((item) => item !== baseContent));
+            deduped.push(baseContent);
+            if (deduped.length > historyMax) {
+                deduped.splice(0, deduped.length - historyMax);
             }
+            historyRef.current = deduped;
+            saveHistory(deduped);
+            historyIndexRef.current = -1;
+            historyDraftRef.current = '';
+        }
 
-            const baseContent = currentContent.trim();
-            const fileBlock = fileRefs.length
-                ? `Files:\n${fileRefs.map((path) => `- ${path}`).join('\n')}`
-                : '';
-            const messageRefBlock = messageRefs.length
-                ? `Referenced messages:\n${messageRefs.map((id) => `- message:${id}`).join('\n')}`
-                : '';
-            const mediaBlock = mediaIds.length
-                ? `Images:\n${mediaIds.map((id, index) => {
-                    const file = mediaFiles[index];
-                    const label = file?.name || `image-${index + 1}`;
-                    return `- attachment:${id} (${label})`;
-                }).join('\n')}`
-                : '';
-            const message = [baseContent, fileBlock, messageRefBlock, mediaBlock].filter(Boolean).join('\n\n');
-
-            // Send to agent by default
-            const response = await sendAgentMessage('default', message, null, mediaIds, submitMode);
-            onMessageResponse?.(response);
-            if (response?.command) {
-                emitModelState({
-                    model: response.command.model_label ?? activeModel ?? null,
-                    thinking_level: response.command.thinking_level,
-                    supports_thinking: response.command.supports_thinking,
-                });
-                try {
-                    const latest = await getAgentModels();
-                    if (latest) emitModelState(latest);
-                } catch {}
-            }
-
-            if (baseContent) {
-                const current = historyRef.current;
-                const deduped = normaliseHistory(current.filter((item) => item !== baseContent));
-                deduped.push(baseContent);
-                if (deduped.length > historyMax) {
-                    deduped.splice(0, deduped.length - historyMax);
-                }
-                historyRef.current = deduped;
-                saveHistory(deduped);
-                historyIndexRef.current = -1;
-                historyDraftRef.current = '';
-            }
-
+        // Clear compose box immediately so user can keep typing
+        if (clearAfterSubmit) {
             setContent('');
             setMediaFiles([]);
             onClearFileRefs?.();
             onClearMessageRefs?.();
-            onPost?.();
-        } catch (error) {
-            console.error('Failed to post:', error);
-            alert('Failed to post: ' + error.message);
-        } finally {
-            setLoading(false);
         }
+
+        // Fire-and-forget: send in background, never block the compose box
+        (async () => {
+            try {
+                // Upload media files first
+                const mediaIds = [];
+                for (const file of capturedMediaFiles) {
+                    const result = await uploadMedia(file);
+                    mediaIds.push(result.id);
+                }
+
+                const fileBlock = capturedFileRefs.length
+                    ? `Files:\n${capturedFileRefs.map((path) => `- ${path}`).join('\n')}`
+                    : '';
+                const messageRefBlock = capturedMessageRefs.length
+                    ? `Referenced messages:\n${capturedMessageRefs.map((id) => `- message:${id}`).join('\n')}`
+                    : '';
+                const mediaBlock = mediaIds.length
+                    ? `Images:\n${mediaIds.map((id, index) => {
+                        const file = capturedMediaFiles[index];
+                        const label = file?.name || `image-${index + 1}`;
+                        return `- attachment:${id} (${label})`;
+                    }).join('\n')}`
+                    : '';
+                const message = [baseContent, fileBlock, messageRefBlock, mediaBlock].filter(Boolean).join('\n\n');
+                const response = await sendAgentMessage('default', message, null, mediaIds, resolveSubmitMode(submitMode));
+                onMessageResponse?.(response);
+
+                if (response?.command) {
+                    emitModelState({
+                        model: response.command.model_label ?? activeModel ?? null,
+                        thinking_level: response.command.thinking_level,
+                        supports_thinking: response.command.supports_thinking,
+                    });
+                    try {
+                        const latest = await getAgentModels();
+                        if (latest) emitModelState(latest);
+                    } catch {}
+                }
+
+                onPost?.();
+            } catch (error) {
+                console.error('Failed to post:', error);
+            }
+        })();
+    };
+
+    const handleInjectQueuedFollowup = (queuedItem) => {
+        // Always remove from stack immediately
+        onInjectQueuedFollowup?.(queuedItem);
+
+        const currentContent = typeof queuedItem?.content === 'string' ? queuedItem.content.trim() : '';
+        if (!currentContent) return;
+
+        void handleSubmit(currentContent, 'steer', {
+            includeMedia: false,
+            includeFileRefs: false,
+            includeMessageRefs: false,
+            clearAfterSubmit: false,
+            recordHistory: false,
+        });
     };
 
     const handleKeyDown = (e) => {
@@ -696,6 +745,44 @@ export function ComposeBox({
 
     return html`
         <div class="compose-box">
+            ${!searchMode && followupQueueItems.length > 0 && html`
+                <div class="compose-queue-stack">
+                    ${followupQueueItems.map((item) => {
+                        const rowText = typeof item?.content === 'string' ? item.content : '';
+                        if (!rowText.trim()) return null;
+                        return html`
+                            <div class="compose-queue-stack-item" role="listitem">
+                                <span class="compose-queue-stack-content" title=${rowText}>
+                                    ${rowText}
+                                </span>
+                                <button
+                                    class="compose-queue-stack-steer-btn"
+                                    type="button"
+                                    title="Inject queued follow-up as steer"
+                                    onClick=${() => handleInjectQueuedFollowup(item)}
+                                >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M4 20h12a2 2 0 0 0 2-2V8" />
+                                        <polyline points="14 12 18 8 22 12" />
+                                    </svg>
+                                    <span>Steer</span>
+                                </button>
+                                <button
+                                    class="compose-queue-stack-close-btn"
+                                    type="button"
+                                    title="Cancel queued message"
+                                    onClick=${() => onInjectQueuedFollowup?.(item)}
+                                >
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                </button>
+                            </div>
+                        `;
+                    })}
+                </div>
+            `}
             <div
                 class=${`compose-input-wrapper${isDragActive ? ' drag-active' : ''}`}
                 onDragEnter=${handleDragEnter}
@@ -756,7 +843,6 @@ export function ComposeBox({
                         onPaste=${handlePaste}
                         onFocus=${onFocus}
                         onClick=${onFocus}
-                        disabled=${loading}
                         rows="1"
                     />
                     ${showSlash && slashMatches.length > 0 && html`
@@ -822,7 +908,7 @@ export function ComposeBox({
                                     title=${modelHintTitle}
                                     aria-label="Open model picker"
                                     onClick=${toggleModelPopup}
-                                    disabled=${loading || switchingModel}
+                                    disabled=${switchingModel}
                                 >
                                     ${switchingModel ? 'Switching…' : modelHintLabel}
                                 </button>
@@ -869,7 +955,7 @@ export function ComposeBox({
                             onClick=${handleLocation}
                             title="Share location"
                             type="button"
-                            disabled=${loading}
+                            disabled=${false}
                         >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="12" cy="12" r="10" />
@@ -898,7 +984,7 @@ export function ComposeBox({
                                 onClick=${onAttachEditorFile}
                                 title=${`Attach open file: ${activeEditorPath}`}
                                 type="button"
-                                disabled=${loading || fileRefs.includes(activeEditorPath)}
+                                disabled=${fileRefs.includes(activeEditorPath)}
                             >
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
                             </button>
@@ -915,15 +1001,6 @@ export function ComposeBox({
                             title="Send (Enter)"
                         >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-                        </button>
-                        <button 
-                            class="icon-btn send-btn compose-steer-btn"
-                            type="button"
-                            onClick=${() => { void handleSubmit(null, "steer"); }}
-                            disabled=${!canSend}
-                            title="Steer current response now (Ctrl/Cmd+Enter)"
-                        >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3L4 21l8-5 8 5L12 3Z" /></svg>
                         </button>
                     `}
                 </div>

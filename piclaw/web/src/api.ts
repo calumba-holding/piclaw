@@ -120,7 +120,7 @@ export async function getAgentContext(chatJid = null) {
 }
 
 /**
- * Get queued follow-up count for the default web chat.
+ * Get queued follow-up state for the default web chat (count + pending items).
  */
 export async function getAgentQueueState(chatJid = null) {
     const query = chatJid ? `?chat_jid=${encodeURIComponent(chatJid)}` : '';

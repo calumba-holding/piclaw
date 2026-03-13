@@ -21,9 +21,36 @@ export async function handleQueue(session, command) {
     if (session.followUpMode !== mode) {
         session.setFollowUpMode(mode);
     }
-    if (session.isStreaming) {
-        try {
+    try {
+        if (typeof session.subscribe === "function") {
+            await runPromptAndCapture(session, queuedText, { streamingBehavior: "followUp" });
+        }
+        else {
             await session.prompt(queuedText, { streamingBehavior: "followUp" });
+        }
+    }
+    catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { status: "error", message };
+    }
+    return {
+        status: "success",
+        message: useBatch ? "Queued as a follow-up (batch mode: all)." : "Queued as a follow-up (one-at-a-time).",
+        queued_followup: true,
+    };
+}
+/** Handle /steer: inject an immediate steering instruction into the active stream. */
+export async function handleSteer(session, command) {
+    const steerText = command.message?.trim();
+    if (!steerText) {
+        return {
+            status: "error",
+            message: "Usage: /steer <message>",
+        };
+    }
+    if (!session.isStreaming) {
+        try {
+            await session.prompt(steerText, { streamingBehavior: "followUp" });
         }
         catch (err) {
             const message = err instanceof Error ? err.message : String(err);
@@ -31,20 +58,22 @@ export async function handleQueue(session, command) {
         }
         return {
             status: "success",
-            message: useBatch
-                ? "Queued as a follow-up (batch mode: all)."
-                : "Queued as a follow-up (one-at-a-time).",
+            message: `Queued as a follow-up (one-at-a-time).`,
             queued_followup: true,
         };
     }
     try {
-        const response = await runPromptAndCapture(session, queuedText);
-        return { status: "success", message: response };
+        await session.prompt(steerText, { streamingBehavior: "steer" });
     }
     catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return { status: "error", message };
     }
+    return {
+        status: "success",
+        message: `Steering queued: ${steerText}`,
+        queued_steer: true,
+    };
 }
 /** Handle /steering-mode: set "all" or "one-at-a-time" steering. */
 export async function handleSteeringMode(session, command) {

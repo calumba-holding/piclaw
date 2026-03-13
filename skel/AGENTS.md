@@ -70,7 +70,7 @@ If the channel is unknown, default to WhatsApp formatting rules.
 
 ## Environment
 
-- *OS:* Debian Linux (bookworm-slim)
+- *OS:* Debian Linux (trixie-slim)
 - *Runtime:* Bun (JavaScript/TypeScript)
 - *Tools:* git, vim, tmux, htop, ripgrep, jq, curl, wget, tree, make, build-essential
 - *Package managers:* bun, brew (Homebrew), sudo apt

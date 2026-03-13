@@ -16,7 +16,7 @@ import { handleUserAvatar, handleUserGithub, handleUserName } from "./handlers/u
 import { handleCommands, handleContext, handleLast, handleSearchWorkspace, handleState, handleStats, } from "./handlers/info.js";
 import { handleCycleModel, handleCycleThinking, handleModel, handleThinking, } from "./handlers/model.js";
 import { handleBash, handleShell } from "./handlers/operations.js";
-import { handleFollowupMode, handleQueue, handleSteeringMode } from "./handlers/queue.js";
+import { handleFollowupMode, handleQueue, handleSteeringMode, handleSteer } from "./handlers/queue.js";
 import { handleExportHtml, handleFork, handleForks, handleNewSession, handleSessionName, handleSwitchSession, } from "./handlers/session.js";
 import { handlePasskey } from "./handlers/passkey.js";
 import { handleTotp } from "./handlers/totp.js";
@@ -62,6 +62,8 @@ export async function applyControlCommand(session, modelRegistry, command) {
             return handleSteeringMode(session, command);
         case "followup_mode":
             return handleFollowupMode(session, command);
+        case "steer":
+            return handleSteer(session, command);
         case "session_name":
             return handleSessionName(session, command);
         case "new_session":

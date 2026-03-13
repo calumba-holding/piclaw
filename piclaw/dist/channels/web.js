@@ -23,7 +23,7 @@ import { handleAgentMessage as handleAgentMessageRequest, processChat as process
 import { SseHub } from "./web/sse-hub.js";
 import { UiBridge } from "./web/ui-bridge.js";
 import { ResponseService } from "./web/http/response-service.js";
-import { replaceMessageContent, getDb, } from "../db.js";
+import { replaceMessageContent, getDb, getMessageByRowId, } from "../db.js";
 import { WebChannelState } from "./web/channel-state.js";
 import { AgentStatusStore } from "./web/agent-status-store.js";
 import { FollowupPlaceholderStore } from "./web/followup-placeholders.js";
@@ -161,18 +161,28 @@ export class WebChannel {
                 broadcastInteractionUpdated: (interaction) => this.interactionBroadcaster.broadcastInteractionUpdated(interaction),
             },
             followups: {
-                enqueue: (chatJid, rowId) => this.followupPlaceholderStore.enqueue(chatJid, rowId),
+                enqueue: (chatJid, rowId, queuedContent, threadId, queuedAt) => this.followupPlaceholderStore.enqueue(chatJid, rowId, queuedContent, threadId, queuedAt),
             },
         };
     }
     async sendMessage(chatJid, text, options) {
         sendWebMessage(chatJid, text, options, this.getMessageWriteContext());
     }
-    queueFollowupPlaceholder(chatJid, text, threadId) {
-        return queueFollowupPlaceholderMessage(chatJid, text, threadId, this.getMessageWriteContext());
+    queueFollowupPlaceholder(chatJid, text, threadId, queuedContent) {
+        return queueFollowupPlaceholderMessage(chatJid, text, threadId, (queuedContent || "").trim() || text, this.getMessageWriteContext());
     }
     consumeQueuedFollowupPlaceholder(chatJid) {
         return this.followupPlaceholderStore.consume(chatJid);
+    }
+    getQueuedFollowupCount(chatJid) {
+        return this.followupPlaceholderStore.count(chatJid);
+    }
+    getQueuedFollowupItems(chatJid) {
+        const rows = this.followupPlaceholderStore.peek(chatJid);
+        return rows.map((row) => ({
+            ...row,
+            queuedAt: row.queuedAt,
+        }));
     }
     queuePendingSteering(chatJid, timestamp) {
         this.pendingSteeringStore.queue(chatJid, timestamp);
@@ -344,6 +354,27 @@ export class WebChannel {
     /** GET /agent/context — return context window usage for the compose box indicator. */
     async handleAgentContext(req) {
         return await handleAgentContextRequest(req, this.endpointContexts.agentStatus());
+    }
+    /** GET /agent/queue-state — return queued follow-up placeholder count and pending content. */
+    async handleAgentQueueState(req) {
+        const url = new URL(req.url);
+        const chatJid = url.searchParams.get("chat_jid") ?? DEFAULT_CHAT_JID;
+        const queuedItems = this.getQueuedFollowupItems(chatJid);
+        const items = queuedItems
+            .map((queued) => {
+            const interaction = getMessageByRowId(chatJid, queued.rowId);
+            return {
+                row_id: queued.rowId,
+                content: queued.queuedContent,
+                timestamp: interaction?.timestamp ?? queued.queuedAt,
+                thread_id: interaction?.data?.thread_id ?? queued.threadId ?? null,
+            };
+        })
+            .filter((item) => typeof item.content === "string" && item.content.trim().length > 0);
+        return this.json({
+            count: items.length,
+            items,
+        });
     }
     /** GET /agent/models — return available model labels and current selection. */
     async handleAgentModels(req) {

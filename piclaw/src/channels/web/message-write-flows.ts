@@ -43,7 +43,7 @@ export interface MessageWriteBroadcaster {
 
 /** Follow-up placeholder queue contract required by write flows. */
 export interface MessageWriteFollowupQueue {
-  enqueue(chatJid: string, rowId: number): void;
+  enqueue(chatJid: string, rowId: number, queuedContent: string, threadId?: number | null, queuedAt?: string): void;
 }
 
 /** Aggregated context consumed by web message write helper functions. */
@@ -118,14 +118,41 @@ export function sendWebMessage(
 export function queueFollowupPlaceholderMessage(
   chatJid: string,
   text: string,
-  threadId: number | undefined,
-  ctx: MessageWriteContext
+  threadIdOrCtxOrQueuedContent?: number | null | MessageWriteContext,
+  queuedContentOrCtx?: string | MessageWriteContext,
+  ctxMaybe?: MessageWriteContext
 ): InteractionRow | null {
+  const isContext = (value: unknown): value is MessageWriteContext =>
+    !!value && typeof value === "object" && "store" in value;
+
+  let threadId: number | undefined;
+  let queuedContent = text;
+
+  if (typeof threadIdOrCtxOrQueuedContent === "number") {
+    threadId = threadIdOrCtxOrQueuedContent;
+  }
+
+  const ctx = isContext(ctxMaybe)
+    ? ctxMaybe
+    : isContext(queuedContentOrCtx)
+      ? queuedContentOrCtx
+      : isContext(threadIdOrCtxOrQueuedContent)
+        ? threadIdOrCtxOrQueuedContent
+        : undefined;
+
+  if (typeof queuedContentOrCtx === "string") {
+    queuedContent = queuedContentOrCtx;
+  }
+
+  if (!ctx) return null;
+
   const interaction = ctx.store.storeMessage(chatJid, text, true, [], { threadId });
   if (!interaction) return null;
 
-  ctx.followups.enqueue(chatJid, interaction.id);
-  ctx.broadcaster.broadcastAgentResponse(interaction);
+  ctx.followups.enqueue(chatJid, interaction.id, queuedContent, threadId, interaction.timestamp);
+  // Don't broadcast the placeholder as agent_response — the caller emits
+  // agent_followup_queued instead.  Broadcasting here caused the post to
+  // flash in the timeline before the client-side filter could hide it.
   return interaction;
 }
 

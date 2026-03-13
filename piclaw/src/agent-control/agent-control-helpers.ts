@@ -215,7 +215,11 @@ export function updateUserConfig(patch: {
 }
 
 /** Inject a prompt into the session and capture the streamed response text. */
-export async function runPromptAndCapture(session: AgentSession, text: string): Promise<string> {
+export async function runPromptAndCapture(
+  session: AgentSession,
+  text: string,
+  options?: { streamingBehavior?: "steer" | "followUp" }
+): Promise<string> {
   let assistantBuffer = "";
   const customBuffers: string[] = [];
 
@@ -241,7 +245,7 @@ export async function runPromptAndCapture(session: AgentSession, text: string): 
 
   const unsub = session.subscribe(onEvent);
   try {
-    await session.prompt(text);
+    await session.prompt(text, options);
   } finally {
     unsub();
   }

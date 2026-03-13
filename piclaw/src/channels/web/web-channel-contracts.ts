@@ -14,6 +14,7 @@ import type { RequestGuardsChannel } from "./http/request-guards.js";
 import type { AuthEndpointsContext } from "./auth-endpoints.js";
 import type { InteractionRow } from "../../db.js";
 import type { WebAgentBufferEntry } from "./agent-buffers.js";
+import type { QueuedFollowupItem } from "./followup-placeholders.js";
 import type { UiBridge } from "./ui-bridge.js";
 import type { TotpAuthContext } from "./totp-auth.js";
 import type { WebauthnAuthContext } from "./webauthn-auth.js";
@@ -78,8 +79,9 @@ export interface WebChannelLike
   updateThoughtBuffer(turnId: string, text: string, totalLines: number): void;
   updateDraftBuffer(turnId: string, text: string, totalLines: number): void;
 
-  queueFollowupPlaceholder(chatJid: string, text: string, threadId?: number): InteractionRow | null;
+  queueFollowupPlaceholder(chatJid: string, text: string, threadId?: number, queuedContent?: string): InteractionRow | null;
   getQueuedFollowupCount(chatJid: string): number;
+  getQueuedFollowupItems(chatJid: string): QueuedFollowupItem[];
   consumeQueuedFollowupPlaceholder(chatJid: string): number | null;
   replaceQueuedFollowupPlaceholder(
     chatJid: string,

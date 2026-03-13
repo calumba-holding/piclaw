@@ -10,10 +10,15 @@ export function useTimeline({ preserveTimelineScroll, preserveTimelineScrollTop 
   const loadMoreRef = useRef(null);
   const loadingMoreRef = useRef(false);
   const lastBeforeIdRef = useRef(null);
+  const postsRef = useRef(null);
 
   useEffect(() => {
     hasMoreRef.current = hasMore;
   }, [hasMore]);
+
+  useEffect(() => {
+    postsRef.current = posts;
+  }, [posts]);
 
   const loadPosts = useCallback(async (hashtag = null) => {
     try {
@@ -44,8 +49,10 @@ export function useTimeline({ preserveTimelineScroll, preserveTimelineScrollTop 
     }
   }, []);
 
+  // loadMore reads posts from ref to avoid re-creating on every posts change.
   const loadMore = useCallback(async (options = {}) => {
-    if (!posts || posts.length === 0) return;
+    const currentPosts = postsRef.current;
+    if (!currentPosts || currentPosts.length === 0) return;
     if (loadingMoreRef.current) return;
     const { preserveScroll = true, preserveMode = 'top', allowRepeat = false } = options;
     const applyUpdate = (fn) => {
@@ -56,7 +63,7 @@ export function useTimeline({ preserveTimelineScroll, preserveTimelineScrollTop 
       if (preserveMode === 'top') preserveTimelineScrollTop(fn);
       else preserveTimelineScroll(fn);
     };
-    const sortedPosts = posts.slice().sort((a, b) => a.id - b.id);
+    const sortedPosts = currentPosts.slice().sort((a, b) => a.id - b.id);
     const oldestId = sortedPosts[0]?.id;
     if (!Number.isFinite(oldestId)) return;
     if (!allowRepeat && lastBeforeIdRef.current === oldestId) return;
@@ -78,7 +85,7 @@ export function useTimeline({ preserveTimelineScroll, preserveTimelineScrollTop 
     } finally {
       loadingMoreRef.current = false;
     }
-  }, [posts, preserveTimelineScroll, preserveTimelineScrollTop]);
+  }, [preserveTimelineScroll, preserveTimelineScrollTop]);
 
   useEffect(() => {
     loadMoreRef.current = loadMore;

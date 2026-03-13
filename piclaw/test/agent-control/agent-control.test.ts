@@ -17,6 +17,7 @@ const modelSimple = { provider: "anthropic", id: "claude-test", reasoning: false
 class StubSession {
   model: any = modelReasoning;
   thinkingLevel: ThinkingLevel = "low";
+  followUpMode: "all" | "one-at-a-time" = "one-at-a-time";
   reloadCalls = 0;
   abortCalls = 0;
   isStreaming = false;
@@ -37,6 +38,10 @@ class StubSession {
   setThinkingLevel(level: ThinkingLevel) {
     const available = this.getAvailableThinkingLevels();
     this.thinkingLevel = available.includes(level) ? level : available[0];
+  }
+
+  setFollowUpMode(mode: "all" | "one-at-a-time") {
+    this.followUpMode = mode;
   }
 
   async prompt(text: string, opts: { streamingBehavior: string }) {
@@ -187,7 +192,7 @@ test("applyControlCommand sends immediate steering when stream active", async ()
   expect(session.promptCalls[0].opts.streamingBehavior).toBe("steer");
 });
 
-test("applyControlCommand errors if steering with no active response", async () => {
+test("applyControlCommand falls back to follow-up when steering with no active response", async () => {
   const session = new StubSession();
 
   const result = await applyControlCommand(session as any, registry, {
@@ -196,8 +201,28 @@ test("applyControlCommand errors if steering with no active response", async () 
     raw: "/steer focus on pricing",
   } as any);
 
-  expect(result.status).toBe("error");
-  expect(result.message).toContain("No active response to steer");
+  expect(result.status).toBe("success");
+  expect(result.queued_followup).toBe(true);
+  expect(result.message).toContain("Queued as a follow-up");
+  expect(session.promptCalls.length).toBe(1);
+  expect(session.promptCalls[0].text).toBe("focus on pricing");
+});
+
+test("applyControlCommand queues follow-up when queue has no active response", async () => {
+  const session = new StubSession();
+
+  const result = await applyControlCommand(session as any, registry, {
+    type: "queue",
+    message: "capture this for later",
+    raw: "/queue capture this for later",
+  } as any);
+
+  expect(result.status).toBe("success");
+  expect(result.queued_followup).toBe(true);
+  expect(result.message).toContain("Queued as a follow-up");
+  expect(session.promptCalls.length).toBe(1);
+  expect(session.promptCalls[0].text).toBe("capture this for later");
+  expect(session.promptCalls[0].opts?.streamingBehavior).toBe("followUp");
 });
 
 test("applyControlCommand restarts agent", async () => {

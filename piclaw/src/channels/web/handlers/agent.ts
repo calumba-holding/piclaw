@@ -77,7 +77,15 @@ export async function handleAgentMessage(
 
   if (!interaction) return channel.json({ error: "Failed to store message" }, 500);
 
-  channel.broadcastEvent("new_post", interaction);
+  // Defer new_post broadcast — don't emit for messages that will be queued
+  // as follow-ups (prevents flash in timeline before filtering kicks in).
+  let newPostBroadcast = false;
+  const broadcastNewPost = () => {
+    if (!newPostBroadcast) {
+      newPostBroadcast = true;
+      channel.broadcastEvent("new_post", interaction);
+    }
+  };
 
   let threadId = resolveThreadId(normalized.threadId, interaction.id);
 
@@ -104,13 +112,20 @@ export async function handleAgentMessage(
   const requestMode = normalized.mode ?? "auto";
   const trimmed = content.trim();
 
-  const queueFollowupPlaceholder = (text: string) => {
-    const placeholder = channel.queueFollowupPlaceholder(chatJid, text, interaction.id);
+  const queueFollowupPlaceholder = (text: string, queuedContent?: string) => {
+    const placeholder = channel.queueFollowupPlaceholder(
+      chatJid,
+      text,
+      interaction.id,
+      queuedContent
+    );
     if (placeholder) {
       channel.broadcastEvent("agent_followup_queued", {
         chat_jid: chatJid,
         thread_id: placeholder.data.thread_id ?? interaction.data?.thread_id ?? null,
         row_id: placeholder.id,
+        content: queuedContent || content,
+        timestamp: placeholder.timestamp,
       });
     }
   };
@@ -120,7 +135,7 @@ export async function handleAgentMessage(
     if (queueFollowupResult.queued) {
       const followupText = formatOutbound("Queued as a follow-up (one-at-a-time).", "web");
       if (followupText) {
-        queueFollowupPlaceholder(followupText);
+        queueFollowupPlaceholder(followupText, content);
       }
       return channel.json(
         {
@@ -180,6 +195,7 @@ export async function handleAgentMessage(
   };
 
   if (command) {
+    broadcastNewPost();
     const commandTurnId = createUuid("turn");
     const commandTitle = content.trim().split(/\s+/, 1)[0] || "command";
     emitCommandStatus({
@@ -197,11 +213,18 @@ export async function handleAgentMessage(
 
     if (formatted) {
       if (isQueueCommand && result.queued_followup) {
-        queueFollowupPlaceholder(formatted);
+        queueFollowupPlaceholder(formatted, (command as { message?: string }).message || content);
       } else if (isSteerCommand && (result as { queued_steer?: boolean }).queued_steer) {
         const steerResponse = await queueSteerMessage("command");
         if (steerResponse) {
           return steerResponse;
+        }
+      } else if (isSteerCommand && (result as { queued_followup?: boolean }).queued_followup) {
+        queueFollowupPlaceholder(formatted, (command as { message?: string }).message || content);
+      } else if (isSteerCommand && result.status === "error" && result.message === "No active response to steer. Please send a message first.") {
+        const queueResponse = await queueFollowupMessage();
+        if (queueResponse) {
+          return queueResponse;
         }
       } else {
         await channel.sendMessage(chatJid, formatted, interaction.id);
@@ -259,6 +282,7 @@ export async function handleAgentMessage(
 
   const themeCommand = handleUiThemeCommand(trimmed);
   if (themeCommand) {
+    broadcastNewPost();
     if (themeCommand.payload) {
       channel.broadcastEvent("ui_theme", { chat_jid: chatJid, ...themeCommand.payload });
     }
@@ -277,6 +301,7 @@ export async function handleAgentMessage(
 
   // If message looks like an extension slash command (starts with "/"), execute it directly
   if (trimmed.startsWith("/")) {
+    broadcastNewPost();
     const commandTurnId = createUuid("turn");
     const slashName = trimmed.split(/\s+/, 1)[0] || "/command";
     emitCommandStatus({
@@ -340,6 +365,9 @@ export async function handleAgentMessage(
       return followupResponse;
     }
   }
+
+  // Normal (non-queued) message processing — broadcast to timeline now
+  broadcastNewPost();
 
   channel.queue.enqueue(async () => {
     await processChat(channel, chatJid, agentId, interaction.id);
@@ -430,14 +458,18 @@ export async function processChat(
   const hasActiveClients = channel.sse.clients.size > 0;
   const timeoutMs = hasActiveClients ? undefined : BACKGROUND_AGENT_TIMEOUT;
 
+  let turnCount = 0;
   const output = await channel.agentPool.runAgent(prompt, chatJid, {
     timeoutMs,
     onEvent: streamingHandler,
     onTurnComplete: (turn: { text: string; attachments: unknown[] }) => {
-      // Intermediate turn completed (follow-up boundary) — store as threaded message.
-      // Skip placeholder consumption: this is the original turn's output, not the
-      // follow-up response. The placeholder should only be consumed by the follow-up
-      // turn's final output below.
+      // Turn boundary: the first turn (index 0) is the original prompt's
+      // response — skip placeholder consumption so it doesn't steal a
+      // placeholder that belongs to a queued follow-up.
+      // Subsequent turns (index 1+) are follow-up responses and should
+      // consume their corresponding placeholder.
+      const isFirstTurn = turnCount === 0;
+      turnCount++;
       if (turn.text || turn.attachments.length > 0) {
         storeAgentTurn(channel, emitter, {
           chatJid,
@@ -445,7 +477,7 @@ export async function processChat(
           attachments: turn.attachments as AttachmentInfo[],
           channelName,
           threadId: resolvedThreadRootId,
-          skipPlaceholder: true,
+          skipPlaceholder: isFirstTurn,
         });
       }
     },

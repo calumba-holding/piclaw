@@ -1,11 +1,32 @@
-import { useEffect } from '../vendor/preact-htm.js';
+// @ts-nocheck
+import { useEffect, useRef } from '../vendor/preact-htm.js';
 import { SSEClient } from '../api.js';
 
+/**
+ * Manages the SSE connection lifecycle.
+ *
+ * All callbacks are accessed via refs so the EventSource is created exactly
+ * once and never torn down due to callback identity changes in the parent
+ * component.  This breaks the re-render cascade that previously caused an
+ * infinite SSE reconnect loop when queue/filter state changed.
+ */
 export function useSseConnection({ handleSseEvent, handleConnectionStatusChange, loadPosts }) {
-  useEffect(() => {
-    loadPosts();
+  const sseEventRef = useRef(handleSseEvent);
+  sseEventRef.current = handleSseEvent;
 
-    const sse = new SSEClient(handleSseEvent, handleConnectionStatusChange);
+  const statusChangeRef = useRef(handleConnectionStatusChange);
+  statusChangeRef.current = handleConnectionStatusChange;
+
+  const loadPostsRef = useRef(loadPosts);
+  loadPostsRef.current = loadPosts;
+
+  useEffect(() => {
+    loadPostsRef.current();
+
+    const sse = new SSEClient(
+      (type, data) => sseEventRef.current(type, data),
+      (status) => statusChangeRef.current(status),
+    );
     sse.connect();
 
     const handleWindowFocus = () => {
@@ -19,5 +40,5 @@ export function useSseConnection({ handleSseEvent, handleConnectionStatusChange,
       document.removeEventListener('visibilitychange', handleWindowFocus);
       sse.disconnect();
     };
-  }, [handleConnectionStatusChange, handleSseEvent, loadPosts]);
+  }, []);
 }

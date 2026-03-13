@@ -8,8 +8,8 @@
  */
 
 import type { AgentSession } from "@mariozechner/pi-coding-agent";
-import type { AgentControlCommand, AgentControlResult } from "../agent-control-types.js";
 import { runPromptAndCapture } from "../agent-control-helpers.js";
+import type { AgentControlCommand, AgentControlResult } from "../agent-control-types.js";
 
 type QueueCommand = Extract<AgentControlCommand, { type: "queue" | "queue_all" }>;
 type SteeringCommand = Extract<AgentControlCommand, { type: "steering_mode" }>;
@@ -33,31 +33,24 @@ export async function handleQueue(session: AgentSession, command: QueueCommand):
     session.setFollowUpMode(mode);
   }
 
-  if (session.isStreaming) {
-    try {
-      await session.prompt(queuedText, { streamingBehavior: "followUp" });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      return { status: "error", message };
-    }
-
-    return {
-      status: "success",
-      message: useBatch
-        ? "Queued as a follow-up (batch mode: all)."
-        : "Queued as a follow-up (one-at-a-time).",
-      queued_followup: true,
-    };
-  }
-
   try {
-    const response = await runPromptAndCapture(session, queuedText);
-    return { status: "success", message: response };
+    if (typeof (session as { subscribe?: unknown }).subscribe === "function") {
+      await runPromptAndCapture(session, queuedText, { streamingBehavior: "followUp" });
+    } else {
+      await session.prompt(queuedText, { streamingBehavior: "followUp" });
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { status: "error", message };
   }
+
+  return {
+    status: "success",
+    message: useBatch ? "Queued as a follow-up (batch mode: all)." : "Queued as a follow-up (one-at-a-time).",
+    queued_followup: true,
+  };
 }
+
 
 /** Handle /steer: inject an immediate steering instruction into the active stream. */
 export async function handleSteer(session: AgentSession, command: SteerCommand): Promise<AgentControlResult> {
@@ -71,9 +64,17 @@ export async function handleSteer(session: AgentSession, command: SteerCommand):
   }
 
   if (!session.isStreaming) {
+    try {
+      await session.prompt(steerText, { streamingBehavior: "followUp" });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { status: "error", message };
+    }
+
     return {
-      status: "error",
-      message: "No active response to steer. Please send a message first.",
+      status: "success",
+      message: `Queued as a follow-up (one-at-a-time).`,
+      queued_followup: true,
     };
   }
 

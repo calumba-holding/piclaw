@@ -175,6 +175,112 @@ test("web channel queues follow-up placeholder for /queue", async () => {
   expect(last.data.content).toContain("Queued as a follow-up");
 });
 
+test("web channel queues normal message as follow-up when no mode is provided", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+
+  const calls: Array<{ chatJid: string; text: string; behavior: string }> = [];
+  let runCalls = 0;
+
+  const webMod = await import("../../../src/channels/web.js");
+  const web = new (webMod.WebChannel as any)({
+    queue: { enqueue: () => {} },
+    agentPool: {
+      queueStreamingMessage: async (chatJid: string, text: string, behavior: string) => {
+        calls.push({ chatJid, text, behavior });
+        return { queued: true };
+      },
+      runAgent: async () => {
+        runCalls += 1;
+        return { status: "success", result: "ok" };
+      },
+      getContextUsageForChat: async () => null,
+    },
+  });
+
+  const req = new Request("http://test/agent/default/message", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: "Queue this while active" }),
+  });
+
+  const res = await (web as any).handleRequest(req);
+  expect(res.status).toBe(201);
+  const payload = await res.json();
+  expect(payload.queued).toBe("followup");
+
+  expect(calls).toHaveLength(1);
+  expect(calls[0].behavior).toBe("followUp");
+  expect(calls[0].chatJid).toBe("web:default");
+  expect(runCalls).toBe(0);
+
+  const queueStateRes = await (web as any).handleRequest(new Request("http://test/agent/queue-state"));
+  const queueState = await queueStateRes.json();
+  expect(queueState.count).toBe(1);
+  expect(queueState.items[0].content).toBe("Queue this while active");
+
+  // The placeholder should be threaded under the user message (queue parent)
+  const userMsgId = payload.user_message.id;
+  const queuedItem = queueState.items[0];
+  const placeholder = db.getMessageByRowId("web:default", queuedItem.row_id);
+  expect(placeholder).not.toBeNull();
+  expect(placeholder?.data?.thread_id).toBe(userMsgId);
+});
+
+test("web channel exposes queued follow-up items from queue-state", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+
+  const webMod = await import("../../../src/channels/web.js");
+  const web = new (webMod.WebChannel as any)({
+    queue: { enqueue: () => {} },
+    agentPool: {
+      applyControlCommand: async () => ({
+        status: "success",
+        message: "Queued as a follow-up (one-at-a-time).",
+        queued_followup: true,
+      }),
+      getContextUsageForChat: async () => null,
+    },
+  });
+
+  const reqOne = new Request("http://test/agent/default/message", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: "/queue first followup" }),
+  });
+  const reqTwo = new Request("http://test/agent/default/message", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: "/queue second followup" }),
+  });
+
+  const resOne = await (web as any).handleRequest(reqOne);
+  const resTwo = await (web as any).handleRequest(reqTwo);
+  expect(resOne.status).toBe(201);
+  expect(resTwo.status).toBe(201);
+
+  const queueState = await (web as any).handleRequest(new Request("http://test/agent/queue-state"));
+  const payload = await queueState.json();
+  expect(payload.count).toBe(2);
+  expect(Array.isArray(payload.items)).toBe(true);
+  expect(payload.items.length).toBe(2);
+  expect(payload.items[0].content).toContain("first followup");
+  expect(payload.items[1].content).toContain("second followup");
+});
+
 test("web channel reports active agent status", async () => {
   const ws = createTempWorkspace("piclaw-web-channel-");
   cleanupWorkspace = ws.cleanup;
@@ -298,6 +404,60 @@ test("web channel queues steering without advancing cursor", async () => {
   const pending = (web as any).consumePendingSteering("web:default");
   expect(pending).toBeTruthy();
   expect(events.some((event) => event.type === "agent_steer_queued")).toBe(true);
+});
+
+test("web channel queues /steer without active stream as follow-up placeholder", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats;");
+  db.getDb().exec("DELETE FROM chat_cursors;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+
+  const events: Array<{ type: string; data: any }> = [];
+  let sendCalls = 0;
+
+  const webMod = await import("../../../src/channels/web.js");
+  const web = new (webMod.WebChannel as any)({
+    queue: { enqueue: () => {} },
+    agentPool: {
+      setSessionBinder: () => {},
+      runAgent: async () => ({ status: "success", result: "ok" }),
+      getContextUsageForChat: async () => null,
+      applyControlCommand: async (_chatJid, command) => ({
+        status: command?.type === "steer" ? "success" : "error",
+        message: command?.type === "steer" ? "Queued as a follow-up (one-at-a-time)." : "Unsupported command.",
+        queued_followup: command?.type === "steer" ? true : undefined,
+      }),
+    },
+  });
+  web.sendMessage = async () => {
+    sendCalls += 1;
+  };
+  web.broadcastEvent = (type: string, data: unknown) => {
+    events.push({ type, data });
+  };
+
+  const req = new Request("http://test/agent/default/message", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: "/steer this" }),
+  });
+
+  const res = await (web as any).handleRequest(req);
+  expect(res.status).toBe(201);
+  const json = await res.json();
+  expect(json?.command?.queued_followup).toBe(true);
+  expect(sendCalls).toBe(0);
+
+  const queueStateRes = await (web as any).handleRequest(new Request("http://test/agent/queue-state"));
+  const queueState = await queueStateRes.json();
+  expect(queueState.count).toBe(1);
+  expect(queueState.items[0].content).toBe("this");
+  expect(events.some((event) => event.type === "agent_followup_queued")).toBe(true);
 });
 
 test("processChat advances cursor to pending steering timestamp", async () => {

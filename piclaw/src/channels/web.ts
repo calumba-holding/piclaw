@@ -48,11 +48,12 @@ import { ResponseService } from "./web/http/response-service.js";
 import {
   replaceMessageContent,
   getDb,
+  getMessageByRowId,
 } from "../db.js";
 import type { InteractionRow } from "../db.js";
 import { WebChannelState } from "./web/channel-state.js";
 import { AgentStatusStore } from "./web/agent-status-store.js";
-import { FollowupPlaceholderStore } from "./web/followup-placeholders.js";
+import { FollowupPlaceholderStore, type QueuedFollowupItem } from "./web/followup-placeholders.js";
 import { PendingSteeringStore } from "./web/pending-steering.js";
 import { storeWebMessage } from "./web/message-store.js";
 import {
@@ -240,7 +241,8 @@ export class WebChannel implements WebChannelLike {
         broadcastInteractionUpdated: (interaction) => this.interactionBroadcaster.broadcastInteractionUpdated(interaction),
       },
       followups: {
-        enqueue: (chatJid, rowId) => this.followupPlaceholderStore.enqueue(chatJid, rowId),
+        enqueue: (chatJid, rowId, queuedContent, threadId, queuedAt) =>
+          this.followupPlaceholderStore.enqueue(chatJid, rowId, queuedContent, threadId, queuedAt),
       },
     };
   }
@@ -249,8 +251,14 @@ export class WebChannel implements WebChannelLike {
     sendWebMessage(chatJid, text, options, this.getMessageWriteContext());
   }
 
-  queueFollowupPlaceholder(chatJid: string, text: string, threadId?: number): InteractionRow | null {
-    return queueFollowupPlaceholderMessage(chatJid, text, threadId, this.getMessageWriteContext());
+  queueFollowupPlaceholder(chatJid: string, text: string, threadId?: number, queuedContent?: string): InteractionRow | null {
+    return queueFollowupPlaceholderMessage(
+      chatJid,
+      text,
+      threadId,
+      (queuedContent || "").trim() || text,
+      this.getMessageWriteContext()
+    );
   }
 
   consumeQueuedFollowupPlaceholder(chatJid: string): number | null {
@@ -259,6 +267,14 @@ export class WebChannel implements WebChannelLike {
 
   getQueuedFollowupCount(chatJid: string): number {
     return this.followupPlaceholderStore.count(chatJid);
+  }
+
+  getQueuedFollowupItems(chatJid: string): QueuedFollowupItem[] {
+    const rows = this.followupPlaceholderStore.peek(chatJid);
+    return rows.map((row) => ({
+      ...row,
+      queuedAt: row.queuedAt,
+    }));
   }
 
   queuePendingSteering(chatJid: string, timestamp: string | undefined): void {
@@ -484,12 +500,26 @@ export class WebChannel implements WebChannelLike {
     return await handleAgentContextRequest(req, this.endpointContexts.agentStatus());
   }
 
-  /** GET /agent/queue-state — return queued follow-up placeholder count. */
+  /** GET /agent/queue-state — return queued follow-up placeholder count and pending content. */
   async handleAgentQueueState(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const chatJid = url.searchParams.get("chat_jid") ?? DEFAULT_CHAT_JID;
+    const queuedItems = this.getQueuedFollowupItems(chatJid);
+    const items = queuedItems
+      .map((queued) => {
+        const interaction = getMessageByRowId(chatJid, queued.rowId);
+        return {
+          row_id: queued.rowId,
+          content: queued.queuedContent,
+          timestamp: interaction?.timestamp ?? queued.queuedAt,
+          thread_id: interaction?.data?.thread_id ?? queued.threadId ?? null,
+        };
+      })
+      .filter((item) => typeof item.content === "string" && item.content.trim().length > 0);
+
     return this.json({
-      count: this.getQueuedFollowupCount(chatJid),
+      count: items.length,
+      items,
     });
   }
 
