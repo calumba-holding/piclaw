@@ -4,10 +4,18 @@
 /** FIFO in-memory row-id queue for deferred follow-up placeholder replacement. */
 export class FollowupPlaceholderStore {
     queuedFollowupPlaceholders = new Map();
-    enqueue(chatJid, rowId) {
+    enqueue(chatJid, rowId, queuedContent, threadId, queuedAt) {
         const existing = this.queuedFollowupPlaceholders.get(chatJid) ?? [];
-        existing.push(rowId);
+        existing.push({
+            rowId,
+            queuedContent,
+            threadId: threadId ?? null,
+            queuedAt: queuedAt ?? new Date().toISOString(),
+        });
         this.queuedFollowupPlaceholders.set(chatJid, existing);
+    }
+    count(chatJid) {
+        return this.queuedFollowupPlaceholders.get(chatJid)?.length ?? 0;
     }
     consume(chatJid) {
         const queue = this.queuedFollowupPlaceholders.get(chatJid);
@@ -16,6 +24,15 @@ export class FollowupPlaceholderStore {
         const next = queue.shift() ?? null;
         if (!queue.length)
             this.queuedFollowupPlaceholders.delete(chatJid);
-        return next;
+        return next?.rowId ?? null;
+    }
+    peek(chatJid) {
+        return [...(this.queuedFollowupPlaceholders.get(chatJid) ?? [])];
+    }
+    /** Remove all queued items for a chat. */
+    drain(chatJid) {
+        const items = this.queuedFollowupPlaceholders.get(chatJid) ?? [];
+        this.queuedFollowupPlaceholders.delete(chatJid);
+        return items;
     }
 }

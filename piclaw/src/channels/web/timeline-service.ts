@@ -17,15 +17,30 @@ import {
   searchMessages,
 } from "../../db.js";
 
+const QUEUE_PLACEHOLDER_MARKER = "\u2063";
+const LEGACY_QUEUE_STATUS = "Queued as a follow-up (one-at-a-time).";
+
+function isHiddenQueuePlaceholder(post: any): boolean {
+  const content = post?.data?.content;
+  const isBot = Boolean(post?.data?.is_bot_message);
+  if (!isBot || typeof content !== "string") return false;
+  return content === QUEUE_PLACEHOLDER_MARKER || content === LEGACY_QUEUE_STATUS;
+}
+
+function filterHiddenQueuePlaceholders<T extends { data?: { content?: string; is_bot_message?: boolean } }>(items: T[]): T[] {
+  return items.filter((post) => !isHiddenQueuePlaceholder(post));
+}
+
 /** Build paginated timeline data for GET /timeline. */
 export function getTimelineResponse(
   chatJid: string,
   limit: number,
   before?: number
 ): { status: number; body: unknown } {
-  const posts = getTimeline(chatJid, limit, before ?? undefined);
-  const oldestId = posts.length > 0 ? posts[0].id : null;
-  const hasMore = oldestId !== null && posts.length === limit && hasOlderMessages(chatJid, oldestId);
+  const rawPosts = getTimeline(chatJid, limit, before ?? undefined);
+  const posts = filterHiddenQueuePlaceholders(rawPosts);
+  const oldestId = rawPosts.length > 0 ? rawPosts[0].id : null;
+  const hasMore = oldestId !== null && rawPosts.length === limit && hasOlderMessages(chatJid, oldestId);
   return { status: 200, body: { posts, limit, has_more: hasMore } };
 }
 

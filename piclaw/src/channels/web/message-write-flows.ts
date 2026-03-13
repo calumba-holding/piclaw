@@ -23,14 +23,15 @@ export interface MessageWriteStore {
     content: string,
     isBot: boolean,
     mediaIds: number[],
-    options?: { threadId?: number; contentBlocks?: unknown[] }
+    options?: { threadId?: number; contentBlocks?: unknown[]; isTerminalAgentReply?: boolean }
   ): InteractionRow | null;
   replaceMessageContent(
     chatJid: string,
     rowId: number,
     text: string,
     mediaIds: number[],
-    contentBlocks: Array<Record<string, unknown>> | undefined
+    contentBlocks: Array<Record<string, unknown>> | undefined,
+    isTerminalAgentReply?: boolean
   ): InteractionRow | null;
   setMessageThreadToSelf(messageId: number): void;
 }
@@ -43,7 +44,7 @@ export interface MessageWriteBroadcaster {
 
 /** Follow-up placeholder queue contract required by write flows. */
 export interface MessageWriteFollowupQueue {
-  enqueue(chatJid: string, rowId: number): void;
+  enqueue(chatJid: string, rowId: number, queuedContent: string, threadId?: number | null, queuedAt?: string): void;
 }
 
 /** Aggregated context consumed by web message write helper functions. */
@@ -118,14 +119,41 @@ export function sendWebMessage(
 export function queueFollowupPlaceholderMessage(
   chatJid: string,
   text: string,
-  threadId: number | undefined,
-  ctx: MessageWriteContext
+  threadIdOrCtxOrQueuedContent?: number | null | MessageWriteContext,
+  queuedContentOrCtx?: string | MessageWriteContext,
+  ctxMaybe?: MessageWriteContext
 ): InteractionRow | null {
+  const isContext = (value: unknown): value is MessageWriteContext =>
+    !!value && typeof value === "object" && "store" in value;
+
+  let threadId: number | undefined;
+  let queuedContent = text;
+
+  if (typeof threadIdOrCtxOrQueuedContent === "number") {
+    threadId = threadIdOrCtxOrQueuedContent;
+  }
+
+  const ctx = isContext(ctxMaybe)
+    ? ctxMaybe
+    : isContext(queuedContentOrCtx)
+      ? queuedContentOrCtx
+      : isContext(threadIdOrCtxOrQueuedContent)
+        ? threadIdOrCtxOrQueuedContent
+        : undefined;
+
+  if (typeof queuedContentOrCtx === "string") {
+    queuedContent = queuedContentOrCtx;
+  }
+
+  if (!ctx) return null;
+
   const interaction = ctx.store.storeMessage(chatJid, text, true, [], { threadId });
   if (!interaction) return null;
 
-  ctx.followups.enqueue(chatJid, interaction.id);
-  ctx.broadcaster.broadcastAgentResponse(interaction);
+  ctx.followups.enqueue(chatJid, interaction.id, queuedContent, threadId, interaction.timestamp);
+  // Don't broadcast the placeholder as agent_response — the caller emits
+  // agent_followup_queued instead.  Broadcasting here caused the post to
+  // flash in the timeline before the client-side filter could hide it.
   return interaction;
 }
 
@@ -137,9 +165,17 @@ export function replaceQueuedFollowupPlaceholderMessage(
   mediaIds: number[],
   contentBlocks: Array<Record<string, unknown>> | undefined,
   threadId: number | undefined,
-  ctx: MessageWriteContext
+  ctx: MessageWriteContext,
+  isTerminalAgentReply?: boolean
 ): InteractionRow | null {
-  const updated = ctx.store.replaceMessageContent(chatJid, rowId, text, mediaIds, contentBlocks);
+  const updated = ctx.store.replaceMessageContent(
+    chatJid,
+    rowId,
+    text,
+    mediaIds,
+    contentBlocks,
+    isTerminalAgentReply
+  );
   if (!updated) return null;
 
   updated.data.agent_id = ctx.defaultAgentId;

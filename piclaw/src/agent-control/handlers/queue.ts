@@ -8,12 +8,13 @@
  */
 
 import type { AgentSession } from "@mariozechner/pi-coding-agent";
-import type { AgentControlCommand, AgentControlResult } from "../agent-control-types.js";
 import { runPromptAndCapture } from "../agent-control-helpers.js";
+import type { AgentControlCommand, AgentControlResult } from "../agent-control-types.js";
 
 type QueueCommand = Extract<AgentControlCommand, { type: "queue" | "queue_all" }>;
 type SteeringCommand = Extract<AgentControlCommand, { type: "steering_mode" }>;
 type FollowupCommand = Extract<AgentControlCommand, { type: "followup_mode" }>;
+type SteerCommand = Extract<AgentControlCommand, { type: "steer" }>;
 
 /** Handle /queue: inject a message into the agent prompt queue. */
 export async function handleQueue(session: AgentSession, command: QueueCommand): Promise<AgentControlResult> {
@@ -32,9 +33,39 @@ export async function handleQueue(session: AgentSession, command: QueueCommand):
     session.setFollowUpMode(mode);
   }
 
-  if (session.isStreaming) {
-    try {
+  try {
+    if (typeof (session as { subscribe?: unknown }).subscribe === "function") {
+      await runPromptAndCapture(session, queuedText, { streamingBehavior: "followUp" });
+    } else {
       await session.prompt(queuedText, { streamingBehavior: "followUp" });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { status: "error", message };
+  }
+
+  return {
+    status: "success",
+    message: useBatch ? "Queued follow-up (mode: all)." : "Queued follow-up.",
+    queued_followup: true,
+  };
+}
+
+
+/** Handle /steer: inject an immediate steering instruction into the active stream. */
+export async function handleSteer(session: AgentSession, command: SteerCommand): Promise<AgentControlResult> {
+  const steerText = command.message?.trim();
+
+  if (!steerText) {
+    return {
+      status: "error",
+      message: "Usage: /steer <message>",
+    };
+  }
+
+  if (!session.isStreaming) {
+    try {
+      await session.prompt(steerText, { streamingBehavior: "followUp" });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return { status: "error", message };
@@ -42,20 +73,23 @@ export async function handleQueue(session: AgentSession, command: QueueCommand):
 
     return {
       status: "success",
-      message: useBatch
-        ? "Queued as a follow-up (batch mode: all)."
-        : "Queued as a follow-up (one-at-a-time).",
+      message: "Queued follow-up.",
       queued_followup: true,
     };
   }
 
   try {
-    const response = await runPromptAndCapture(session, queuedText);
-    return { status: "success", message: response };
+    await session.prompt(steerText, { streamingBehavior: "steer" });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { status: "error", message };
   }
+
+  return {
+    status: "success",
+    message: `Steering queued: ${steerText}`,
+    queued_steer: true,
+  };
 }
 
 /** Handle /steering-mode: set "all" or "one-at-a-time" steering. */

@@ -53,6 +53,11 @@ export type AgentControlCommand =
       raw: string;
     }
   | {
+      type: "steer";
+      message?: string;
+      raw: string;
+    }
+  | {
       type: "state";
       raw: string;
     }
@@ -223,6 +228,7 @@ export interface AgentControlResult {
   message: string;
   messages?: Array<{ role: string; text: string; customType?: string }>;
   queued_followup?: boolean;
+  queued_steer?: boolean;
   model_label?: string | null;
   thinking_level?: string | null;
 }

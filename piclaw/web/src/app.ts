@@ -1,6 +1,6 @@
 // @ts-nocheck
 /**
- * app.ts – Main web UI entry point.
+ * app.ts - Main web UI entry point.
  *
  * This file is the root of the authenticated SPA. It imports all components,
  * the API client, and the markdown renderer, and is bundled to:
@@ -14,7 +14,7 @@
  *   request-router-service.ts only exposes login.bundle.js to unauthenticated
  *   visitors. app.bundle.js remains auth-gated.
  */
-import { html, render, useState, useEffect, useCallback, useRef } from './vendor/preact-htm.js';
+import { html, render, useState, useEffect, useCallback, useRef, useMemo } from './vendor/preact-htm.js';
 import * as api from './api.js';
 import { ComposeBox } from './components/compose-box.js';
 import { AgentRequestModal, AgentStatus, ConnectionStatus } from './components/status.js';
@@ -62,6 +62,12 @@ const getAgentContext = typeof api.getAgentContext === 'function'
 const getAgentModels = typeof api.getAgentModels === 'function'
     ? api.getAgentModels
     : missingApi('getAgentModels', { current: null, models: [] });
+const getAgentQueueState = typeof api.getAgentQueueState === 'function'
+    ? api.getAgentQueueState
+    : missingApi('getAgentQueueState', { count: 0 });
+const steerAgentQueueItem = typeof api.steerAgentQueueItem === 'function'
+    ? api.steerAgentQueueItem
+    : missingApi('steerAgentQueueItem', { removed: false, queued: 'steer' });
 
 // Configure marked for safe rendering
 if (window.marked) {
@@ -81,7 +87,7 @@ paneRegistry.register(workspaceMarkdownPreviewPaneExtension);
 // Preload the editor bundle in the background so first file open is instant
 preloadEditorBundle();
 
-// Terminal dock pane is behind a feature flag — opt in via localStorage
+// Terminal dock pane is behind a feature flag - opt in via localStorage
 // or config. Editor pane is always registered as the default.
 const EXPERIMENTAL_PANES = typeof localStorage !== 'undefined' && localStorage.getItem('experimentalPanes') === 'true';
 if (EXPERIMENTAL_PANES) {
@@ -129,6 +135,18 @@ function App() {
     const [supportsThinking, setSupportsThinking] = useState(false);
     const [activeModelUsage, setActiveModelUsage] = useState(null);
     const [contextUsage, setContextUsage] = useState(null);
+    const [followupQueueItems, setFollowupQueueItems] = useState([]);
+    const [isAgentTurnActive, setIsAgentTurnActive] = useState(false);
+    const followupQueueCount = followupQueueItems.length;
+    const followupQueueRowIdsRef = useRef(new Set());
+    const followupQueueItemsRef = useRef([]);
+    // Row IDs that were locally dismissed (e.g. injected as steering).
+    // refreshQueueState filters these out so the server can't re-add them
+    // before the placeholder is actually consumed server-side.
+    const dismissedQueueRowIdsRef = useRef(new Set());
+    // Keep refs in sync during render for immediate access in stable callbacks
+    followupQueueRowIdsRef.current = new Set(followupQueueItems.map((item) => item.row_id));
+    followupQueueItemsRef.current = followupQueueItems;
     const {
         notificationsEnabled,
         notificationPermission,
@@ -171,7 +189,7 @@ function App() {
         const context = { path: activeId, mode: 'edit' };
         const ext = paneRegistry.resolve(context) || paneRegistry.get('editor');
         if (!ext) {
-            // No pane extension available — show fallback message
+            // No pane extension available - show fallback message
             container.innerHTML = '<div style="padding:2em;color:var(--text-secondary);text-align:center;">No editor available for this file.</div>';
             return;
         }
@@ -220,6 +238,9 @@ function App() {
     const [userProfile, setUserProfile] = useState({ name: 'You', avatar_url: null, avatar_background: null });
     const hasConnectedOnceRef = useRef(false);
     const wasAgentActiveRef = useRef(false); // tracks active→idle transition for timeline refresh
+    const agentStatusRef = useRef(null);
+    const draftThrottleRef = useRef(0);
+    const thoughtThrottleRef = useRef(0);
     const agentsRef = useRef({});
     const userProfileRef = useRef({ name: null, avatar_url: null });
     const viewStateRef = useRef({ currentHashtag: null, searchQuery: null });
@@ -369,7 +390,7 @@ function App() {
         // Try to find it in the DOM first
         const existing = document.getElementById('post-' + id);
         if (existing) { highlight(existing); return; }
-        // Not in DOM — fetch via API and inject into posts
+        // Not in DOM - fetch via API and inject into posts
         try {
             const result = await api.getThread(id);
             const msg = result?.thread?.[0];
@@ -404,11 +425,13 @@ function App() {
         lastAgentEventRef.current = now;
         if (options.running) {
             isAgentRunningRef.current = true;
+            // Only update state if not already active to avoid redundant re-renders
+            setIsAgentTurnActive((prev) => prev ? prev : true);
         }
         if (options.clearSilence) {
             lastSilenceNoticeRef.current = 0;
         }
-    }, []);
+    }, [setIsAgentTurnActive]);
 
     const clearLastActivityTimer = useCallback(() => {
         if (lastActivityTimerRef.current) {
@@ -439,7 +462,7 @@ function App() {
         clearLastActivityTimer();
         const token = Date.now();
         lastActivityTokenRef.current = token;
-        // Strip tool/intent details — only show a minimal "last active" hint
+        // Strip tool/intent details - only show a minimal "last active" hint
         setAgentStatus({ type: payload.type || 'active', last_activity: true });
         lastActivityTimerRef.current = setTimeout(() => {
             if (lastActivityTokenRef.current !== token) return;
@@ -452,6 +475,7 @@ function App() {
 
     const clearAgentRunState = useCallback(() => {
         isAgentRunningRef.current = false;
+        setIsAgentTurnActive(false);
         lastAgentEventRef.current = null;
         lastSilenceNoticeRef.current = 0;
         draftBufferRef.current = '';
@@ -465,7 +489,7 @@ function App() {
         setSteerQueuedTurnId(null);
         thoughtExpandedRef.current = false;
         draftExpandedRef.current = false;
-    }, [clearLastActivityTimer, setCurrentTurnId, setSteerQueuedTurnId]);
+    }, [clearLastActivityTimer, setCurrentTurnId, setSteerQueuedTurnId, setIsAgentTurnActive]);
 
     const setActiveTurn = useCallback((turnId) => {
         if (!turnId) return;
@@ -562,10 +586,15 @@ function App() {
 
 
     // Scroll to bottom of timeline (column-reverse: bottom is scrollTop=0)
+    // Only auto-scroll if user is already near the bottom (within 150px).
     const scrollToBottomRef = useRef(null);
     const scrollToBottom = useCallback(() => {
-        if (timelineRef.current) {
-            timelineRef.current.scrollTop = 0;
+        const el = timelineRef.current;
+        if (!el) return;
+        // column-reverse: scrollTop=0 is bottom, negative values mean scrolled up
+        const scrolledUp = Math.abs(el.scrollTop) > 150;
+        if (!scrolledUp) {
+            el.scrollTop = 0;
         }
     }, []);
     scrollToBottomRef.current = scrollToBottom;
@@ -612,8 +641,35 @@ function App() {
         });
     }, []);
 
+    /** Ref-stable filter: hides placeholder rows and their parent user messages.
+     *  Reads from refs so callback identity never changes — this breaks the
+     *  re-render cascade that previously destabilised handleSseEvent → SSE.
+     *  Returns the same array reference when nothing is filtered. */
+    const LEGACY_QUEUE_STATUS = 'Queued as a follow-up (one-at-a-time).';
+    const QUEUE_PLACEHOLDER_MARKER = '\u2063';
+    const filterQueuedPosts = useCallback((items) => {
+        if (!items || !Array.isArray(items)) return items;
+        const queueRowIds = followupQueueRowIdsRef.current;
+        const hiddenIds = new Set(queueRowIds);
+        const queueItems = followupQueueItemsRef.current;
+        for (const qi of queueItems) {
+            if (qi?.thread_id != null) hiddenIds.add(qi.thread_id);
+        }
+
+        const filtered = items.filter((post) => {
+            if (hiddenIds.has(post?.id)) return false;
+            // Hide queue placeholder rows from timeline permanently.
+            if (post?.data?.is_bot_message) {
+                const content = post?.data?.content;
+                if (content === LEGACY_QUEUE_STATUS || content === QUEUE_PLACEHOLDER_MARKER) return false;
+            }
+            return true;
+        });
+        return filtered.length === items.length ? items : filtered;
+    }, []);
+
     const {
-        posts,
+        posts: rawPosts,
         setPosts,
         hasMore,
         setHasMore,
@@ -624,12 +680,19 @@ function App() {
         loadMoreRef,
     } = useTimeline({ preserveTimelineScroll, preserveTimelineScrollTop });
 
+    // Derive filtered posts: placeholder rows and their parent user messages
+    // are hidden.  Recomputes when rawPosts or followupQueueItems change;
+    // filterQueuedPosts is identity-stable (empty deps) so it never
+    // triggers a cascade through handleSseEvent → SSE reconnection.
+    const posts = useMemo(() => filterQueuedPosts(rawPosts), [rawPosts, followupQueueItems, filterQueuedPosts]);
+
     const removeStalledPost = useCallback(() => {
         const stalledId = stalledPostIdRef.current;
         if (!stalledId) return;
         setPosts((prev) => (prev ? prev.filter((post) => post.id !== stalledId) : prev));
         stalledPostIdRef.current = null;
     }, [setPosts]);
+
 
     const {
         handleSplitterMouseDown,
@@ -661,11 +724,11 @@ function App() {
         lastAgentResponseRef.current = null;
 
         if (!partial) {
-            setAgentStatus({ type: 'error', title: 'Response stalled — No content received' });
+            setAgentStatus({ type: 'error', title: 'Response stalled - No content received' });
             return;
         }
 
-        const warning = '\n\n⚠️ Response may be incomplete — the model stopped responding';
+        const warning = '\n\n⚠️ Response may be incomplete - the model stopped responding';
         const content = `${partial}${warning}`;
         const id = Date.now();
         const timestamp = new Date().toISOString();
@@ -685,7 +748,7 @@ function App() {
         scrollToBottomRef.current?.();
         setAgentStatus(null);
     }, [setCurrentTurnId]);
-    
+
     useEffect(() => {
         viewStateRef.current = { currentHashtag, searchQuery };
     }, [currentHashtag, searchQuery]);
@@ -721,7 +784,7 @@ function App() {
         return () => clearInterval(interval);
     }, [finalizeStalledResponse]);
 
-    
+
 
     const refreshContextUsage = useCallback(async () => {
         try {
@@ -808,15 +871,15 @@ function App() {
         }
         refreshAgentStatus();
     }, [clearAgentRunState, refreshTimeline, refreshAgentStatus]);
-    
-    
+
+
     // Handle hashtag click
     const handleHashtagClick = useCallback(async (hashtag) => {
         setCurrentHashtag(hashtag);
         setPosts(null); // Show loading
         await loadPosts(hashtag);
     }, [loadPosts]);
-    
+
     // Go back to timeline
     const handleBackToTimeline = useCallback(async () => {
         setCurrentHashtag(null);
@@ -840,14 +903,14 @@ function App() {
             setPosts([]);
         }
     }, []);
-    
+
     const enterSearchMode = useCallback(() => {
         setSearchOpen(true);
         setSearchQuery(null);
         setCurrentHashtag(null);
         setPosts([]);
     }, []);
-    
+
     const exitSearchMode = useCallback(() => {
         setSearchOpen(false);
         setSearchQuery(null);
@@ -948,6 +1011,8 @@ function App() {
         }
     }, [loadAgents]);
 
+    const isComposeBoxAgentActive = isAgentTurnActive || agentStatus !== null;
+
     const updateAgentProfile = useCallback((payload) => {
         if (!payload || typeof payload !== 'object') return;
         const agentId = payload.agent_id;
@@ -1035,14 +1100,81 @@ function App() {
             })
             .catch(() => {});
     }, [applyModelState]);
+    const refreshQueueState = useCallback(() => {
+        getAgentQueueState()
+            .then((payload) => {
+                const dismissed = dismissedQueueRowIdsRef.current;
+                const items = Array.isArray(payload?.items)
+                    ? payload.items
+                        .map((item) => ({ ...item }))
+                        .filter((item) => !dismissed.has(item.row_id))
+                    : [];
+                if (items.length) {
+                    setFollowupQueueItems((prev) => {
+                        if (prev.length === items.length && prev.every((p, i) => p.row_id === items[i].row_id)) return prev;
+                        return items;
+                    });
+                    return;
+                }
+
+                // Server queue is empty (after filtering dismissed) — clear dismissed set
+                dismissed.clear();
+                setFollowupQueueItems((prev) => prev.length === 0 ? prev : []);
+            })
+            .catch(() => {
+                setFollowupQueueItems((prev) => prev.length === 0 ? prev : []);
+            });
+    }, [setFollowupQueueItems]);
+
+    const handleInjectQueuedFollowup = useCallback((queuedItem) => {
+        const rowId = queuedItem?.row_id;
+        if (rowId == null) return;
+        // Optimistic removal
+        dismissedQueueRowIdsRef.current.add(rowId);
+        setFollowupQueueItems((current) => current.filter((item) => item?.row_id !== rowId));
+
+        // Atomically remove the queued item server-side and convert it into
+        // steering (or an immediate send if the active stream already ended).
+        steerAgentQueueItem(rowId)
+            .then(() => {
+                void refreshQueueState();
+            })
+            .catch((error) => {
+                console.warn('[queue] Failed to steer queued item:', error);
+                dismissedQueueRowIdsRef.current.delete(rowId);
+                void refreshQueueState();
+            });
+    }, [refreshQueueState, setFollowupQueueItems]);
+
+    const handleMessageResponse = useCallback((response) => {
+        if (!response || typeof response !== "object") return;
+
+        if (response?.queued === "followup" || response?.queued === "steer") {
+            refreshQueueState();
+            return;
+        }
+
+        const commandResult = response?.command;
+        if (commandResult && typeof commandResult === "object" && (
+            commandResult?.queued_followup || commandResult?.queued_steer
+        )) {
+            refreshQueueState();
+        }
+    }, [refreshQueueState]);
+
+    const refreshModelAndQueueState = useCallback(() => {
+        refreshModelState();
+        refreshQueueState();
+    }, [refreshModelState, refreshQueueState]);
 
     useEffect(() => {
-        refreshModelState();
+        refreshModelAndQueueState();
         const interval = setInterval(() => {
             refreshModelState();
+            refreshQueueState();
         }, 60_000);
         return () => clearInterval(interval);
-    }, [refreshModelState]);
+    }, [refreshModelAndQueueState, refreshModelState, refreshQueueState]);
 
     const handleSseEvent = useCallback((eventType, data) => {
         const turnId = data?.turn_id;
@@ -1056,7 +1188,14 @@ function App() {
         }
 
         if (eventType?.startsWith('agent_')) {
-            clearLastActivityFlag();
+            const noisyAgentEvent =
+                eventType === 'agent_draft_delta' ||
+                eventType === 'agent_thought_delta' ||
+                eventType === 'agent_draft' ||
+                eventType === 'agent_thought';
+            if (!noisyAgentEvent) {
+                clearLastActivityFlag();
+            }
         }
 
         // Handle agent status updates
@@ -1091,7 +1230,14 @@ function App() {
                 .catch((err) => {
                     console.warn('Failed to fetch agent status:', err);
                 });
-            refreshModelState();
+            const { currentHashtag: activeHashtag, searchQuery: activeSearch } = viewStateRef.current || {};
+            if (!activeHashtag && !activeSearch) {
+                // One immediate timeline resync on SSE connect closes the race
+                // where the client restores draft/status state after a restart
+                // but misses already-persisted assistant posts from the same turn.
+                refreshTimeline();
+            }
+            refreshModelAndQueueState();
             return;
         }
 
@@ -1111,6 +1257,12 @@ function App() {
                 }
                 wasAgentActiveRef.current = false;
                 clearAgentRunState();
+                // Re-sync queue state from the server on terminal transitions.
+                // This preserves any queued follow-ups that still remain after
+                // an error or multi-step drain instead of blanking the stack
+                // optimistically and waiting for a later incidental refresh.
+                dismissedQueueRowIdsRef.current.clear();
+                void refreshQueueState();
                 setAgentDraft({ text: '', totalLines: 0 });
                 setAgentPlan('');
                 setAgentThought({ text: '', totalLines: 0 });
@@ -1132,7 +1284,13 @@ function App() {
                     setAgentPlan('');
                     setAgentThought({ text: '', totalLines: 0 });
                 }
-                setAgentStatus(data);
+                // Throttle intermediate status updates to avoid re-render storms.
+                // Only update state if the status type changed (e.g. intent→tool_call→thinking).
+                agentStatusRef.current = data;
+                setAgentStatus((prev) => {
+                    if (prev && prev.type === data.type && prev.title === data.title) return prev;
+                    return data;
+                });
             }
             return;
         }
@@ -1145,6 +1303,51 @@ function App() {
             if (!targetTurn) return;
             steerQueuedTurnIdRef.current = targetTurn;
             setSteerQueuedTurnId(targetTurn);
+            return;
+        }
+
+        if (eventType === 'agent_followup_queued') {
+            const rowId = data?.row_id;
+            const content = data?.content;
+            if (rowId != null && typeof content === 'string' && content.trim()) {
+                setFollowupQueueItems((current) => {
+                    if (current.some((item) => item?.row_id === rowId)) {
+                        return current;
+                    }
+                    return [
+                        ...current,
+                        {
+                            row_id: rowId,
+                            content,
+                            timestamp: data?.timestamp || null,
+                            thread_id: data?.thread_id ?? null,
+                        },
+                    ];
+                });
+            }
+            void refreshQueueState();
+            return;
+        }
+
+        if (eventType === 'agent_followup_consumed') {
+            const rowId = data?.row_id;
+            if (rowId != null) {
+                setFollowupQueueItems((current) => current.filter((item) => item.row_id !== rowId));
+            }
+            void refreshQueueState();
+            // Refresh timeline so the replaced placeholder (now the real response)
+            // appears immediately — it was filtered out while queued.
+            void refreshTimeline();
+            return;
+        }
+
+        if (eventType === 'agent_followup_removed') {
+            const rowId = data?.row_id;
+            if (rowId != null) {
+                dismissedQueueRowIdsRef.current.add(rowId);
+                setFollowupQueueItems((current) => current.filter((item) => item.row_id !== rowId));
+            }
+            void refreshQueueState();
             return;
         }
 
@@ -1162,18 +1365,21 @@ function App() {
             if (data?.delta) {
                 draftBufferRef.current += data.delta;
             }
-            if (draftExpandedRef.current) {
-                const fullText = draftBufferRef.current;
-                setAgentDraft((prev) => ({
-                    text: prev?.text || '',
-                    totalLines: estimatePreviewLines(fullText),
-                    fullText,
-                }));
-            } else {
-                // Collapsed: update preview text so the panel shows content, not empty
+            // Throttle draft state updates to ~10fps to avoid re-render storms
+            const now = Date.now();
+            if (!draftThrottleRef.current || now - draftThrottleRef.current >= 100) {
+                draftThrottleRef.current = now;
                 const fullText = draftBufferRef.current;
                 const totalLines = estimatePreviewLines(fullText);
-                setAgentDraft({ text: fullText, totalLines });
+                if (draftExpandedRef.current) {
+                    setAgentDraft((prev) => ({
+                        text: prev?.text || '',
+                        totalLines,
+                        fullText,
+                    }));
+                } else {
+                    setAgentDraft({ text: fullText, totalLines });
+                }
             }
             return;
         }
@@ -1216,7 +1422,10 @@ function App() {
             if (typeof data?.delta === 'string') {
                 thoughtBufferRef.current += data.delta;
             }
-            if (thoughtExpandedRef.current) {
+            // Throttle thought state updates to ~10fps
+            const now = Date.now();
+            if (thoughtExpandedRef.current && (!thoughtThrottleRef.current || now - thoughtThrottleRef.current >= 100)) {
+                thoughtThrottleRef.current = now;
                 const fullText = thoughtBufferRef.current;
                 setAgentThought((prev) => ({
                     text: prev?.text || '',
@@ -1275,7 +1484,7 @@ function App() {
             if (data?.model !== undefined) setActiveModel(data.model);
             if (data?.thinking_level !== undefined) setActiveThinkingLevel(data.thinking_level ?? null);
             if (data?.supports_thinking !== undefined) setSupportsThinking(Boolean(data.supports_thinking));
-            // Refresh context usage — the context window size changes with the model
+            // Refresh context usage - the context window size changes with the model
             getAgentContext().then((ctx) => { if (ctx) setContextUsage(ctx); }).catch(() => {});
             return;
         }
@@ -1297,7 +1506,7 @@ function App() {
             };
         }
         if (!activeHashtag && !activeSearch && (eventType === 'new_post' || eventType === 'agent_response')) {
-            setPosts(prev => {
+            setPosts((prev) => {
                 if (!prev) return [data];
                 if (prev.some((post) => post.id === data.id)) return prev;
                 return [...prev, data];
@@ -1306,7 +1515,11 @@ function App() {
         }
         // Update existing post (e.g., when link previews are fetched)
         if (eventType === 'interaction_updated') {
-            setPosts(prev => prev ? prev.map(p => p.id === data.id ? data : p) : prev);
+            setPosts(prev => {
+                if (!prev) return prev;
+                if (!prev.some((p) => p.id === data.id)) return prev;
+                return prev.map((p) => (p.id === data.id ? data : p));
+            });
         }
         if (eventType === 'interaction_deleted') {
             const ids = data?.ids || [];
@@ -1320,7 +1533,23 @@ function App() {
                 }
             }
         }
-    }, [clearAgentRunState, clearLastActivityFlag, noteAgentActivity, notifyForFinalResponse, preserveTimelineScrollTop, refreshTimeline, removeStalledPost, setActiveTurn, showLastActivity, updateAgentProfile, updateUserProfile, refreshModelState]);
+    }, [
+        clearAgentRunState,
+        clearLastActivityFlag,
+        loadMoreRef,
+        noteAgentActivity,
+        notifyForFinalResponse,
+        preserveTimelineScrollTop,
+        refreshTimeline,
+        removeStalledPost,
+        setActiveTurn,
+        showLastActivity,
+        updateAgentProfile,
+        updateUserProfile,
+        refreshModelState,
+        refreshQueueState,
+        setFollowupQueueItems,
+    ]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -1358,22 +1587,31 @@ function App() {
         history.replaceState(null, '', location.pathname + location.search);
     }, [posts, scrollToMessage]);
 
-    // Adaptive backstop poller — SSE is the primary event source; this is
+    // Adaptive backstop poller - SSE is the primary event source; this is
     // a safety net only. 15 s when a turn is active (keeps compaction status
-    // visible and catches any SSE-gap missed turn completion). 60 s when
-    // idle (timeline + status refresh as a general backstop).
+    // visible and catches SSE-gap missed turn completion or timeline updates,
+    // including recovery/resume turns). 60 s when idle (timeline + status
+    // refresh as a general backstop).
     const isAgentActive = agentStatus !== null;
     useEffect(() => {
         if (connectionStatus !== 'connected') return;
         const intervalMs = isAgentActive ? 15000 : 60000;
         const interval = setInterval(() => {
+            const { currentHashtag: activeHashtag, searchQuery: activeSearch } = viewStateRef.current || {};
+            const onMainTimeline = !activeHashtag && !activeSearch;
+
             if (isAgentActive) {
-                // Active: only refresh status; avoid noisy timeline fetches.
+                // Active turns still need an occasional timeline resync. This
+                // catches cases where the client saw draft/thought activity but
+                // missed the eventual persisted assistant posts during an SSE
+                // gap or restart-recovery window.
+                if (onMainTimeline) {
+                    refreshTimeline();
+                }
                 refreshAgentStatus();
                 refreshContextUsage();
             } else {
-                const { currentHashtag: activeHashtag, searchQuery: activeSearch } = viewStateRef.current || {};
-                if (!activeHashtag && !activeSearch) {
+                if (onMainTimeline) {
                     refreshTimeline();
                 }
                 refreshAgentStatus();
@@ -1406,7 +1644,7 @@ function App() {
     }, [editorOpen]);
 
 
-    // Dock (terminal) toggle state — only available when dock panes registered
+    // Dock (terminal) toggle state - only available when dock panes registered
     const hasDockPanes = paneRegistry.getDockPanes().length > 0;
     const [dockVisible, setDockVisible] = useState(false);
     const toggleDock = useCallback(() => setDockVisible((v) => !v), []);
@@ -1480,7 +1718,7 @@ function App() {
                             </button>
                         </div>
                         <div class="dock-panel-body">
-                            <div class="terminal-placeholder">Terminal integration pending — xterm.js + WebSocket</div>
+                            <div class="terminal-placeholder">Terminal integration pending - xterm.js + WebSocket</div>
                         </div>
                     </div>`}
                 </div>
@@ -1541,6 +1779,11 @@ function App() {
                     activeEditorPath=${tabStripActiveId}
                     onAttachEditorFile=${attachActiveEditorFile}
                     onOpenFilePill=${openFileFromPill}
+                    followupQueueCount=${followupQueueCount}
+                    followupQueueItems=${followupQueueItems}
+                    onInjectQueuedFollowup=${handleInjectQueuedFollowup}
+                    onMessageResponse=${handleMessageResponse}
+                    isAgentActive=${isComposeBoxAgentActive}
                     activeModel=${activeModel}
                     modelUsage=${activeModelUsage}
                     thinkingLevel=${activeThinkingLevel}

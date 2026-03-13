@@ -8,11 +8,11 @@
  * Consumers: web/request-router.ts routes post paths here.
  */
 
-import type { WebChannel } from "../../web.js";
+import type { WebChannelLike } from "../web-channel-contracts.js";
 import { parsePostPayload, storePost } from "../posts-service.js";
 
 /** Route post requests to create, update, delete, or query handlers. */
-export async function handlePost(channel: WebChannel, req: Request, isReply: boolean, chatJid: string): Promise<Response> {
+export async function handlePost(channel: WebChannelLike, req: Request, isReply: boolean, chatJid: string): Promise<Response> {
   let data: unknown;
   try {
     data = await req.json();

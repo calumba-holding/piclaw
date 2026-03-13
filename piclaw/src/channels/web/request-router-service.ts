@@ -26,7 +26,7 @@
 
 import { extname, resolve } from "path";
 import { createUuid } from "../../utils/ids.js";
-import type { WebChannel } from "../web.js";
+import type { WebChannelLike } from "./web-channel-contracts.js";
 import { rememberWebOrigin } from "./request-origin.js";
 import { handleAgentRoutes } from "./http/dispatch-agent.js";
 import { handleAuthRoutes } from "./http/dispatch-auth.js";
@@ -47,7 +47,7 @@ const STATIC_MIME_TYPES: Record<string, string> = {
 
 /** Business logic for handling compose-box submissions and agent runs. */
 export class RequestRouterService {
-  constructor(private channel: WebChannel) {}
+  constructor(private channel: WebChannelLike) {}
 
   private async serveStaticAsset(req: Request, relPath: string): Promise<Response> {
     const filePath = resolve(STATIC_DIR, relPath);

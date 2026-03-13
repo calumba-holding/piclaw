@@ -2,13 +2,13 @@
  * web/http/dispatch-content.ts – Timeline/post/search/thread route dispatch helpers.
  */
 
-import type { WebChannel } from "../../web.js";
+import type { WebChannelLike } from "../web-channel-contracts.js";
 
 /**
  * Handle primary content routes when the request matches; otherwise return null.
  */
 export async function handleContentPrimaryRoutes(
-  channel: WebChannel,
+  channel: WebChannelLike,
   req: Request,
   pathname: string,
   url: URL
@@ -58,7 +58,7 @@ export async function handleContentPrimaryRoutes(
  * Handle late content routes that currently run after agent dispatch.
  */
 export async function handleContentSecondaryRoutes(
-  channel: WebChannel,
+  channel: WebChannelLike,
   req: Request,
   pathname: string,
   url: URL

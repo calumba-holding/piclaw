@@ -320,6 +320,10 @@ export class AgentPool {
     return resolveModelLabel(this.modelRegistry, input);
   }
 
+  isStreaming(chatJid: string): boolean {
+    return this.pool.get(chatJid)?.session.isStreaming ?? false;
+  }
+
   async queueStreamingMessage(
     chatJid: string,
     text: string,
@@ -338,6 +342,42 @@ export class AgentPool {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return { queued: false, error: message };
+    }
+  }
+
+  /** Remove one queued follow-up message (first content match) from an active session queue. */
+  async removeQueuedFollowupMessage(chatJid: string, queuedContent?: string): Promise<boolean> {
+    const session = await this.getOrCreate(chatJid);
+    if (!session.isStreaming) return false;
+
+    const followups = [...session.getFollowUpMessages()];
+    if (followups.length === 0) return false;
+
+    const normalized = typeof queuedContent === "string" ? queuedContent.trim() : "";
+    let removeIndex = -1;
+    if (normalized) {
+      removeIndex = followups.findIndex((item) => item === queuedContent || item.trim() === normalized);
+    }
+    if (removeIndex < 0) removeIndex = 0;
+
+    const channel = detectChannel(chatJid);
+    try {
+      return await withChatContext(chatJid, channel, async () => {
+        const cleared = session.clearQueue();
+        const nextFollowups = cleared.followUp.filter((_, idx) => idx !== removeIndex);
+
+        for (const steer of cleared.steering) {
+          await session.prompt(steer, { streamingBehavior: "steer" });
+        }
+        for (const followup of nextFollowups) {
+          await session.prompt(followup, { streamingBehavior: "followUp" });
+        }
+
+        return true;
+      });
+    } catch (error) {
+      console.warn(`[agent-pool] Failed to remove queued follow-up for ${chatJid}:`, error);
+      return false;
     }
   }
 

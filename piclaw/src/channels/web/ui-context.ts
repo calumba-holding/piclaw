@@ -9,7 +9,7 @@
 
 import type { AgentSession, ExtensionUIContext } from "@mariozechner/pi-coding-agent";
 
-import type { WebChannel } from "../web.js";
+import type { WebChannelLike } from "./web-channel-contracts.js";
 import { UiBridge, type UiBridgeChannel } from "./ui-bridge.js";
 
 /** Channel shape required to bind web session UI context helpers safely. */
@@ -21,7 +21,7 @@ function getBridge(channel: UiContextChannel): UiBridge {
 
 /** Attach a UiBridge to an agent session for extension UI interactions. */
 export async function bindSessionUiContext(
-  channel: WebChannel | UiContextChannel,
+  channel: WebChannelLike | UiContextChannel,
   session: AgentSession,
   chatJid: string
 ): Promise<void> {
@@ -29,6 +29,6 @@ export async function bindSessionUiContext(
 }
 
 /** Create an ExtensionUIContext backed by the given UiBridge. */
-export function createUiContext(channel: WebChannel | UiContextChannel, chatJid: string): ExtensionUIContext {
+export function createUiContext(channel: WebChannelLike | UiContextChannel, chatJid: string): ExtensionUIContext {
   return getBridge(channel).createUiContext(chatJid);
 }

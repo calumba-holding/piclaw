@@ -42,7 +42,15 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
     });
     if (!interaction)
         return channel.json({ error: "Failed to store message" }, 500);
-    channel.broadcastEvent("new_post", interaction);
+    // Defer new_post broadcast — don't emit for messages that will be queued
+    // as follow-ups (prevents flash in timeline before filtering kicks in).
+    let newPostBroadcast = false;
+    const broadcastNewPost = () => {
+        if (!newPostBroadcast) {
+            newPostBroadcast = true;
+            channel.broadcastEvent("new_post", interaction);
+        }
+    };
     let threadId = resolveThreadId(normalized.threadId, interaction.id);
     const markCommandHandled = () => {
         if (interaction?.timestamp) {
@@ -55,7 +63,65 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
         channel.broadcastEvent("agent_status", withAgentProfile(payload));
     };
     const command = parseControlCommand(content, TRIGGER_PATTERN);
+    const requestMode = normalized.mode ?? "auto";
+    const trimmed = content.trim();
+    const queueFollowupPlaceholder = (text, queuedContent) => {
+        const placeholder = channel.queueFollowupPlaceholder(chatJid, text, interaction.id, queuedContent);
+        if (placeholder) {
+            channel.broadcastEvent("agent_followup_queued", {
+                chat_jid: chatJid,
+                thread_id: placeholder.data.thread_id ?? interaction.data?.thread_id ?? null,
+                row_id: placeholder.id,
+                content: queuedContent || content,
+                timestamp: placeholder.timestamp,
+            });
+        }
+    };
+    const queueFollowupMessage = async () => {
+        const queueFollowupResult = await channel.agentPool.queueStreamingMessage(chatJid, content, "followUp");
+        if (queueFollowupResult.queued) {
+            const followupText = formatOutbound("Queued as a follow-up (one-at-a-time).", "web");
+            if (followupText) {
+                queueFollowupPlaceholder(followupText, content);
+            }
+            return channel.json({
+                user_message: interaction,
+                thread_id: threadId,
+                queued: "followup",
+            }, 201);
+        }
+        if (queueFollowupResult.error) {
+            console.warn(`[web] Failed to queue follow-up message: ${queueFollowupResult.error}`);
+        }
+        return null;
+    };
+    const queueSteerMessage = async (source) => {
+        const steerResult = await channel.agentPool.queueStreamingMessage(chatJid, content, "steer");
+        if (!steerResult.queued) {
+            return null;
+        }
+        const inflightMessageId = getInflightMessageId(chatJid);
+        const rootRowId = inflightMessageId ? getMessageRowIdById(chatJid, inflightMessageId) : null;
+        if (rootRowId && rootRowId !== interaction.id) {
+            getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(rootRowId, interaction.id);
+            interaction.data.thread_id = rootRowId;
+            threadId = rootRowId;
+            broadcastInteractionUpdated(channel, interaction, ASSISTANT_NAME, resolveAvatarUrl("agent", ASSISTANT_AVATAR), USER_NAME || null, resolveAvatarUrl("user", USER_AVATAR), USER_AVATAR_BACKGROUND || null);
+        }
+        channel.queuePendingSteering(chatJid, interaction.timestamp);
+        channel.broadcastEvent("agent_steer_queued", {
+            chat_jid: chatJid,
+            thread_id: threadId ?? null,
+            source,
+        });
+        return channel.json({
+            user_message: interaction,
+            thread_id: threadId,
+            queued: "steer",
+        }, 201);
+    };
     if (command) {
+        broadcastNewPost();
         const commandTurnId = createUuid("turn");
         const commandTitle = content.trim().split(/\s+/, 1)[0] || "command";
         emitCommandStatus({
@@ -63,14 +129,30 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
             agent_id: agentId,
             turn_id: commandTurnId,
             type: "intent",
-            title: `Running ${commandTitle}...`,
+            title: "Running " + commandTitle + "...",
         });
         const result = await channel.agentPool.applyControlCommand(chatJid, command);
         const formatted = formatOutbound(result.message, "web");
         const isQueueCommand = command.type === "queue" || command.type === "queue_all";
+        const isSteerCommand = command.type === "steer";
         if (formatted) {
             if (isQueueCommand && result.queued_followup) {
-                channel.queueFollowupPlaceholder(chatJid, formatted, interaction.id);
+                queueFollowupPlaceholder(formatted, command.message || content);
+            }
+            else if (isSteerCommand && result.queued_steer) {
+                const steerResponse = await queueSteerMessage("command");
+                if (steerResponse) {
+                    return steerResponse;
+                }
+            }
+            else if (isSteerCommand && result.queued_followup) {
+                queueFollowupPlaceholder(formatted, command.message || content);
+            }
+            else if (isSteerCommand && result.status === "error" && result.message === "No active response to steer. Please send a message first.") {
+                const queueResponse = await queueFollowupMessage();
+                if (queueResponse) {
+                    return queueResponse;
+                }
             }
             else {
                 await channel.sendMessage(chatJid, formatted, interaction.id);
@@ -110,14 +192,17 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
             agent_id: agentId,
             turn_id: commandTurnId,
             type: result.status === "success" ? "done" : "error",
-            title: result.status === "success" ? `Completed ${commandTitle}` : (result.message || "Command failed"),
+            title: result.status === "success" ? "Completed " + commandTitle : (result.message || "Command failed"),
         });
+        if (isSteerCommand && result.queued_steer) {
+            return channel.json({ user_message: interaction, thread_id: threadId, command: result, queued: "steer" }, 201);
+        }
         markCommandHandled();
         return channel.json({ user_message: interaction, thread_id: threadId, command: result }, 201);
     }
-    const trimmed = content.trim();
     const themeCommand = handleUiThemeCommand(trimmed);
     if (themeCommand) {
+        broadcastNewPost();
         if (themeCommand.payload) {
             channel.broadcastEvent("ui_theme", { chat_jid: chatJid, ...themeCommand.payload });
         }
@@ -128,8 +213,9 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
         markCommandHandled();
         return channel.json({ user_message: interaction, thread_id: threadId, command: themeCommand }, 201);
     }
-    // If message looks like an extension slash command (starts with '/'), execute it directly
+    // If message looks like an extension slash command (starts with "/"), execute it directly
     if (trimmed.startsWith("/")) {
+        broadcastNewPost();
         const commandTurnId = createUuid("turn");
         const slashName = trimmed.split(/\s+/, 1)[0] || "/command";
         emitCommandStatus({
@@ -137,7 +223,7 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
             agent_id: agentId,
             turn_id: commandTurnId,
             type: "intent",
-            title: `Running ${slashName}...`,
+            title: "Running " + slashName + "...",
         });
         channel.lastCommandInteractionId = interaction.id;
         let cmdResult;
@@ -171,35 +257,26 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
                 agent_id: agentId,
                 turn_id: commandTurnId,
                 type: cmdResult.status === "success" ? "done" : "error",
-                title: cmdResult.status === "success" ? `Completed ${slashName}` : (cmdResult.message || "Command failed"),
+                title: cmdResult.status === "success" ? "Completed " + slashName : (cmdResult.message || "Command failed"),
             });
         }
         markCommandHandled();
         return channel.json({ user_message: interaction, thread_id: threadId, command: cmdResult }, 201);
     }
-    const steerResult = await channel.agentPool.queueStreamingMessage(chatJid, content, "steer");
-    if (steerResult.queued) {
-        // Parent steering messages to the original inflight turn root so they
-        // render as thread replies (indented like agent responses).
-        const inflightMessageId = getInflightMessageId(chatJid);
-        const rootRowId = inflightMessageId ? getMessageRowIdById(chatJid, inflightMessageId) : null;
-        if (rootRowId && rootRowId !== interaction.id) {
-            getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(rootRowId, interaction.id);
-            interaction.data.thread_id = rootRowId;
-            threadId = rootRowId;
-            broadcastInteractionUpdated(channel, interaction, ASSISTANT_NAME, resolveAvatarUrl("agent", ASSISTANT_AVATAR), USER_NAME || null, resolveAvatarUrl("user", USER_AVATAR), USER_AVATAR_BACKGROUND || null);
+    if (requestMode === "steer") {
+        const steerResponse = await queueSteerMessage("compose");
+        if (steerResponse) {
+            return steerResponse;
         }
-        channel.queuePendingSteering(chatJid, interaction.timestamp);
-        channel.broadcastEvent("agent_steer_queued", { chat_jid: chatJid, thread_id: threadId ?? null });
-        return channel.json({
-            user_message: interaction,
-            thread_id: threadId,
-            queued: "steer",
-        }, 201);
     }
-    if (steerResult.error) {
-        console.warn(`[web] Failed to queue steering message: ${steerResult.error}`);
+    if (requestMode === "queue" || requestMode === "auto") {
+        const followupResponse = await queueFollowupMessage();
+        if (followupResponse) {
+            return followupResponse;
+        }
     }
+    // Normal (non-queued) message processing — broadcast to timeline now
+    broadcastNewPost();
     channel.queue.enqueue(async () => {
         await processChat(channel, chatJid, agentId, interaction.id);
     }, `chat:${chatJid}:${interaction.id}`);
@@ -260,14 +337,18 @@ export async function processChat(channel, chatJid, agentId, threadRootId) {
     });
     const hasActiveClients = channel.sse.clients.size > 0;
     const timeoutMs = hasActiveClients ? undefined : BACKGROUND_AGENT_TIMEOUT;
+    let turnCount = 0;
     const output = await channel.agentPool.runAgent(prompt, chatJid, {
         timeoutMs,
         onEvent: streamingHandler,
         onTurnComplete: (turn) => {
-            // Intermediate turn completed (follow-up boundary) — store as threaded message.
-            // Skip placeholder consumption: this is the original turn's output, not the
-            // follow-up response. The placeholder should only be consumed by the follow-up
-            // turn's final output below.
+            // Turn boundary: the first turn (index 0) is the original prompt's
+            // response — skip placeholder consumption so it doesn't steal a
+            // placeholder that belongs to a queued follow-up.
+            // Subsequent turns (index 1+) are follow-up responses and should
+            // consume their corresponding placeholder.
+            const isFirstTurn = turnCount === 0;
+            turnCount++;
             if (turn.text || turn.attachments.length > 0) {
                 storeAgentTurn(channel, emitter, {
                     chatJid,
@@ -275,7 +356,7 @@ export async function processChat(channel, chatJid, agentId, threadRootId) {
                     attachments: turn.attachments,
                     channelName,
                     threadId: resolvedThreadRootId,
-                    skipPlaceholder: true,
+                    skipPlaceholder: isFirstTurn,
                 });
             }
         },

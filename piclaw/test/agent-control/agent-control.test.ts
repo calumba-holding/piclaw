@@ -17,8 +17,11 @@ const modelSimple = { provider: "anthropic", id: "claude-test", reasoning: false
 class StubSession {
   model: any = modelReasoning;
   thinkingLevel: ThinkingLevel = "low";
+  followUpMode: "all" | "one-at-a-time" = "one-at-a-time";
   reloadCalls = 0;
   abortCalls = 0;
+  isStreaming = false;
+  promptCalls: Array<{ text: string; opts: { streamingBehavior: string } }> = [];
 
   async setModel(model: any) {
     this.model = model;
@@ -35,6 +38,15 @@ class StubSession {
   setThinkingLevel(level: ThinkingLevel) {
     const available = this.getAvailableThinkingLevels();
     this.thinkingLevel = available.includes(level) ? level : available[0];
+  }
+
+  setFollowUpMode(mode: "all" | "one-at-a-time") {
+    this.followUpMode = mode;
+  }
+
+  async prompt(text: string, opts: { streamingBehavior: string }) {
+    this.promptCalls.push({ text, opts });
+    return;
   }
 
   supportsThinking() {
@@ -78,6 +90,10 @@ test("parseControlCommand parses model and thinking commands", () => {
   const queueAllCmd = parseControlCommand("/queue-all batch this");
   expect(queueAllCmd?.type).toBe("queue_all");
   expect(queueAllCmd && "message" in queueAllCmd ? queueAllCmd.message : null).toBe("batch this");
+
+  const steerCmd = parseControlCommand("/steer zoom in");
+  expect(steerCmd?.type).toBe("steer");
+  expect(steerCmd && "message" in steerCmd ? steerCmd.message : null).toBe("zoom in");
 
   const stateCmd = parseControlCommand("/state");
   expect(stateCmd?.type).toBe("state");
@@ -157,6 +173,56 @@ test("applyControlCommand reports unsupported thinking", async () => {
 
   expect(result.status).toBe("error");
   expect(session.thinkingLevel).toBe("off");
+});
+
+test("applyControlCommand sends immediate steering when stream active", async () => {
+  const session = new StubSession();
+  session.isStreaming = true;
+
+  const result = await applyControlCommand(session as any, registry, {
+    type: "steer",
+    message: "focus on pricing",
+    raw: "/steer focus on pricing",
+  } as any);
+
+  expect(result.status).toBe("success");
+  expect(result.queued_steer).toBe(true);
+  expect(session.promptCalls.length).toBe(1);
+  expect(session.promptCalls[0].text).toBe("focus on pricing");
+  expect(session.promptCalls[0].opts.streamingBehavior).toBe("steer");
+});
+
+test("applyControlCommand falls back to follow-up when steering with no active response", async () => {
+  const session = new StubSession();
+
+  const result = await applyControlCommand(session as any, registry, {
+    type: "steer",
+    message: "focus on pricing",
+    raw: "/steer focus on pricing",
+  } as any);
+
+  expect(result.status).toBe("success");
+  expect(result.queued_followup).toBe(true);
+  expect(result.message).toContain("Queued follow-up");
+  expect(session.promptCalls.length).toBe(1);
+  expect(session.promptCalls[0].text).toBe("focus on pricing");
+});
+
+test("applyControlCommand queues follow-up when queue has no active response", async () => {
+  const session = new StubSession();
+
+  const result = await applyControlCommand(session as any, registry, {
+    type: "queue",
+    message: "capture this for later",
+    raw: "/queue capture this for later",
+  } as any);
+
+  expect(result.status).toBe("success");
+  expect(result.queued_followup).toBe(true);
+  expect(result.message).toContain("Queued follow-up");
+  expect(session.promptCalls.length).toBe(1);
+  expect(session.promptCalls[0].text).toBe("capture this for later");
+  expect(session.promptCalls[0].opts?.streamingBehavior).toBe("followUp");
 });
 
 test("applyControlCommand restarts agent", async () => {

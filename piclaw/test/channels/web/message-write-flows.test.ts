@@ -34,7 +34,7 @@ describe("web message write flows", () => {
     expect(events).toEqual(["thread:42", "broadcast:42"]);
   });
 
-  test("queueFollowupPlaceholderMessage enqueues and broadcasts placeholders", () => {
+  test("queueFollowupPlaceholderMessage enqueues placeholders without broadcasting", () => {
     const events: string[] = [];
     const context: MessageWriteContext = {
       defaultAgentId: "default",
@@ -59,7 +59,7 @@ describe("web message write flows", () => {
     const interaction = queueFollowupPlaceholderMessage("web:default", "queued", 99, context);
 
     expect(interaction?.id).toBe(7);
-    expect(events).toEqual(["enqueue:web:default:7", "broadcast:7"]);
+    expect(events).toEqual(["enqueue:web:default:7"]);
   });
 
   test("replaceQueuedFollowupPlaceholderMessage updates interaction metadata and broadcasts", () => {

@@ -31,8 +31,14 @@ export function storeAgentTurn(channel, emitter, params) {
             // when the /queue command created the placeholder (threaded under the
             // /queue message). Passing undefined preserves the original association.
             const updated = channel.replaceQueuedFollowupPlaceholder(params.chatJid, placeholderId, formatted, mediaIds, contentBlocks.length > 0 ? contentBlocks : undefined, undefined);
-            if (updated)
+            if (updated) {
+                channel.broadcastEvent?.("agent_followup_consumed", {
+                    chat_jid: params.chatJid,
+                    thread_id: params.threadId ?? null,
+                    row_id: placeholderId,
+                });
                 return;
+            }
         }
     }
     const interaction = channel.storeMessage(params.chatJid, formatted, true, mediaIds, {

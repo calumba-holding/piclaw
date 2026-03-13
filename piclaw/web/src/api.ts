@@ -88,10 +88,10 @@ export async function deletePost(postId, cascade = false) {
 /**
  * Send message to agent
  */
-export async function sendAgentMessage(agentId, content, threadId = null, mediaIds = []) {
+export async function sendAgentMessage(agentId, content, threadId = null, mediaIds = [], mode = null) {
     return request(`/agent/${agentId}/message`, {
         method: 'POST',
-        body: JSON.stringify({ content, thread_id: threadId, media_ids: mediaIds }),
+        body: JSON.stringify({ content, thread_id: threadId, media_ids: mediaIds, mode }),
     });
 }
 
@@ -117,6 +117,51 @@ export async function getAgentStatus(chatJid = null) {
 export async function getAgentContext(chatJid = null) {
     const query = chatJid ? `?chat_jid=${encodeURIComponent(chatJid)}` : '';
     return request(`/agent/context${query}`);
+}
+
+/**
+ * Get queued follow-up state for the default web chat (count + pending items).
+ */
+export async function getAgentQueueState(chatJid = null) {
+    const query = chatJid ? `?chat_jid=${encodeURIComponent(chatJid)}` : '';
+    return request(`/agent/queue-state${query}`);
+}
+
+/**
+ * Remove one queued follow-up item by placeholder row id.
+ */
+export async function removeAgentQueueItem(rowId, chatJid = null) {
+    const response = await fetch(API_BASE + '/agent/queue-remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row_id: rowId, chat_jid: chatJid || undefined }),
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Failed to remove queued item' }));
+        throw new Error(error.error || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+}
+
+/**
+ * Atomically convert one queued follow-up into steering (when active) or an
+ * immediate send (when no active stream remains).
+ */
+export async function steerAgentQueueItem(rowId, chatJid = null) {
+    const response = await fetch(API_BASE + '/agent/queue-steer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row_id: rowId, chat_jid: chatJid || undefined }),
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Failed to steer queued item' }));
+        throw new Error(error.error || `HTTP ${response.status}`);
+    }
+
+    return response.json();
 }
 
 /**
@@ -443,6 +488,18 @@ export class SSEClient {
 
         this.eventSource.addEventListener('agent_steer_queued', (e) => {
             this.onEvent('agent_steer_queued', JSON.parse(e.data));
+        });
+
+        this.eventSource.addEventListener('agent_followup_queued', (e) => {
+            this.onEvent('agent_followup_queued', JSON.parse(e.data));
+        });
+
+        this.eventSource.addEventListener('agent_followup_consumed', (e) => {
+            this.onEvent('agent_followup_consumed', JSON.parse(e.data));
+        });
+
+        this.eventSource.addEventListener('agent_followup_removed', (e) => {
+            this.onEvent('agent_followup_removed', JSON.parse(e.data));
         });
         
         this.eventSource.addEventListener('agent_request', (e) => {

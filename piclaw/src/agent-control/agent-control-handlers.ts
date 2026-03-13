@@ -39,7 +39,7 @@ import {
   handleThinking,
 } from "./handlers/model.js";
 import { handleBash, handleShell } from "./handlers/operations.js";
-import { handleFollowupMode, handleQueue, handleSteeringMode } from "./handlers/queue.js";
+import { handleFollowupMode, handleQueue, handleSteeringMode, handleSteer } from "./handlers/queue.js";
 import {
   handleExportHtml,
   handleFork,
@@ -97,6 +97,8 @@ export async function applyControlCommand(
       return handleSteeringMode(session, command);
     case "followup_mode":
       return handleFollowupMode(session, command);
+    case "steer":
+      return handleSteer(session, command);
     case "session_name":
       return handleSessionName(session, command);
     case "new_session":

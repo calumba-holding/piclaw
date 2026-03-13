@@ -5,7 +5,7 @@
 import { Type } from "@sinclair/typebox";
 import type { ExtensionAPI, ExtensionFactory } from "@mariozechner/pi-coding-agent";
 import { createTask, getDb } from "../db.js";
-import { computeNextRun } from "../task-scheduler.js";
+import { computeNextRun } from "../task-scheduler-utils.js";
 import { validateShellCommand, validateShellCwd } from "../utils/task-validation.js";
 import { createUuid } from "../utils/ids.js";
 

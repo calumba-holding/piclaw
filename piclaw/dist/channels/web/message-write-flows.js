@@ -35,12 +35,32 @@ export function sendWebMessage(chatJid, text, options, ctx) {
     ctx.broadcaster.broadcastAgentResponse(interaction);
 }
 /** Store, queue, and broadcast a follow-up placeholder interaction. */
-export function queueFollowupPlaceholderMessage(chatJid, text, threadId, ctx) {
+export function queueFollowupPlaceholderMessage(chatJid, text, threadIdOrCtxOrQueuedContent, queuedContentOrCtx, ctxMaybe) {
+    const isContext = (value) => !!value && typeof value === "object" && "store" in value;
+    let threadId;
+    let queuedContent = text;
+    if (typeof threadIdOrCtxOrQueuedContent === "number") {
+        threadId = threadIdOrCtxOrQueuedContent;
+    }
+    const ctx = isContext(ctxMaybe)
+        ? ctxMaybe
+        : isContext(queuedContentOrCtx)
+            ? queuedContentOrCtx
+            : isContext(threadIdOrCtxOrQueuedContent)
+                ? threadIdOrCtxOrQueuedContent
+                : undefined;
+    if (typeof queuedContentOrCtx === "string") {
+        queuedContent = queuedContentOrCtx;
+    }
+    if (!ctx)
+        return null;
     const interaction = ctx.store.storeMessage(chatJid, text, true, [], { threadId });
     if (!interaction)
         return null;
-    ctx.followups.enqueue(chatJid, interaction.id);
-    ctx.broadcaster.broadcastAgentResponse(interaction);
+    ctx.followups.enqueue(chatJid, interaction.id, queuedContent, threadId, interaction.timestamp);
+    // Don't broadcast the placeholder as agent_response — the caller emits
+    // agent_followup_queued instead.  Broadcasting here caused the post to
+    // flash in the timeline before the client-side filter could hide it.
     return interaction;
 }
 /** Replace a queued follow-up placeholder and broadcast the update. */

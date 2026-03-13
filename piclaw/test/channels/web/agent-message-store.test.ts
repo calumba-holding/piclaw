@@ -21,9 +21,12 @@ function createMockChannel(placeholderIds: number[] = []) {
         _text: string,
         _mediaIds: number[],
         _contentBlocks: unknown,
-        threadId: number | undefined
+        threadId: number | undefined,
+        isTerminalAgentReply?: boolean
       ) => {
-        calls.push(`replace:${chatJid}:${rowId}:thread=${threadId ?? "undefined"}`);
+        calls.push(
+          `replace:${chatJid}:${rowId}:thread=${threadId ?? "undefined"}:terminal=${isTerminalAgentReply ? 1 : 0}`
+        );
         return { id: rowId, timestamp: "t", data: {} };
       },
       storeMessage: (
@@ -31,9 +34,11 @@ function createMockChannel(placeholderIds: number[] = []) {
         _content: string,
         _isBot: boolean,
         _mediaIds: number[],
-        opts?: { threadId?: number }
+        opts?: { threadId?: number; isTerminalAgentReply?: boolean }
       ) => {
-        calls.push(`store:${chatJid}:thread=${opts?.threadId ?? "undefined"}`);
+        calls.push(
+          `store:${chatJid}:thread=${opts?.threadId ?? "undefined"}:terminal=${opts?.isTerminalAgentReply ? 1 : 0}`
+        );
         return { id: 100, timestamp: "t", data: {} };
       },
     } as unknown as WebChannel,
@@ -65,7 +70,7 @@ describe("storeAgentTurn", () => {
 
     expect(calls).toEqual([
       "consume:web:default:50",
-      "replace:web:default:50:thread=undefined",
+      "replace:web:default:50:thread=undefined:terminal=0",
     ]);
   });
 
@@ -83,7 +88,7 @@ describe("storeAgentTurn", () => {
     });
 
     // Should NOT touch the placeholder at all — stored as a new message instead
-    expect(calls).toEqual(["store:web:default:thread=1"]);
+    expect(calls).toEqual(["store:web:default:thread=1:terminal=0"]);
     expect(emitterCalls).toEqual(["response:100"]);
   });
 
@@ -102,7 +107,7 @@ describe("storeAgentTurn", () => {
     // The replace call should pass threadId=undefined, preserving the placeholder's original thread
     expect(calls).toEqual([
       "consume:web:default:50",
-      "replace:web:default:50:thread=undefined",
+      "replace:web:default:50:thread=undefined:terminal=0",
     ]);
   });
 
@@ -131,10 +136,10 @@ describe("storeAgentTurn", () => {
 
     expect(calls).toEqual([
       // Intermediate: stored as new message, no placeholder touched
-      "store:web:default:thread=1",
+      "store:web:default:thread=1:terminal=0",
       // Final: consumed placeholder, replaced with undefined thread (preserving original)
       "consume:web:default:50",
-      "replace:web:default:50:thread=undefined",
+      "replace:web:default:50:thread=undefined:terminal=0",
     ]);
     expect(emitterCalls).toEqual(["response:100"]);
   });
@@ -151,7 +156,23 @@ describe("storeAgentTurn", () => {
       threadId: 5,
     });
 
-    expect(calls).toEqual(["store:web:default:thread=5"]);
+    expect(calls).toEqual(["store:web:default:thread=5:terminal=0"]);
     expect(emitterCalls).toEqual(["response:100"]);
+  });
+
+  test("marks terminal assistant replies when requested", () => {
+    const { channel, calls } = createMockChannel([]);
+    const { emitter } = createMockEmitter();
+
+    storeAgentTurn(channel, emitter, {
+      chatJid: "web:default",
+      text: "final response",
+      attachments: [],
+      channelName: "web",
+      threadId: 5,
+      isTerminalAgentReply: true,
+    });
+
+    expect(calls).toEqual(["store:web:default:thread=5:terminal=1"]);
   });
 });

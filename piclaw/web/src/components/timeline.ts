@@ -57,6 +57,12 @@ export function Timeline({ posts, hasMore, onLoadMore, onPostClick, onHashtagCli
         return () => observer.disconnect();
     }, [hasIntersectionObserver, hasMore, onLoadMore, timelineRef, triggerLoadMore]);
 
+    // Fallback scroll check (only when IntersectionObserver is unavailable).
+    // Runs once after posts change, but does NOT depend on triggerLoadMore
+    // to avoid re-render cascades.
+    const triggerLoadMoreRef = useRef(triggerLoadMore);
+    triggerLoadMoreRef.current = triggerLoadMore;
+
     useEffect(() => {
         if (hasIntersectionObserver) return;
         if (!timelineRef?.current) return;
@@ -65,9 +71,9 @@ export function Timeline({ posts, hasMore, onLoadMore, onPostClick, onHashtagCli
         const prefetchThreshold = Math.max(300, clientHeight);
 
         if (distanceFromTop < prefetchThreshold) {
-            triggerLoadMore();
+            triggerLoadMoreRef.current?.();
         }
-    }, [hasIntersectionObserver, posts, hasMore, reverse, timelineRef, triggerLoadMore]);
+    }, [hasIntersectionObserver, posts, hasMore, reverse, timelineRef]);
 
     useEffect(() => {
         if (!timelineRef?.current) return;
@@ -76,9 +82,9 @@ export function Timeline({ posts, hasMore, onLoadMore, onPostClick, onHashtagCli
         const distanceFromTop = reverse ? (scrollHeight - clientHeight - scrollTop) : scrollTop;
         const prefetchThreshold = Math.max(300, clientHeight);
         if (scrollHeight <= clientHeight + 1 || distanceFromTop < prefetchThreshold) {
-            triggerLoadMore();
+            triggerLoadMoreRef.current?.();
         }
-    }, [posts, hasMore, loadingMore, reverse, timelineRef, triggerLoadMore]);
+    }, [posts, hasMore, loadingMore, reverse, timelineRef]);
 
     if (!posts) {
         return html`<div class="loading"><div class="spinner"></div></div>`;

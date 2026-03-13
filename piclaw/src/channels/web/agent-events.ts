@@ -10,7 +10,7 @@
  */
 
 import type { AgentSessionEvent } from "@mariozechner/pi-coding-agent";
-import type { WebChannel } from "../web.js";
+import type { WebChannelLike } from "./web-channel-contracts.js";
 import { buildPreview, createToolTitleTracker, type AgentProfileBuilder } from "./agent-utils.js";
 
 /** Interface for broadcasting agent events to SSE clients. */
@@ -25,7 +25,7 @@ export interface AgentEventEmitter {
 
 /** Create an AgentEventEmitter that broadcasts via the given SSE hub. */
 export function createAgentEventEmitter(
-  channel: WebChannel,
+  channel: WebChannelLike,
   withAgentProfile: AgentProfileBuilder
 ): AgentEventEmitter {
   return {

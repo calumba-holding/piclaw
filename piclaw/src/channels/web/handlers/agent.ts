@@ -8,8 +8,9 @@
  * Consumers: web/request-router.ts routes agent paths to these handlers.
  */
 
-import type { WebChannel } from "../../web.js";
+import type { WebChannelLike } from "../web-channel-contracts.js";
 import {
+  AGENT_TIMEOUT,
   ASSISTANT_AVATAR,
   ASSISTANT_NAME,
   BACKGROUND_AGENT_TIMEOUT,
@@ -45,10 +46,11 @@ import { broadcastInteractionUpdated } from "../interaction-service.js";
 import { storeAgentTurn } from "../agent-message-store.js";
 import { resolveThreadId, resolveThreadRootId } from "../threading.js";
 import { createUuid } from "../../../utils/ids.js";
+import type { AttachmentInfo } from "../../../agent-pool/attachments.js";
 
 /** Handle POST to create an agent message and start an agent run. */
 export async function handleAgentMessage(
-  channel: WebChannel,
+  channel: WebChannelLike,
   req: Request,
   pathname: string,
   chatJid: string,
@@ -67,6 +69,76 @@ export async function handleAgentMessage(
   const hasPayload = content.trim().length > 0 || hasAttachments;
   if (!hasPayload) return channel.json({ error: "Missing 'content' field" }, 400);
 
+  const command = parseControlCommand(content, TRIGGER_PATTERN);
+  const requestMode = normalized.mode ?? "auto";
+  const trimmed = content.trim();
+  const isStreaming = typeof channel.agentPool.isStreaming === "function"
+    ? channel.agentPool.isStreaming(chatJid)
+    : false;
+
+  const queueDeferredFollowup = (
+    queuedContent: string,
+    extras?: { mediaIds?: number[]; contentBlocks?: unknown[]; linkPreviews?: unknown[] }
+  ): Response => {
+    const queuedAt = new Date().toISOString();
+    const queuedRowId = channel.enqueueQueuedFollowupItem(chatJid, 0, queuedContent, null, queuedAt, extras);
+    channel.broadcastEvent("agent_followup_queued", {
+      chat_jid: chatJid,
+      thread_id: null,
+      row_id: queuedRowId,
+      content: queuedContent,
+      timestamp: queuedAt,
+    });
+    return channel.json({ queued: "followup", thread_id: null }, 201);
+  };
+
+  const queueDeferredSteer = async (steerContent: string, source?: string): Promise<Response | null> => {
+    if (!isStreaming) return null;
+    const steerResult = await channel.agentPool.queueStreamingMessage(chatJid, steerContent, "steer");
+    if (!steerResult.queued) return null;
+    const queuedAt = new Date().toISOString();
+    channel.broadcastEvent("agent_steer_queued", {
+      chat_jid: chatJid,
+      thread_id: null,
+      source,
+      timestamp: queuedAt,
+      content: steerContent,
+    });
+    return channel.json({ queued: "steer", thread_id: null }, 201);
+  };
+
+  // Normal in-turn user messages should remain out of the timeline until the
+  // current turn fully finalizes. Queue them in server state first, then
+  // persist/broadcast the real user message only when consumed.
+  const shouldDeferQueuedFollowup = !command && isStreaming && (requestMode === "queue" || requestMode === "auto");
+  if (shouldDeferQueuedFollowup) {
+    return queueDeferredFollowup(content, {
+      mediaIds: normalized.mediaIds,
+      contentBlocks: normalized.contentBlocks,
+      linkPreviews: normalized.linkPreviews,
+    });
+  }
+
+  if (!command && isStreaming && requestMode === "steer") {
+    const steerResponse = await queueDeferredSteer(content, "compose");
+    if (steerResponse) return steerResponse;
+  }
+
+  if ((command?.type === "queue" || command?.type === "queue_all") && isStreaming) {
+    const queuedText = (command.message || "").trim();
+    if (queuedText) {
+      return queueDeferredFollowup(queuedText);
+    }
+  }
+
+  if (command?.type === "steer" && isStreaming) {
+    const steerText = (command.message || "").trim();
+    if (steerText) {
+      const steerResponse = await queueDeferredSteer(steerText, "command");
+      if (steerResponse) return steerResponse;
+    }
+  }
+
   const interaction = storeAgentUserMessage(channel, chatJid, {
     content,
     mediaIds: normalized.mediaIds,
@@ -76,7 +148,15 @@ export async function handleAgentMessage(
 
   if (!interaction) return channel.json({ error: "Failed to store message" }, 500);
 
-  channel.broadcastEvent("new_post", interaction);
+  // Defer new_post broadcast — don't emit for messages that will be queued
+  // as follow-ups (prevents flash in timeline before filtering kicks in).
+  let newPostBroadcast = false;
+  const broadcastNewPost = () => {
+    if (!newPostBroadcast) {
+      newPostBroadcast = true;
+      channel.broadcastEvent("new_post", interaction);
+    }
+  };
 
   let threadId = resolveThreadId(normalized.threadId, interaction.id);
 
@@ -99,8 +179,84 @@ export async function handleAgentMessage(
     channel.broadcastEvent("agent_status", withAgentProfile(payload));
   };
 
-  const command = parseControlCommand(content, TRIGGER_PATTERN);
+  const queueFollowupMessage = async (): Promise<Response | null> => {
+    // Web queued follow-ups are managed by the web channel itself rather than
+    // AgentSession's internal follow-up queue. This guarantees the current turn
+    // finalizes and publishes before the next queued user message begins.
+    const isStreaming = typeof channel.agentPool.isStreaming === "function"
+      ? channel.agentPool.isStreaming(chatJid)
+      : false;
+    if (!isStreaming) {
+      return null;
+    }
+
+    channel.enqueueQueuedFollowupItem(
+      chatJid,
+      interaction.id,
+      content,
+      interaction.id,
+      interaction.timestamp
+    );
+    channel.broadcastEvent("agent_followup_queued", {
+      chat_jid: chatJid,
+      thread_id: interaction.data?.thread_id ?? interaction.id ?? null,
+      row_id: interaction.id,
+      content,
+      timestamp: interaction.timestamp,
+    });
+
+    return channel.json(
+      {
+        user_message: interaction,
+        thread_id: threadId,
+        queued: "followup",
+      },
+      201
+    );
+  };
+
+  const queueSteerMessage = async (source?: string): Promise<Response | null> => {
+    const steerResult = await channel.agentPool.queueStreamingMessage(chatJid, content, "steer");
+    if (!steerResult.queued) {
+      return null;
+    }
+
+    const inflightMessageId = getInflightMessageId(chatJid);
+    const rootRowId = inflightMessageId ? getMessageRowIdById(chatJid, inflightMessageId) : null;
+    if (rootRowId && rootRowId !== interaction.id) {
+      getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(rootRowId, interaction.id);
+      interaction.data.thread_id = rootRowId;
+      threadId = rootRowId;
+      broadcastInteractionUpdated(
+        channel,
+        interaction,
+        ASSISTANT_NAME,
+        resolveAvatarUrl("agent", ASSISTANT_AVATAR),
+        USER_NAME || null,
+        resolveAvatarUrl("user", USER_AVATAR),
+        USER_AVATAR_BACKGROUND || null
+      );
+    }
+
+    channel.queuePendingSteering(chatJid, interaction.timestamp);
+    channel.broadcastEvent("agent_steer_queued", {
+      chat_jid: chatJid,
+      thread_id: threadId ?? null,
+      source,
+    });
+
+    return channel.json(
+      {
+        user_message: interaction,
+        thread_id: threadId,
+        queued: "steer",
+      },
+      201
+    );
+  };
+
   if (command) {
+    broadcastNewPost();
     const commandTurnId = createUuid("turn");
     const commandTitle = content.trim().split(/\s+/, 1)[0] || "command";
     emitCommandStatus({
@@ -108,15 +264,31 @@ export async function handleAgentMessage(
       agent_id: agentId,
       turn_id: commandTurnId,
       type: "intent",
-      title: `Running ${commandTitle}...`,
+      title: "Running " + commandTitle + "...",
     });
 
     const result = await channel.agentPool.applyControlCommand(chatJid, command);
     const formatted = formatOutbound(result.message, "web");
     const isQueueCommand = command.type === "queue" || command.type === "queue_all";
+    const isSteerCommand = command.type === "steer";
+
     if (formatted) {
       if (isQueueCommand && result.queued_followup) {
-        channel.queueFollowupPlaceholder(chatJid, formatted, interaction.id);
+        markCommandHandled();
+        return queueDeferredFollowup(((command as { message?: string }).message || content).trim());
+      } else if (isSteerCommand && (result as { queued_steer?: boolean }).queued_steer) {
+        const steerResponse = await queueSteerMessage("command");
+        if (steerResponse) {
+          return steerResponse;
+        }
+      } else if (isSteerCommand && (result as { queued_followup?: boolean }).queued_followup) {
+        markCommandHandled();
+        return queueDeferredFollowup(((command as { message?: string }).message || content).trim());
+      } else if (isSteerCommand && result.status === "error" && result.message === "No active response to steer. Please send a message first.") {
+        const queueResponse = await queueFollowupMessage();
+        if (queueResponse) {
+          return queueResponse;
+        }
       } else {
         await channel.sendMessage(chatJid, formatted, interaction.id);
       }
@@ -157,8 +329,12 @@ export async function handleAgentMessage(
       agent_id: agentId,
       turn_id: commandTurnId,
       type: result.status === "success" ? "done" : "error",
-      title: result.status === "success" ? `Completed ${commandTitle}` : (result.message || "Command failed"),
+      title: result.status === "success" ? "Completed " + commandTitle : (result.message || "Command failed"),
     });
+
+    if (isSteerCommand && (result as { queued_steer?: boolean }).queued_steer) {
+      return channel.json({ user_message: interaction, thread_id: threadId, command: result, queued: "steer" }, 201);
+    }
 
     markCommandHandled();
     return channel.json(
@@ -167,9 +343,9 @@ export async function handleAgentMessage(
     );
   }
 
-  const trimmed = content.trim();
   const themeCommand = handleUiThemeCommand(trimmed);
   if (themeCommand) {
+    broadcastNewPost();
     if (themeCommand.payload) {
       channel.broadcastEvent("ui_theme", { chat_jid: chatJid, ...themeCommand.payload });
     }
@@ -186,8 +362,9 @@ export async function handleAgentMessage(
     );
   }
 
-  // If message looks like an extension slash command (starts with '/'), execute it directly
+  // If message looks like an extension slash command (starts with "/"), execute it directly
   if (trimmed.startsWith("/")) {
+    broadcastNewPost();
     const commandTurnId = createUuid("turn");
     const slashName = trimmed.split(/\s+/, 1)[0] || "/command";
     emitCommandStatus({
@@ -195,7 +372,7 @@ export async function handleAgentMessage(
       agent_id: agentId,
       turn_id: commandTurnId,
       type: "intent",
-      title: `Running ${slashName}...`,
+      title: "Running " + slashName + "...",
     });
 
     channel.lastCommandInteractionId = interaction.id;
@@ -227,7 +404,7 @@ export async function handleAgentMessage(
         agent_id: agentId,
         turn_id: commandTurnId,
         type: cmdResult.status === "success" ? "done" : "error",
-        title: cmdResult.status === "success" ? `Completed ${slashName}` : (cmdResult.message || "Command failed"),
+        title: cmdResult.status === "success" ? "Completed " + slashName : (cmdResult.message || "Command failed"),
       });
     }
 
@@ -238,64 +415,87 @@ export async function handleAgentMessage(
     );
   }
 
-  const steerResult = await channel.agentPool.queueStreamingMessage(chatJid, content, "steer");
-  if (steerResult.queued) {
-    // Parent steering messages to the original inflight turn root so they
-    // render as thread replies (indented like agent responses).
-    const inflightMessageId = getInflightMessageId(chatJid);
-    const rootRowId = inflightMessageId ? getMessageRowIdById(chatJid, inflightMessageId) : null;
-    if (rootRowId && rootRowId !== interaction.id) {
-      getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(rootRowId, interaction.id);
-      interaction.data.thread_id = rootRowId;
-      threadId = rootRowId;
-      broadcastInteractionUpdated(
-        channel,
-        interaction,
-        ASSISTANT_NAME,
-        resolveAvatarUrl("agent", ASSISTANT_AVATAR),
-        USER_NAME || null,
-        resolveAvatarUrl("user", USER_AVATAR),
-        USER_AVATAR_BACKGROUND || null
-      );
+  if (requestMode === "steer") {
+    const steerResponse = await queueSteerMessage("compose");
+    if (steerResponse) {
+      return steerResponse;
     }
-
-    channel.queuePendingSteering(chatJid, interaction.timestamp);
-    channel.broadcastEvent("agent_steer_queued", { chat_jid: chatJid, thread_id: threadId ?? null });
-    return channel.json(
-      {
-        user_message: interaction,
-        thread_id: threadId,
-        queued: "steer",
-      },
-      201
-    );
   }
 
-  if (steerResult.error) {
-    console.warn(`[web] Failed to queue steering message: ${steerResult.error}`);
+  if (requestMode === "queue" || requestMode === "auto") {
+    const followupResponse = await queueFollowupMessage();
+    if (followupResponse) {
+      return followupResponse;
+    }
   }
+
+  // Normal (non-queued) message processing — broadcast to timeline now
+  broadcastNewPost();
 
   channel.queue.enqueue(async () => {
     await processChat(channel, chatJid, agentId, interaction.id);
   }, `chat:${chatJid}:${interaction.id}`);
 
   return channel.json({ user_message: interaction, thread_id: threadId }, 201);
+
 }
 
 /** Process a chat message: detect commands, queue agent run, or store post. */
 export async function processChat(
-  channel: WebChannel,
+  channel: WebChannelLike,
   chatJid: string,
   agentId: string,
   threadRootId?: number
 ): Promise<void> {
+  const materializeNextDeferredFollowup = (): boolean => {
+    const nextQueued = channel.consumeQueuedFollowupItem(chatJid);
+    if (!nextQueued) return false;
+
+    const queuedInteraction = channel.storeMessage(
+      chatJid,
+      nextQueued.queuedContent,
+      false,
+      nextQueued.mediaIds ?? [],
+      {
+        contentBlocks: Array.isArray(nextQueued.contentBlocks) ? nextQueued.contentBlocks : undefined,
+        linkPreviews: Array.isArray(nextQueued.linkPreviews) ? nextQueued.linkPreviews : undefined,
+      }
+    );
+
+    if (!queuedInteraction) {
+      // Preserve order if materializing the deferred user message fails.
+      channel.prependQueuedFollowupItem(chatJid, nextQueued);
+      return false;
+    }
+
+    channel.broadcastEvent("agent_followup_consumed", {
+      chat_jid: chatJid,
+      thread_id: nextQueued.threadId ?? null,
+      row_id: nextQueued.rowId,
+      content: nextQueued.queuedContent,
+      timestamp: nextQueued.queuedAt,
+    });
+    channel.broadcastEvent("new_post", queuedInteraction);
+    channel.resumeChat(chatJid, queuedInteraction.id);
+    return true;
+  };
+
   const prevCursor = getChatCursor(chatJid);
   const messages = getMessagesSince(chatJid, prevCursor, ASSISTANT_NAME);
-  if (messages.length === 0) return;
+  if (messages.length === 0) {
+    materializeNextDeferredFollowup();
+    return;
+  }
+
+  // Process exactly one persisted user message per turn. Batching multiple
+  // user messages into one prompt causes cross-parented replies and makes
+  // queue/turn finalization ordering nondeterministic.
+  const currentMessage = messages[0];
+  if (!currentMessage) return;
 
   const channelName = detectChannel(chatJid);
-  const prompt = formatMessages(messages, channelName);
-  const lastMessage = messages[messages.length - 1];
+  const prompt = formatMessages([currentMessage], channelName);
+  const lastMessage = currentMessage;
 
   // Atomically advance the cursor AND write an inflight marker in one SQL
   // statement. If the process is killed before endChatRun(), the next
@@ -341,7 +541,7 @@ export async function processChat(
   const resolvedThreadRootId = resolveThreadRootId(
     channel,
     chatJid,
-    messages[messages.length - 1].id ?? "",
+    currentMessage.id ?? "",
     threadRootId
   );
 
@@ -361,24 +561,100 @@ export async function processChat(
   });
 
   const hasActiveClients = channel.sse.clients.size > 0;
-  const timeoutMs = hasActiveClients ? undefined : BACKGROUND_AGENT_TIMEOUT;
+  // Keep interactive web turns bounded so stalled sessions still reach a
+  // terminal state, but do not clamp them too aggressively. A 5 minute cap
+  // proved too short for legitimate long-running tool workflows, so we allow
+  // up to 15 minutes here while still respecting any lower global timeout.
+  const INTERACTIVE_WEB_TIMEOUT_MS = Math.min(AGENT_TIMEOUT, 15 * 60 * 1000);
+  const timeoutMs = hasActiveClients
+    ? INTERACTIVE_WEB_TIMEOUT_MS
+    : (BACKGROUND_AGENT_TIMEOUT > 0 ? BACKGROUND_AGENT_TIMEOUT : AGENT_TIMEOUT);
+
+  let turnCount = 0;
+  const publishDraftFallback = (reason?: "timeout" | "error" | "empty-final") => {
+    // Draft fallback should publish the currently visible draft for whichever
+    // turn failed to finalize, even if earlier turns in the same session were
+    // already flushed via onTurnComplete(). For the very first turn we must
+    // still skip placeholder consumption so an already-queued follow-up is not
+    // accidentally stolen by the original response.
+    const draft = channel.getBuffer(turnId, "draft");
+    const draftText = typeof draft?.text === "string" ? draft.text.trim() : "";
+    if (!draftText) return false;
+
+    const suffix =
+      reason === "timeout"
+        ? "\n\n⚠️ Response timed out before finalization."
+        : reason === "error"
+          ? "\n\n⚠️ Response ended with an error before finalization."
+          : "";
+
+    return storeAgentTurn(channel, emitter, {
+      chatJid,
+      text: `${draftText}${suffix}`,
+      attachments: [],
+      channelName,
+      threadId: resolvedThreadRootId,
+      skipPlaceholder: turnCount === 0,
+      isTerminalAgentReply: true,
+    });
+  };
+
+  const finalizeSuccessfulRun = async () => {
+    // Single UPDATE: clears inflight AND clears any stale failed_run atomically.
+    endChatRun(chatJid);
+
+    const pendingSteerTimestamp = channel.consumePendingSteering(chatJid);
+    if (pendingSteerTimestamp) {
+      const current = getChatCursor(chatJid);
+      if (!current || current < pendingSteerTimestamp) {
+        setChatCursor(chatJid, pendingSteerTimestamp);
+      }
+    }
+
+    channel.saveState();
+    const contextUsage = await channel.agentPool.getContextUsageForChat(chatJid);
+    trackedEmitter.status({
+      thread_id: threadId,
+      agent_id: agentId,
+      type: "done",
+      turn_id: turnId,
+      context_usage: contextUsage
+        ? { tokens: contextUsage.tokens, contextWindow: contextUsage.contextWindow, percent: contextUsage.percent }
+        : null,
+    });
+
+    // If more persisted user messages already exist after the cursor, process
+    // them before consuming deferred queued items. This preserves one-message-
+    // per-turn ordering and prevents cross-thread batching.
+    const remainingPersisted = getMessagesSince(chatJid, getChatCursor(chatJid), ASSISTANT_NAME);
+    if (remainingPersisted.length > 0) {
+      channel.resumeChat(chatJid);
+      return;
+    }
+
+    // Start the next queued follow-up only after this turn has fully finalized.
+    materializeNextDeferredFollowup();
+  };
 
   const output = await channel.agentPool.runAgent(prompt, chatJid, {
     timeoutMs,
     onEvent: streamingHandler,
-    onTurnComplete: (turn) => {
-      // Intermediate turn completed (follow-up boundary) — store as threaded message.
-      // Skip placeholder consumption: this is the original turn's output, not the
-      // follow-up response. The placeholder should only be consumed by the follow-up
-      // turn's final output below.
+    onTurnComplete: (turn: { text: string; attachments: unknown[] }) => {
+      // Turn boundary: the first turn (index 0) is the original prompt's
+      // response — skip placeholder consumption so it doesn't steal a
+      // placeholder that belongs to a queued follow-up.
+      // Subsequent turns (index 1+) are follow-up responses and should
+      // consume their corresponding placeholder.
+      const isFirstTurn = turnCount === 0;
+      turnCount++;
       if (turn.text || turn.attachments.length > 0) {
         storeAgentTurn(channel, emitter, {
           chatJid,
           text: turn.text,
-          attachments: turn.attachments,
+          attachments: turn.attachments as AttachmentInfo[],
           channelName,
           threadId: resolvedThreadRootId,
-          skipPlaceholder: true,
+          skipPlaceholder: isFirstTurn,
         });
       }
     },
@@ -415,6 +691,20 @@ export async function processChat(
       throw new Error(output.error);
     }
 
+    const errorText = output.error || "Agent error";
+    const fallbackPublished = errorText.toLowerCase().includes("timed out")
+      ? publishDraftFallback("timeout")
+      : publishDraftFallback("error");
+
+    if (fallbackPublished) {
+      // A persisted draft fallback is a terminal outcome, not a replayable
+      // failure. Clear inflight state through the normal success path so the
+      // turn can drain pending work and the client receives a normal done
+      // transition plus the already-persisted fallback post.
+      await finalizeSuccessfulRun();
+      return;
+    }
+
     // Single UPDATE: clears inflight AND writes failed_run atomically.
     // No window exists where inflight is gone but failed_run is not yet set.
     endChatRunWithError(chatJid, {
@@ -429,44 +719,49 @@ export async function processChat(
       thread_id: threadId,
       agent_id: agentId,
       type: "error",
-      title: output.error || "Agent error",
+      title: errorText,
       turn_id: turnId,
     });
     return;
   }
 
-  // Store the final turn's output
+  // Store the final turn's output. The same first-turn placeholder rule used
+  // during onTurnComplete() also applies here: the original response must not
+  // consume a queued follow-up placeholder, but later turns are allowed to.
+  //
+  // Exactly-once rule: never clear inflight state unless a terminal reply was
+  // actually persisted (either the final output itself or a draft fallback).
   const finalAttachments = output.attachments ?? [];
-  if (output.result || finalAttachments.length > 0) {
-    storeAgentTurn(channel, emitter, {
-      chatJid,
-      text: output.result || "",
-      attachments: finalAttachments,
-      channelName,
-      threadId: resolvedThreadRootId,
+  const finalized = output.result || finalAttachments.length > 0
+    ? storeAgentTurn(channel, emitter, {
+        chatJid,
+        text: output.result || "",
+        attachments: finalAttachments as AttachmentInfo[],
+        channelName,
+        threadId: resolvedThreadRootId,
+        skipPlaceholder: turnCount === 0,
+        isTerminalAgentReply: true,
+      })
+    : publishDraftFallback("empty-final");
+
+  if (!finalized) {
+    const errorText = "Agent completed without a persisted terminal response.";
+    endChatRunWithError(chatJid, {
+      prevTs: prevCursor,
+      failedTs: lastMessage.timestamp,
+      messageId: lastMessage.id,
+      threadRootId: resolvedThreadRootId ?? null,
+      createdAt: new Date().toISOString(),
     });
+    trackedEmitter.status({
+      thread_id: threadId,
+      agent_id: agentId,
+      type: "error",
+      title: errorText,
+      turn_id: turnId,
+    });
+    return;
   }
 
-  // Single UPDATE: clears inflight AND clears any stale failed_run atomically.
-  endChatRun(chatJid);
-
-  const pendingSteerTimestamp = channel.consumePendingSteering(chatJid);
-  if (pendingSteerTimestamp) {
-    const current = getChatCursor(chatJid);
-    if (!current || current < pendingSteerTimestamp) {
-      setChatCursor(chatJid, pendingSteerTimestamp);
-    }
-  }
-
-  channel.saveState();
-  const contextUsage = await channel.agentPool.getContextUsageForChat(chatJid);
-  trackedEmitter.status({
-    thread_id: threadId,
-    agent_id: agentId,
-    type: "done",
-    turn_id: turnId,
-    context_usage: contextUsage
-      ? { tokens: contextUsage.tokens, contextWindow: contextUsage.contextWindow, percent: contextUsage.percent }
-      : null,
-  });
+  await finalizeSuccessfulRun();
 }

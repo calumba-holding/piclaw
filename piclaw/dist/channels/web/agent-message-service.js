@@ -38,6 +38,7 @@ export function normalizeAgentMessagePayload(payload) {
         mediaIds: normalizeMediaIds(payload.media_ids),
         contentBlocks: Array.isArray(payload.content_blocks) ? payload.content_blocks : undefined,
         linkPreviews: Array.isArray(payload.link_previews) ? payload.link_previews : undefined,
+        mode: payload.mode,
     };
 }
 /** Store the user portion of an agent interaction in the database. */

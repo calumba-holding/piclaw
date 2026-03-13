@@ -21,6 +21,7 @@ const DATA_MEDIA_UPLOAD_LIMIT = 20;
 const DATA_WORKSPACE_UPLOAD_LIMIT = 20;
 const DATA_DELETE_LIMIT = 60;
 const DATA_WRITE_LIMIT = 30;
+const DATA_AGENT_QUEUE_LIMIT = 30;
 
 /** Rate-limit rule returned for a specific method/path endpoint. */
 export type DataRateLimitRule = {
@@ -44,6 +45,13 @@ export function getDataRateLimitRule(method: string, pathname: string): DataRate
   }
   if (method === "POST" && pathname === "/media/upload") {
     return { bucket: "data/media_upload", limit: DATA_MEDIA_UPLOAD_LIMIT, message: "Too many media uploads. Slow down." };
+  }
+  if (method === "POST" && (pathname === "/agent/queue-remove" || pathname === "/agent/queue-steer")) {
+    return {
+      bucket: "data/agent_queue",
+      limit: DATA_AGENT_QUEUE_LIMIT,
+      message: "Too many queued-message actions. Slow down.",
+    };
   }
   if (method === "POST" && pathname === "/workspace/upload") {
     return {

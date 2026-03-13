@@ -1,5 +1,5 @@
 # PiClaw - Minimal Pi Coding Agent Sandbox
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ARG HOMEBREW_BREW_GIT_REMOTES=""
 ARG HOMEBREW_CORE_GIT_REMOTES=""
@@ -37,6 +37,8 @@ RUN apt-get update && \
     rsync file strace \
     build-essential cmake make pkg-config \
     procps psmisc supervisor sqlite3 restic openssh-client && \
+    # Tailscale (for container networking scenarios)
+    curl -fsSL https://tailscale.com/install.sh | sh && \
     mkdir -p /etc/supervisor/conf.d /var/log/supervisor /var/log/piclaw /var/run/supervisor && \
     apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
 

@@ -6,7 +6,8 @@
 set -euo pipefail
 
 export HOME="/home/agent"
-export BUN_INSTALL="/usr/local/lib/bun"
+export BUN_INSTALL="${BUN_INSTALL:-/usr/local/lib/bun}"
+export TMPDIR="${TMPDIR:-/tmp}"
 export PATH="$BUN_INSTALL/bin:/home/linuxbrew/.linuxbrew/bin:/usr/local/bin:$PATH"
 
 # Ensure login environment matches interactive shell
@@ -22,7 +23,7 @@ fi
 
 PORT="${PICLAW_WEB_PORT:-8080}"
 WORKDIR="${PICLAW_WORKSPACE:-/workspace}"
-PICLAW_BIN="${PICLAW_BIN:-$(command -v piclaw 2>/dev/null || echo "$BUN_INSTALL/bin/piclaw")}"
+PICLAW_BIN="${PICLAW_BIN:-$(command -v piclaw 2>/dev/null || echo "$BUN_INSTALL/bin/piclaw")}" 
 
 if [ ! -x "$PICLAW_BIN" ]; then
   echo "[run-piclaw] Unable to find piclaw binary at $PICLAW_BIN" >&2

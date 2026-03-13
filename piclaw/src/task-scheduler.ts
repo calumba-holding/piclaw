@@ -19,8 +19,8 @@
  *   - The AgentQueue (queue.ts) serialises task execution with user messages.
  */
 
-import { CronExpressionParser } from "cron-parser";
-import { SCHEDULER_POLL_INTERVAL, TIMEZONE, WORKSPACE_DIR } from "./core/config.js";
+import { SCHEDULER_POLL_INTERVAL, WORKSPACE_DIR } from "./core/config.js";
+import { computeNextRun } from "./task-scheduler-utils.js";
 import type { AgentPool } from "./agent-pool.js";
 import { getDueTasks, getTaskById, logTaskRun, updateTaskAfterRun } from "./db.js";
 import { AgentQueue } from "./queue.js";
@@ -51,6 +51,8 @@ export interface SchedulerDeps {
 }
 
 /** Lightweight runtime metrics for scheduler observability. */
+export { computeNextRun } from "./task-scheduler-utils.js";
+
 export interface SchedulerMetrics {
   polls: number;
   tasksEnqueued: number;
@@ -82,31 +84,6 @@ export function resetSchedulerMetricsForTests(): void {
   schedulerMetrics.taskRunsSucceeded = 0;
   schedulerMetrics.taskRunsFailed = 0;
   schedulerMetrics.lastPollAt = null;
-}
-
-/**
- * Compute the next execution time for a task based on its schedule type:
- *   - cron: parse the expression and return the next occurrence.
- *   - interval: add the interval (ms) to now.
- *   - once: return null (no further runs).
- */
-export function computeNextRun(scheduleType: string, scheduleValue: string): string | null {
-  if (scheduleType === "cron") {
-    try {
-      return CronExpressionParser.parse(scheduleValue, { tz: TIMEZONE }).next().toISOString();
-    } catch {
-      return null;
-    }
-  }
-  if (scheduleType === "interval") {
-    const ms = parseInt(scheduleValue, 10);
-    if (isNaN(ms) || ms <= 0) return null;
-    return new Date(Date.now() + ms).toISOString();
-  }
-  if (scheduleType === "once") {
-    return null;
-  }
-  return null;
 }
 
 /** Parse a "provider/modelId" label into its components. */

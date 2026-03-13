@@ -193,7 +193,7 @@ export function updateUserConfig(patch) {
     };
 }
 /** Inject a prompt into the session and capture the streamed response text. */
-export async function runPromptAndCapture(session, text) {
+export async function runPromptAndCapture(session, text, options) {
     let assistantBuffer = "";
     const customBuffers = [];
     const onEvent = (event) => {
@@ -217,7 +217,7 @@ export async function runPromptAndCapture(session, text) {
     };
     const unsub = session.subscribe(onEvent);
     try {
-        await session.prompt(text);
+        await session.prompt(text, options);
     }
     finally {
         unsub();

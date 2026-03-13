@@ -4,7 +4,7 @@
  */
 import { Type } from "@sinclair/typebox";
 import { createTask, getDb } from "../db.js";
-import { computeNextRun } from "../task-scheduler.js";
+import { computeNextRun } from "../task-scheduler-utils.js";
 import { validateShellCommand, validateShellCwd } from "../utils/task-validation.js";
 import { createUuid } from "../utils/ids.js";
 function computeInitialRun(scheduleType, scheduleValue) {

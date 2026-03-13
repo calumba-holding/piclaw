@@ -119,8 +119,11 @@ export function storeMessage(msg: NewMessage): number {
   const linkPreviews = msg.link_previews ? JSON.stringify(msg.link_previews) : null;
 
   db.prepare(
-    `INSERT OR REPLACE INTO messages (id, chat_jid, sender, sender_name, content, content_blocks, link_previews, thread_id, timestamp, is_from_me, is_bot_message)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT OR REPLACE INTO messages (
+      id, chat_jid, sender, sender_name, content, content_blocks, link_previews,
+      thread_id, timestamp, is_from_me, is_bot_message, is_terminal_agent_reply
+    )
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     msg.id,
     msg.chat_jid,
@@ -132,7 +135,8 @@ export function storeMessage(msg: NewMessage): number {
     msg.thread_id ?? null,
     msg.timestamp,
     msg.is_from_me ? 1 : 0,
-    msg.is_bot_message ? 1 : 0
+    msg.is_bot_message ? 1 : 0,
+    msg.is_terminal_agent_reply ? 1 : 0
   );
 
   const row = db
@@ -195,16 +199,23 @@ export function replaceMessageContent(
   chatJid: string,
   rowId: number,
   content: string,
-  options: { contentBlocks?: unknown[]; linkPreviews?: unknown[]; mediaIds?: number[] } = {}
+  options: { contentBlocks?: unknown[]; linkPreviews?: unknown[]; mediaIds?: number[]; isTerminalAgentReply?: boolean } = {}
 ): InteractionRow | undefined {
   const db = getDb();
   const contentBlocks = options.contentBlocks ? JSON.stringify(options.contentBlocks) : null;
   const linkPreviews = options.linkPreviews ? JSON.stringify(options.linkPreviews) : null;
   const res = db
     .prepare(
-      "UPDATE messages SET content = ?, content_blocks = ?, link_previews = ? WHERE chat_jid = ? AND rowid = ?"
+      "UPDATE messages SET content = ?, content_blocks = ?, link_previews = ?, is_terminal_agent_reply = COALESCE(?, is_terminal_agent_reply) WHERE chat_jid = ? AND rowid = ?"
     )
-    .run(content, contentBlocks, linkPreviews, chatJid, rowId);
+    .run(
+      content,
+      contentBlocks,
+      linkPreviews,
+      typeof options.isTerminalAgentReply === "boolean" ? (options.isTerminalAgentReply ? 1 : 0) : null,
+      chatJid,
+      rowId
+    );
 
   if (res.changes <= 0) return undefined;
 

@@ -8,7 +8,7 @@
  *            new user posts.
  */
 
-import type { WebChannel } from "../web.js";
+import type { WebChannelLike } from "./web-channel-contracts.js";
 
 /** Determine the thread_id for a new message (existing thread or new). */
 export function resolveThreadId(
@@ -21,7 +21,7 @@ export function resolveThreadId(
 
 /** Find the root message rowid for a thread chain. */
 export function resolveThreadRootId(
-  channel: WebChannel,
+  channel: WebChannelLike,
   chatJid: string,
   messageId: string,
   explicitThreadId?: number | null

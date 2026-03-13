@@ -2,7 +2,7 @@
  * web/http/dispatch-shell.ts – Shell/static/avatar route dispatch helpers.
  */
 
-import type { WebChannel } from "../../web.js";
+import type { WebChannelLike } from "../web-channel-contracts.js";
 import type { RouteFlags } from "./route-flags.js";
 
 /** Static asset serving function signature used by shell-route dispatcher. */
@@ -12,7 +12,7 @@ export type ServeStaticAsset = (req: Request, relPath: string) => Promise<Respon
  * Handle shell/static/avatar routes when the request matches; otherwise return null.
  */
 export async function handleShellRoutes(
-  channel: WebChannel,
+  channel: WebChannelLike,
   req: Request,
   pathname: string,
   flags: RouteFlags,

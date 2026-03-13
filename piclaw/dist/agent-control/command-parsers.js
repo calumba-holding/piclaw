@@ -94,6 +94,14 @@ export function parseQueueAll(args, raw) {
         raw,
     };
 }
+/** Parse /steer arguments: immediate steering message text. */
+export function parseSteer(args, raw) {
+    return {
+        type: "steer",
+        message: args || undefined,
+        raw,
+    };
+}
 /** Parse /compact arguments: optional custom instructions. */
 export function parseCompact(args, raw) {
     return {
@@ -421,6 +429,7 @@ export const COMMAND_PARSERS = {
     "/shell": parseShell,
     "/queue": parseQueue,
     "/queue-all": parseQueueAll,
+    "/steer": parseSteer,
     "/state": simple("state"),
     "/stats": simple("stats"),
     "/context": simple("context"),

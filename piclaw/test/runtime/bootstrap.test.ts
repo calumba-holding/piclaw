@@ -86,6 +86,9 @@ describe("runtime bootstrap", () => {
         events.push("start-workers");
         expect(runtimeSenders).toBe(senders);
       },
+      queueStartupResumePendingIpc: () => {
+        events.push("queue-startup-resume");
+      },
       startRuntimeLoop: async (loopDeps) => {
         events.push("start-runtime-loop");
         expect(loopDeps.assistantName).toBe("Pi");
@@ -110,6 +113,7 @@ describe("runtime bootstrap", () => {
       "register-shutdown-signals",
       "create-senders",
       "start-workers",
+      "queue-startup-resume",
       "connect-whatsapp",
       "start-runtime-loop",
     ]);

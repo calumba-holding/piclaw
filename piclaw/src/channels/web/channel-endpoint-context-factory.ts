@@ -3,7 +3,7 @@
  */
 
 import { getDb, replaceMessageContent } from "../../db.js";
-import type { WebChannel } from "../web.js";
+import type { WebChannelLike } from "./web-channel-contracts.js";
 import type { AuthEndpointsContext } from "./auth-endpoints.js";
 import {
   createAgentStatusContext,
@@ -45,7 +45,7 @@ export interface WebChannelEndpointContexts {
 
 /** Create endpoint-context builders bound to the current WebChannel instance. */
 export function createWebChannelEndpointContexts(
-  channel: WebChannel,
+  channel: WebChannelLike,
   options: WebChannelEndpointFactoryOptions
 ): WebChannelEndpointContexts {
   return {
