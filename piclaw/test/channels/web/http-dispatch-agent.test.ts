@@ -25,6 +25,9 @@ describe("web http agent dispatch", () => {
       handleAgentMessage: async () => new Response("message", { status: 202 }),
       handleAgentStatus: () => new Response("status"),
       handleAgentContext: async () => new Response("context"),
+      handleAgentQueueState: async () => new Response("queue-state"),
+      handleAgentQueueRemove: async () => new Response("queue-remove", { status: 203 }),
+      handleAgentQueueSteer: async () => new Response("queue-steer", { status: 204 }),
       handleAgentModels: async () => new Response("models"),
       handleAgentRespond: async () => new Response("respond"),
       json: (_payload: unknown, status: number) => new Response("err", { status }),
@@ -41,6 +44,15 @@ describe("web http agent dispatch", () => {
 
     const contextReq = new Request("https://example.com/agent/context", { method: "GET" });
     expect(await (await handleAgentRoutes(channel, contextReq, "/agent/context", new URL(contextReq.url)))?.text()).toBe("context");
+
+    const queueStateReq = new Request("https://example.com/agent/queue-state", { method: "GET" });
+    expect(await (await handleAgentRoutes(channel, queueStateReq, "/agent/queue-state", new URL(queueStateReq.url)))?.text()).toBe("queue-state");
+
+    const queueRemoveReq = new Request("https://example.com/agent/queue-remove", { method: "POST" });
+    expect((await handleAgentRoutes(channel, queueRemoveReq, "/agent/queue-remove", new URL(queueRemoveReq.url)))?.status).toBe(203);
+
+    const queueSteerReq = new Request("https://example.com/agent/queue-steer", { method: "POST" });
+    expect((await handleAgentRoutes(channel, queueSteerReq, "/agent/queue-steer", new URL(queueSteerReq.url)))?.status).toBe(204);
 
     const modelsReq = new Request("https://example.com/agent/models", { method: "GET" });
     expect(await (await handleAgentRoutes(channel, modelsReq, "/agent/models", new URL(modelsReq.url)))?.text()).toBe("models");

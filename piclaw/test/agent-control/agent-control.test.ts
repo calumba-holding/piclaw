@@ -203,7 +203,7 @@ test("applyControlCommand falls back to follow-up when steering with no active r
 
   expect(result.status).toBe("success");
   expect(result.queued_followup).toBe(true);
-  expect(result.message).toContain("Queued as a follow-up");
+  expect(result.message).toContain("Queued follow-up");
   expect(session.promptCalls.length).toBe(1);
   expect(session.promptCalls[0].text).toBe("focus on pricing");
 });
@@ -219,7 +219,7 @@ test("applyControlCommand queues follow-up when queue has no active response", a
 
   expect(result.status).toBe("success");
   expect(result.queued_followup).toBe(true);
-  expect(result.message).toContain("Queued as a follow-up");
+  expect(result.message).toContain("Queued follow-up");
   expect(session.promptCalls.length).toBe(1);
   expect(session.promptCalls[0].text).toBe("capture this for later");
   expect(session.promptCalls[0].opts?.streamingBehavior).toBe("followUp");

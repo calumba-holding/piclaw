@@ -5,6 +5,7 @@ status: done
 priority: medium
 created: 2026-03-13
 updated: 2026-03-13
+completed: 2026-03-13
 estimate: L
 risk: medium
 target_release: next
@@ -152,3 +153,14 @@ input is currently queued.
 - Frontend + backend work completed: request mode/queue-by-default + explicit /steer steering path are in place.
 - Added compose queue indicator, `/steer` autocomplete/command parser/runtime wiring, and queue-state refresh/events in app state.
 - `bun run quality` and target control/web tests now pass.
+### 2026-03-13 (steering lifecycle closure)
+- Closed the remaining steering lifecycle scope by making queued-item steering backend-authoritative and atomic.
+- Added `POST /agent/queue-steer` so the server removes a queued item and converts it into steering (or immediate send if the active stream already ended) in one action.
+- Removed the old client-side "remove queued item, then separately submit steer" race from the queue-stack Steer button.
+- Added explicit auth/CSRF/rate-limit coverage for steering-adjacent routes:
+  - `/agent/queue-steer` is routed through the normal request-guard pipeline,
+  - unauthenticated requests are blocked before dispatch when auth is enabled,
+  - `/agent/queue-steer` and `/agent/queue-remove` now share explicit data-rate-limit coverage.
+- Evidence: `piclaw/src/channels/web.ts`, `piclaw/src/channels/web/http/dispatch-agent.ts`, `piclaw/src/channels/web/http/rate-limit-rules.ts`, `piclaw/web/src/api.ts`, `piclaw/web/src/app.ts`, `piclaw/web/src/components/compose-box.ts`.
+- Test evidence: `test/channels/web/web-channel.test.ts`, `test/channels/web/http-dispatch-agent.test.ts`, `test/channels/web/http-route-classification.test.ts`, `test/channels/web/security-hardening.test.ts`.
+- Quality: ★★★★★ 10/10 (problem: 2, scope: 2, test: 2, deps: 2, risk: 2)

@@ -28,7 +28,6 @@ export interface ResumeChatContext {
   defaultAgentId: string;
   enqueue(task: () => Promise<void>, key: string): void;
   processChat(chatJid: string, agentId: string, threadRootId?: number | null): Promise<void>;
-  now?: () => number;
 }
 
 const defaultStore: ChatRunControlStore = {
@@ -54,10 +53,12 @@ export function resumeChat(
   threadRootId: number | null | undefined,
   ctx: ResumeChatContext
 ): void {
-  const now = ctx.now ?? Date.now;
+  // Use a stable per-chat key so repeated resume triggers collapse to a single
+  // queued replay while one is already pending/running. This matches startup
+  // recovery semantics and avoids duplicate post-restart or post-drain replays.
   ctx.enqueue(async () => {
     await ctx.processChat(chatJid, ctx.defaultAgentId, threadRootId ?? undefined);
-  }, `resume:${chatJid}:${now()}`);
+  }, `resume:${chatJid}`);
 }
 
 /** Skip the failed cursor marker after a model switch to avoid replay loops. */

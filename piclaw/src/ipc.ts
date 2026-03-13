@@ -546,6 +546,7 @@ export async function processTaskCommand(data: JsonRecord, deps: IpcDeps): Promi
 
     // --- Resume any pending agent turns after restart ---
     case "resume_pending": {
+      console.log(`[ipc] Processing resume_pending for ${getStringField(data, "chatJid") || "all"}`);
       if (deps.resumePending) {
         await deps.resumePending(data);
       }

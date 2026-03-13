@@ -351,7 +351,7 @@ test("agent control queue, compact, and abort commands", async () => {
   expect(session.abortBashCalls).toBe(1);
 
   const queued = await applyControlCommand(session as any, registry, { type: "queue", message: "queued text", raw: "/queue queued text" });
-  expect(queued.message).toContain("Queued as a follow-up");
+  expect(queued.message).toContain("Queued follow-up");
   expect(queued.queued_followup).toBe(true);
 });
 

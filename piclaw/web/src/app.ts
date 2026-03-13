@@ -65,6 +65,9 @@ const getAgentModels = typeof api.getAgentModels === 'function'
 const getAgentQueueState = typeof api.getAgentQueueState === 'function'
     ? api.getAgentQueueState
     : missingApi('getAgentQueueState', { count: 0 });
+const steerAgentQueueItem = typeof api.steerAgentQueueItem === 'function'
+    ? api.steerAgentQueueItem
+    : missingApi('steerAgentQueueItem', { removed: false, queued: 'steer' });
 
 // Configure marked for safe rendering
 if (window.marked) {
@@ -642,16 +645,26 @@ function App() {
      *  Reads from refs so callback identity never changes — this breaks the
      *  re-render cascade that previously destabilised handleSseEvent → SSE.
      *  Returns the same array reference when nothing is filtered. */
+    const LEGACY_QUEUE_STATUS = 'Queued as a follow-up (one-at-a-time).';
+    const QUEUE_PLACEHOLDER_MARKER = '\u2063';
     const filterQueuedPosts = useCallback((items) => {
         if (!items || !Array.isArray(items)) return items;
         const queueRowIds = followupQueueRowIdsRef.current;
-        if (queueRowIds.size === 0) return items;
         const hiddenIds = new Set(queueRowIds);
         const queueItems = followupQueueItemsRef.current;
         for (const qi of queueItems) {
             if (qi?.thread_id != null) hiddenIds.add(qi.thread_id);
         }
-        const filtered = items.filter((post) => !hiddenIds.has(post?.id));
+
+        const filtered = items.filter((post) => {
+            if (hiddenIds.has(post?.id)) return false;
+            // Hide queue placeholder rows from timeline permanently.
+            if (post?.data?.is_bot_message) {
+                const content = post?.data?.content;
+                if (content === LEGACY_QUEUE_STATUS || content === QUEUE_PLACEHOLDER_MARKER) return false;
+            }
+            return true;
+        });
         return filtered.length === items.length ? items : filtered;
     }, []);
 
@@ -1116,11 +1129,22 @@ function App() {
     const handleInjectQueuedFollowup = useCallback((queuedItem) => {
         const rowId = queuedItem?.row_id;
         if (rowId == null) return;
-        // Mark as dismissed so refreshQueueState won't re-add it
+        // Optimistic removal
         dismissedQueueRowIdsRef.current.add(rowId);
-        // Remove only the specific item that was sent as steering
         setFollowupQueueItems((current) => current.filter((item) => item?.row_id !== rowId));
-    }, [setFollowupQueueItems]);
+
+        // Atomically remove the queued item server-side and convert it into
+        // steering (or an immediate send if the active stream already ended).
+        steerAgentQueueItem(rowId)
+            .then(() => {
+                void refreshQueueState();
+            })
+            .catch((error) => {
+                console.warn('[queue] Failed to steer queued item:', error);
+                dismissedQueueRowIdsRef.current.delete(rowId);
+                void refreshQueueState();
+            });
+    }, [refreshQueueState, setFollowupQueueItems]);
 
     const handleMessageResponse = useCallback((response) => {
         if (!response || typeof response !== "object") return;
@@ -1164,7 +1188,14 @@ function App() {
         }
 
         if (eventType?.startsWith('agent_')) {
-            clearLastActivityFlag();
+            const noisyAgentEvent =
+                eventType === 'agent_draft_delta' ||
+                eventType === 'agent_thought_delta' ||
+                eventType === 'agent_draft' ||
+                eventType === 'agent_thought';
+            if (!noisyAgentEvent) {
+                clearLastActivityFlag();
+            }
         }
 
         // Handle agent status updates
@@ -1199,6 +1230,13 @@ function App() {
                 .catch((err) => {
                     console.warn('Failed to fetch agent status:', err);
                 });
+            const { currentHashtag: activeHashtag, searchQuery: activeSearch } = viewStateRef.current || {};
+            if (!activeHashtag && !activeSearch) {
+                // One immediate timeline resync on SSE connect closes the race
+                // where the client restores draft/status state after a restart
+                // but misses already-persisted assistant posts from the same turn.
+                refreshTimeline();
+            }
             refreshModelAndQueueState();
             return;
         }
@@ -1219,10 +1257,12 @@ function App() {
                 }
                 wasAgentActiveRef.current = false;
                 clearAgentRunState();
-                // Clear follow-up queue — all items should have been consumed
-                // by the agent during the turn, or are invalidated on error.
-                setFollowupQueueItems([]);
+                // Re-sync queue state from the server on terminal transitions.
+                // This preserves any queued follow-ups that still remain after
+                // an error or multi-step drain instead of blanking the stack
+                // optimistically and waiting for a later incidental refresh.
                 dismissedQueueRowIdsRef.current.clear();
+                void refreshQueueState();
                 setAgentDraft({ text: '', totalLines: 0 });
                 setAgentPlan('');
                 setAgentThought({ text: '', totalLines: 0 });
@@ -1298,6 +1338,16 @@ function App() {
             // Refresh timeline so the replaced placeholder (now the real response)
             // appears immediately — it was filtered out while queued.
             void refreshTimeline();
+            return;
+        }
+
+        if (eventType === 'agent_followup_removed') {
+            const rowId = data?.row_id;
+            if (rowId != null) {
+                dismissedQueueRowIdsRef.current.add(rowId);
+                setFollowupQueueItems((current) => current.filter((item) => item.row_id !== rowId));
+            }
+            void refreshQueueState();
             return;
         }
 
@@ -1539,20 +1589,29 @@ function App() {
 
     // Adaptive backstop poller - SSE is the primary event source; this is
     // a safety net only. 15 s when a turn is active (keeps compaction status
-    // visible and catches any SSE-gap missed turn completion). 60 s when
-    // idle (timeline + status refresh as a general backstop).
+    // visible and catches SSE-gap missed turn completion or timeline updates,
+    // including recovery/resume turns). 60 s when idle (timeline + status
+    // refresh as a general backstop).
     const isAgentActive = agentStatus !== null;
     useEffect(() => {
         if (connectionStatus !== 'connected') return;
         const intervalMs = isAgentActive ? 15000 : 60000;
         const interval = setInterval(() => {
+            const { currentHashtag: activeHashtag, searchQuery: activeSearch } = viewStateRef.current || {};
+            const onMainTimeline = !activeHashtag && !activeSearch;
+
             if (isAgentActive) {
-                // Active: only refresh status; avoid noisy timeline fetches.
+                // Active turns still need an occasional timeline resync. This
+                // catches cases where the client saw draft/thought activity but
+                // missed the eventual persisted assistant posts during an SSE
+                // gap or restart-recovery window.
+                if (onMainTimeline) {
+                    refreshTimeline();
+                }
                 refreshAgentStatus();
                 refreshContextUsage();
             } else {
-                const { currentHashtag: activeHashtag, searchQuery: activeSearch } = viewStateRef.current || {};
-                if (!activeHashtag && !activeSearch) {
+                if (onMainTimeline) {
                     refreshTimeline();
                 }
                 refreshAgentStatus();

@@ -131,7 +131,6 @@ export function ComposeBox({
     activeEditorPath = null,
     onAttachEditorFile,
     onOpenFilePill,
-    followupQueueCount = 0,
     followupQueueItems = [],
     onInjectQueuedFollowup,
     onMessageResponse,
@@ -466,19 +465,11 @@ export function ComposeBox({
     };
 
     const handleInjectQueuedFollowup = (queuedItem) => {
-        // Always remove from stack immediately
+        // Queue-item steering is backend-authoritative: the server removes the
+        // queued item and either converts it into steering or immediately sends
+        // it if the active stream already ended. Avoid a second client-side
+        // submit here so removal + steering stay atomic.
         onInjectQueuedFollowup?.(queuedItem);
-
-        const currentContent = typeof queuedItem?.content === 'string' ? queuedItem.content.trim() : '';
-        if (!currentContent) return;
-
-        void handleSubmit(currentContent, 'steer', {
-            includeMedia: false,
-            includeFileRefs: false,
-            includeMessageRefs: false,
-            clearAfterSubmit: false,
-            recordHistory: false,
-        });
     };
 
     const handleKeyDown = (e) => {
@@ -897,7 +888,7 @@ export function ComposeBox({
                     `}
                 </div>
                 <div class="compose-footer">
-                    ${!searchMode && (activeModel || followupQueueCount > 0) && html`
+                    ${!searchMode && activeModel && html`
                     <div class="compose-meta-row">
                         ${!searchMode && activeModel && html`
                             <div class="compose-model-meta">
@@ -919,12 +910,6 @@ export function ComposeBox({
                                         </span>
                                     `}
                                 </div>
-                            </div>
-                        `}
-                        ${!searchMode && followupQueueCount > 0 && html`
-                            <div class="compose-queue-indicator" title="Queued follow-up messages waiting for an assistant turn">
-                                <span class="compose-queue-dot" aria-hidden="true"></span>
-                                <span>${followupQueueCount} queued follow-up${followupQueueCount > 1 ? "s" : ""}</span>
                             </div>
                         `}
                     </div>

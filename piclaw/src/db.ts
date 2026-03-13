@@ -66,8 +66,10 @@ export {
   rollbackInflightRun,
   clearInflightMarker,
   hasAgentRepliesAfter,
+  getDeferredQueuedFollowups,
+  setDeferredQueuedFollowups,
 } from "./db/chat-cursors.js";
-export type { InflightRun, FailedRunRecord } from "./db/chat-cursors.js";
+export type { InflightRun, FailedRunRecord, DeferredQueuedFollowupRecord } from "./db/chat-cursors.js";
 export {
   storeTokenUsage,
   getTokenUsageTotals,

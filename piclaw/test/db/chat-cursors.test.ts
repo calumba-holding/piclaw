@@ -100,6 +100,59 @@ describe("getAllChatCursors", () => {
 });
 
 // ---------------------------------------------------------------------------
+// deferred queued follow-ups
+// ---------------------------------------------------------------------------
+
+describe("deferred queued follow-ups", () => {
+  test("round-trips deferred queued items through chat_cursors", () => {
+    const chatJid = jid("deferred-basic");
+    db.setDeferredQueuedFollowups(chatJid, [{
+      rowId: -1,
+      queuedContent: "queued",
+      threadId: null,
+      queuedAt: "2024-03-10T00:00:00.000Z",
+      mediaIds: [1, 2],
+      contentBlocks: [{ type: "markdown", text: "queued" }],
+      linkPreviews: [{ url: "https://example.com" }],
+    }]);
+
+    expect(db.getDeferredQueuedFollowups(chatJid)).toEqual([{ 
+      rowId: -1,
+      queuedContent: "queued",
+      threadId: null,
+      queuedAt: "2024-03-10T00:00:00.000Z",
+      mediaIds: [1, 2],
+      contentBlocks: [{ type: "markdown", text: "queued" }],
+      linkPreviews: [{ url: "https://example.com" }],
+    }]);
+  });
+
+  test("survives begin/end run state transitions", () => {
+    const chatJid = jid("deferred-survives-run");
+    db.setDeferredQueuedFollowups(chatJid, [{
+      rowId: -1,
+      queuedContent: "queued",
+      threadId: null,
+      queuedAt: "2024-03-10T00:00:00.000Z",
+    }]);
+
+    db.beginChatRun(chatJid, "2024-03-11T00:00:00.000Z", {
+      prevTs: "",
+      messageId: "m-queued",
+      startedAt: "2024-03-11T00:00:00.001Z",
+    });
+    db.endChatRun(chatJid);
+
+    expect(db.getDeferredQueuedFollowups(chatJid)).toEqual([{
+      rowId: -1,
+      queuedContent: "queued",
+      threadId: null,
+      queuedAt: "2024-03-10T00:00:00.000Z",
+    }]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // beginChatRun
 // ---------------------------------------------------------------------------
 
@@ -522,22 +575,53 @@ describe("idempotency", () => {
     expect(db.hasAgentRepliesAfter(chatJid, "2025-01-01T00:00:00.000Z")).toBe(false);
   });
 
-  test("hasAgentRepliesAfter returns true when agent messages exist after timestamp", () => {
+  test("hasAgentRepliesAfter returns true only for terminal agent replies after timestamp", () => {
     const chatJid = jid("has-agent-replies-" + Date.now());
-    // Insert a user message and an agent message
     const dbConn = db.getDb();
     dbConn.prepare(`
-      INSERT INTO messages (id, chat_jid, sender, sender_name, content, timestamp, is_bot_message)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run("user-msg-har-1", chatJid, "user", "User", "hello", "2025-01-01T00:00:00.000Z", 0);
+      INSERT INTO messages (id, chat_jid, sender, sender_name, content, timestamp, is_bot_message, is_terminal_agent_reply)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run("user-msg-har-1", chatJid, "user", "User", "hello", "2025-01-01T00:00:00.000Z", 0, 0);
     dbConn.prepare(`
-      INSERT INTO messages (id, chat_jid, sender, sender_name, content, timestamp, is_bot_message)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run("agent-msg-har-1", chatJid, "agent", "Agent", "hi!", "2025-01-01T00:01:00.000Z", 1);
+      INSERT INTO messages (id, chat_jid, sender, sender_name, content, timestamp, is_bot_message, is_terminal_agent_reply)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run("agent-msg-har-1", chatJid, "agent", "Agent", "partial", "2025-01-01T00:01:00.000Z", 1, 0);
 
-    // Agent reply exists after the user message
+    expect(db.hasAgentRepliesAfter(chatJid, "2025-01-01T00:00:00.000Z")).toBe(false);
+
+    dbConn.prepare(`
+      INSERT INTO messages (id, chat_jid, sender, sender_name, content, timestamp, is_bot_message, is_terminal_agent_reply)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run("agent-msg-har-2", chatJid, "agent", "Agent", "final", "2025-01-01T00:02:00.000Z", 1, 1);
+
     expect(db.hasAgentRepliesAfter(chatJid, "2025-01-01T00:00:00.000Z")).toBe(true);
-    // No agent reply after a later timestamp
-    expect(db.hasAgentRepliesAfter(chatJid, "2025-01-01T00:02:00.000Z")).toBe(false);
+    expect(db.hasAgentRepliesAfter(chatJid, "2025-01-01T00:03:00.000Z")).toBe(false);
+  });
+
+  test("rollbackInflightRun deletes non-terminal bot messages after prevTs", () => {
+    const chatJid = jid("rollback-deletes-partials-" + Date.now());
+    const prevTs = "2025-01-01T00:00:00.000Z";
+    const dbConn = db.getDb();
+
+    dbConn.prepare(`
+      INSERT INTO messages (id, chat_jid, sender, sender_name, content, timestamp, is_bot_message, is_terminal_agent_reply)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run("user-msg-rir-1", chatJid, "user", "User", "hello", prevTs, 0, 0);
+    dbConn.prepare(`
+      INSERT INTO messages (id, chat_jid, sender, sender_name, content, timestamp, is_bot_message, is_terminal_agent_reply)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run("agent-msg-rir-1", chatJid, "agent", "Agent", "partial", "2025-01-01T00:01:00.000Z", 1, 0);
+
+    db.beginChatRun(chatJid, "2025-01-01T00:01:00.000Z", {
+      prevTs,
+      messageId: "user-msg-rir-1",
+      startedAt: "2025-01-01T00:01:01.000Z",
+    });
+    db.rollbackInflightRun(chatJid, prevTs);
+
+    const remaining = dbConn.prepare(
+      "SELECT content FROM messages WHERE chat_jid = ? ORDER BY timestamp"
+    ).all(chatJid) as Array<{ content: string }>;
+    expect(remaining.map((row) => row.content)).toEqual(["hello"]);
   });
 });

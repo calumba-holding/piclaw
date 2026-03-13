@@ -46,11 +46,14 @@ import { SseHub } from "./web/sse-hub.js";
 import { UiBridge } from "./web/ui-bridge.js";
 import { ResponseService } from "./web/http/response-service.js";
 import {
+  deleteMessageByRowId,
   replaceMessageContent,
   getDb,
   getMessageByRowId,
+  getDeferredQueuedFollowups,
+  setDeferredQueuedFollowups,
 } from "../db.js";
-import type { InteractionRow } from "../db.js";
+import type { DeferredQueuedFollowupRecord, InteractionRow } from "../db.js";
 import { WebChannelState } from "./web/channel-state.js";
 import { AgentStatusStore } from "./web/agent-status-store.js";
 import { FollowupPlaceholderStore, type QueuedFollowupItem } from "./web/followup-placeholders.js";
@@ -230,8 +233,8 @@ export class WebChannel implements WebChannelLike {
       store: {
         storeMessage: (chatJid, content, isBot, mediaIds, options) =>
           this.storeMessage(chatJid, content, isBot, mediaIds, options),
-        replaceMessageContent: (chatJid, rowId, text, mediaIds, contentBlocks) =>
-          replaceMessageContent(chatJid, rowId, text, { contentBlocks, mediaIds }) ?? null,
+        replaceMessageContent: (chatJid, rowId, text, mediaIds, contentBlocks, isTerminalAgentReply) =>
+          replaceMessageContent(chatJid, rowId, text, { contentBlocks, mediaIds, isTerminalAgentReply }) ?? null,
         setMessageThreadToSelf: (messageId) => {
           getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(messageId, messageId);
         },
@@ -261,20 +264,111 @@ export class WebChannel implements WebChannelLike {
     );
   }
 
+  private getDeferredQueuedFollowupItems(chatJid: string): QueuedFollowupItem[] {
+    return getDeferredQueuedFollowups(chatJid).map((item) => ({
+      rowId: item.rowId,
+      queuedContent: item.queuedContent,
+      threadId: item.threadId ?? null,
+      queuedAt: item.queuedAt,
+      mediaIds: item.mediaIds ? [...item.mediaIds] : undefined,
+      contentBlocks: Array.isArray(item.contentBlocks) ? [...item.contentBlocks] : undefined,
+      linkPreviews: Array.isArray(item.linkPreviews) ? [...item.linkPreviews] : undefined,
+    }));
+  }
+
+  private setDeferredQueuedFollowupItems(chatJid: string, items: QueuedFollowupItem[]): void {
+    const persisted: DeferredQueuedFollowupRecord[] = items.map((item) => ({
+      rowId: item.rowId,
+      queuedContent: item.queuedContent,
+      threadId: item.threadId ?? null,
+      queuedAt: item.queuedAt,
+      mediaIds: item.mediaIds ? [...item.mediaIds] : undefined,
+      contentBlocks: Array.isArray(item.contentBlocks) ? [...item.contentBlocks] : undefined,
+      linkPreviews: Array.isArray(item.linkPreviews) ? [...item.linkPreviews] : undefined,
+    }));
+    setDeferredQueuedFollowups(chatJid, persisted);
+  }
+
+  private allocateDeferredQueuedRowId(chatJid: string): number {
+    const queued = this.getDeferredQueuedFollowupItems(chatJid);
+    const minRowId = queued.reduce((min, item) => (item.rowId < min ? item.rowId : min), 0);
+    return minRowId <= -1 ? minRowId - 1 : -1;
+  }
+
+  enqueueQueuedFollowupItem(
+    chatJid: string,
+    rowId: number,
+    queuedContent: string,
+    threadId?: number | null,
+    queuedAt?: string,
+    extras?: { mediaIds?: number[]; contentBlocks?: unknown[]; linkPreviews?: unknown[] }
+  ): number {
+    const resolvedRowId = Number.isFinite(rowId) && rowId !== 0 ? rowId : this.allocateDeferredQueuedRowId(chatJid);
+    const queued = this.getDeferredQueuedFollowupItems(chatJid);
+    queued.push({
+      rowId: resolvedRowId,
+      queuedContent,
+      threadId: threadId ?? null,
+      queuedAt: queuedAt ?? new Date().toISOString(),
+      mediaIds: extras?.mediaIds ? [...extras.mediaIds] : undefined,
+      contentBlocks: Array.isArray(extras?.contentBlocks) ? [...extras.contentBlocks] : undefined,
+      linkPreviews: Array.isArray(extras?.linkPreviews) ? [...extras.linkPreviews] : undefined,
+    });
+    this.setDeferredQueuedFollowupItems(chatJid, queued);
+    return resolvedRowId;
+  }
+
+  consumeQueuedFollowupItem(chatJid: string): QueuedFollowupItem | null {
+    const queued = this.getDeferredQueuedFollowupItems(chatJid);
+    const next = queued.shift() ?? null;
+    this.setDeferredQueuedFollowupItems(chatJid, queued);
+    return next;
+  }
+
+  prependQueuedFollowupItem(chatJid: string, item: QueuedFollowupItem): void {
+    const queued = this.getDeferredQueuedFollowupItems(chatJid);
+    queued.unshift({
+      rowId: item.rowId,
+      queuedContent: item.queuedContent,
+      threadId: item.threadId ?? null,
+      queuedAt: item.queuedAt,
+      mediaIds: item.mediaIds ? [...item.mediaIds] : undefined,
+      contentBlocks: Array.isArray(item.contentBlocks) ? [...item.contentBlocks] : undefined,
+      linkPreviews: Array.isArray(item.linkPreviews) ? [...item.linkPreviews] : undefined,
+    });
+    this.setDeferredQueuedFollowupItems(chatJid, queued);
+  }
+
   consumeQueuedFollowupPlaceholder(chatJid: string): number | null {
     return this.followupPlaceholderStore.consume(chatJid);
   }
 
   getQueuedFollowupCount(chatJid: string): number {
-    return this.followupPlaceholderStore.count(chatJid);
+    return this.getDeferredQueuedFollowupItems(chatJid).length + this.followupPlaceholderStore.count(chatJid);
   }
 
   getQueuedFollowupItems(chatJid: string): QueuedFollowupItem[] {
-    const rows = this.followupPlaceholderStore.peek(chatJid);
-    return rows.map((row) => ({
-      ...row,
-      queuedAt: row.queuedAt,
-    }));
+    const rows = [
+      ...this.getDeferredQueuedFollowupItems(chatJid),
+      ...this.followupPlaceholderStore.peek(chatJid),
+    ];
+    return rows
+      .map((row) => ({
+        ...row,
+        queuedAt: row.queuedAt,
+      }))
+      .sort((a, b) => String(a.queuedAt).localeCompare(String(b.queuedAt)));
+  }
+
+  removeQueuedFollowupItem(chatJid: string, rowId: number): QueuedFollowupItem | null {
+    const queued = this.getDeferredQueuedFollowupItems(chatJid);
+    const queuedIndex = queued.findIndex((item) => item.rowId === rowId);
+    if (queuedIndex >= 0) {
+      const [removed] = queued.splice(queuedIndex, 1);
+      this.setDeferredQueuedFollowupItems(chatJid, queued);
+      return removed ?? null;
+    }
+    return this.followupPlaceholderStore.remove(chatJid, rowId);
   }
 
   queuePendingSteering(chatJid: string, timestamp: string | undefined): void {
@@ -299,7 +393,8 @@ export class WebChannel implements WebChannelLike {
     text: string,
     mediaIds: number[],
     contentBlocks: Array<Record<string, unknown>> | undefined,
-    threadId?: number
+    threadId?: number,
+    isTerminalAgentReply?: boolean
   ): InteractionRow | null {
     return replaceQueuedFollowupPlaceholderMessage(
       chatJid,
@@ -308,7 +403,8 @@ export class WebChannel implements WebChannelLike {
       mediaIds,
       contentBlocks,
       threadId,
-      this.getMessageWriteContext()
+      this.getMessageWriteContext(),
+      isTerminalAgentReply
     );
   }
 
@@ -523,6 +619,150 @@ export class WebChannel implements WebChannelLike {
     });
   }
 
+  private async removeQueuedFollowupForAction(
+    chatJid: string,
+    rowId: number,
+  ): Promise<{ removed: QueuedFollowupItem | null; source: "deferred" | "placeholder" | null }> {
+    const queued = this.getDeferredQueuedFollowupItems(chatJid);
+    const queuedIndex = queued.findIndex((item) => item.rowId === Number(rowId));
+    const removedQueued = queuedIndex >= 0 ? (queued.splice(queuedIndex, 1)[0] ?? null) : null;
+    if (queuedIndex >= 0) {
+      this.setDeferredQueuedFollowupItems(chatJid, queued);
+    }
+    const removedPlaceholder = removedQueued ? null : this.followupPlaceholderStore.remove(chatJid, Number(rowId));
+    const removed = removedQueued ?? removedPlaceholder;
+    const source = removedQueued ? "deferred" : removedPlaceholder ? "placeholder" : null;
+    if (!removed || !source) return { removed: null, source: null };
+
+    // Remove any hidden backing row so queue artifacts stay out of the
+    // timeline even after the item is removed or converted into steering.
+    if (removed.rowId > 0) {
+      deleteMessageByRowId(chatJid, removed.rowId);
+    }
+
+    if (source === "placeholder") {
+      await this.agentPool.removeQueuedFollowupMessage(chatJid, removed.queuedContent);
+    }
+
+    return { removed, source };
+  }
+
+  /** POST /agent/queue-remove — remove a queued follow-up row from UI + session queue. */
+  async handleAgentQueueRemove(req: Request): Promise<Response> {
+    try {
+      const payload = (await req.json()) as { chat_jid?: string; row_id?: number | string };
+      const chatJid = payload?.chat_jid ?? DEFAULT_CHAT_JID;
+      const rawRowId = payload?.row_id;
+      const rowId = typeof rawRowId === "string" ? Number(rawRowId) : rawRowId;
+      if (!Number.isFinite(rowId)) {
+        return this.json({ error: "Missing or invalid row_id" }, 400);
+      }
+
+      const { removed } = await this.removeQueuedFollowupForAction(chatJid, Number(rowId));
+      if (!removed) {
+        return this.json({ removed: false, count: this.getQueuedFollowupCount(chatJid) }, 200);
+      }
+
+      this.broadcastEvent("agent_followup_removed", {
+        chat_jid: chatJid,
+        row_id: removed.rowId,
+        thread_id: removed.threadId ?? null,
+      });
+
+      return this.json({
+        removed: true,
+        row_id: removed.rowId,
+        count: this.getQueuedFollowupCount(chatJid),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return this.json({ error: message }, 500);
+    }
+  }
+
+  /** POST /agent/queue-steer — atomically convert one queued follow-up into steering or an immediate send. */
+  async handleAgentQueueSteer(req: Request): Promise<Response> {
+    try {
+      const payload = (await req.json()) as { chat_jid?: string; row_id?: number | string };
+      const chatJid = payload?.chat_jid ?? DEFAULT_CHAT_JID;
+      const rawRowId = payload?.row_id;
+      const rowId = typeof rawRowId === "string" ? Number(rawRowId) : rawRowId;
+      if (!Number.isFinite(rowId)) {
+        return this.json({ error: "Missing or invalid row_id" }, 400);
+      }
+
+      const { removed } = await this.removeQueuedFollowupForAction(chatJid, Number(rowId));
+      if (!removed) {
+        return this.json({ removed: false, count: this.getQueuedFollowupCount(chatJid) }, 200);
+      }
+
+      this.broadcastEvent("agent_followup_removed", {
+        chat_jid: chatJid,
+        row_id: removed.rowId,
+        thread_id: removed.threadId ?? null,
+      });
+
+      const steerContent = typeof removed.queuedContent === "string" ? removed.queuedContent.trim() : "";
+      if (!steerContent) {
+        return this.json({ removed: true, queued: false, count: this.getQueuedFollowupCount(chatJid) }, 200);
+      }
+
+      const isStreaming = typeof this.agentPool.isStreaming === "function"
+        ? this.agentPool.isStreaming(chatJid)
+        : false;
+
+      if (isStreaming) {
+        const steerResult = await this.agentPool.queueStreamingMessage(chatJid, steerContent, "steer");
+        if (steerResult.queued) {
+          const queuedAt = new Date().toISOString();
+          this.broadcastEvent("agent_steer_queued", {
+            chat_jid: chatJid,
+            thread_id: null,
+            source: "queued-item",
+            timestamp: queuedAt,
+            content: steerContent,
+          });
+          return this.json({
+            removed: true,
+            row_id: removed.rowId,
+            queued: "steer",
+            count: this.getQueuedFollowupCount(chatJid),
+          }, 201);
+        }
+      }
+
+      const interaction = this.storeMessage(
+        chatJid,
+        steerContent,
+        false,
+        removed.mediaIds ?? [],
+        {
+          contentBlocks: Array.isArray(removed.contentBlocks) ? removed.contentBlocks : undefined,
+          linkPreviews: Array.isArray(removed.linkPreviews) ? removed.linkPreviews : undefined,
+        }
+      );
+      if (!interaction) {
+        return this.json({ error: "Failed to store message" }, 500);
+      }
+
+      this.broadcastEvent("new_post", interaction);
+      this.queue.enqueue(async () => {
+        await this.processChat(chatJid, DEFAULT_AGENT_ID, interaction.id);
+      }, `chat:${chatJid}:${interaction.id}`);
+
+      return this.json({
+        removed: true,
+        row_id: removed.rowId,
+        user_message: interaction,
+        thread_id: interaction.data?.thread_id ?? interaction.id ?? null,
+        count: this.getQueuedFollowupCount(chatJid),
+      }, 201);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return this.json({ error: message }, 500);
+    }
+  }
+
   /** GET /agent/models — return available model labels and current selection. */
   async handleAgentModels(req: Request): Promise<Response> {
     return await handleAgentModelsRequest(req, this.endpointContexts.agentStatus());
@@ -549,7 +789,7 @@ export class WebChannel implements WebChannelLike {
     content: string,
     isBot: boolean,
     mediaIds: number[],
-    options: { contentBlocks?: unknown[]; linkPreviews?: unknown[]; threadId?: number } = {}
+    options: { contentBlocks?: unknown[]; linkPreviews?: unknown[]; threadId?: number; isTerminalAgentReply?: boolean } = {}
   ): InteractionRow | null {
     return storeWebMessage(
       this,
@@ -565,6 +805,7 @@ export class WebChannel implements WebChannelLike {
         contentBlocks: options.contentBlocks,
         linkPreviews: options.linkPreviews,
         threadId: options.threadId ?? null,
+        isTerminalAgentReply: options.isTerminalAgentReply,
       }
     );
   }

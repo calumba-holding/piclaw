@@ -55,6 +55,17 @@ export interface FailedRunRecord {
   createdAt: string;
 }
 
+/** Deferred queued follow-up items persisted outside the timeline. */
+export interface DeferredQueuedFollowupRecord {
+  rowId: number;
+  queuedContent: string;
+  threadId: number | null;
+  queuedAt: string;
+  mediaIds?: number[];
+  contentBlocks?: unknown[];
+  linkPreviews?: unknown[];
+}
+
 // ---------------------------------------------------------------------------
 // Cursor reads
 // ---------------------------------------------------------------------------
@@ -89,6 +100,61 @@ export function getInflightMessageId(chatJid: string): string | null {
     .prepare("SELECT inflight_message_id FROM chat_cursors WHERE chat_jid = ?")
     .get(chatJid) as { inflight_message_id: string | null } | undefined;
   return row?.inflight_message_id ?? null;
+}
+
+function sanitizeDeferredQueuedFollowupRecord(value: unknown): DeferredQueuedFollowupRecord | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  if (!Number.isFinite(record.rowId) || typeof record.queuedContent !== "string") return null;
+  return {
+    rowId: Number(record.rowId),
+    queuedContent: record.queuedContent,
+    threadId: Number.isFinite(record.threadId) ? Number(record.threadId) : null,
+    queuedAt: typeof record.queuedAt === "string" && record.queuedAt ? record.queuedAt : new Date(0).toISOString(),
+    mediaIds: Array.isArray(record.mediaIds)
+      ? record.mediaIds.map((id) => Number(id)).filter((id) => Number.isFinite(id))
+      : undefined,
+    contentBlocks: Array.isArray(record.contentBlocks) ? [...record.contentBlocks] : undefined,
+    linkPreviews: Array.isArray(record.linkPreviews) ? [...record.linkPreviews] : undefined,
+  };
+}
+
+/** Read deferred queued follow-ups for a chat from chat_cursors. */
+export function getDeferredQueuedFollowups(chatJid: string): DeferredQueuedFollowupRecord[] {
+  const db = getDb();
+  const row = db
+    .prepare("SELECT queued_followups_json FROM chat_cursors WHERE chat_jid = ?")
+    .get(chatJid) as { queued_followups_json: string | null } | undefined;
+  if (!row?.queued_followups_json) return [];
+  try {
+    const parsed = JSON.parse(row.queued_followups_json);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item) => sanitizeDeferredQueuedFollowupRecord(item))
+      .filter((item): item is DeferredQueuedFollowupRecord => Boolean(item));
+  } catch {
+    return [];
+  }
+}
+
+/** Persist the full deferred queued follow-up list for a chat. */
+export function setDeferredQueuedFollowups(chatJid: string, items: DeferredQueuedFollowupRecord[]): void {
+  const db = getDb();
+  const payload = JSON.stringify(items.map((item) => ({
+    rowId: item.rowId,
+    queuedContent: item.queuedContent,
+    threadId: item.threadId ?? null,
+    queuedAt: item.queuedAt,
+    mediaIds: item.mediaIds ? [...item.mediaIds] : undefined,
+    contentBlocks: Array.isArray(item.contentBlocks) ? [...item.contentBlocks] : undefined,
+    linkPreviews: Array.isArray(item.linkPreviews) ? [...item.linkPreviews] : undefined,
+  })));
+  db.prepare(`
+    INSERT INTO chat_cursors (chat_jid, cursor_ts, queued_followups_json)
+    VALUES (?, '', ?)
+    ON CONFLICT(chat_jid) DO UPDATE SET
+      queued_followups_json = excluded.queued_followups_json
+  `).run(chatJid, payload);
 }
 
 // ---------------------------------------------------------------------------
@@ -275,6 +341,29 @@ export function getInflightRuns(): InflightRun[] {
  */
 export function rollbackInflightRun(chatJid: string, prevTs: string): void {
   const db = getDb();
+  // If a run died after streaming/storing intermediate assistant output but
+  // before publishing a terminal reply, those partial bot messages must be
+  // discarded before the user turn is replayed. Terminal assistant replies are
+  // preserved by the recovery gate and never reach this rollback path.
+  db.prepare(`
+    DELETE FROM message_media
+    WHERE message_rowid IN (
+      SELECT rowid FROM messages
+      WHERE chat_jid = ?
+        AND timestamp > ?
+        AND is_bot_message = 1
+        AND COALESCE(is_terminal_agent_reply, 0) = 0
+    )
+  `).run(chatJid, prevTs);
+
+  db.prepare(`
+    DELETE FROM messages
+    WHERE chat_jid = ?
+      AND timestamp > ?
+      AND is_bot_message = 1
+      AND COALESCE(is_terminal_agent_reply, 0) = 0
+  `).run(chatJid, prevTs);
+
   db.prepare(`
     UPDATE chat_cursors
     SET cursor_ts           = ?,
@@ -302,15 +391,19 @@ export function clearInflightMarker(chatJid: string): void {
 }
 
 /**
- * Check whether any bot (agent) messages exist after a given timestamp
- * for a chat. Used to detect whether an inflight run actually completed
- * (agent stored replies) before the process was killed.
+ * Check whether a terminal bot (agent) message exists after a given timestamp
+ * for a chat. Recovery must not treat partial/intermediate assistant turns as
+ * proof that the run fully completed, otherwise reloads can strand the final
+ * response after a multi-turn/tool-using run.
  */
 export function hasAgentRepliesAfter(chatJid: string, afterTs: string): boolean {
   const db = getDb();
   const row = db.prepare(`
     SELECT 1 FROM messages
-    WHERE chat_jid = ? AND timestamp > ? AND is_bot_message = 1
+    WHERE chat_jid = ?
+      AND timestamp > ?
+      AND is_bot_message = 1
+      AND COALESCE(is_terminal_agent_reply, 0) = 1
     LIMIT 1
   `).get(chatJid, afterTs);
   return row != null;

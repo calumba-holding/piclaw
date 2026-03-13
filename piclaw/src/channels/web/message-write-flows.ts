@@ -23,14 +23,15 @@ export interface MessageWriteStore {
     content: string,
     isBot: boolean,
     mediaIds: number[],
-    options?: { threadId?: number; contentBlocks?: unknown[] }
+    options?: { threadId?: number; contentBlocks?: unknown[]; isTerminalAgentReply?: boolean }
   ): InteractionRow | null;
   replaceMessageContent(
     chatJid: string,
     rowId: number,
     text: string,
     mediaIds: number[],
-    contentBlocks: Array<Record<string, unknown>> | undefined
+    contentBlocks: Array<Record<string, unknown>> | undefined,
+    isTerminalAgentReply?: boolean
   ): InteractionRow | null;
   setMessageThreadToSelf(messageId: number): void;
 }
@@ -164,9 +165,17 @@ export function replaceQueuedFollowupPlaceholderMessage(
   mediaIds: number[],
   contentBlocks: Array<Record<string, unknown>> | undefined,
   threadId: number | undefined,
-  ctx: MessageWriteContext
+  ctx: MessageWriteContext,
+  isTerminalAgentReply?: boolean
 ): InteractionRow | null {
-  const updated = ctx.store.replaceMessageContent(chatJid, rowId, text, mediaIds, contentBlocks);
+  const updated = ctx.store.replaceMessageContent(
+    chatJid,
+    rowId,
+    text,
+    mediaIds,
+    contentBlocks,
+    isTerminalAgentReply
+  );
   if (!updated) return null;
 
   updated.data.agent_id = ctx.defaultAgentId;

@@ -46,7 +46,7 @@ export async function handleQueue(session: AgentSession, command: QueueCommand):
 
   return {
     status: "success",
-    message: useBatch ? "Queued as a follow-up (batch mode: all)." : "Queued as a follow-up (one-at-a-time).",
+    message: useBatch ? "Queued follow-up (mode: all)." : "Queued follow-up.",
     queued_followup: true,
   };
 }
@@ -73,7 +73,7 @@ export async function handleSteer(session: AgentSession, command: SteerCommand):
 
     return {
       status: "success",
-      message: `Queued as a follow-up (one-at-a-time).`,
+      message: "Queued follow-up.",
       queued_followup: true,
     };
   }

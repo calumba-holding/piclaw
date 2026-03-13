@@ -37,6 +37,12 @@ sequenceDiagram
   Pool->>DB: Store assistant reply
 ```
 
+If piclaw restarts mid-turn, startup recovery now happens in two phases:
+1. inflight web runs are rolled back/cleared immediately on startup
+2. once workers and channels are online, piclaw writes a self-addressed `resume_pending` IPC task and resumes any remaining pending chats through the normal IPC path
+
+That keeps restart recovery on the same code path as an explicit reload instead of depending on a lucky post-reboot user action.
+
 ## Scheduled tasks / IPC
 
 Scheduled tasks run on the same `AgentSession` as normal user messages but are isolated using the **session tree**. Before executing a task, the scheduler saves the current tree position (leaf ID) and the active model. The task's prompt and response are appended to the session as usual, then the scheduler **navigates back** to the saved leaf. This leaves the task's output in a side branch of the session tree — it persists in history but does not pollute the user's conversation context.

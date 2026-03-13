@@ -27,7 +27,6 @@ describe("web chat run control helpers", () => {
 
     const ctx: ResumeChatContext = {
       defaultAgentId: "default",
-      now: () => 123,
       enqueue: (task, key) => {
         enqueued.push({ task, key });
       },
@@ -38,7 +37,7 @@ describe("web chat run control helpers", () => {
 
     resumeChat("web:1", 77, ctx);
     expect(enqueued).toHaveLength(1);
-    expect(enqueued[0].key).toBe("resume:web:1:123");
+    expect(enqueued[0].key).toBe("resume:web:1");
 
     await enqueued[0].task();
     expect(processed).toEqual([{ chatJid: "web:1", agentId: "default", threadRootId: 77 }]);

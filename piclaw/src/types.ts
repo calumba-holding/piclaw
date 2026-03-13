@@ -48,6 +48,8 @@ export interface NewMessage {
   link_previews?: unknown[];
   /** Thread id for threaded replies in the web channel. */
   thread_id?: number | null;
+  /** True only for the terminal persisted assistant message of a run. */
+  is_terminal_agent_reply?: boolean;
 }
 
 /**

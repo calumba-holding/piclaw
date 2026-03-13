@@ -39,6 +39,14 @@ export async function handleAgentRoutes(
     return await channel.handleAgentQueueState(req);
   }
 
+  if (req.method === "POST" && pathname === "/agent/queue-remove") {
+    return await channel.handleAgentQueueRemove(req);
+  }
+
+  if (req.method === "POST" && pathname === "/agent/queue-steer") {
+    return await channel.handleAgentQueueSteer(req);
+  }
+
   if (req.method === "GET" && pathname === "/agent/models") {
     return await channel.handleAgentModels(req);
   }

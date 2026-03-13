@@ -42,8 +42,10 @@ export function storeAgentTurn(
      *  Used for intermediate (non-follow-up) turns so the original
      *  response doesn't steal a placeholder meant for the follow-up. */
     skipPlaceholder?: boolean;
+    /** True only for the terminal persisted assistant message of a run. */
+    isTerminalAgentReply?: boolean;
   }
-): void {
+): boolean {
   const { mediaIds, contentBlocks } = buildAttachmentBlocks(params.attachments);
   const formatted = formatOutbound(params.text, params.channelName);
   const resolvedThreadId = params.threadId ?? undefined;
@@ -60,7 +62,8 @@ export function storeAgentTurn(
         formatted,
         mediaIds,
         contentBlocks.length > 0 ? contentBlocks : undefined,
-        undefined
+        undefined,
+        params.isTerminalAgentReply
       );
       if (updated) {
         channel.broadcastEvent?.("agent_followup_consumed", {
@@ -68,7 +71,7 @@ export function storeAgentTurn(
           thread_id: params.threadId ?? null,
           row_id: placeholderId,
         });
-        return;
+        return true;
       }
     }
   }
@@ -76,8 +79,11 @@ export function storeAgentTurn(
   const interaction = channel.storeMessage(params.chatJid, formatted, true, mediaIds, {
     contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
     threadId: resolvedThreadId,
+    isTerminalAgentReply: params.isTerminalAgentReply,
   });
   if (interaction) {
     emitter.response(interaction);
+    return true;
   }
+  return false;
 }

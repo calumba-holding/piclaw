@@ -84,6 +84,12 @@ systemctl --user daemon-reload
 systemctl --user enable --now piclaw.service
 ```
 
+Systemd notes for restart recovery:
+- Keep `WorkingDirectory=/workspace` and set `PICLAW_WORKSPACE`, `PICLAW_STORE`, and `PICLAW_DATA` explicitly as above.
+- `PICLAW_DATA` must live on persistent storage and remain writable across restarts because startup recovery uses `PICLAW_DATA/ipc/tasks` for self-queued `resume_pending` IPC files.
+- Restart recovery is service-manager agnostic once piclaw is running: the same inflight rollback + `resume_pending` IPC flow is used for Supervisor, `systemd --user`, and manual starts.
+- If you wrap piclaw in another launcher, make sure it preserves the same environment and does not redirect IPC/data paths to ephemeral storage.
+
 ## 6) Reverse proxy (Caddy example)
 
 Use a basic reverse proxy with TLS and basic auth. Example snippet:

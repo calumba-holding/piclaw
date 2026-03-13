@@ -63,7 +63,7 @@ export interface WebChannelLike
     content: string,
     isBot: boolean,
     mediaIds: number[],
-    options?: { contentBlocks?: unknown[]; linkPreviews?: unknown[]; threadId?: number }
+    options?: { contentBlocks?: unknown[]; linkPreviews?: unknown[]; threadId?: number; isTerminalAgentReply?: boolean }
   ): InteractionRow | null;
 
   sendMessage(chatJid: string, text: string, options?: SendMessageOptions): Promise<void>;
@@ -80,8 +80,19 @@ export interface WebChannelLike
   updateDraftBuffer(turnId: string, text: string, totalLines: number): void;
 
   queueFollowupPlaceholder(chatJid: string, text: string, threadId?: number, queuedContent?: string): InteractionRow | null;
+  enqueueQueuedFollowupItem(
+    chatJid: string,
+    rowId: number,
+    queuedContent: string,
+    threadId?: number | null,
+    queuedAt?: string,
+    extras?: { mediaIds?: number[]; contentBlocks?: unknown[]; linkPreviews?: unknown[] }
+  ): number;
   getQueuedFollowupCount(chatJid: string): number;
   getQueuedFollowupItems(chatJid: string): QueuedFollowupItem[];
+  removeQueuedFollowupItem(chatJid: string, rowId: number): QueuedFollowupItem | null;
+  consumeQueuedFollowupItem(chatJid: string): QueuedFollowupItem | null;
+  prependQueuedFollowupItem(chatJid: string, item: QueuedFollowupItem): void;
   consumeQueuedFollowupPlaceholder(chatJid: string): number | null;
   replaceQueuedFollowupPlaceholder(
     chatJid: string,
@@ -89,7 +100,8 @@ export interface WebChannelLike
     text: string,
     mediaIds: number[],
     contentBlocks: Array<Record<string, unknown>> | undefined,
-    threadId?: number
+    threadId?: number,
+    isTerminalAgentReply?: boolean
   ): InteractionRow | null;
   queuePendingSteering(chatJid: string, timestamp: string | undefined): void;
   consumePendingSteering(chatJid: string): string | null;
@@ -130,9 +142,12 @@ export interface WebChannelLike
   handleAgentStatus(req: Request): Response;
   handleAgentContext(req: Request): Promise<Response>;
   handleAgentQueueState(req: Request): Promise<Response>;
+  handleAgentQueueRemove(req: Request): Promise<Response>;
+  handleAgentQueueSteer(req: Request): Promise<Response>;
   handleAgentModels(req: Request): Promise<Response>;
   handleAgentRespond(req: Request): Promise<Response>;
   handleAgentMessage(req: Request, pathname: string): Promise<Response>;
+  resumeChat(chatJid: string, threadRootId?: number | null): void;
 
   /** Utility helpers shared via request helpers and helpers. */
   parseOptionalInt(value: string | null): number | null;

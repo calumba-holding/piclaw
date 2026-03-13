@@ -33,6 +33,8 @@ describe("web http route classification", () => {
   test("maps data rate-limit rules by method and pathname", () => {
     expect(getDataRateLimitRule("POST", "/post")?.bucket).toBe("data/post");
     expect(getDataRateLimitRule("POST", "/agent/abc/message")?.bucket).toBe("data/agent_message");
+    expect(getDataRateLimitRule("POST", "/agent/queue-remove")?.bucket).toBe("data/agent_queue");
+    expect(getDataRateLimitRule("POST", "/agent/queue-steer")?.bucket).toBe("data/agent_queue");
     expect(getDataRateLimitRule("DELETE", "/workspace/file")?.bucket).toBe("data/write");
     expect(getDataRateLimitRule("PUT", "/workspace/file")?.bucket).toBe("data/write");
     expect(getDataRateLimitRule("GET", "/workspace/file")).toBeNull();
