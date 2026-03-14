@@ -166,7 +166,7 @@ the cancel button (`removeAgentQueueItem`) from the steer button
 (`steerAgentQueueItem`) eliminates the invisible side effect that destabilized
 streaming state.
 
-Evidence: `docs/queue-steering-ui-audit.md`, `piclaw/web/src/app.ts`,
+Evidence: `docs/turn-mechanism-audit.md`, `piclaw/web/src/app.ts`,
 `piclaw/web/src/components/compose-box.ts`.
 All 792 tests pass.
 
@@ -177,4 +177,4 @@ All 792 tests pass.
 - `piclaw/web/src/app.ts`
 - `piclaw/web/src/components/compose-box.ts`
 - `piclaw/web/src/api.ts`
-- `docs/queue-steering-ui-audit.md`
+- `docs/turn-mechanism-audit.md`

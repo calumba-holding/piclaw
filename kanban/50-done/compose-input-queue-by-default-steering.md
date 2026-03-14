@@ -172,7 +172,7 @@ the "Cancel" (×) button called `onInjectQueuedFollowup`, meaning clicking cance
 actually sent the message to the agent as steering. Fixed in commit `bd64f7a`:
 - Added `onRemoveQueuedFollowup` prop (calls `removeAgentQueueItem`)
 - Wired × button to the new remove handler
-- Full UI audit documented in `docs/queue-steering-ui-audit.md`
+- Full UI audit documented in `docs/turn-mechanism-audit.md`
 
 This fix also resolved the two companion bugs tracked in:
 - `kanban/50-done/fix-queued-message-loss-after-mid-queue-removal.md`

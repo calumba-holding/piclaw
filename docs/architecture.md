@@ -187,5 +187,4 @@ For the message‑level flow, see [runtime-flows.md](runtime-flows.md).
 
 ## Additional documentation
 
-- [Turn mechanism audit](turn-mechanism-audit.md) — detailed state machine analysis (cursor, inflight, failed states, crash recovery, no‑op finalization)
-- [Queue/steering UI audit](queue-steering-ui-audit.md) — client‑server queue architecture, cancel vs steer, `dismissedQueueRowIdsRef` lifecycle, data flow diagrams
+- [Turn mechanism audit](turn-mechanism-audit.md) — full-stack audit: state machine, queue/steering, crash recovery, client architecture, and data flow diagrams

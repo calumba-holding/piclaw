@@ -170,14 +170,14 @@ method properly splices from the array, persists remaining items, and broadcasts
 `agent_followup_removed`. The `refreshQueueState` reconciliation was also correct.
 The sole defect was the client-side wiring of the cancel button to the steer action.
 
-**Full UI audit** documented in `docs/queue-steering-ui-audit.md` covering:
+**Full UI audit** documented in `docs/turn-mechanism-audit.md` covering:
 - Queue stack rendering and state management
 - Optimistic removal with dismissed set
 - SSE event handling for queue lifecycle
 - Data flow diagrams for submit → queue, cancel, steer, and turn drain
 
 Evidence: `piclaw/web/src/components/compose-box.ts`, `piclaw/web/src/app.ts`,
-`piclaw/web/src/api.ts`, `docs/queue-steering-ui-audit.md`.
+`piclaw/web/src/api.ts`, `docs/turn-mechanism-audit.md`.
 All 792 tests pass.
 
 ## Links

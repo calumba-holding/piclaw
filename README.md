@@ -141,8 +141,7 @@ PiClaw works with any OCI-compliant runtime:
 - [Tools and skills](docs/tools-and-skills.md) — built-in tools and skill catalogue
 - [Keychain](docs/keychain.md) — encrypted secret storage
 - [WhatsApp](docs/whatsapp.md) — optional WhatsApp integration
-- [Turn mechanism audit](docs/turn-mechanism-audit.md) — cursor/inflight/failed state machine analysis
-- [Queue/steering UI audit](docs/queue-steering-ui-audit.md) — client‑server queue architecture and data flow
+- [Turn mechanism audit](docs/turn-mechanism-audit.md) — full-stack audit: state machine, queue/steering, crash recovery, client architecture
 
 ## Credits
 
