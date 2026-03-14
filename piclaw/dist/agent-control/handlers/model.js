@@ -7,8 +7,19 @@
  * Consumers: agent-control-handlers.ts dispatches to these handlers.
  */
 import { THINKING_LEVELS, normalizeModelMatch } from "../agent-control-helpers.js";
+function compactionGuard(session) {
+    if (!session.isCompacting)
+        return null;
+    return {
+        status: "error",
+        message: "Auto-compaction is still running. Try again in a moment. If Pi appears stuck, use /exit to restart it.",
+    };
+}
 /** Handle /model: switch model, list models, or show current model. */
 export async function handleModel(session, modelRegistry, command) {
+    const blocked = compactionGuard(session);
+    if (blocked)
+        return blocked;
     const registry = (session.modelRegistry ?? modelRegistry);
     registry.refresh();
     if (!command.modelId) {
@@ -144,6 +155,9 @@ export async function handleThinking(session, _modelRegistry, command) {
 }
 /** Handle /cycle-model: switch to the next/previous model. */
 export async function handleCycleModel(session, _modelRegistry, command) {
+    const blocked = compactionGuard(session);
+    if (blocked)
+        return blocked;
     try {
         const result = await session.cycleModel(command.direction);
         if (!result) {

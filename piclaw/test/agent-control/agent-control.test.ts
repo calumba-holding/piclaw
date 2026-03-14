@@ -21,6 +21,7 @@ class StubSession {
   reloadCalls = 0;
   abortCalls = 0;
   isStreaming = false;
+  isCompacting = false;
   promptCalls: Array<{ text: string; opts: { streamingBehavior: string } }> = [];
 
   async setModel(model: any) {
@@ -78,6 +79,9 @@ test("parseControlCommand parses model and thinking commands", () => {
 
   const restartCmd = parseControlCommand("/restart");
   expect(restartCmd?.type).toBe("restart");
+
+  const exitCmd = parseControlCommand("/exit");
+  expect(exitCmd?.type).toBe("exit");
 
   const shellCmd = parseControlCommand("/shell ls -la");
   expect(shellCmd?.type).toBe("shell");
@@ -239,6 +243,28 @@ test("applyControlCommand restarts agent", async () => {
   expect(result.message).toContain("Agent restarted");
 });
 
+test("applyControlCommand exits agent so supervisor can restart it", async () => {
+  const session = new StubSession();
+  let scheduled = 0;
+  (globalThis as any).__PICLAW_EXIT_SCHEDULER__ = () => {
+    scheduled += 1;
+  };
+
+  try {
+    const result = await applyControlCommand(session as any, registry, {
+      type: "exit",
+      raw: "/exit",
+    });
+
+    expect(result.status).toBe("success");
+    expect(result.message).toContain("supervisor can restart");
+    expect(session.abortCalls).toBe(1);
+    expect(scheduled).toBe(1);
+  } finally {
+    delete (globalThis as any).__PICLAW_EXIT_SCHEDULER__;
+  }
+});
+
 test("applyControlCommand aborts agent", async () => {
   const session = new StubSession();
 
@@ -263,6 +289,21 @@ test("applyControlCommand lists models when /model has no args", async () => {
   expect(result.status).toBe("success");
   expect(result.message).toContain("Available models:");
   expect(result.message).toContain("openai/gpt-test (current)");
+});
+
+test("applyControlCommand blocks model switching during compaction", async () => {
+  const session = new StubSession();
+  session.isCompacting = true;
+
+  const result = await applyControlCommand(session as any, registry, {
+    type: "model",
+    provider: "openai",
+    modelId: "gpt-test",
+    raw: "/model openai/gpt-test",
+  });
+
+  expect(result.status).toBe("error");
+  expect(result.message).toContain("Auto-compaction is still running");
 });
 
 test("/model uses session registry when available", async () => {

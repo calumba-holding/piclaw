@@ -3401,6 +3401,19 @@ body {
     color: var(--turn-color, inherit);
 }
 
+.agent-thinking-title-text {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.agent-status-elapsed {
+    margin-left: auto;
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-tertiary);
+    font-size: 0.9em;
+}
+
 .agent-thinking-title.thought {
     color: var(--turn-color, #ff9f7f);
 }

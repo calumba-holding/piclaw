@@ -20,6 +20,7 @@ import {
   handleAutoCompact,
   handleAutoRetry,
   handleCompact,
+  handleExit,
   handleRestart,
 } from "./handlers/control.js";
 import { handleAgentAvatar, handleAgentName } from "./handlers/agent.js";
@@ -62,6 +63,8 @@ export async function applyControlCommand(
   switch (command.type) {
     case "restart":
       return handleRestart(session, command);
+    case "exit":
+      return handleExit(session, command);
     case "shell":
       return handleShell(session, command);
     case "bash":

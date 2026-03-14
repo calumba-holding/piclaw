@@ -268,6 +268,7 @@ test("agent control info and mode commands", async () => {
 
   const commands = await applyControlCommand(session as any, registry, { type: "commands", raw: "/commands" });
   expect(commands.message).toContain("/model");
+  expect(commands.message).not.toContain("/exit");
   expect(commands.message).toContain("/ext");
   expect(commands.message).toContain("/template");
   expect(commands.message).toContain("/skill:demo");
@@ -364,6 +365,12 @@ test("agent control cycle and agent identity commands", async () => {
 
   const cycleModel = await applyControlCommand(session as any, registry, { type: "cycle_model", direction: "forward", raw: "/cycle-model" });
   expect(cycleModel.message).toContain("Model set to");
+
+  session.isCompacting = true;
+  const blockedCycleModel = await applyControlCommand(session as any, registry, { type: "cycle_model", direction: "forward", raw: "/cycle-model" });
+  expect(blockedCycleModel.status).toBe("error");
+  expect(blockedCycleModel.message).toContain("Auto-compaction is still running");
+  session.isCompacting = false;
 
   const cycleThinking = await applyControlCommand(session as any, registry, { type: "cycle_thinking", raw: "/cycle-thinking" });
   expect(cycleThinking.message).toContain("Thinking level set");

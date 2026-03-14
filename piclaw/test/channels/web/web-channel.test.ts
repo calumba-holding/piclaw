@@ -898,7 +898,7 @@ test("processChat rolls back cursor when agent is already processing", async () 
   expect(db.getInflightRuns().some((run: any) => run.chatJid === "web:default")).toBe(false);
 });
 
-test("web channel clears stale agent status on load", async () => {
+test("web channel clears non-restorable stale agent status on load", async () => {
   const ws = createTempWorkspace("piclaw-web-channel-");
   cleanupWorkspace = ws.cleanup;
   restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
@@ -914,11 +914,8 @@ test("web channel clears stale agent status on load", async () => {
     agentPool: { runAgent: async () => ({ status: "success", result: "ok" }), getContextUsageForChat: async () => null },
   });
 
-  first.updateAgentStatus("web:default", { type: "auto_compact", title: "Auto-compacting", turn_id: "turn-42" });
+  first.updateAgentStatus("web:default", { type: "tool_call", title: "Running tool", turn_id: "turn-42" });
 
-  // After a process restart (simulated by creating a new instance and
-  // loading state), stale agent statuses should be cleared — no agent is
-  // actually running in the new process.
   const second = new (webMod.WebChannel as any)({
     queue: { enqueue: () => {} },
     agentPool: { runAgent: async () => ({ status: "success", result: "ok" }), getContextUsageForChat: async () => null },
@@ -926,6 +923,40 @@ test("web channel clears stale agent status on load", async () => {
   second.loadState();
   const restored = second.getAgentStatus("web:default");
   expect(restored).toBeNull();
+});
+
+test("web channel preserves restart-restorable compaction status on load", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats; DELETE FROM chat_cursors;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+
+  const webMod = await import("../../../src/channels/web.js");
+  const first = new (webMod.WebChannel as any)({
+    queue: { enqueue: () => {} },
+    agentPool: { runAgent: async () => ({ status: "success", result: "ok" }), getContextUsageForChat: async () => null },
+  });
+
+  const compactionStatus = {
+    type: "intent",
+    intent_key: "compaction",
+    title: "Compacting context",
+    started_at: "2026-03-14T14:00:00.000Z",
+    turn_id: "turn-42",
+  };
+  first.updateAgentStatus("web:default", compactionStatus);
+
+  const second = new (webMod.WebChannel as any)({
+    queue: { enqueue: () => {} },
+    agentPool: { runAgent: async () => ({ status: "success", result: "ok" }), getContextUsageForChat: async () => null },
+  });
+  second.loadState();
+  const restored = second.getAgentStatus("web:default");
+  expect(restored).toEqual(compactionStatus);
 });
 
 // --- New coverage: agent status lifecycle ---

@@ -14,12 +14,26 @@ import { formatCompactNumber } from "../agent-control-helpers.js";
 import { killTrackedProcesses } from "../../utils/process-tracker.js";
 
 type RestartCommand = Extract<AgentControlCommand, { type: "restart" }>;
+type ExitCommand = Extract<AgentControlCommand, { type: "exit" }>;
 type CompactCommand = Extract<AgentControlCommand, { type: "compact" }>;
 type AutoCompactCommand = Extract<AgentControlCommand, { type: "auto_compact" }>;
 type AutoRetryCommand = Extract<AgentControlCommand, { type: "auto_retry" }>;
 type AbortCommand = Extract<AgentControlCommand, { type: "abort" }>;
 type AbortRetryCommand = Extract<AgentControlCommand, { type: "abort_retry" }>;
 type AbortBashCommand = Extract<AgentControlCommand, { type: "abort_bash" }>;
+
+const EXIT_DELAY_MS = Number(process.env.PICLAW_EXIT_DELAY_MS || "150");
+
+function scheduleProcessExit(): void {
+  const customScheduler = (globalThis as { __PICLAW_EXIT_SCHEDULER__?: (() => void) | undefined }).__PICLAW_EXIT_SCHEDULER__;
+  if (typeof customScheduler === "function") {
+    customScheduler();
+    return;
+  }
+  setTimeout(() => {
+    process.exit(0);
+  }, EXIT_DELAY_MS);
+}
 
 /** Handle /restart: reload the agent session from disk. */
 export async function handleRestart(session: AgentSession, _command: RestartCommand): Promise<AgentControlResult> {
@@ -45,6 +59,23 @@ export async function handleRestart(session: AgentSession, _command: RestartComm
   return {
     status: "success",
     message: `Agent restarted. Killed ${killedLabel}.`,
+  };
+}
+
+/** Handle /exit: terminate the process so supervisor can restart piclaw. */
+export async function handleExit(session: AgentSession, _command: ExitCommand): Promise<AgentControlResult> {
+  try {
+    await session.abort();
+  } catch {
+    // Ignore abort failures for wedged sessions.
+  }
+
+  killTrackedProcesses();
+  scheduleProcessExit();
+
+  return {
+    status: "success",
+    message: "Exiting now so supervisor can restart piclaw.",
   };
 }
 

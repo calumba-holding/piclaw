@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { AgentStatusStore } from "../../../src/channels/web/agent-status-store.js";
 
 describe("web agent status store", () => {
-  test("load clears restored persisted statuses and resets in-memory state", () => {
+  test("load clears non-restorable persisted statuses and resets in-memory state", () => {
     const calls: string[] = [];
     const state = {
       load: () => {
@@ -27,6 +27,34 @@ describe("web agent status store", () => {
       "save",
     ]);
     expect(store.get("web:1")).toBeNull();
+  });
+
+  test("load preserves restart-restorable compaction status", () => {
+    const calls: string[] = [];
+    const compactionStatus = {
+      type: "intent",
+      intent_key: "compaction",
+      title: "Compacting context",
+      started_at: "2026-03-14T14:00:00.000Z",
+    };
+    const state = {
+      load: () => {
+        calls.push("load");
+      },
+      save: () => {
+        calls.push("save");
+      },
+      setAgentStatus: (chatJid: string, status: Record<string, unknown> | null) => {
+        calls.push(`set:${chatJid}:${status ? "status" : "null"}`);
+      },
+      getAgentStatuses: () => ({ "web:1": compactionStatus }),
+    };
+
+    const store = new AgentStatusStore(state);
+    store.load();
+
+    expect(calls).toEqual(["load"]);
+    expect(store.get("web:1")).toEqual(compactionStatus);
   });
 
   test("update stores active statuses and clears done/error statuses", () => {

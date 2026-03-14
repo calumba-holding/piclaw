@@ -329,12 +329,18 @@ export function createStreamingEventHandler(options: StreamingEventHandlerOption
     if (event.type === "auto_compaction_start") {
       const reason = (event as { reason?: string }).reason;
       const title = reason === "overflow"
-        ? "Recovering from context overflow"
+        ? "Compacting context"
         : "Auto-compacting after response";
+      const detail = reason === "overflow"
+        ? "Recovering from context pressure so the turn can continue."
+        : "Shrinking recent context before continuing the turn.";
       options.emitter.status({
         ...base,
         type: "intent",
         title,
+        detail,
+        intent_key: "compaction",
+        started_at: new Date().toISOString(),
       });
     }
 

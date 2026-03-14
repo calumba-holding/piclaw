@@ -426,6 +426,7 @@ export const COMMAND_PARSERS = {
     "/thinking": parseThinking,
     "/commands": simple("commands"),
     "/restart": simple("restart"),
+    "/exit": simple("exit"),
     "/shell": parseShell,
     "/queue": parseQueue,
     "/queue-all": parseQueueAll,

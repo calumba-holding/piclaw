@@ -3,6 +3,7 @@ import { html, useEffect, useState } from '../vendor/preact-htm.js';
 import { addToWhitelist, respondToAgentRequest } from '../api.js';
 import { renderThinkingMarkdown } from '../markdown.js';
 import { getTurnColor } from '../ui/agent-utils.js';
+import { getStatusElapsedLabel, isCompactionStatus } from '../ui/status-duration.js';
 
 /** Preact component: agent status bar with draft/thought/plan panels. */
 export function AgentStatus({ status, draft, plan, thought, pendingRequest, intent, turnId, steerQueued, onPanelToggle }) {
@@ -57,6 +58,7 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
     if (!status && !hasDraft && !hasPlan && !hasThought && !pendingRequest && !intent) return null;
 
     const [expandedPanels, setExpandedPanels] = useState(new Set());
+    const [nowMs, setNowMs] = useState(() => Date.now());
     const toggleExpand = (key) =>
         setExpandedPanels(prev => {
             const next = new Set(prev);
@@ -71,19 +73,29 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
     // Collapse all panels when a new turn begins
     useEffect(() => { setExpandedPanels(new Set()); }, [turnId]);
 
+    const statusIsCompaction = isCompactionStatus(status);
+    useEffect(() => {
+        if (!statusIsCompaction) return;
+        setNowMs(Date.now());
+        const timer = setInterval(() => setNowMs(Date.now()), 1000);
+        return () => clearInterval(timer);
+    }, [statusIsCompaction, status?.started_at, status?.startedAt]);
+
     const activeTurn = status?.turn_id || turnId;
     const turnColor = getTurnColor(activeTurn);
     const dotClass = steerQueued ? 'turn-dot turn-dot-queued' : 'turn-dot';
     const panelTitle = (label) => label;
     const isLastActivity = Boolean(status?.last_activity || status?.lastActivity);
-    const intentKind = intent?.kind || 'info';
-    const intentColor = intentKind === 'warning'
+    const resolveIntentColor = (kind) => kind === 'warning'
         ? '#f59e0b'
-        : intentKind === 'error'
+        : kind === 'error'
             ? 'var(--danger-color)'
-            : intentKind === 'success'
+            : kind === 'success'
                 ? 'var(--success-color)'
                 : turnColor;
+    const intentKind = intent?.kind || 'info';
+    const intentColor = resolveIntentColor(intentKind);
+    const statusIntentColor = resolveIntentColor(status?.kind || (statusIsCompaction ? 'warning' : 'info'));
 
     let content = '';
     const title = status?.title;
@@ -155,23 +167,27 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
 
     const pendingTitle = pendingRequest?.tool_call?.title;
     const pendingMessage = pendingTitle ? `Awaiting approval: ${pendingTitle}` : 'Awaiting approval';
+    const compactionElapsedLabel = statusIsCompaction ? getStatusElapsedLabel(status, nowMs) : null;
+    const renderIntentPanel = (payload, color, elapsedLabel = null) => html`
+        <div
+            class="agent-thinking agent-thinking-intent"
+            aria-live="polite"
+            style=${color ? `--turn-color: ${color};` : ''}
+            title=${payload?.detail || ''}
+        >
+            <div class="agent-thinking-title intent">
+                ${color && html`<span class=${dotClass} aria-hidden="true"></span>`}
+                <span class="agent-thinking-title-text">${payload.title}</span>
+                ${elapsedLabel && html`<span class="agent-status-elapsed">${elapsedLabel}</span>`}
+            </div>
+            ${payload.detail && html`<div class="agent-thinking-body">${payload.detail}</div>`}
+        </div>
+    `;
 
     return html`
         <div class="agent-status-panel">
-            ${intent && html`
-                <div
-                    class="agent-thinking agent-thinking-intent"
-                    aria-live="polite"
-                    style=${intentColor ? `--turn-color: ${intentColor};` : ''}
-                    title=${intent?.detail || ''}
-                >
-                    <div class="agent-thinking-title intent">
-                        ${intentColor && html`<span class=${dotClass} aria-hidden="true"></span>`}
-                        ${intent.title}
-                    </div>
-                    ${intent.detail && html`<div class="agent-thinking-body">${intent.detail}</div>`}
-                </div>
-            `}
+            ${intent && renderIntentPanel(intent, intentColor)}
+            ${status?.type === 'intent' && renderIntentPanel(status, statusIntentColor, compactionElapsedLabel)}
             ${pendingRequest && html`
                 <div class="agent-status agent-status-request" aria-live="polite" style=${turnColor ? `--turn-color: ${turnColor};` : ''}>
                     <span class=${dotClass} aria-hidden="true"></span>
@@ -204,7 +220,7 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
                 titleClass: 'thought',
                 panelKey: 'draft',
             })}
-            ${status && html`
+            ${status && status?.type !== 'intent' && html`
                 <div class=${`agent-status${isLastActivity ? ' agent-status-last-activity' : ''}${status?.type === 'error' ? ' agent-status-error' : ''}`} aria-live="polite" style=${turnColor ? `--turn-color: ${turnColor};` : ''}>
                     ${turnColor && html`<span class=${dotClass} aria-hidden="true"></span>`}
                     ${status?.type === 'error' ? html`<span class="agent-status-error-icon" aria-hidden="true">⚠</span>` : (!isLastActivity && html`<div class="agent-status-spinner"></div>`)}

@@ -18,8 +18,19 @@ type ThinkingCommand = Extract<AgentControlCommand, { type: "thinking" }>;
 type CycleModelCommand = Extract<AgentControlCommand, { type: "cycle_model" }>;
 type CycleThinkingCommand = Extract<AgentControlCommand, { type: "cycle_thinking" }>;
 
+function compactionGuard(session: AgentSession): AgentControlResult | null {
+  if (!session.isCompacting) return null;
+  return {
+    status: "error",
+    message: "Auto-compaction is still running. Try again in a moment.",
+  };
+}
+
 /** Handle /model: switch model, list models, or show current model. */
 export async function handleModel(session: AgentSession, modelRegistry: ModelRegistry, command: ModelCommand): Promise<AgentControlResult> {
+  const blocked = compactionGuard(session);
+  if (blocked) return blocked;
+
   const registry = ((session as AgentSession & { modelRegistry?: ModelRegistry }).modelRegistry ?? modelRegistry);
   registry.refresh();
 
@@ -172,6 +183,9 @@ export async function handleThinking(session: AgentSession, _modelRegistry: Mode
 
 /** Handle /cycle-model: switch to the next/previous model. */
 export async function handleCycleModel(session: AgentSession, _modelRegistry: ModelRegistry, command: CycleModelCommand): Promise<AgentControlResult> {
+  const blocked = compactionGuard(session);
+  if (blocked) return blocked;
+
   try {
     const result = await session.cycleModel(command.direction);
     if (!result) {

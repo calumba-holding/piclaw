@@ -43,6 +43,7 @@ import {
     useTimestampRefresh,
 } from './ui/app-helpers.js';
 import { resolveFilePillOpenAction } from './ui/file-pill-open.js';
+import { isCompactionStatus } from './ui/status-duration.js';
 
 function missingApi(name, fallback) {
     if (typeof window !== 'undefined') {
@@ -500,6 +501,7 @@ function App() {
         lastAgentResponseRef.current = null;
         currentTurnIdRef.current = null;
         steerQueuedTurnIdRef.current = null;
+        agentStatusRef.current = null;
         silentRecoveryRef.current = { inFlight: false, lastAttemptAt: 0, turnId: null };
         clearLastActivityTimer();
         setCurrentTurnId(null);
@@ -815,6 +817,7 @@ function App() {
                 }
                 wasAgentActiveRef.current = false;
                 clearAgentRunState();
+                agentStatusRef.current = null;
                 setAgentStatus(null);
                 setAgentDraft({ text: '', totalLines: 0 });
                 setAgentPlan('');
@@ -825,6 +828,7 @@ function App() {
             }
             wasAgentActiveRef.current = true;
             const payload = res.data;
+            agentStatusRef.current = payload;
             const activeTurn = payload.turn_id || payload.turnId;
             if (activeTurn) setActiveTurn(activeTurn);
             noteAgentActivity({ running: true, clearSilence: true });
@@ -895,22 +899,28 @@ function App() {
             const now = Date.now();
             const silenceMs = now - lastEvent;
 
+            const compactionActive = isCompactionStatus(agentStatusRef.current);
+
             if (silenceMs >= SILENCE_FINALIZE_MS) {
-                setAgentStatus({
-                    type: 'waiting',
-                    title: 'Re-syncing after a quiet period…',
-                });
+                if (!compactionActive) {
+                    setAgentStatus({
+                        type: 'waiting',
+                        title: 'Re-syncing after a quiet period…',
+                    });
+                }
                 void reconcileSilentTurn();
                 return;
             }
 
             if (silenceMs >= SILENCE_WARNING_MS) {
                 if (now - lastSilenceNoticeRef.current >= SILENCE_REFRESH_MS) {
-                    const seconds = Math.floor(silenceMs / 1000);
-                    setAgentStatus({
-                        type: 'waiting',
-                        title: `Waiting for model… No events for ${seconds}s`,
-                    });
+                    if (!compactionActive) {
+                        const seconds = Math.floor(silenceMs / 1000);
+                        setAgentStatus({
+                            type: 'waiting',
+                            title: `Waiting for model… No events for ${seconds}s`,
+                        });
+                    }
                     lastSilenceNoticeRef.current = now;
                     void reconcileSilentTurn();
                 }

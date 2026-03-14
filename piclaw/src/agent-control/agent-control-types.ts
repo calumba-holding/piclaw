@@ -33,6 +33,10 @@ export type AgentControlCommand =
       raw: string;
     }
   | {
+      type: "exit";
+      raw: string;
+    }
+  | {
       type: "shell";
       command?: string;
       raw: string;

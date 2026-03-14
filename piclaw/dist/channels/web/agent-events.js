@@ -282,6 +282,7 @@ export function createStreamingEventHandler(options) {
                 ...base,
                 type: "intent",
                 title,
+                detail: "If Pi appears stuck during compaction, use /exit to restart it.",
             });
         }
         if (event.type === "auto_compaction_end") {
@@ -290,7 +291,7 @@ export function createStreamingEventHandler(options) {
                 options.emitter.status({
                     ...base,
                     type: "error",
-                    title: e.errorMessage,
+                    title: `${e.errorMessage} Use /exit if Pi appears stuck.`,
                 });
             }
             else if (e.willRetry) {

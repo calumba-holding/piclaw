@@ -446,6 +446,7 @@ export const COMMAND_PARSERS: Record<string, CommandParser> = {
   "/thinking": parseThinking,
   "/commands": simple("commands"),
   "/restart": simple("restart"),
+  "/exit": simple("exit"),
   "/shell": parseShell,
   "/queue": parseQueue,
   "/queue-all": parseQueueAll,

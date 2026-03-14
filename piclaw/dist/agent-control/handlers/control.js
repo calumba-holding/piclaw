@@ -9,6 +9,17 @@
  */
 import { formatCompactNumber } from "../agent-control-helpers.js";
 import { killTrackedProcesses } from "../../utils/process-tracker.js";
+const EXIT_DELAY_MS = Number(process.env.PICLAW_EXIT_DELAY_MS || "150");
+function scheduleProcessExit() {
+    const customScheduler = globalThis.__PICLAW_EXIT_SCHEDULER__;
+    if (typeof customScheduler === "function") {
+        customScheduler();
+        return;
+    }
+    setTimeout(() => {
+        process.exit(0);
+    }, EXIT_DELAY_MS);
+}
 /** Handle /restart: reload the agent session from disk. */
 export async function handleRestart(session, _command) {
     try {
@@ -32,6 +43,21 @@ export async function handleRestart(session, _command) {
     return {
         status: "success",
         message: `Agent restarted. Killed ${killedLabel}.`,
+    };
+}
+/** Handle /exit: terminate the process so supervisor can restart piclaw. */
+export async function handleExit(session, _command) {
+    try {
+        await session.abort();
+    }
+    catch {
+        // Ignore abort failures for wedged sessions.
+    }
+    killTrackedProcesses();
+    scheduleProcessExit();
+    return {
+        status: "success",
+        message: "Exiting now so supervisor can restart piclaw.",
     };
 }
 /** Handle /compact: manually trigger conversation compaction. */

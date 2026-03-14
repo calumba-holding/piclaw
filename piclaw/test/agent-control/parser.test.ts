@@ -70,6 +70,10 @@ describe("parseControlCommand", () => {
     expect(parseControlCommand("/restart")).toEqual({ type: "restart", raw: "/restart" });
   });
 
+  test("/exit", () => {
+    expect(parseControlCommand("/exit")).toEqual({ type: "exit", raw: "/exit" });
+  });
+
   test("/state", () => {
     expect(parseControlCommand("/state")).toEqual({ type: "state", raw: "/state" });
   });

@@ -10,7 +10,7 @@
  *   - runtime/message-loop.ts calls it for WhatsApp control commands.
  *   - channels/web/request-router-service.ts calls it for web commands.
  */
-import { handleAbort, handleAbortBash, handleAbortRetry, handleAutoCompact, handleAutoRetry, handleCompact, handleRestart, } from "./handlers/control.js";
+import { handleAbort, handleAbortBash, handleAbortRetry, handleAutoCompact, handleAutoRetry, handleCompact, handleExit, handleRestart, } from "./handlers/control.js";
 import { handleAgentAvatar, handleAgentName } from "./handlers/agent.js";
 import { handleUserAvatar, handleUserGithub, handleUserName } from "./handlers/user.js";
 import { handleCommands, handleContext, handleLast, handleSearchWorkspace, handleState, handleStats, } from "./handlers/info.js";
@@ -27,6 +27,8 @@ export async function applyControlCommand(session, modelRegistry, command) {
     switch (command.type) {
         case "restart":
             return handleRestart(session, command);
+        case "exit":
+            return handleExit(session, command);
         case "shell":
             return handleShell(session, command);
         case "bash":
