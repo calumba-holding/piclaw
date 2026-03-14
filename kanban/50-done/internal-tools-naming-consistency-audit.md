@@ -1,7 +1,7 @@
 ---
 id: internal-tools-naming-consistency-audit
 title: Audit internal tools for naming consistency
-status: doing
+status: done
 priority: medium
 created: 2026-03-12
 updated: 2026-03-12
@@ -77,3 +77,18 @@ and revision of all related skills, not just an audit note.
   - renames should be strict rather than alias-based
   - naming should optimise for AI model/agent usability
   - ticket should end in concrete renames plus revision of related skills
+
+### 2026-03-14 (implemented and closed)
+- Full inventory of 22 internal tools performed.
+- Dominant convention identified: `verb_noun` (e.g. `read`, `write`, `edit`,
+  `search_workspace`, `switch_model`, `attach_file`).
+- Three tools renamed for verb-first consistency:
+  - `tool_output_search` → `search_tool_output`
+  - `batch_exec` → `exec_batch`
+  - `sql_introspect` → `introspect_sql`
+- Two noun-only tools kept as-is (multi-action resource pattern):
+  - `messages` — action parameter selects search/get/add/delete
+  - `keychain` — action parameter selects list/get/set/delete
+- Updates applied across: tool registrations, azure tool-call-limit dedup,
+  docs/tool-context-optimizations.md, and all affected tests.
+- Quality: 854 pass, 0 fail.
