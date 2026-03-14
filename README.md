@@ -84,23 +84,13 @@ For the full list (TLS, reverse proxies, timeouts, Pushover, WhatsApp, keychain,
 
 ### Reverse proxies / tunnels
 
-If piclaw is running behind a reverse proxy or tunnel (for example Cloudflare Tunnel, Caddy, or Nginx TLS termination), enable proxy trust so origin checks and absolute URL generation use the external host/proto:
+If piclaw is running behind a reverse proxy or tunnel (for example Cloudflare Tunnel, Caddy, or Nginx TLS termination), enable proxy trust:
 
 ```bash
 PICLAW_TRUST_PROXY=1
 ```
 
-or in `.piclaw/config.json`:
-
-```json
-{
-  "web": {
-    "trustProxy": true
-  }
-}
-```
-
-Your proxy should forward either the standard `Forwarded` header or the usual `X-Forwarded-Host` / `X-Forwarded-Proto` headers.
+See [docs/reverse-proxy.md](docs/reverse-proxy.md) for the full operator guide, required forwarded headers, Cloudflare Tunnel example, generic reverse-proxy examples, and troubleshooting notes.
 
 ## Development
 
@@ -135,6 +125,7 @@ PiClaw works with any OCI-compliant runtime:
 ## Documentation
 
 - [Configuration](docs/configuration.md) — all env vars, TOTP, TLS, keychain, Pushover, WhatsApp
+- [Reverse proxy / Cloudflare Tunnel](docs/reverse-proxy.md) — trust-proxy setup, forwarded headers, examples, troubleshooting
 - [Architecture](docs/architecture.md) — codebase layout and design decisions
 - [Storage model](docs/storage.md) — SQLite schema and data lifecycle
 - [Runtime flows](docs/runtime-flows.md) — message processing, queue/steering, and crash recovery

@@ -52,10 +52,7 @@ This allows piclaw to trust forwarded host/proto information for:
 - absolute origin/link generation in the web channel
 - client IP derivation for logging / rate limiting
 
-Forward either:
-
-- the standard `Forwarded` header, or
-- `X-Forwarded-Host` plus `X-Forwarded-Proto` (and optionally `X-Forwarded-Port`)
+For the full operator guide — including required forwarded headers, Cloudflare Tunnel, Caddy/Nginx examples, and troubleshooting — see [reverse-proxy.md](reverse-proxy.md).
 
 Leave this disabled for direct/non-proxied deployments.
 

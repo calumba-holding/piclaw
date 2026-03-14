@@ -1,8 +1,9 @@
 // @ts-nocheck
-import { html, useEffect, useMemo, useState } from '../vendor/preact-htm.js';
+import { html, useEffect, useMemo, useRef, useState } from '../vendor/preact-htm.js';
 import { getMediaBlob, getMediaText, getMediaUrl } from '../api.js';
+import { renderMarkdown, renderMermaidDiagrams } from '../markdown.js';
 import { formatFileSize, formatTimestamp } from '../utils/format.js';
-import { getAttachmentPreviewKind, getAttachmentPreviewLabel } from '../ui/attachment-preview.js';
+import { getAttachmentPreviewKind, getAttachmentPreviewLabel, isMarkdownAttachmentPreview } from '../ui/attachment-preview.js';
 
 function buildMetadata(info) {
     const size = info?.metadata?.size;
@@ -18,11 +19,17 @@ export function AttachmentPreviewModal({ mediaId, info, onClose }) {
     const filename = info?.filename || `attachment-${mediaId}`;
     const previewKind = useMemo(() => getAttachmentPreviewKind(info?.content_type), [info?.content_type]);
     const previewLabel = getAttachmentPreviewLabel(previewKind);
+    const isMarkdown = useMemo(() => isMarkdownAttachmentPreview(info?.content_type), [info?.content_type]);
     const [loading, setLoading] = useState(previewKind === 'text' || previewKind === 'pdf');
     const [textContent, setTextContent] = useState('');
     const [blobUrl, setBlobUrl] = useState(null);
     const [error, setError] = useState(null);
+    const markdownContainerRef = useRef(null);
     const metadata = useMemo(() => buildMetadata(info), [info]);
+    const renderedMarkdown = useMemo(() => {
+        if (!isMarkdown || !textContent) return '';
+        return renderMarkdown(textContent);
+    }, [isMarkdown, textContent]);
 
     useEffect(() => {
         const handleEsc = (e) => {
@@ -31,6 +38,12 @@ export function AttachmentPreviewModal({ mediaId, info, onClose }) {
         document.addEventListener('keydown', handleEsc);
         return () => document.removeEventListener('keydown', handleEsc);
     }, [onClose]);
+
+    useEffect(() => {
+        if (!markdownContainerRef.current || !renderedMarkdown) return undefined;
+        renderMermaidDiagrams(markdownContainerRef.current);
+        return undefined;
+    }, [renderedMarkdown]);
 
     useEffect(() => {
         let cancelled = false;
@@ -106,7 +119,14 @@ export function AttachmentPreviewModal({ mediaId, info, onClose }) {
                     ${!loading && !error && previewKind === 'pdf' && blobUrl && html`
                         <iframe class="attachment-preview-frame" src=${blobUrl} title=${filename}></iframe>
                     `}
-                    ${!loading && !error && previewKind === 'text' && html`
+                    ${!loading && !error && previewKind === 'text' && isMarkdown && html`
+                        <div
+                            ref=${markdownContainerRef}
+                            class="attachment-preview-markdown post-content"
+                            dangerouslySetInnerHTML=${{ __html: renderedMarkdown }}
+                        />
+                    `}
+                    ${!loading && !error && previewKind === 'text' && !isMarkdown && html`
                         <pre class="attachment-preview-text">${textContent}</pre>
                     `}
                     ${!loading && !error && previewKind === 'unsupported' && html`

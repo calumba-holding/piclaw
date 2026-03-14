@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { getAttachmentPreviewKind, getAttachmentPreviewLabel } from '../../web/src/ui/attachment-preview.js';
+import { getAttachmentPreviewKind, getAttachmentPreviewLabel, isMarkdownAttachmentPreview } from '../../web/src/ui/attachment-preview.js';
 
 describe('attachment preview helpers', () => {
     test('classifies previewable kinds for v1', () => {
@@ -8,6 +8,12 @@ describe('attachment preview helpers', () => {
         expect(getAttachmentPreviewKind('application/pdf')).toBe('pdf');
         expect(getAttachmentPreviewKind('text/plain')).toBe('text');
         expect(getAttachmentPreviewKind('application/json')).toBe('text');
+    });
+
+    test('distinguishes markdown from generic text previews', () => {
+        expect(isMarkdownAttachmentPreview('text/markdown')).toBe(true);
+        expect(isMarkdownAttachmentPreview('text/plain')).toBe(false);
+        expect(isMarkdownAttachmentPreview('application/json')).toBe(false);
     });
 
     test('falls back to unsupported for non-previewable types', () => {

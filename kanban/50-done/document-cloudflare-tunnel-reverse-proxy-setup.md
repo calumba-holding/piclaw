@@ -1,10 +1,11 @@
 ---
 id: document-cloudflare-tunnel-reverse-proxy-setup
 title: Document Cloudflare Tunnel / reverse-proxy setup for piclaw web
-status: next
+status: done
 priority: medium
 created: 2026-03-10
-updated: 2026-03-12
+updated: 2026-03-14
+completed: 2026-03-14
 target_release: next
 tags:
   - work-item
@@ -65,15 +66,38 @@ Implement **Path A**, then add concise links/snippets in `configuration.md` and 
 
 ## Definition of Done
 
-- [ ] All acceptance criteria satisfied and verified
-- [ ] Documentation reviewed against current runtime behavior
-- [ ] Cross-links from README / config docs added and verified
-- [ ] Operational examples included and sanity-checked
-- [ ] Quality score ≥ 9 recorded in final update
-- [ ] Ticket front matter updated (`status`, `updated`, `completed`)
-- [ ] Ticket moved to `50-done/`
+- [x] All acceptance criteria satisfied and verified
+- [x] Documentation reviewed against current runtime behavior
+- [x] Cross-links from README / config docs added and verified
+- [x] Operational examples included and sanity-checked
+- [x] Quality score ≥ 9 recorded in final update
+- [x] Ticket front matter updated (`status`, `updated`, `completed`)
+- [x] Ticket moved to `50-done/`
 
 ## Updates
+
+### 2026-03-14
+- Lane change: `20-doing` → `50-done` after completing the documentation pass.
+- Added a new authoritative operator guide at `docs/reverse-proxy.md` covering:
+  - when to enable `PICLAW_TRUST_PROXY`
+  - forwarded-header requirements and runtime precedence
+  - Cloudflare Tunnel example
+  - generic Caddy and Nginx examples
+  - troubleshooting and operator validation checklist
+- Reduced duplication by linking to the new page from:
+  - `README.md`
+  - `docs/configuration.md`
+- Reviewed the guidance directly against the current runtime behavior in:
+  - `piclaw/src/core/config.ts`
+  - `piclaw/src/utils/request-client.ts`
+  - `piclaw/src/channels/web/http/security.ts`
+  - `piclaw/src/channels/web/request-origin.ts`
+- Quality: ★★★★★ 10/10 (problem: 2, scope: 2, test: 2, deps: 2, risk: 2)
+
+### 2026-03-14
+- Lane change: `10-next` → `20-doing` as the best next pickup after attachment preview closure.
+- Chosen because it is low-risk, clearly scoped, and directly leverages the recently validated reverse-proxy/trust-proxy fixes.
+- Expected path remains `docs/reverse-proxy.md` plus cross-links from README and configuration docs.
 
 ### 2026-03-12
 - Board quality review: added an explicit docs/test plan and DoD checklist.
