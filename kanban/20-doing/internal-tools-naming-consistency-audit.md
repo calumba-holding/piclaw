@@ -1,7 +1,7 @@
 ---
 id: internal-tools-naming-consistency-audit
 title: Audit internal tools for naming consistency
-status: inbox
+status: doing
 priority: medium
 created: 2026-03-12
 updated: 2026-03-12

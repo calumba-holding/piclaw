@@ -121,7 +121,7 @@ function describeToolCall(entry: ToolCallEntry, outputChars: number): string {
   const name = entry.name || "tool";
   const outputPreview = formatToolCallSnippet(entry.output || "", outputChars);
 
-  if (name === "tool_output_search") {
+  if (name === "search_tool_output") {
     const parsed = parseToolOutputSearchArgs(entry.args);
     const handle = parsed?.handle ? `handle=${parsed.handle}` : "";
     const query = parsed?.query ? `query=\"${parsed.query}\"` : "";
@@ -197,7 +197,7 @@ export function applyToolCallLimit(messages: ToolCallMessage[], config: ToolCall
   if (config.dedupeToolOutputSearch) {
     const seen = new Map<string, ToolCallEntry>();
     for (const entry of entries) {
-      if (entry.name !== "tool_output_search") continue;
+      if (entry.name !== "search_tool_output") continue;
       const parsed = parseToolOutputSearchArgs(entry.args);
       if (!parsed?.handle || !parsed?.query) continue;
       const key = `${parsed.handle}|${parsed.query}`;

@@ -66,13 +66,13 @@ describe("sql-introspect extension", () => {
     );
     const fake = makeFakeApi();
     sqlIntrospect(fake.api);
-    return fake.tools.get("sql_introspect");
+    return fake.tools.get("introspect_sql");
   }
 
-  test("registers sql_introspect tool", async () => {
+  test("registers introspect_sql tool", async () => {
     const tool = await getTool();
     expect(tool).toBeDefined();
-    expect(tool.name).toBe("sql_introspect");
+    expect(tool.name).toBe("introspect_sql");
   });
 
   test("runs read-only introspection query", async () => {

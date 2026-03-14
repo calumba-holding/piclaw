@@ -36,7 +36,7 @@ test("applyToolCallLimit trims oldest tool calls and inserts summary", () => {
     makeCall("call1", "fc_old", "bash", { command: "ls" }),
     makeOutput("call1", "first output"),
     makeReasoning("rs_keep"),
-    makeCall("call2", "fc_keep", "tool_output_search", { handle: "out_1", query: "foo" }),
+    makeCall("call2", "fc_keep", "search_tool_output", { handle: "out_1", query: "foo" }),
     makeOutput("call2", "second output"),
   ];
 
@@ -63,13 +63,13 @@ test("applyToolCallLimit trims oldest tool calls and inserts summary", () => {
   expect(summary?.id || "").toMatch(/^msg_/);
 });
 
-test("applyToolCallLimit dedupes tool_output_search calls", () => {
+test("applyToolCallLimit dedupes search_tool_output calls", () => {
   const messages = [
     makeReasoning("rs_a"),
-    makeCall("call1", "fc_a", "tool_output_search", { handle: "out_2", query: "alpha" }),
+    makeCall("call1", "fc_a", "search_tool_output", { handle: "out_2", query: "alpha" }),
     makeOutput("call1", "first result"),
     makeReasoning("rs_b"),
-    makeCall("call2", "fc_b", "tool_output_search", { handle: "out_2", query: "alpha" }),
+    makeCall("call2", "fc_b", "search_tool_output", { handle: "out_2", query: "alpha" }),
     makeOutput("call2", "second result"),
   ];
 

@@ -11,7 +11,7 @@
  *   - modelControl: get_model_state, list_models, switch_model, switch_thinking.
  *   - internalTools: list_internal_tools for tool discovery.
  *   - keychainTools: keychain for listing/retrieving keychain entries.
- *   - sqlIntrospect: sql_introspect for read-only DB introspection.
+ *   - sqlIntrospect: introspect_sql for read-only DB introspection.
  *   - scheduledTasks: /tasks and /scheduled commands for task listing.
  *   - workspaceSearch: search_workspace tool for FTS over workspace files.
  *

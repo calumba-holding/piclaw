@@ -7,12 +7,12 @@
  * context window. This keeps the context lean while preserving searchability.
  *
  * Also provides:
- *   - tool_output_search: lets the agent search stored tool outputs by query.
+ *   - search_tool_output: lets the agent search stored tool outputs by query.
  *   - batch_exec: runs multiple shell commands sequentially with summaries.
  *
  * Consumers:
  *   - agent-pool.ts registers these tools on the pi-agent session so the
- *     agent can invoke "bash", "tool_output_search", and "batch_exec".
+ *     agent can invoke "bash", "search_tool_output", and "exec_batch".
  */
 
 import { existsSync } from "fs";
@@ -95,7 +95,7 @@ export function createContextBashTool(cwd: string) {
       const summaryText = [
         `Output stored as tool-output:${saved.id} (${saved.lineCount} lines, ${formatBytes(saved.sizeBytes)}).`,
         preview ? `Preview:\n${preview}` : null,
-        `Use tool_output_search with handle "${saved.id}" and a query to retrieve relevant snippets.`,
+        `Use search_tool_output with handle "${saved.id}" and a query to retrieve relevant snippets.`,
       ]
         .filter(Boolean)
         .join("\n\n");
@@ -116,8 +116,8 @@ export function createContextBashTool(cwd: string) {
 /** Create a tool that searches across stored tool output snippets. */
 export function createToolOutputSearchTool() {
   return {
-    name: "tool_output_search",
-    label: "tool_output_search",
+    name: "search_tool_output",
+    label: "search_tool_output",
     description: "Search stored tool output by handle and query, returning compact snippets.",
     parameters: Type.Object({
       handle: Type.String({ description: "Tool output handle, e.g. out_..." }),
@@ -160,8 +160,8 @@ export function createToolOutputSearchTool() {
 export function createBatchExecTool(cwd: string, bashTool = createContextBashTool(cwd)) {
   const base = bashTool;
   return {
-    name: "batch_exec",
-    label: "batch_exec",
+    name: "exec_batch",
+    label: "exec_batch",
     description: "Run multiple shell commands and return concise summaries for each.",
     parameters: Type.Object({
       commands: Type.Array(Type.String({ description: "Shell commands to execute" })),

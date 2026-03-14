@@ -106,7 +106,7 @@ describe("prepareFtsQuery", () => {
   });
 
   test("handles the real-world failures we hit today", () => {
-    // These caused actual errors in tool_output_search during this session:
+    // These caused actual errors in search_tool_output during this session:
 
     // "no such column: side" — hyphenated token parsed as column ref
     expect(prepareFtsQuery("pi-side-agents")).toBe("pi-side-agents");

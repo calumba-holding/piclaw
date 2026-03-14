@@ -62,7 +62,7 @@ describe("builtin extension factories", () => {
     expect(fake.tools.has("switch_thinking")).toBe(true);
     expect(fake.tools.has("list_internal_tools")).toBe(true);
     expect(fake.tools.has("keychain")).toBe(true);
-    expect(fake.tools.has("sql_introspect")).toBe(true);
+    expect(fake.tools.has("introspect_sql")).toBe(true);
 
     // Commands from scheduled-tasks + ui-theme extensions
     expect(fake.commands.has("tasks")).toBe(true);

@@ -67,19 +67,19 @@ function safePreview(value: unknown): string {
 
 const SQL_HINT = [
   "## Database Introspection",
-  "Use sql_introspect for read-only SQLite introspection (tables/schema/rows).",
+  "Use introspect_sql for read-only SQLite introspection (tables/schema/rows).",
   "Only read-only SELECT/PRAGMA/WITH/EXPLAIN queries are allowed.",
 ].join("\n");
 
-/** Extension factory that registers sql_introspect. */
+/** Extension factory that registers introspect_sql. */
 export const sqlIntrospect: ExtensionFactory = (pi: ExtensionAPI) => {
   pi.on("before_agent_start", async (event) => ({
     systemPrompt: `${event.systemPrompt}\n\n${SQL_HINT}`,
   }));
 
   pi.registerTool({
-    name: "sql_introspect",
-    label: "sql_introspect",
+    name: "introspect_sql",
+    label: "introspect_sql",
     description: "Run read-only SQL against the messages database for introspection.",
     parameters: SqlIntrospectSchema,
     async execute(_toolCallId, params) {

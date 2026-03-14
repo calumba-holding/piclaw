@@ -24,7 +24,7 @@ The summary includes:
 - A storage handle (`tool-output:<id>`)
 - Line and byte counts
 - A short preview
-- Instructions to use `tool_output_search`
+- Instructions to use `search_tool_output`
 
 ### 2) Persist output for later retrieval
 
@@ -36,10 +36,10 @@ Metadata and FTS indexing are stored in the `messages.db` SQLite database.
 
 ### 3) Search stored output
 
-A custom tool `tool_output_search` searches stored output using SQLite FTS and returns compact snippets:
+A custom tool `search_tool_output` searches stored output using SQLite FTS and returns compact snippets:
 
 ```text
-tool_output_search
+search_tool_output
 - handle: out_...
 - query: <search terms>
 - limit: 5 (optional)
@@ -47,7 +47,7 @@ tool_output_search
 
 ### 4) Batch exec helper
 
-A second tool, `batch_exec`, runs multiple shell commands and returns concise summaries for each. It uses the same context-aware bash wrapper for output handling.
+A second tool, `exec_batch`, runs multiple shell commands and returns concise summaries for each. It uses the same context-aware bash wrapper for output handling.
 
 ## Enabling the helpers
 
@@ -118,7 +118,7 @@ If either threshold is exceeded, the output is stored and summarized.
 - `src/tool-output.ts`
   - Stores full output, builds preview, chunks text for FTS, handles cleanup.
 - `src/tools/context-tools.ts`
-  - Context-aware bash wrapper, `tool_output_search`, `batch_exec`.
+  - Context-aware bash wrapper, `search_tool_output`, `exec_batch`.
 - Integration: register the tools in your extension or tool list.
 - `src/db.ts`
   - Database schema and FTS operations for tool outputs.
@@ -132,7 +132,7 @@ If either threshold is exceeded, the output is stored and summarized.
 3. User searches the output:
 
 ```text
-tool_output_search
+search_tool_output
 - handle: out_1700000000000_abcdef12
 - query: error
 ```
@@ -140,5 +140,5 @@ tool_output_search
 ## Troubleshooting
 
 - If you see raw, large outputs in the assistant response, check the thresholds and ensure the extension is loaded.
-- If `tool_output_search` returns no results, verify that `messages.db` contains `tool_outputs` rows and the `.log` file exists.
+- If `search_tool_output` returns no results, verify that `messages.db` contains `tool_outputs` rows and the `.log` file exists.
 - If results appear but links are missing, confirm the handle is correct and the output wasn’t pruned.
