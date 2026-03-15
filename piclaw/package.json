@@ -1,6 +1,6 @@
 {
   "name": "piclaw",
-  "version": "1.3.16",
+  "version": "1.4.0",
   "description": "Personal pi coding agent assistant. Lightweight nanoclaw-style orchestrator using Bun and pi.",
   "type": "module",
   "main": "src/index.ts",
