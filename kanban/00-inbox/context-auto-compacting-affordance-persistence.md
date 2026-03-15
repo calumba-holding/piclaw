@@ -55,10 +55,7 @@ purely transient toast.
   - warning/escalation level
   - timestamp or last-seen metadata
   - session/chat association
-- Decide persistence layer:
-  - browser-local only,
-  - SQLite-backed per chat/session,
-  - or hybrid
+- Implement the chosen persistence layer and reset semantics.
 - Restore the affordance consistently after:
   - hard reload
   - SSE reconnect
@@ -71,50 +68,117 @@ purely transient toast.
 - Full redesign of all status/toast surfaces
 - New session-rotation policies unrelated to the affordance behavior
 
+## Refined direction
+
+### Chosen model
+
+Use a **hybrid persistence model**:
+
+- **backend truth** decides whether the compaction affordance is currently warranted
+- **browser-local state** stores local UI memory such as dismissal / seen state
+
+### Chosen reset rule
+
+A dismissed affordance becomes eligible to show again on the **next threshold crossing**.
+
+This means:
+- dismissing the current warning should suppress repeat noise for the same condition
+- a fresh threshold transition should re-open eligibility to show the affordance again
+- the UI should not stay permanently suppressed across future meaningful context growth
+
+### Why this is the recommended shape
+
+#### Why not browser-local only
+- it can lie after reload/reconnect
+- it can drift from the real session/context state
+- it behaves poorly across multiple clients or browser profiles
+
+#### Why not backend-only
+- it over-centralizes lightweight UI memory
+- it makes simple per-browser dismissal state heavier than necessary
+- it removes useful local polish behavior that does not need to be shared globally
+
+### Practical implementation shape
+
+#### Backend-owned truth
+The backend should expose enough state for the web UI to determine:
+- whether the auto-compacting affordance is currently warranted
+- which chat/session it applies to
+- the current threshold/warning level or equivalent trigger generation
+
+#### Browser-local memory
+The frontend should store only lightweight UI memory such as:
+- whether the user dismissed the current affordance instance
+- which chat/session the dismissal applied to
+- the last seen trigger generation / threshold-crossing marker
+
+### Preferred first slice
+
+1. Surface a backend truth signal for whether the affordance is currently warranted.
+2. Add browser-local dismissal memory keyed by chat/session plus trigger generation.
+3. Restore the affordance on reload only when:
+   - backend truth still says it is warranted, and
+   - the current trigger generation is not dismissed locally.
+4. Clear local dismissal automatically on the next threshold crossing.
+
 ## Acceptance Criteria
 
-- [ ] The auto-compacting affordance has a clearly defined persisted state model.
+- [ ] The auto-compacting affordance uses the chosen **hybrid** model:
+  - backend truth for whether it is currently warranted
+  - browser-local state for dismissal / seen memory
 - [ ] Its behavior after reload/reconnect is deterministic and documented.
-- [ ] A dismissed or acknowledged affordance does not reappear spuriously.
-- [ ] If the underlying session/context state still warrants the affordance, it restores correctly after reload.
+- [ ] A dismissed affordance does not reappear spuriously for the same trigger generation.
+- [ ] A new threshold crossing makes the affordance eligible to show again.
+- [ ] If the underlying session/context state still warrants the affordance after reload, it restores correctly unless locally dismissed for the current trigger generation.
 - [ ] The affordance remains scoped to the correct chat/session context.
 - [ ] Persistence does not make the UI lie after a compaction, rotation, or context reset.
 - [ ] Regression coverage exists for the chosen persistence behavior.
 
-## Investigation / Design Questions
+## Remaining design questions
 
-- Is this state fundamentally:
-  - per browser tab,
-  - per browser profile,
-  - per chat,
-  - or per session tree?
-- Should dismissal persist forever, until the next threshold crossing, or only until the next compaction event?
-- Should restoration be derived from backend truth every time, or can the frontend keep a local hint cache?
-- Does session rotation reset the affordance or carry it forward with the effective context?
-- Is there already enough signal in `/state`, session metadata, or web status endpoints to derive this without adding a new store?
+- What is the smallest reliable backend signal for “affordance warranted now”:
+  - existing `/state`-derived data,
+  - status payload enrichment,
+  - or a dedicated compactness/threshold field?
+- Should local dismissal be keyed by:
+  - chat only,
+  - chat + session file,
+  - or chat + backend trigger generation?
+- Does session rotation preserve the same affordance trigger generation, or should a new session boundary implicitly reset it?
+- Is one warning level enough for v1, or do we need multiple escalation levels immediately?
 
 ## Test Plan
 
-- [ ] Add web/UI tests covering reload/restoration behavior.
-- [ ] Add backend/state tests if persistence is not purely frontend-local.
+- [ ] Add web/UI tests covering hybrid restoration behavior.
+- [ ] Add backend/state tests for the “affordance warranted now” truth signal.
 - [ ] Validate transitions for:
   1. threshold reached / affordance shown
-  2. user dismisses or acknowledges
-  3. page reloads
-  4. SSE reconnects
-  5. compaction happens
-  6. affordance clears or updates correctly
+  2. user dismisses the affordance locally
+  3. page reloads while backend truth still says it is warranted
+  4. SSE reconnects while the same trigger generation is still active
+  5. next threshold crossing occurs
+  6. affordance becomes eligible to show again
+  7. compaction happens and the affordance clears or downgrades correctly
 - [ ] Run `bun run quality` from `/workspace/piclaw/piclaw`.
 
 ## Definition of Done
 
-- [ ] Persistence model chosen and implemented
-- [ ] Behavior documented in code/comments or runtime docs as appropriate
+- [ ] Hybrid persistence model implemented
+- [ ] Threshold-crossing reset rule implemented
+- [ ] Backend truth signal and browser-local dismissal memory are both documented
 - [ ] Reload/reconnect behavior validated
 - [ ] Regression coverage added
 - [ ] `bun run quality` passes
 
 ## Updates
+
+### 2026-03-15 (refinement)
+- Refined live with the user using Adaptive Card decision points in the web UI.
+- Chosen persistence direction: **hybrid**.
+  - backend truth for whether the affordance is warranted now
+  - browser-local dismissal / seen-state memory for UI polish
+- Chosen default reset rule: **next threshold crossing**.
+- Ticket now reflects a concrete first implementation slice rather than a purely open-ended design prompt.
 
 ### 2026-03-15
 - Created from user request to explicitly track persistence for the context auto-compacting affordance.

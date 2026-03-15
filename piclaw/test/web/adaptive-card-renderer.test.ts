@@ -8,6 +8,7 @@ import {
   extractCardBlocks,
   normalizeAdaptiveCardAction,
   describeAdaptiveCardState,
+  hydrateAdaptiveCardPayloadWithSubmission,
 } from "../../web/src/ui/adaptive-card-renderer.js";
 
 describe("isAdaptiveCardBlock", () => {
@@ -138,7 +139,7 @@ describe("describeAdaptiveCardState", () => {
     })).toBeNull();
   });
 
-  test("describes completed cards with submission summary", () => {
+  test("describes completed cards concisely without echoing submitted values in the banner", () => {
     const meta = describeAdaptiveCardState({
       type: "adaptive_card",
       card_id: "card-1",
@@ -152,6 +153,25 @@ describe("describeAdaptiveCardState", () => {
     });
     expect(meta?.label).toBe("Submitted");
     expect(meta?.detail).toContain("Submit choices");
-    expect(meta?.detail).toContain("priority: high");
+    expect(meta?.detail).not.toContain("priority: high");
+  });
+
+  test("hydrates finished card payloads with submitted values", () => {
+    const hydrated = hydrateAdaptiveCardPayloadWithSubmission({
+      type: "AdaptiveCard",
+      body: [
+        { type: "Input.Text", id: "title", label: "Title" },
+        { type: "Input.ChoiceSet", id: "targets", isMultiSelect: true },
+        { type: "Input.Toggle", id: "confirm", valueOn: "yes", valueOff: "no" },
+      ],
+    }, {
+      title: "Queued fix",
+      targets: ["docs", "tests"],
+      confirm: true,
+    });
+
+    expect((hydrated.body as any[])[0]?.value).toBe("Queued fix");
+    expect((hydrated.body as any[])[1]?.value).toBe("docs,tests");
+    expect((hydrated.body as any[])[2]?.value).toBe("yes");
   });
 });

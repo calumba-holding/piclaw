@@ -1004,6 +1004,7 @@ function App() {
             // On initial page load, fetch agent status immediately so any
             // in-progress turn (e.g. auto-compaction) is shown right away.
             refreshAgentStatus();
+            refreshContextUsage();
             return;
         }
         // On reconnect: refresh timeline for any missed posts and restore
@@ -1013,7 +1014,8 @@ function App() {
             refreshTimeline();
         }
         refreshAgentStatus();
-    }, [clearAgentRunState, refreshTimeline, refreshAgentStatus]);
+        refreshContextUsage();
+    }, [clearAgentRunState, refreshTimeline, refreshAgentStatus, refreshContextUsage]);
 
 
     // Handle hashtag click
@@ -1422,7 +1424,8 @@ function App() {
     const refreshModelAndQueueState = useCallback(() => {
         refreshModelState();
         refreshQueueState();
-    }, [refreshModelState, refreshQueueState]);
+        refreshContextUsage();
+    }, [refreshModelState, refreshQueueState, refreshContextUsage]);
 
     useEffect(() => {
         refreshModelAndQueueState();
@@ -1878,6 +1881,28 @@ function App() {
         }, intervalMs);
         return () => clearInterval(interval);
     }, [connectionStatus, isAgentActive, refreshAgentStatus, refreshContextUsage, refreshQueueState, refreshTimeline]);
+
+    // Returning to the tab/webapp should restore current context-affordance
+    // truth immediately instead of waiting for the 15s/60s backstop poller.
+    useEffect(() => {
+        if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+        const handleReturnToApp = () => {
+            if (document.visibilityState && document.visibilityState !== 'visible') return;
+            refreshAgentStatus();
+            refreshContextUsage();
+            refreshQueueState();
+        };
+
+        window.addEventListener('focus', handleReturnToApp);
+        window.addEventListener('pageshow', handleReturnToApp);
+        document.addEventListener('visibilitychange', handleReturnToApp);
+        return () => {
+            window.removeEventListener('focus', handleReturnToApp);
+            window.removeEventListener('pageshow', handleReturnToApp);
+            document.removeEventListener('visibilitychange', handleReturnToApp);
+        };
+    }, [refreshAgentStatus, refreshContextUsage, refreshQueueState]);
 
     const toggleWorkspace = useCallback(() => {
         setWorkspaceOpen((prev) => !prev);

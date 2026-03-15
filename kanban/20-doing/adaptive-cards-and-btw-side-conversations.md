@@ -164,6 +164,167 @@ Normal `content` stays as human-readable fallback text for search/export.
 - Thread state persists across reload/restart
 - BTW cards filtered from main agent LLM context
 
+## Current PiClaw authoring contract
+
+The card runtime is now real enough that this ticket should stop talking about
+Adaptive Cards only as a rendering substrate and start documenting the **actual
+current authoring contract** for PiClaw.
+
+### Supported authoring surface
+
+Use cards in the current web runtime only for interactions that are materially
+better than markdown, especially:
+
+- approval / reject / revise
+- choosing one of a few next actions
+- short structured data collection
+- compact persistent status / receipt UI
+- explicit operator link collections
+
+### Supported runtime features
+
+- `content_blocks` entry with `type: "adaptive_card"`
+- `schema_version: "1.5"`
+- actions:
+  - `Action.Submit`
+  - `Action.OpenUrl`
+- lifecycle states:
+  - `active`
+  - `completed`
+  - `cancelled`
+  - `failed`
+- optional iterative submit behavior:
+  - `submit_behavior: "keep_active"`
+
+### Explicit non-goals for current authoring
+
+Do **not** treat these as part of the currently supported authoring model unless
+core support is extended deliberately:
+
+- `Action.ShowCard`
+- `Action.ToggleVisibility`
+- card refresh/auth flows
+- multi-channel delivery assumptions beyond the web UI
+- assuming the agent will autonomously choose cards without being instructed
+
+### Required block shape
+
+PiClaw-compatible cards should be authored as one concise fallback message plus
+one `adaptive_card` content block with a close-matching `fallback_text`.
+
+Minimal shape:
+
+```json
+{
+  "type": "adaptive_card",
+  "card_id": "approval-123",
+  "schema_version": "1.5",
+  "state": "active",
+  "fallback_text": "Approval requested.",
+  "payload": {
+    "type": "AdaptiveCard",
+    "version": "1.5",
+    "body": [
+      { "type": "TextBlock", "text": "Approval requested", "weight": "Bolder", "size": "Medium" }
+    ],
+    "actions": [
+      { "type": "Action.Submit", "title": "Approve", "data": { "decision": "approve" } }
+    ]
+  }
+}
+```
+
+## Agent-facing authoring kit
+
+To make cards actually usable by the agent in the current environment, we now
+need to treat authoring guidance as a first-class deliverable rather than an
+implicit side effect of the renderer.
+
+### New skill
+
+A public skill now exists for this purpose:
+
+- workspace source of truth:
+  - `/workspace/.pi/skills/adaptive-cards-authoring/SKILL.md`
+  - `/workspace/.pi/skills/adaptive-cards-authoring/templates.md`
+- distributed template copy:
+  - `/workspace/piclaw/skel/.pi/skills/adaptive-cards-authoring/SKILL.md`
+  - `/workspace/piclaw/skel/.pi/skills/adaptive-cards-authoring/templates.md`
+
+### What the skill standardizes
+
+- a prompt pattern for intentionally asking the agent to emit a card
+- the current PiClaw-supported payload shape
+- a small library of reusable card classes:
+  - approval card
+  - choice card
+  - link card
+  - status / receipt card
+  - keep-active form card
+- guidance for when **not** to use a card and prefer markdown instead
+
+### Recommended prompt pattern
+
+```text
+Use an Adaptive Card for this response because the interaction is structured and web-only.
+
+Constraints:
+- Target the current PiClaw web runtime
+- Emit a concise human-readable fallback message plus one adaptive_card content block
+- Use schema_version 1.5
+- Only use supported actions: Action.Submit and/or Action.OpenUrl
+- Keep the card visually simple and compact
+- Keep submission payloads small and explicit
+- Do not use Action.ShowCard or unsupported card refresh/auth features
+- If a card would be worse than markdown, say so and return markdown instead
+
+Task:
+<describe the approval / choice / form interaction>
+```
+
+### Stronger deterministic generation pattern
+
+```text
+Generate:
+1. a concise fallback message string
+2. exactly one PiClaw adaptive_card content block JSON object
+
+Requirements:
+- card_id should be stable and descriptive
+- fallback_text should match the fallback message closely
+- state should start as active
+- payload.version should be 1.5
+- only supported actions
+- keep the body compact and readable in a narrow web pane
+```
+
+### Product implication
+
+This ticket should now treat “card authoring guidance for the current runtime”
+as a delivered sub-capability. The missing work is no longer “how do we author
+cards at all?” but rather:
+
+- when should the agent choose cards intentionally?
+- which standard templates should core or prompts reuse first?
+- which future BTW/card flows deserve promotion from template to product surface?
+
+## Refinement impact on remaining phases
+
+### Phase 3 / Phase 4 refinement
+
+The new skill makes the current boundary clearer:
+
+- Adaptive Cards are already good for **structured web UI**
+- BTW currently solves **side conversation streaming/persistence UX**
+- making BTW “card-based” should happen only when the card improves the UX over
+  the current panel, not just because cards are available
+
+That means Phase 4 should likely split its goals into:
+
+1. **card-assisted BTW outputs** where a card is genuinely superior
+2. **continue using the BTW panel** where long-form or streaming-heavy output is better
+3. only later, promote any successful card pattern into a built-in BTW product surface
+
 ## Upstream reference
 
 ### Microsoft Adaptive Cards
@@ -204,6 +365,10 @@ Normal `content` stays as human-readable fallback text for search/export.
   (`adopt-openclaw-ui.md`) and `/btw` investigation.
 - Phased plan: cards rendering → card actions → side-LLM engine → /btw.
 - Phase 1 implementation started.
+- Refined using the new public `adaptive-cards-authoring` skill so the ticket
+  now captures the current PiClaw authoring contract, supported runtime
+  features, prompt pattern, and reusable template classes for cards in the web
+  environment.
 - Added a built-in web `/test-card` command with persistent `basic`,
   `choices`, `approval`, and `completed` variants so Adaptive Card
   rendering/action styling can be validated without relying on transient ad hoc

@@ -139,6 +139,71 @@ function formatSubmissionValue(value: unknown): string {
   return String(value).trim();
 }
 
+function coerceInputValue(type: unknown, value: unknown, definition?: Record<string, unknown>): unknown {
+  if (value == null) return value;
+  if (type === "Input.Toggle") {
+    if (typeof value === "boolean") {
+      if (value) return definition?.valueOn ?? "true";
+      return definition?.valueOff ?? "false";
+    }
+    return typeof value === "string" ? value : String(value);
+  }
+  if (type === "Input.ChoiceSet") {
+    if (Array.isArray(value)) return value.join(",");
+    return typeof value === "string" ? value : String(value);
+  }
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "object") return formatSubmissionValue(value);
+  return typeof value === "string" ? value : String(value);
+}
+
+export function hydrateAdaptiveCardPayloadWithSubmission(
+  payload: Record<string, unknown>,
+  submission: unknown,
+): Record<string, unknown> {
+  if (!payload || typeof payload !== "object") return payload;
+  if (!submission || typeof submission !== "object" || Array.isArray(submission)) return payload;
+
+  const values = submission as Record<string, unknown>;
+
+  const visit = (node: unknown): unknown => {
+    if (Array.isArray(node)) return node.map((item) => visit(item));
+    if (!node || typeof node !== "object") return node;
+
+    const record = node as Record<string, unknown>;
+    const hydrated: Record<string, unknown> = { ...record };
+
+    if (typeof hydrated.id === "string" && hydrated.id in values && String(hydrated.type || "").startsWith("Input.")) {
+      hydrated.value = coerceInputValue(hydrated.type, values[hydrated.id], hydrated);
+    }
+
+    for (const [key, value] of Object.entries(hydrated)) {
+      if (Array.isArray(value) || (value && typeof value === "object")) {
+        hydrated[key] = visit(value);
+      }
+    }
+
+    return hydrated;
+  };
+
+  return visit(payload) as Record<string, unknown>;
+}
+
+function lockAdaptiveCardInputs(root: HTMLElement): void {
+  root.classList.add("adaptive-card-readonly");
+  for (const input of Array.from(root.querySelectorAll("input, textarea, select, button"))) {
+    const element = input as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | HTMLButtonElement;
+    try { element.setAttribute("aria-disabled", "true"); } catch {}
+    try { element.setAttribute("tabindex", "-1"); } catch {}
+    if ("disabled" in element) {
+      try { (element as any).disabled = true; } catch {}
+    }
+    if ("readOnly" in element) {
+      try { (element as any).readOnly = true; } catch {}
+    }
+  }
+}
+
 function formatAdaptiveCardTimestamp(value: unknown): string {
   if (typeof value !== "string" || !value.trim()) return "";
   const date = new Date(value);
@@ -164,9 +229,8 @@ export function describeAdaptiveCardState(block: AdaptiveCardBlock): { label: st
     ? (block.last_submission as Record<string, unknown>)
     : null;
   const title = submission && typeof submission.title === "string" ? submission.title.trim() : "";
-  const dataSummary = submission ? formatSubmissionValue(submission.data) : "";
   const when = formatAdaptiveCardTimestamp(block.completed_at || (submission?.submitted_at as string | undefined));
-  const detail = [title || null, dataSummary || null, when || null].filter(Boolean).join(" · ") || null;
+  const detail = [title || null, when || null].filter(Boolean).join(" · ") || null;
 
   return { label, detail };
 }
@@ -206,8 +270,15 @@ export async function renderAdaptiveCard(
     // Apply HostConfig from current theme
     card.hostConfig = new AC.HostConfig(buildHostConfig());
 
-    // Parse the card payload
-    card.parse(block.payload);
+    // Parse the card payload. Finished cards are hydrated with the last
+    // submitted values first so the rendered card itself shows what was chosen.
+    const submissionData = block.last_submission && typeof block.last_submission === "object"
+      ? (block.last_submission as Record<string, unknown>).data
+      : undefined;
+    const payload = block.state === "active"
+      ? block.payload
+      : hydrateAdaptiveCardPayloadWithSubmission(block.payload, submissionData);
+    card.parse(payload);
 
     // Wire up action handler (Phase 2)
     card.onExecuteAction = (action: any) => {
@@ -260,6 +331,9 @@ export async function renderAdaptiveCard(
 
     clearAdaptiveCardNotice(container);
     container.appendChild(rendered);
+    if (stateMeta) {
+      lockAdaptiveCardInputs(rendered);
+    }
     return true;
   } catch (err) {
     console.error(`[adaptive-card] Failed to render card ${block.card_id}:`, err);

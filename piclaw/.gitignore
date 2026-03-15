@@ -1,3 +1,4 @@
 piclaw-*.tgz
 rotated-*.jsonl
 .cache/
+tmp/

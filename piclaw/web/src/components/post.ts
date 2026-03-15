@@ -6,6 +6,7 @@ import { formatCount, formatFileSize, formatTime, formatTimestamp } from '../uti
 import { DEFAULT_AGENT_NAME, getAvatarInfo } from '../ui/agent-utils.js';
 import { getAttachmentPreviewKind } from '../ui/attachment-preview.js';
 import { extractCardBlocks, renderAdaptiveCard } from '../ui/adaptive-card-renderer.js';
+import { buildAdaptiveCardSubmissionFallbackText, describeAdaptiveCardSubmission, extractAdaptiveCardSubmissionBlocks } from '../ui/adaptive-card-submission.js';
 import { AttachmentPreviewModal } from './attachment-preview-modal.js';
 import { ImageModal } from './image-modal.js';
 import { FilePill } from './file-pill.js';
@@ -606,10 +607,18 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
     const { content: cleanedWithAttachments, attachments } = extractAttachmentRefs(cleanedWithMsgRefs);
     displayContent = cleanedWithAttachments;
     const directCardBlocks = extractCardBlocks(blocks);
+    const submissionBlocks = extractAdaptiveCardSubmissionBlocks(blocks);
     const singleCardFallback = directCardBlocks.length === 1 && typeof directCardBlocks[0]?.fallback_text === 'string'
         ? directCardBlocks[0].fallback_text.trim()
         : '';
-    const hideRenderedFallback = Boolean(singleCardFallback) && displayContent?.trim() === singleCardFallback;
+    const singleSubmissionFallback = submissionBlocks.length === 1
+        ? buildAdaptiveCardSubmissionFallbackText(submissionBlocks[0]).trim()
+        : '';
+    const hideRenderedFallback = (
+        Boolean(singleCardFallback) && displayContent?.trim() === singleCardFallback
+    ) || (
+        Boolean(singleSubmissionFallback) && displayContent?.trim() === singleSubmissionFallback
+    );
     const shouldRenderContent = Boolean(displayContent) && !isHardTruncated && !hideRenderedFallback;
     const highlightQueryText = typeof highlightQuery === 'string' ? highlightQuery.trim() : '';
     const renderedHtml = useMemo(() => {
@@ -726,6 +735,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
 
     // Extract adaptive card blocks from content_blocks
     const cardBlocks = useMemo(() => extractCardBlocks(blocks), [blocks]);
+    const cardSubmissionBlocks = useMemo(() => extractAdaptiveCardSubmissionBlocks(blocks), [blocks]);
 
     // Render mermaid diagrams and enhance code blocks after content is mounted
     useEffect(() => {
@@ -887,6 +897,27 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                 `}
                 ${cardBlocks.length > 0 && html`
                     <div ref=${cardContainerRef} class="post-adaptive-cards" />
+                `}
+                ${cardSubmissionBlocks.length > 0 && html`
+                    <div class="post-adaptive-card-submissions">
+                        ${cardSubmissionBlocks.map((block, idx) => {
+                            const meta = describeAdaptiveCardSubmission(block);
+                            return html`
+                                <div key=${`${block.card_id}-${idx}`} class="adaptive-card-submission-receipt">
+                                    <div class="adaptive-card-submission-header">
+                                        <span class="adaptive-card-submission-icon" aria-hidden="true">✓</span>
+                                        <span class="adaptive-card-submission-title">${meta.title}</span>
+                                    </div>
+                                    ${meta.summary && html`
+                                        <div class="adaptive-card-submission-summary">${meta.summary}</div>
+                                    `}
+                                    <div class="adaptive-card-submission-meta">
+                                        Submitted ${formatTimestamp(meta.submittedAt)}
+                                    </div>
+                                </div>
+                            `;
+                        })}
+                    </div>
                 `}
                 ${textAnnotations.length > 0 && html`
                     ${textAnnotations.map((annotations, idx) => html`
