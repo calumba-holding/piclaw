@@ -119,11 +119,13 @@ The web UI can render `adaptive_card` content blocks inline in timeline posts an
 - `Action.OpenUrl` is handled client-side with URL validation and an explicit secondary action button pattern.
 - `Action.Submit` posts to `POST /agent/card-action`.
 - Submissions are persisted as `adaptive_card_submission` content blocks on the follow-up message.
+- The timeline renders those submission blocks as compact receipt-style UI instead of relying on raw fallback text.
 - Card lifecycle is tracked on the original card block:
   - default submit behavior: `active → completed`
   - explicit terminal variants can resolve to `cancelled` or `failed`
   - cards with `submit_behavior: "keep_active"` remain interactive after submit
-- Completed/cancelled/failed cards render read-only with a status banner and submission summary.
+- Completed/cancelled/failed cards are re-rendered from the original card payload with the last submitted values hydrated back into the inputs.
+- Finished cards then lock those inputs read-only, hide action buttons, and show a concise theme-consistent status banner rather than echoing the full submission in banner text.
 - Built-in `/test-card` variants exist specifically to validate these paths, including bad URL handling, submit errors, keep-active cards, and terminal-state transitions.
 
 ## Side prompts / Phase 3 groundwork
@@ -144,10 +146,27 @@ The web UI now has a first thin consumer for this substrate:
 - it opens a lightweight side-conversation panel
 - the panel streams thinking/text deltas from `POST /agent/side-prompt/stream`
 - each BTW run is reseeded from the **current main session tree context** before prompting, so it starts from the active Pi conversation state rather than a cold empty context
-- the side run uses a separate side session so it can stay isolated from the main visible conversation while still inheriting current context and tool availability
+- the side run uses a separate side session so it can stay isolated from the main visible conversation while still inheriting current context and model/thinking state
 - `Inject into chat` sends the final BTW answer back through the normal message path, so it respects the same queue/follow-up rules as any other user submission
 
 This is still an early web-native BTW layer rather than the full final system, but the separation of concerns is now in place: core provides the side-prompt/side-session substrate, while BTW remains a thin UI consumer on top.
+
+## Context usage / compaction affordance restore
+
+The compose footer exposes current context-window usage through the `ContextPie` indicator, backed by `GET /agent/context`.
+
+The web client now refreshes this state on:
+- initial connect
+- SSE reconnect
+- window focus
+- `pageshow`
+- `visibilitychange` when the document becomes visible again
+
+That keeps the context compaction affordance in sync when returning to the tab or reopening the webapp, rather than waiting for the slower backstop poller.
+
+The persistence model is intentionally split:
+- backend truth decides whether the compaction-related affordance is currently warranted
+- browser-local state is reserved for lightweight local UI memory such as dismissal/seen state
 
 ## Scheduled tasks / IPC
 

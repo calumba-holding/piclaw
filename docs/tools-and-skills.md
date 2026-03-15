@@ -137,6 +137,13 @@ Direct commands (no LLM round-trip):
 
 Supported flags: `--scope notes|skills|all`, `--limit`, `--offset`, `--refresh`, `--no-refresh`, `--max-kb`.
 
+Adaptive Card and side-conversation helpers are intentionally explicit web-facing affordances:
+- `/test-card` is a local web command for validating built-in Adaptive Card variants (`basic`, `choices`, `approval`, terminal-state cases, and error paths) without involving a normal LLM turn.
+- card submissions are persisted as structured `adaptive_card_submission` blocks, so the timeline can render compact receipt UI and finished cards can display their submitted values read-only.
+- `/btw` is currently a thin consumer of the side-prompt substrate: it streams a side answer in the web panel, reseeds from current main-chat context, and only injects back into the main chat when explicitly requested.
+- `/btw` currently reuses the chat's model/thinking context but is still prompt-only rather than a full side tool-using agent loop.
+- `/context` reports current context-window usage; the compose-footer indicator is refreshed on reconnect and when returning to the tab so the compaction affordance stays current.
+
 ## Skill pipeline
 
 Skills create tasks via IPC JSON files. Each task can optionally specify a `model` field (e.g. `anthropic/claude-sonnet-4-20250514`) to run on a cheaper or different model than the user's current one. The scheduler handles model switching and restoration automatically.

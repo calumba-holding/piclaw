@@ -60,7 +60,7 @@ piclaw/
 │   └── types.ts                 # Shared type definitions
 ├── extensions/                  # Bundled extensions (server + web)
 │   ├── azure-openai.ts          # Azure OpenAI/Foundry provider (optional)
-│   ├── context-mode.ts          # Tool output + batch_exec extension
+│   ├── context-mode.ts          # Tool output + exec_batch extension
 │   └── editor/                  # Standalone editor web pane extension
 │       ├── editor-extension.ts  # StandaloneEditorInstance + registration
 │       └── vendor/              # Vendored CodeMirror bundle
@@ -95,7 +95,7 @@ These are compiled into the package and registered via `extensionFactories` on t
 | `modelControl` | `get_model_state`, `list_models`, `switch_model`, `switch_thinking` |
 | `keychainTools` | `keychain` (list, get, set, delete) |
 | `scheduledTasks` | `schedule_task`, `/tasks`, `/scheduled` slash commands |
-| `sqlIntrospect` | `sql_introspect` (read-only SQLite queries) |
+| `sqlIntrospect` | `introspect_sql` (read-only SQLite queries) |
 | `internalTools` | `list_internal_tools` |
 
 Each factory receives an `ExtensionAPI` and registers tools or slash commands via `pi.registerTool()` and `pi.registerSlashCommand()`. System prompt hints are injected via `pi.on("before_agent_start")`.
@@ -107,7 +107,7 @@ In addition to the inline factories, piclaw ships **optional extensions** under 
 | Extension | Gate | Purpose |
 |-----------|------|---------|
 | `azure-openai.ts` | `AOAI_BASE_URL` must be set | Azure OpenAI + Foundry provider with managed-identity or API-key auth |
-| `context-mode.ts` | Always loaded | Tool-output storage, search handles, and `batch_exec` tool |
+| `context-mode.ts` | Always loaded | Tool-output storage, search handles, and `exec_batch` tool |
 
 These extensions are **experimental** — their API surface and loading mechanism may change between releases. They use relative imports (`../src/...`) to reference piclaw internals and require a `node_modules` symlink next to the `extensions/` directory (created automatically at startup) for jiti to resolve deep package imports.
 
@@ -176,11 +176,12 @@ Page load
 - Workspace tree responses are cached briefly (1s) and rate-limited to prevent bursty UI reloads (HTTP 429 when exceeded).
 - The **workspace explorer** is a responsive sidebar (visible on desktop/tablet ≥1024px landscape) that shows a file tree of `/workspace`, supports file previews, drag-and-drop upload, inline file creation, inline rename, drag-and-drop move, and file reference pills for prompts.
 - The **code editor** is a standalone pane extension (`extensions/editor/`) using CodeMirror 6 directly (no Preact wrapper). It opens in the tabbed content area when a file is clicked in the explorer. Supports syntax highlighting for 12 languages, search/replace, line wrapping, dirty tracking, Cmd+S save, vim mode, whitespace toggle, and accent-aware theming. The editor bundle is lazy-loaded on first file open. Backend endpoints: `GET /workspace/file?mode=edit` (full content up to 256 KB) and `PUT /workspace/file` (save).
-- **Adaptive Cards** are rendered in the web timeline from `content_blocks` using the vendored Microsoft `adaptivecards` SDK. Action handling currently routes through `POST /agent/card-action`; the web message path also exposes a local `/test-card` command for persistent validation variants.
+- **Adaptive Cards** are rendered in the web timeline from `content_blocks` using the vendored Microsoft `adaptivecards` SDK. Action handling routes through `POST /agent/card-action`; submissions are also persisted as `adaptive_card_submission` blocks so the timeline can render compact receipts instead of raw text fallbacks. Finished cards are re-rendered with their submitted values populated, inputs locked read-only, and a concise state banner. The web message path also exposes a local `/test-card` command for persistent validation variants.
 - The **tab strip** provides multi-file editing with dirty indicators, pin support, MRU-based tab switching, context menus (Close / Close Others / Close All / Pin / Preview), and keyboard shortcuts (Ctrl+Tab, Ctrl+W).
 - **Markdown preview** is available for `.md` / `.mdx` / `.markdown` files via the tab context menu → Preview. Shows a live split-view with a resizable splitter.
 - **Message permalinks**: clicking a timeline timestamp inserts a `message:{id}` pill in the compose box; Ctrl+Click copies a shareable URL; clicking a reference scrolls to and highlights the target.
 - **Multi-turn threading**: when the agent produces multiple turns in a single response, subsequent turns are stored with a `thread_id` pointing to the first turn's message. The UI renders threaded replies indented with a left border.
+- **Context usage / compaction affordance**: the compose footer reads `/agent/context` for current context-window usage, and the web app refreshes that state on initial connect, SSE reconnect, focus, `pageshow`, and visible-again transitions so the compaction affordance restores promptly when returning to the tab.
 - Scheduled tasks are isolated using the **session tree**: before a task runs, the current tree position is saved; after the task, the tree is navigated back. The task's output stays in a side branch without polluting conversation context. If the task uses a different model, it is restored afterwards. See [runtime-flows.md](runtime-flows.md) for details.
 - Scheduled tasks validate the requested model at creation time; invalid or ambiguous model names are rejected before the task is persisted.
 

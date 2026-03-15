@@ -8,12 +8,13 @@ PiClaw is a Docker-based sandbox for running the [Pi Coding Agent](https://githu
 
 ![Demo Animation](docs/demo.gif)
 
-- **Streaming web UI** — real-time token-by-token updates over SSE, with Markdown, KaTeX, and Mermaid rendering
+- **Streaming web UI** — real-time token-by-token updates over SSE, with Markdown, KaTeX, Mermaid, and Adaptive Cards
+- **Adaptive Cards + structured actions** — inline cards, persisted submissions, read-only finished cards, and built-in `/test-card` validation flows
 - **Workspace explorer** — file tree sidebar with previews, file reference pills, and downloads
 - **Disk usage starburst** — folder-size visualization with hover details and drill-down
 - **Code editor** — built-in CodeMirror 6 with syntax highlighting for 12 languages, search/replace, and save
 - **Persistent storage** — SQLite-backed messages, media, tasks, token usage, and encrypted keychain
-- **Skills** — setup, debugging, Playwright, scheduling, charts, web search, and more
+- **Skills** — setup, debugging, Playwright, scheduling, charts, web search, Adaptive Card authoring, and more
 - **Passkeys + TOTP authentication** — optional WebAuthn passkeys with TOTP fallback (iOS/Android webapp support)
 - **WhatsApp** — optional secondary channel
 
@@ -51,12 +52,15 @@ If you prefer, you can do the same via `docker exec` or `/shell <command>` in th
 The UI is single-user, mobile-friendly, and streams updates over SSE:
 
 - **Thought/Draft panels** — visible during streaming
-- **Live steering** — send follow-ups while the agent is still responding
+- **Live steering + queued follow-ups** — keep typing while the agent is busy
+- **Adaptive Cards** — inline cards, compact submission receipts, and finished cards that display submitted values read-only
+- **`/btw` side conversations** — a lightweight side panel for streamed side prompts that can later inject back into the main chat
 - **File attachments** with download links
 - **Link previews** via server-side OpenGraph fetch
 - **Multi-turn threading** — subsequent turns are visually threaded under the first
 - **Themes + tinting** — presets plus `/theme` and `/tint` commands (Solarized auto light/dark)
 - **Terminal pane** — open a shell inside the container for setup tasks like running `pi /login` to add provider credentials
+- **Context usage indicator** — compose-footer pie indicator refreshes on reconnect and when returning to the tab
 - **Mobile-first layout** with webapp manifest
 
 ### Workspace explorer
@@ -142,8 +146,8 @@ PiClaw works with any OCI-compliant runtime:
 - [Reverse proxy / Cloudflare Tunnel](docs/reverse-proxy.md) — trust-proxy setup, forwarded headers, examples, troubleshooting
 - [Architecture](docs/architecture.md) — codebase layout and design decisions
 - [Storage model](docs/storage.md) — SQLite schema and data lifecycle
-- [Runtime flows](docs/runtime-flows.md) — message processing, queue/steering, and crash recovery
-- [Tools and skills](docs/tools-and-skills.md) — built-in tools and skill catalogue
+- [Runtime flows](docs/runtime-flows.md) — message processing, queue/steering, Adaptive Cards, side prompts, and crash recovery
+- [Tools and skills](docs/tools-and-skills.md) — built-in tools, slash commands, and skill catalogue
 - [Keychain](docs/keychain.md) — encrypted secret storage
 - [WhatsApp](docs/whatsapp.md) — optional WhatsApp integration
 - [Turn mechanism audit](docs/turn-mechanism-audit.md) — full-stack audit: state machine, queue/steering, crash recovery, client architecture

@@ -699,12 +699,13 @@ This means:
 - SSE connection is created exactly once on mount
 - Callback changes never trigger reconnection
 - Focus/visibility handlers reconnect if needed (tab switch recovery)
+- when the tab becomes active again, the app also refreshes context usage immediately so the compaction affordance restores without waiting for the slow poller
 
 ### Backstop poller
 
 A `setInterval` runs alongside SSE as a safety net:
-- 15 seconds when agent is active → refreshes timeline, queue state, agent status
-- 60 seconds when idle → refreshes timeline, agent status, context usage
+- 15 seconds when agent is active → refreshes timeline, queue state, agent status, and context usage
+- 60 seconds when idle → refreshes timeline, agent status, and context usage
 
 ---
 

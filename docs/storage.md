@@ -27,7 +27,9 @@
 | `webauthn_enrollments` | One‑time enrolment tokens for passkey registration |
 | `web_sessions` | Persistent web UI sessions (TOTP + passkey logins) |
 
-Attachments and link previews are stored on the message record (`content_blocks`, `link_previews`). Token usage rows include `model`, `provider`, and `api` fields to support per-model tracking.
+Attachments, Adaptive Card blocks, submission receipts, and link previews are stored on the message record (`content_blocks`, `link_previews`). In practice, `content_blocks` can now contain persisted `adaptive_card` and `adaptive_card_submission` payloads in addition to other structured message content. Token usage rows include `model`, `provider`, and `api` fields to support per-model tracking.
+
+Browser-local UI memory that should not become shared backend truth — for example local dismissal/seen state for the context compaction affordance — is intentionally kept out of SQLite. The backend remains authoritative for whether the underlying context condition is currently warranted; the browser only stores lightweight local UI memory.
 
 ## Entity map
 
