@@ -53,6 +53,7 @@ import {
     getChatWindowOpenOptions,
     navigateProvisionalChatWindow,
     openProvisionalChatWindow,
+    isStandaloneWebAppMode,
     primeProvisionalChatWindow,
 } from './ui/chat-window.js';
 import { resolveQueueActionChatJid, shouldClearQueuedSteerState } from './ui/queue-state.js';
