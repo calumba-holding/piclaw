@@ -49,6 +49,16 @@ const VENDOR_ENTRIES: VendorEntry[] = [
     packagePath: "dist/jszip.min.js",
     outputFile: `${OUTPUT_DIR}/jszip.min.js`,
   },
+  {
+    packageName: "@fontsource-variable/inter",
+    packagePath: "files/inter-latin-wght-normal.woff2",
+    outputFile: `${OUTPUT_DIR}/inter-latin.woff2`,
+  },
+  {
+    packageName: "@fontsource-variable/inter",
+    packagePath: "files/inter-latin-ext-wght-normal.woff2",
+    outputFile: `${OUTPUT_DIR}/inter-latin-ext.woff2`,
+  },
 ];
 
 function sha256ForFile(path: string): string {

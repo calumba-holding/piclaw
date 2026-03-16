@@ -28,215 +28,113 @@ function generateImageViewerPage(): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Image Viewer</title>
 <style>
-  :root {
-    color-scheme: light dark;
-    --bg: #ffffff;
-    --bg-secondary: #f7f9fa;
-    --text: #0f1419;
-    --muted: #536471;
-    --border: #dfe5ea;
-    --accent: #1d9bf0;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #000000;
-      --bg-secondary: #111418;
-      --text: #e7e9ea;
-      --muted: #8b98a5;
-      --border: #2f3336;
-    }
-  }
   * { box-sizing: border-box; }
   html, body {
     width: 100%;
     height: 100%;
     margin: 0;
     overflow: hidden;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  }
-  body {
-    display: flex;
-    flex-direction: column;
-  }
-  .toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    min-height: 48px;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-secondary);
-  }
-  .title-wrap {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    flex: 1;
-  }
-  .title {
-    font-size: 13px;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .meta {
-    font-size: 11px;
-    color: var(--muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 32px;
-    min-height: 30px;
-    padding: 0 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    font: inherit;
-    cursor: pointer;
-    text-decoration: none;
+    background: #1e1e1e;
+    font-family: system-ui, -apple-system, sans-serif;
   }
   .stage {
-    flex: 1;
-    min-height: 0;
+    width: 100%;
+    height: 100%;
     overflow: auto;
     background-image:
-      linear-gradient(45deg, rgba(128,128,128,0.12) 25%, transparent 25%),
-      linear-gradient(-45deg, rgba(128,128,128,0.12) 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, rgba(128,128,128,0.12) 75%),
-      linear-gradient(-45deg, transparent 75%, rgba(128,128,128,0.12) 75%);
+      linear-gradient(45deg, rgba(128,128,128,0.08) 25%, transparent 25%),
+      linear-gradient(-45deg, rgba(128,128,128,0.08) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, rgba(128,128,128,0.08) 75%),
+      linear-gradient(-45deg, transparent 75%, rgba(128,128,128,0.08) 75%);
     background-size: 20px 20px;
-    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0;
   }
   .inner {
-    min-width: 100%;
-    min-height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    min-width: 100%; min-height: 100%;
+    display: flex; align-items: center; justify-content: center;
     padding: 24px;
   }
   img {
-    max-width: none;
-    max-height: none;
+    max-width: none; max-height: none;
     transform-origin: center center;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-    border-radius: 4px;
+    border-radius: 2px;
     background: white;
   }
+  /* Hover toolbar — top-right */
+  #toolbar-trigger { position: fixed; top: 0; right: 0; width: 140px; height: 24px; z-index: 99; }
+  #toolbar {
+    position: fixed; top: 0; right: 0; z-index: 100;
+    display: flex; gap: 4px; padding: 6px 8px;
+    background: rgba(30,30,30,0.92); border-bottom-left-radius: 6px;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    opacity: 0; transition: opacity 0.2s;
+  }
+  #toolbar-trigger:hover + #toolbar, #toolbar:hover { opacity: 1; }
+  #toolbar button {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 28px; height: 24px; padding: 0 6px;
+    border: none; border-radius: 3px; background: rgba(255,255,255,0.08);
+    color: #ccc; font: 12px system-ui, sans-serif; cursor: pointer;
+  }
+  #toolbar button:hover { background: rgba(255,255,255,0.15); color: #fff; }
+  #toolbar .zoom-label { font-size: 11px; color: #999; min-width: 36px; text-align: center; line-height: 24px; }
   .empty {
-    display: flex;
-    flex: 1;
-    align-items: center;
-    justify-content: center;
-    color: var(--muted);
-    font-size: 13px;
-    padding: 24px;
-    text-align: center;
+    display: flex; width: 100%; height: 100%;
+    align-items: center; justify-content: center;
+    color: #888; font-size: 14px; padding: 24px; text-align: center;
   }
 </style>
 </head>
 <body>
-  <div class="toolbar">
-    <div class="title-wrap">
-      <div id="title" class="title">Image Viewer</div>
-      <div id="meta" class="meta">Loading image…</div>
-    </div>
-    <div class="actions">
-      <button id="zoomOut" class="btn" type="button">−</button>
-      <button id="zoomReset" class="btn" type="button">100%</button>
-      <button id="zoomIn" class="btn" type="button">+</button>
-      <a id="openRaw" class="btn" href="#" target="_blank" rel="noopener">Open raw image</a>
-    </div>
-  </div>
-  <div id="stage" class="stage"><div class="inner"><div class="empty">Loading image…</div></div></div>
+<div id="toolbar-trigger"></div>
+<div id="toolbar">
+  <button id="zoomOut">−</button>
+  <span class="zoom-label" id="zoomLabel">100%</span>
+  <button id="zoomIn">+</button>
+  <button id="zoomReset">1:1</button>
+</div>
+<div id="stage" class="stage"><div class="inner"></div></div>
 <script>
 (function () {
   'use strict';
   var params = new URLSearchParams(location.search);
   var path = params.get('path') || '';
-  var titleEl = document.getElementById('title');
-  var metaEl = document.getElementById('meta');
   var stageEl = document.getElementById('stage');
-  var openRaw = document.getElementById('openRaw');
-  var zoomOutBtn = document.getElementById('zoomOut');
-  var zoomResetBtn = document.getElementById('zoomReset');
-  var zoomInBtn = document.getElementById('zoomIn');
-  var scale = 1;
-  var img = null;
-
-  function applyScale() {
-    if (!img) return;
-    img.style.transform = 'scale(' + scale + ')';
-    zoomResetBtn.textContent = Math.round(scale * 100) + '%';
-  }
-
-  function clampScale(next) {
-    return Math.max(0.1, Math.min(8, next));
-  }
 
   if (!path) {
-    metaEl.textContent = 'Missing path parameter';
-    stageEl.innerHTML = '<div class="inner"><div class="empty">Missing <code>?path=...</code> query parameter.</div></div>';
+    document.body.innerHTML = '<div class="empty">Missing <code>?path=...</code> query parameter.</div>';
     return;
   }
 
-  var fileName = path.split('/').pop() || 'image';
   var rawUrl = '/workspace/raw?path=' + encodeURIComponent(path);
-  titleEl.textContent = fileName;
-  metaEl.textContent = path;
-  openRaw.href = rawUrl;
+  var scale = 1;
+  var img = document.createElement('img');
+  img.alt = path.split('/').pop() || 'image';
+  img.src = rawUrl;
 
-  zoomOutBtn.addEventListener('click', function () {
-    scale = clampScale(scale / 1.2);
-    applyScale();
-  });
-  zoomInBtn.addEventListener('click', function () {
-    scale = clampScale(scale * 1.2);
-    applyScale();
-  });
-  zoomResetBtn.addEventListener('click', function () {
-    scale = 1;
-    applyScale();
-  });
-  stageEl.addEventListener('wheel', function (event) {
-    if (!event.ctrlKey && !event.metaKey) return;
-    event.preventDefault();
-    scale = clampScale(scale * (event.deltaY < 0 ? 1.08 : 1 / 1.08));
+  var zoomLabel = document.getElementById('zoomLabel');
+  function applyScale() {
+    img.style.transform = 'scale(' + scale + ')';
+    zoomLabel.textContent = Math.round(scale * 100) + '%';
+  }
+  function clamp(v) { return Math.max(0.1, Math.min(8, v)); }
+
+  document.getElementById('zoomOut').addEventListener('click', function () { scale = clamp(scale / 1.25); applyScale(); });
+  document.getElementById('zoomIn').addEventListener('click', function () { scale = clamp(scale * 1.25); applyScale(); });
+  document.getElementById('zoomReset').addEventListener('click', function () { scale = 1; applyScale(); });
+  stageEl.addEventListener('wheel', function (e) {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    scale = clamp(scale * (e.deltaY < 0 ? 1.08 : 1 / 1.08));
     applyScale();
   }, { passive: false });
 
-  img = document.createElement('img');
-  img.alt = fileName;
-  img.src = rawUrl;
-  img.addEventListener('load', function () {
-    metaEl.textContent = (img.naturalWidth || 0) + ' × ' + (img.naturalHeight || 0) + ' px';
-  });
   img.addEventListener('error', function () {
     stageEl.innerHTML = '<div class="inner"><div class="empty">Failed to load image.</div></div>';
-    metaEl.textContent = 'Load error';
   });
 
-  var inner = document.createElement('div');
-  inner.className = 'inner';
+  var inner = stageEl.querySelector('.inner');
   inner.appendChild(img);
-  stageEl.innerHTML = '';
-  stageEl.appendChild(inner);
   applyScale();
 })();
 </script>

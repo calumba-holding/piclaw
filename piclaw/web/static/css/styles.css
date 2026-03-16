@@ -2043,7 +2043,7 @@ body {
     resize: none;
     field-sizing: content;
     font-family: inherit;
-    font-size: 90%;
+    font-size: var(--font-size-sm);
     color: var(--text-primary);
     background-color: transparent;
     outline: none;
@@ -2085,7 +2085,7 @@ body {
    combinations can miss those and still trigger whole-page movement on focus. */
 @supports (-webkit-touch-callout: none) {
     .compose-box textarea {
-        font-size: calc(16px + 1pt);
+        font-size: max(var(--font-size-sm), 16px);
     }
 }
 
@@ -4926,7 +4926,7 @@ body {
 
     .compose-box textarea {
         min-height: 50px;
-        font-size: calc(var(--font-size-md) + 1pt);
+        font-size: max(var(--font-size-sm), 16px);
     }
 
     .compose-footer {

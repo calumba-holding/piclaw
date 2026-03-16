@@ -49,6 +49,7 @@
     "quality": "bun run lint && bun run typecheck && bun run test && bun run check:pack-hygiene && bun run check:stale-dist && bun run check:import-boundaries && bun run check:unused-exports && bun run check:hook-tdz"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
     "@lezer/highlight": "1.2.3",
     "@mariozechner/pi-coding-agent": "0.58.3",
     "@simplewebauthn/server": "13.2.3",

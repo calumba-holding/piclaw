@@ -219,8 +219,8 @@ export function TabStrip({ tabs, activeId, onActivate, onClose, onCloseOthers, o
                 ${PDF_EXTENSIONS.test(contextMenu.id) && html`
                     <hr />
                     <button onClick=${() => {
-                        const viewerUrl = '/pdf-viewer/?path=' + encodeURIComponent(contextMenu.id);
-                        window.open(viewerUrl, '_blank', 'noopener');
+                        const rawUrl = '/workspace/raw?path=' + encodeURIComponent(contextMenu.id);
+                        window.open(rawUrl, '_blank', 'noopener');
                         setContextMenu(null);
                     }}>Open in New Tab</button>
                 `}

@@ -335,9 +335,13 @@ function MainApp({ locationParams }) {
         };
         document.addEventListener('office-viewer:open-tab', handler);
         document.addEventListener('drawio:open-tab', handler);
+        document.addEventListener('pdf-viewer:open-tab', handler);
+        document.addEventListener('image-viewer:open-tab', handler);
         return () => {
             document.removeEventListener('office-viewer:open-tab', handler);
             document.removeEventListener('drawio:open-tab', handler);
+            document.removeEventListener('pdf-viewer:open-tab', handler);
+            document.removeEventListener('image-viewer:open-tab', handler);
         };
     }, [openEditor]);
 

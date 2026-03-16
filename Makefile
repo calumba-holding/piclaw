@@ -83,6 +83,8 @@ vendor: ## Build the checked-in vendored bundles + metadata
 		piclaw/extensions/office-viewer/vendor/xlsx.full.min.js \
 		piclaw/extensions/office-viewer/vendor/PptxViewJS.min.js \
 		piclaw/extensions/office-viewer/vendor/jszip.min.js \
+		piclaw/extensions/office-viewer/vendor/inter-latin.woff2 \
+		piclaw/extensions/office-viewer/vendor/inter-latin-ext.woff2 \
 		piclaw/extensions/office-viewer/vendor/office-viewer-libs.meta.json
 
 update-mermaid-vendor: ## Rebuild or upgrade vendored mermaid (use MERMAID_VERSION=1.2.3 to upgrade)
