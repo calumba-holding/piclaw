@@ -12,16 +12,16 @@ import { serveDocsStatic, serveStatic } from "./static.js";
 
 /** Unified response builder combining JSON, static, and doc serving. */
 export class ResponseService {
-  json(data: unknown, status = 200): Response {
-    return jsonResponse(data, status);
+  json(data: unknown, status = 200, headers?: HeadersInit): Response {
+    return jsonResponse(data, status, headers);
   }
 
-  ok(data: Record<string, unknown> = {}, status = 200): Response {
-    return okJson(data, status);
+  ok(data: Record<string, unknown> = {}, status = 200, headers?: HeadersInit): Response {
+    return okJson(data, status, headers);
   }
 
-  error(message: string, status = 400): Response {
-    return errorJson(message, status);
+  error(message: string, status = 400, headers?: HeadersInit): Response {
+    return errorJson(message, status, headers);
   }
 
   async serveStatic(relPath: string): Promise<Response> {

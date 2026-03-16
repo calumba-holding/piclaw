@@ -14,13 +14,15 @@ import { ResponseService } from "../../../src/channels/web/http/response-service
 test("response service wraps json and static helpers", async () => {
   const service = new ResponseService();
 
-  const json = service.json({ ok: true }, 201);
+  const json = service.json({ ok: true }, 201, { "Set-Cookie": "piclaw_session=test" });
   expect(json.status).toBe(201);
   expect(await json.json()).toEqual({ ok: true });
+  expect(json.headers.get("Set-Cookie")).toBe("piclaw_session=test");
 
-  const ok = service.ok({ visible: true }, 202);
+  const ok = service.ok({ visible: true }, 202, { "X-Test": "yes" });
   expect(ok.status).toBe(202);
   expect(await ok.json()).toEqual({ status: "ok", visible: true });
+  expect(ok.headers.get("X-Test")).toBe("yes");
 
   const err = service.error("Nope", 418);
   expect(err.status).toBe(418);

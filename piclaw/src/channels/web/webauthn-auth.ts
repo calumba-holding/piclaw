@@ -24,6 +24,7 @@ import {
   updateWebauthnCredentialCounter,
 } from "../../db.js";
 import { ASSISTANT_NAME, USER_NAME, WEB_SESSION_TTL } from "../../core/config.js";
+import { okJson } from "./http/http-utils.js";
 import { randomSessionToken } from "./auth.js";
 import {
   base64UrlToBuffer,
@@ -153,12 +154,8 @@ export async function handleWebauthnLoginFinish(req: Request, ctx: WebauthnAuthC
   const sessionToken = (ctx.randomToken ?? randomSessionToken)();
   createWebSession(sessionToken, DEFAULT_WEB_USER_ID, getTtlSeconds(), "passkey");
 
-  return new Response(JSON.stringify({ ok: true }), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json",
-      "Set-Cookie": ctx.buildSessionCookie(sessionToken, req),
-    },
+  return okJson({ ok: true }, 200, {
+    "Set-Cookie": ctx.buildSessionCookie(sessionToken, req),
   });
 }
 
@@ -280,5 +277,5 @@ export async function handleWebauthnRegisterFinish(req: Request, ctx: WebauthnAu
     transports,
   });
 
-  return ctx.json({ ok: true });
+  return okJson({ ok: true });
 }

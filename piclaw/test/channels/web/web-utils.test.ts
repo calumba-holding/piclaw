@@ -28,13 +28,15 @@ function makeJsonResponse(data: unknown, status = 200): Response {
 }
 
 test("http utils clamp and parse", async () => {
-  const res = jsonResponse({ ok: true }, 201);
+  const res = jsonResponse({ ok: true }, 201, { "Set-Cookie": "piclaw_session=test" });
   expect(res.status).toBe(201);
   expect(await res.json()).toEqual({ ok: true });
+  expect(res.headers.get("Set-Cookie")).toBe("piclaw_session=test");
 
-  const ok = okJson({ visible: true }, 202);
+  const ok = okJson({ visible: true }, 202, { "X-Test": "yes" });
   expect(ok.status).toBe(202);
   expect(await ok.json()).toEqual({ status: "ok", visible: true });
+  expect(ok.headers.get("X-Test")).toBe("yes");
 
   const err = errorJson("Nope", 418);
   expect(err.status).toBe(418);

@@ -55,14 +55,14 @@ or `/workspace/*` route family.
 
 ## Auth routes
 
-| Method | Path | Source | Auth model | Rate limit |
-|---|---|---|---|---|
-| POST | `/auth/verify` | request guards / auth endpoints | public login verification | auth bucket |
-| POST | `/auth/webauthn/login/start` | `dispatch-auth.ts` | public login bootstrap | auth bucket |
-| POST | `/auth/webauthn/login/finish` | `dispatch-auth.ts` | public login completion | auth bucket |
-| POST | `/auth/webauthn/register/start` | `dispatch-auth.ts` | authenticated TOTP session required for enrol flows | enrol bucket |
-| POST | `/auth/webauthn/register/finish` | `dispatch-auth.ts` | authenticated TOTP session required for enrol flows | enrol bucket |
-| GET/HEAD | `/auth/webauthn/enrol` | `dispatch-auth.ts` | authenticated TOTP session required | enrol bucket |
+| Method | Path | Source | Auth model | Rate limit | Response style |
+|---|---|---|---|---|---|
+| POST | `/auth/verify` | request guards / auth endpoints | public login verification | auth bucket | compatibility success envelope with session cookie on success: `{ status: "ok", ok: true }` |
+| POST | `/auth/webauthn/login/start` | `dispatch-auth.ts` | public login bootstrap | auth bucket | bootstrap payload `{ token, options }` |
+| POST | `/auth/webauthn/login/finish` | `dispatch-auth.ts` | public login completion | auth bucket | compatibility success envelope with session cookie on success: `{ status: "ok", ok: true }` |
+| POST | `/auth/webauthn/register/start` | `dispatch-auth.ts` | authenticated TOTP session required for enrol flows | enrol bucket | bootstrap payload `{ token, options }` |
+| POST | `/auth/webauthn/register/finish` | `dispatch-auth.ts` | authenticated TOTP session required for enrol flows | enrol bucket | compatibility success envelope `{ status: "ok", ok: true }` |
+| GET/HEAD | `/auth/webauthn/enrol` | `dispatch-auth.ts` | authenticated TOTP session required | enrol bucket | HTML page |
 
 ## Content/timeline routes
 
@@ -175,11 +175,14 @@ web endpoint helpers (`ui-endpoints.ts`, `handlers/workspace.ts`).
    - examples: `/agent/respond`, `/workspace/visibility`
 3. **compatibility simple mutations**
    - legacy callers may still expect `ok: true`, but the preferred envelope now also includes `status: "ok"`
-   - examples: `PATCH /post/:id`, `POST /internal/post`
-4. **resource-creating mutations**
+   - examples: `PATCH /post/:id`, `POST /internal/post`, auth completion endpoints such as `/auth/verify` and `/auth/webauthn/login/finish`
+4. **bootstrap/setup payloads**
+   - mutation-like endpoints that return structured bootstrap data rather than a status envelope
+   - examples: `/auth/webauthn/login/start`, `/auth/webauthn/register/start`
+5. **resource-creating mutations**
    - created entity / richer payload rather than a bare status
    - examples: `/post`, `/post/reply`, `/media/upload`, `/agent/branch-fork`
-5. **binary/streaming**
+6. **binary/streaming**
    - raw file/media/SSE/WebSocket
 
 ### Inconsistencies worth noting
@@ -198,10 +201,28 @@ The response-shape direction is now:
 - **simple UI/control mutations** → prefer `{ status: "ok", ... }`
   - examples: `/agent/respond`, `/workspace/visibility`, queue and branch-control mutations
 - **compatibility mutations with older callers** → prefer `{ status: "ok", ok: true, ... }`
-  - examples: `PATCH /post/:id`, `POST /internal/post`
+  - examples: `PATCH /post/:id`, `POST /internal/post`, auth completion endpoints that previously returned only `{ ok: true }`
+- **bootstrap/setup mutations** → keep the structured bootstrap payload rather than wrapping it in a status envelope
+  - examples: `/auth/webauthn/login/start`, `/auth/webauthn/register/start`
 - **resource-creating / richer workflow mutations** → keep the richer payload, but include `status: "ok"` when feasible
   - examples: peer relay, queue-steer/send, branch fork/rename/prune
 - **resource reads** → keep direct JSON resources rather than wrapping everything in a success envelope
+
+### Endpoint-family policy snapshot
+
+- **auth completion endpoints** (`/auth/verify`, `/auth/webauthn/login/finish`, `/auth/webauthn/register/finish`)
+  - use compatibility success envelopes because the response is a success/failure acknowledgement, not the resource itself
+  - keep `ok: true` where compatibility is cheap, but add `status: "ok"`
+  - preserve `Set-Cookie` on login/session-establishing completions
+- **auth bootstrap endpoints** (`/auth/webauthn/login/start`, `/auth/webauthn/register/start`)
+  - keep direct bootstrap payloads (`token`, `options`)
+  - do not wrap those in `{ status: "ok" }`
+- **read endpoints**
+  - keep returning direct resources
+- **simple web UI control endpoints**
+  - standardize on `{ status: "ok", ... }`
+- **resource-creating mutations**
+  - keep richer created-resource payloads rather than forcing a generic status envelope
 
 ## Security posture observations
 
@@ -225,8 +246,6 @@ validation instead of cookie-auth + CSRF.
 
 1. Decide whether the legacy compatibility routes (`/agents`, `/reply`) should remain indefinitely or be retired in a future compatibility window.
    - ticket: `kanban/00-inbox/decide-legacy-web-api-compatibility-route-retirement.md`
-2. Decide whether response envelopes should be standardised further, or simply documented as the current lightweight resource-first style.
-   - ticket: `kanban/00-inbox/formalize-web-api-response-envelope-policy.md`
-3. Continue evolving the `extension_ui_*` browser-event bridge into a richer first-class extension UI surface if needed.
+2. Continue evolving the `extension_ui_*` browser-event bridge into a richer first-class extension UI surface if needed.
    - ticket: `kanban/00-inbox/extension-ui-sse-client-contract-gap.md`
-4. Keep route inventory coverage in tests so newly added mutating endpoints do not skip classification.
+3. Keep route inventory coverage in tests so newly added mutating endpoints do not skip classification.

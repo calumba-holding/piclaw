@@ -4,6 +4,7 @@
 
 import { WEB_SESSION_TTL, WEB_TOTP_SECRET, WEB_TOTP_WINDOW } from "../../core/config.js";
 import { createWebSession, DEFAULT_WEB_USER_ID } from "../../db.js";
+import { okJson } from "./http/http-utils.js";
 import { randomSessionToken, verifyTotp } from "./auth.js";
 
 /** Minimal lockout-tracker contract consumed by TOTP auth handler logic. */
@@ -70,12 +71,7 @@ export async function handleAuthVerifyRequest(req: Request, ctx: TotpAuthContext
   const token = randomSessionToken();
   createWebSession(token, DEFAULT_WEB_USER_ID, getSessionTtlSeconds(), "totp");
 
-  const payload = JSON.stringify({ ok: true });
-  return new Response(payload, {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json",
-      "Set-Cookie": ctx.buildSessionCookie(token, req),
-    },
+  return okJson({ ok: true }, 200, {
+    "Set-Cookie": ctx.buildSessionCookie(token, req),
   });
 }

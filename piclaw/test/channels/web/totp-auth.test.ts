@@ -1,9 +1,12 @@
+import { createHmac } from "node:crypto";
 import { describe, expect, test } from "bun:test";
 import {
   handleAuthVerifyRequest,
   type TotpAuthContext,
   type TotpFailureTrackerLike,
 } from "../../../src/channels/web/totp-auth.js";
+import { WEB_TOTP_SECRET } from "../../../src/core/config.js";
+import { initDatabase } from "../../../src/db.js";
 
 class StubFailureTracker implements TotpFailureTrackerLike {
   constructor(
@@ -51,6 +54,45 @@ function createContext(overrides?: Partial<TotpAuthContext>): TotpAuthContext {
     failureTracker: new StubFailureTracker(),
     ...overrides,
   };
+}
+
+const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+function decodeBase32(value: string): Buffer | null {
+  const clean = value.toUpperCase().replace(/[^A-Z2-7]/g, "");
+  if (!clean) return null;
+
+  let bits = 0;
+  let buffer = 0;
+  const bytes: number[] = [];
+
+  for (const char of clean) {
+    const index = BASE32_ALPHABET.indexOf(char);
+    if (index < 0) continue;
+    buffer = (buffer << 5) | index;
+    bits += 5;
+    if (bits >= 8) {
+      bits -= 8;
+      bytes.push((buffer >> bits) & 0xff);
+    }
+  }
+
+  return bytes.length > 0 ? Buffer.from(bytes) : null;
+}
+
+function totpCode(secret: string, timeMs = Date.now(), stepSeconds = 30, digits = 6): string {
+  const key = decodeBase32(secret) ?? Buffer.from(secret, "utf8");
+  const counter = Math.floor(timeMs / 1000 / stepSeconds);
+  const counterBuffer = Buffer.alloc(8);
+  counterBuffer.writeBigUInt64BE(BigInt(counter));
+  const hmac = createHmac("sha1", key).update(counterBuffer).digest();
+  const offset = hmac[hmac.length - 1] & 0x0f;
+  const code =
+    ((hmac[offset] & 0x7f) << 24) |
+    ((hmac[offset + 1] & 0xff) << 16) |
+    ((hmac[offset + 2] & 0xff) << 8) |
+    (hmac[offset + 3] & 0xff);
+  return (code % 10 ** digits).toString().padStart(digits, "0");
 }
 
 describe("totp auth verify handler", () => {
@@ -124,5 +166,25 @@ describe("totp auth verify handler", () => {
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "Invalid code" });
     expect(events).toContain("TOTP failed (2/5)");
+  });
+
+  test("issues a session cookie with the compatibility success envelope on valid totp", async () => {
+    initDatabase();
+    const cleared = { value: false };
+    const req = new Request("https://example.com/auth/verify", {
+      method: "POST",
+      body: JSON.stringify({ code: totpCode(WEB_TOTP_SECRET) }),
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const res = await handleAuthVerifyRequest(req, createContext({
+      failureTracker: new StubFailureTracker({ cleared }),
+      buildSessionCookie: () => "piclaw_session=test; Path=/; HttpOnly",
+    }));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: "ok", ok: true });
+    expect(res.headers.get("Set-Cookie")).toContain("piclaw_session=test");
+    expect(cleared.value).toBe(true);
   });
 });

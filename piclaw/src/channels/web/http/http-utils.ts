@@ -8,23 +8,23 @@
  */
 
 /** Build a JSON HTTP response with consistent content-type headers. */
-export function jsonResponse(data: unknown, status = 200): Response {
+export function jsonResponse(data: unknown, status = 200, headers?: HeadersInit): Response {
+  const responseHeaders = new Headers(headers);
+  if (!responseHeaders.has("Content-Type")) responseHeaders.set("Content-Type", "application/json");
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: responseHeaders,
   });
 }
 
 /** Build the standard lightweight success envelope used by simple web mutations. */
-export function okJson(data: Record<string, unknown> = {}, status = 200): Response {
-  return jsonResponse({ status: "ok", ...data }, status);
+export function okJson(data: Record<string, unknown> = {}, status = 200, headers?: HeadersInit): Response {
+  return jsonResponse({ status: "ok", ...data }, status, headers);
 }
 
 /** Build the standard lightweight error envelope used by web JSON endpoints. */
-export function errorJson(error: string, status = 400): Response {
-  return jsonResponse({ error }, status);
+export function errorJson(error: string, status = 400, headers?: HeadersInit): Response {
+  return jsonResponse({ error }, status, headers);
 }
 
 /** Clamp an integer value between min and max bounds. */

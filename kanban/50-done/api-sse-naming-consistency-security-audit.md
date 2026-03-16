@@ -242,7 +242,7 @@ fixes or follow-up tickets.
 - Updated regression coverage in `test/channels/web/web-channel.test.ts` and documented the emerging response-shape policy in `docs/web-api-endpoint-inventory.md`.
 - Final consolidation pass split the remaining structural questions into explicit follow-up tickets:
   - `piclaw/kanban/00-inbox/decide-legacy-web-api-compatibility-route-retirement.md`
-  - `piclaw/kanban/00-inbox/formalize-web-api-response-envelope-policy.md`
+  - `piclaw/kanban/50-done/formalize-web-api-response-envelope-policy.md`
   - `piclaw/kanban/00-inbox/clarify-agent-response-sse-contract.md`
   - `piclaw/kanban/00-inbox/extension-ui-sse-client-contract-gap.md`
 - With those remaining structural questions extracted, the main audit umbrella is now considered complete enough to move to review.
