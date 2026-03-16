@@ -26,6 +26,7 @@ const VENDOR_DIR = resolve(EXT_DIR, "vendor");
 const ROUTE_PREFIX = "/drawio";
 
 const DRAWIO_EXTENSIONS = [".drawio", ".drawio.xml", ".drawio.svg", ".drawio.png"];
+const DEFAULT_DRAWIO_XML = '<mxfile host="app.diagrams.net"><diagram id="page-1" name="Page-1"><mxGraphModel dx="1260" dy="720" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>';
 
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -79,24 +80,30 @@ var filePath = params.get('path') || '';
 var fileName = filePath.split('/').pop() || 'diagram.drawio';
 var frame = document.getElementById('editor-frame');
 var loading = document.getElementById('loading');
-var xmlData = '';
+var DEFAULT_DRAWIO_XML = ${JSON.stringify(DEFAULT_DRAWIO_XML)};
+var xmlData = DEFAULT_DRAWIO_XML;
 var modified = false;
+
+function normalizeDrawioXml(value) {
+  var text = String(value || '').trim();
+  return text || DEFAULT_DRAWIO_XML;
+}
 
 // Load the file contents from workspace
 function loadFile() {
   if (!filePath) {
-    xmlData = '';
+    xmlData = DEFAULT_DRAWIO_XML;
     startEditor();
     return;
   }
   fetch('/workspace/raw?path=' + encodeURIComponent(filePath))
     .then(function(r) {
       if (r.ok) return r.text();
-      if (r.status === 404) return ''; // new file
+      if (r.status === 404) return DEFAULT_DRAWIO_XML; // new file
       throw new Error('HTTP ' + r.status);
     })
     .then(function(text) {
-      xmlData = text || '';
+      xmlData = normalizeDrawioXml(text);
       startEditor();
     })
     .catch(function(err) {
@@ -127,7 +134,7 @@ window.addEventListener('message', function(e) {
       // Send load action with the diagram XML
       frame.contentWindow.postMessage(JSON.stringify({
         action: 'load',
-        xml: xmlData || '',
+        xml: normalizeDrawioXml(xmlData),
         autosave: 1,
         title: fileName
       }), '*');

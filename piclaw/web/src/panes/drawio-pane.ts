@@ -36,6 +36,13 @@ function esc(s: string): string {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+const DEFAULT_DRAWIO_XML = '<mxfile host="app.diagrams.net"><diagram id="page-1" name="Page-1"><mxGraphModel dx="1260" dy="720" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel></diagram></mxfile>';
+
+function normalizeDrawioXml(value: string | null | undefined): string {
+    const text = String(value || '').trim();
+    return text ? text : DEFAULT_DRAWIO_XML;
+}
+
 // ── Preview card (workspace browser) ────────────────────────────
 
 class DrawioPreviewCard implements PaneInstance {
@@ -133,7 +140,7 @@ class DrawioEditorInstance implements PaneInstance {
 
     private async loadFile(): Promise<void> {
         if (!this.filePath) {
-            this.xmlData = '';
+            this.xmlData = DEFAULT_DRAWIO_XML;
             this.fileLoaded = true;
             this.trySendLoad();
             return;
@@ -141,9 +148,9 @@ class DrawioEditorInstance implements PaneInstance {
         try {
             const response = await fetch(`/workspace/raw?path=${encodeURIComponent(this.filePath)}`);
             if (response.ok) {
-                this.xmlData = await response.text();
+                this.xmlData = normalizeDrawioXml(await response.text());
             } else if (response.status === 404) {
-                this.xmlData = '';
+                this.xmlData = DEFAULT_DRAWIO_XML;
             } else {
                 throw new Error(`HTTP ${response.status}`);
             }
@@ -163,7 +170,7 @@ class DrawioEditorInstance implements PaneInstance {
         this.loadSent = true;
         this.iframe.contentWindow.postMessage(JSON.stringify({
             action: 'load',
-            xml: this.xmlData || '',
+            xml: normalizeDrawioXml(this.xmlData),
             autosave: 1,
             title: this.fileName,
         }), '*');
