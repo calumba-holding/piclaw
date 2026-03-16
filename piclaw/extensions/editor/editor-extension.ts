@@ -53,7 +53,7 @@ import {
     indentationMarkers,
     githubLight,
     githubDark,
-} from './vendor/codemirror.js';
+} from '/editor-vendor/codemirror.js';
 import { getWorkspaceBranch, getWorkspaceFile, updateWorkspaceFile } from '../../web/src/api.js';
 import type { WebPaneExtension, PaneContext, PaneInstance, PaneCapability } from '../../web/src/panes/pane-types.js';
 

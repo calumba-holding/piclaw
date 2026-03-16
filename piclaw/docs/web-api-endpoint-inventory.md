@@ -48,6 +48,7 @@ or `/workspace/*` route family.
 | GET/HEAD | `/avatar/agent` | `dispatch-shell.ts` | public | Agent avatar endpoint. |
 | GET/HEAD | `/avatar/user` | `dispatch-shell.ts` | authenticated | Current user avatar endpoint. |
 | GET | `/agent/roster` | `dispatch-agent.ts` | authenticated | Current agent roster endpoint. |
+| GET | `/api/extension-routes` | `extension-routes.ts` | authenticated | JSON route introspection for registered extension-route prefixes. |
 | GET | `/sse/stream` | `dispatch-shell.ts` | authenticated | SSE stream endpoint; accepts optional `chat_jid` subscription scope. |
 | GET | `/terminal/session` | `dispatch-shell.ts` | authenticated | Web terminal session metadata/bootstrap endpoint. |
 | WS upgrade | `/terminal/ws` | `web.ts` `handleFetch()` | authenticated + same-origin | WebSocket terminal transport; checked outside the normal request router. |
@@ -119,6 +120,21 @@ or `/workspace/*` route family.
 | POST | `/workspace/rename` | `dispatch-workspace.ts` | authenticated | yes | `data/write` | status JSON |
 | POST | `/workspace/move` | `dispatch-workspace.ts` | authenticated | yes | `data/write` | status JSON |
 | POST | `/workspace/visibility` | `dispatch-workspace.ts` | authenticated | yes | `data/workspace_ui` | `{ status: "ok", visible, show_hidden }` |
+
+## Extension routes
+
+Extension routes are registered dynamically through `src/channels/web/http/extension-routes.ts` and are dispatched after the built-in workspace/media routes but before the final 404.
+
+| Method | Path | Source | Auth | Notes |
+|---|---|---|---|---|
+| GET | `/api/extension-routes` | `extension-routes.ts` | authenticated | Lists currently registered route prefixes and extension paths. |
+| GET/HEAD | `/office-viewer/*` | workspace extension | authenticated | ZetaOffice viewer assets with scoped COOP/COEP headers. |
+| GET/HEAD | `/drawio/*` | workspace extension | authenticated | Vendored draw.io editor assets plus wrapper/editor endpoints. |
+| POST | `/drawio/save` | workspace extension | authenticated + CSRF | Draw.io workspace save/export endpoint. |
+| GET/HEAD | `/editor-vendor/*` | built-in route registration | authenticated | CodeMirror vendor asset route used by the lazy editor bundle. |
+| GET/HEAD | `/csv-viewer/*` | built-in route registration | authenticated | Same-origin CSV/TSV viewer that fetches file contents from `/workspace/raw`. |
+
+See `docs/extension-routes.md` for the author-facing registration API and security notes.
 
 ## Media routes
 

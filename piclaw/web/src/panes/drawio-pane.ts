@@ -197,7 +197,7 @@ class DrawioEditorInstance implements PaneInstance {
         wrapper.appendChild(this.overlay);
 
         const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const editorUrl = `/drawio/index.html?embed=1&proto=json&spin=1&modified=0&ui=dark&dark=${isDark ? '1' : '0'}`;
+        const editorUrl = `/drawio/index.html?embed=1&proto=json&spin=1&modified=0&noSaveBtn=1&noExitBtn=1&saveAndExit=0&ui=dark&dark=${isDark ? '1' : '0'}`;
 
         this.iframe = document.createElement('iframe');
         this.iframe.src = editorUrl;
@@ -257,7 +257,9 @@ class DrawioEditorInstance implements PaneInstance {
             action: 'load',
             xml: this.format === 'xml' ? normalizeDrawioXml(this.xmlData) : this.xmlData,
             autosave: 1,
-            saveAndExit: '1',
+            saveAndExit: '0',
+            noSaveBtn: '1',
+            noExitBtn: '1',
             title: this.fileName,
         }), '*');
         if (this.overlay) this.overlay.style.display = 'none';

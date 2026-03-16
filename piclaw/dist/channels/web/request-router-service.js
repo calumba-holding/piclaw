@@ -32,6 +32,10 @@ import { handleContentPrimaryRoutes, handleContentSecondaryRoutes } from "./http
 import { handleMediaRoutes } from "./http/dispatch-media.js";
 import { handleShellRoutes } from "./http/dispatch-shell.js";
 import { handleWorkspaceRoutes } from "./http/dispatch-workspace.js";
+import "./http/editor-vendor-route.js";
+import "./http/csv-viewer-route.js";
+import "./http/pdf-viewer-route.js";
+import "./http/image-viewer-route.js";
 import { handleExtensionRoutes } from "./http/extension-routes.js";
 import { enforceRequestGuards } from "./http/request-guards.js";
 import { getRouteFlags } from "./http/route-flags.js";

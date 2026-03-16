@@ -23,7 +23,7 @@ import { Timeline } from './components/timeline.js';
 import { WorkspaceExplorer } from './components/workspace-explorer.js';
 import { TabStrip } from './components/tab-strip.js';
 import { MarkdownPreview } from './components/markdown-preview.js';
-import { paneRegistry, editorPaneExtension, preloadEditorBundle, terminalPaneExtension, workspacePreviewPaneExtension, workspaceMarkdownPreviewPaneExtension, officeViewerPaneExtension, drawioPaneExtension, tabStore } from './panes/index.js';
+import { paneRegistry, editorPaneExtension, preloadEditorBundle, terminalPaneExtension, workspacePreviewPaneExtension, workspaceMarkdownPreviewPaneExtension, officeViewerPaneExtension, csvViewerPaneExtension, pdfViewerPaneExtension, imageViewerPaneExtension, drawioPaneExtension, tabStore } from './panes/index.js';
 import { getLocalStorageBoolean, getLocalStorageItem, getLocalStorageNumber, setLocalStorageItem } from './utils/storage.js';
 import { useSseConnection } from './ui/use-sse-connection.js';
 import { useNotifications } from './ui/use-notifications.js';
@@ -130,6 +130,9 @@ paneRegistry.register(editorPaneExtension);
 paneRegistry.register(workspacePreviewPaneExtension);
 paneRegistry.register(workspaceMarkdownPreviewPaneExtension);
 paneRegistry.register(officeViewerPaneExtension);
+paneRegistry.register(csvViewerPaneExtension);
+paneRegistry.register(pdfViewerPaneExtension);
+paneRegistry.register(imageViewerPaneExtension);
 paneRegistry.register(drawioPaneExtension);
 // Preload the editor bundle in the background so first file open is instant
 preloadEditorBundle();
@@ -323,14 +326,18 @@ function MainApp({ locationParams }) {
         };
     }, [tabStripActiveId, closeEditor]);
 
-    // Listen for office-viewer "Open in Tab" button clicks from preview cards
+    // Listen for preview-card "Open in Tab" button clicks
     useEffect(() => {
         const handler = (e: CustomEvent) => {
             const path = e.detail?.path;
             if (path) openEditor(path);
         };
         document.addEventListener('office-viewer:open-tab', handler);
-        return () => document.removeEventListener('office-viewer:open-tab', handler);
+        document.addEventListener('drawio:open-tab', handler);
+        return () => {
+            document.removeEventListener('office-viewer:open-tab', handler);
+            document.removeEventListener('drawio:open-tab', handler);
+        };
     }, [openEditor]);
 
     useEffect(() => {

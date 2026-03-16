@@ -226,7 +226,7 @@ function loadFile() {
 function startEditor() {
   // Embed mode URL with dark theme
   var isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  var editorUrl = '${ROUTE_PREFIX}/index.html?embed=1&proto=json&spin=1&modified=0'
+  var editorUrl = '${ROUTE_PREFIX}/index.html?embed=1&proto=json&spin=1&modified=0&noSaveBtn=1&noExitBtn=1&saveAndExit=0'
     + '&ui=dark&dark=' + (isDark ? '1' : '0');
   frame.src = editorUrl;
   frame.style.display = 'block';
@@ -257,7 +257,9 @@ window.addEventListener('message', function(e) {
         action: 'load',
         xml: format === 'xml' ? normalizeDrawioXml(xmlData) : xmlData,
         autosave: 1,
-        saveAndExit: '1',
+        saveAndExit: '0',
+        noSaveBtn: '1',
+        noExitBtn: '1',
         title: fileName
       }), '*');
       break;

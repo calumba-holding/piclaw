@@ -29,7 +29,10 @@ import { html, useCallback, useEffect, useMemo, useRef, useState } from '../vend
  * @param {() => void} [props.onToggleDock] - Toggle terminal dock visibility.
  * @param {boolean} [props.dockVisible] - Whether the terminal dock is currently visible.
  */
-const OFFICE_EXTENSIONS = /\.(docx?|xlsx?|pptx?|odt|ods|odp|rtf|csv)$/i;
+const OFFICE_EXTENSIONS = /\.(docx?|xlsx?|pptx?|odt|ods|odp|rtf)$/i;
+const CSV_EXTENSIONS = /\.(csv|tsv)$/i;
+const PDF_EXTENSIONS = /\.pdf$/i;
+const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|bmp|ico|svg)$/i;
 const DRAWIO_EXTENSIONS = /\.drawio(\.xml|\.svg|\.png)?$/i;
 
 export function TabStrip({ tabs, activeId, onActivate, onClose, onCloseOthers, onCloseAll, onTogglePin, onTogglePreview, previewTabs, onToggleDock, dockVisible }) {
@@ -201,6 +204,30 @@ export function TabStrip({ tabs, activeId, onActivate, onClose, onCloseOthers, o
                         const rawUrl = '/workspace/raw?path=' + encodeURIComponent(contextMenu.id);
                         const name = contextMenu.id.split('/').pop() || 'document';
                         const viewerUrl = '/office-viewer/?url=' + encodeURIComponent(rawUrl) + '&name=' + encodeURIComponent(name);
+                        window.open(viewerUrl, '_blank', 'noopener');
+                        setContextMenu(null);
+                    }}>Open in New Tab</button>
+                `}
+                ${CSV_EXTENSIONS.test(contextMenu.id) && html`
+                    <hr />
+                    <button onClick=${() => {
+                        const viewerUrl = '/csv-viewer/?path=' + encodeURIComponent(contextMenu.id);
+                        window.open(viewerUrl, '_blank', 'noopener');
+                        setContextMenu(null);
+                    }}>Open in New Tab</button>
+                `}
+                ${PDF_EXTENSIONS.test(contextMenu.id) && html`
+                    <hr />
+                    <button onClick=${() => {
+                        const viewerUrl = '/pdf-viewer/?path=' + encodeURIComponent(contextMenu.id);
+                        window.open(viewerUrl, '_blank', 'noopener');
+                        setContextMenu(null);
+                    }}>Open in New Tab</button>
+                `}
+                ${IMAGE_EXTENSIONS.test(contextMenu.id) && !DRAWIO_EXTENSIONS.test(contextMenu.id) && html`
+                    <hr />
+                    <button onClick=${() => {
+                        const viewerUrl = '/image-viewer/?path=' + encodeURIComponent(contextMenu.id);
                         window.open(viewerUrl, '_blank', 'noopener');
                         setContextMenu(null);
                     }}>Open in New Tab</button>
