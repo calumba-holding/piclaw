@@ -226,6 +226,7 @@ function MainApp({ locationParams }) {
     // refreshQueueState filters these out so the server can't re-add them
     // before the placeholder is actually consumed server-side.
     const dismissedQueueRowIdsRef = useRef(new Set());
+    const queueRefreshGenRef = useRef(0);
     const silentRecoveryRef = useRef({ inFlight: false, lastAttemptAt: 0, turnId: null });
     // Keep refs in sync during render for immediate access in stable callbacks
     followupQueueRowIdsRef.current = new Set(followupQueueItems.map((item) => item.row_id));
@@ -1027,9 +1028,12 @@ function MainApp({ locationParams }) {
 
 
     const refreshQueueState = useCallback(() => {
+        const gen = ++queueRefreshGenRef.current;
         const targetChatJid = currentChatJid;
         getAgentQueueState(targetChatJid)
             .then((payload) => {
+                // Discard stale responses — a newer refresh was already issued
+                if (gen !== queueRefreshGenRef.current) return;
                 if (activeChatJidRef.current !== targetChatJid) return;
                 const dismissed = dismissedQueueRowIdsRef.current;
                 const items = Array.isArray(payload?.items)
@@ -1051,6 +1055,7 @@ function MainApp({ locationParams }) {
                 setFollowupQueueItems((prev) => prev.length === 0 ? prev : []);
             })
             .catch(() => {
+                if (gen !== queueRefreshGenRef.current) return;
                 if (activeChatJidRef.current !== targetChatJid) return;
                 setFollowupQueueItems((prev) => prev.length === 0 ? prev : []);
             });
