@@ -224,6 +224,9 @@ validation instead of cookie-auth + CSRF.
 ## Follow-up candidates
 
 1. Decide whether the legacy compatibility routes (`/agents`, `/reply`) should remain indefinitely or be retired in a future compatibility window.
+   - ticket: `kanban/00-inbox/decide-legacy-web-api-compatibility-route-retirement.md`
 2. Decide whether response envelopes should be standardised further, or simply documented as the current lightweight resource-first style.
+   - ticket: `kanban/00-inbox/formalize-web-api-response-envelope-policy.md`
 3. Continue evolving the `extension_ui_*` browser-event bridge into a richer first-class extension UI surface if needed.
+   - ticket: `kanban/00-inbox/extension-ui-sse-client-contract-gap.md`
 4. Keep route inventory coverage in tests so newly added mutating endpoints do not skip classification.

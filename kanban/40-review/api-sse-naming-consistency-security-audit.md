@@ -1,7 +1,7 @@
 ---
 id: api-sse-naming-consistency-security-audit
 title: Audit API endpoints and SSE events for naming, consistency, formats, and security
-status: doing
+status: review
 priority: medium
 created: 2026-03-14
 updated: 2026-03-16
@@ -103,16 +103,16 @@ fixes or follow-up tickets.
 
 ## Acceptance Criteria
 
-- [ ] Full inventory of HTTP endpoints with method, path, auth requirement, and
+- [x] Full inventory of HTTP endpoints with method, path, auth requirement, and
       dispatch module
-- [ ] Full inventory of SSE event types with payload shape summary
-- [ ] Naming inconsistencies identified and categorized
-- [ ] Response format inconsistencies identified
-- [ ] Security gaps identified (missing auth, missing rate limit, missing
+- [x] Full inventory of SSE event types with payload shape summary
+- [x] Naming inconsistencies identified and categorized
+- [x] Response format inconsistencies identified
+- [x] Security gaps identified (missing auth, missing rate limit, missing
       validation)
-- [ ] Concrete renames or fixes implemented for the clearest issues
-- [ ] Follow-up tickets created for larger structural changes if needed
-- [ ] No regressions — existing tests pass after any changes
+- [x] Concrete renames or fixes implemented for the clearest issues
+- [x] Follow-up tickets created for larger structural changes if needed
+- [x] No regressions — existing tests pass after any changes
 
 ## Investigation Questions
 
@@ -134,17 +134,17 @@ fixes or follow-up tickets.
 
 ## Test Plan
 
-- [ ] Existing endpoint tests continue to pass after any renames
-- [ ] Add/extend tests for any newly identified security gaps
-- [ ] Run `cd /workspace/piclaw/piclaw && bun run quality`
+- [x] Existing endpoint tests continue to pass after any renames
+- [x] Add/extend tests for any newly identified security gaps
+- [x] Run `cd /workspace/piclaw/piclaw && bun run quality`
 
 ## Definition of Done
 
-- [ ] Endpoint and SSE inventory documented
-- [ ] Naming convention defined and major inconsistencies resolved
-- [ ] Security gaps identified and either fixed or tracked
-- [ ] Response format inconsistencies documented and either fixed or tracked
-- [ ] `bun run quality` passes
+- [x] Endpoint and SSE inventory documented
+- [x] Naming convention defined and major inconsistencies resolved
+- [x] Security gaps identified and either fixed or tracked
+- [x] Response format inconsistencies documented and either fixed or tracked
+- [x] `bun run quality` passes
 
 ## Relevant Areas
 
@@ -240,8 +240,16 @@ fixes or follow-up tickets.
   - peer relay
 - Those success responses now include `status: "ok"` while preserving their pre-existing rich payload fields.
 - Updated regression coverage in `test/channels/web/web-channel.test.ts` and documented the emerging response-shape policy in `docs/web-api-endpoint-inventory.md`.
-- Remaining work is still broader response-format consistency analysis plus deciding whether that browser-event bridge is sufficient or whether a richer first-class extension-UI surface is warranted.
-- This ticket remains the active umbrella for that work rather than being closed after incremental guardrail slices.
+- Final consolidation pass split the remaining structural questions into explicit follow-up tickets:
+  - `piclaw/kanban/00-inbox/decide-legacy-web-api-compatibility-route-retirement.md`
+  - `piclaw/kanban/00-inbox/formalize-web-api-response-envelope-policy.md`
+  - `piclaw/kanban/00-inbox/clarify-agent-response-sse-contract.md`
+  - `piclaw/kanban/00-inbox/extension-ui-sse-client-contract-gap.md`
+- With those remaining structural questions extracted, the main audit umbrella is now considered complete enough to move to review.
+- Review focus should be:
+  - inventory artefacts are accurate enough
+  - the landed naming/response/security slices are coherent together
+  - the remaining work has been cleanly split into separate follow-up tickets instead of being left implicit
 
 ### 2026-03-15
 - Lane change: `00-inbox` → `20-doing` to start the API/SSE audit as the next unblocked follow-on after the post-release audit and shell lifecycle refactor were committed.
