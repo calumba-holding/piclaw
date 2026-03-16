@@ -261,6 +261,79 @@ export function ComposeBox({
         textarea.style.overflowY = 'hidden';
     };
 
+    const extractQueueFileRefs = (value) => {
+        if (!value) return { content: value, fileRefs: [] };
+        const normalized = value.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const lines = normalized.split('\n');
+        let start = -1;
+        for (let i = 0; i < lines.length; i += 1) {
+            if (lines[i].trim() === 'Files:' && lines[i + 1] && /^\s*-\s+/.test(lines[i + 1])) {
+                start = i;
+                break;
+            }
+        }
+        if (start === -1) return { content: value, fileRefs: [] };
+        const refs = [];
+        let end = start + 1;
+        for (; end < lines.length; end += 1) {
+            const line = lines[end];
+            if (/^\s*-\s+/.test(line)) {
+                refs.push(line.replace(/^\s*-\s+/, '').trim());
+            } else if (!line.trim()) {
+                break;
+            } else {
+                break;
+            }
+        }
+        if (refs.length === 0) return { content: value, fileRefs: [] };
+        const before = lines.slice(0, start);
+        const after = lines.slice(end);
+        const cleaned = [...before, ...after].join('\n').replace(/\n{3,}/g, '\n\n').trim();
+        return { content: cleaned, fileRefs: refs };
+    };
+
+    const extractQueueMessageRefs = (value) => {
+        if (!value) return { content: value, messageRefs: [] };
+        const normalized = value.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const lines = normalized.split('\n');
+        let start = -1;
+        for (let i = 0; i < lines.length; i += 1) {
+            if (lines[i].trim() === 'Referenced messages:' && lines[i + 1] && /^\s*-\s+/.test(lines[i + 1])) {
+                start = i;
+                break;
+            }
+        }
+        if (start === -1) return { content: value, messageRefs: [] };
+        const refs = [];
+        let end = start + 1;
+        for (; end < lines.length; end += 1) {
+            const line = lines[end];
+            if (/^\s*-\s+/.test(line)) {
+                const match = line.replace(/^\s*-\s+/, '').trim().match(/^message:(\S+)$/i);
+                if (match) refs.push(match[1]);
+            } else if (!line.trim()) {
+                break;
+            } else {
+                break;
+            }
+        }
+        if (refs.length === 0) return { content: value, messageRefs: [] };
+        const before = lines.slice(0, start);
+        const after = lines.slice(end);
+        const cleaned = [...before, ...after].join('\n').replace(/\n{3,}/g, '\n\n').trim();
+        return { content: cleaned, messageRefs: refs };
+    };
+
+    const parseQueueContent = (value) => {
+        const withFiles = extractQueueFileRefs(value || '');
+        const withMessages = extractQueueMessageRefs(withFiles.content || '');
+        return {
+            text: withMessages.content || '',
+            fileRefs: withFiles.fileRefs,
+            messageRefs: withMessages.messageRefs,
+        };
+    };
+
 
     /** Update slash autocomplete matches based on current input. */
     const updateSlashAutocomplete = (value) => {
@@ -897,12 +970,40 @@ export function ComposeBox({
                 <div class="compose-queue-stack">
                     ${followupQueueItems.map((item) => {
                         const rowText = typeof item?.content === 'string' ? item.content : '';
-                        if (!rowText.trim()) return null;
+                        const parsed = parseQueueContent(rowText);
+                        if (!parsed.text.trim() && parsed.fileRefs.length === 0 && parsed.messageRefs.length === 0) return null;
                         return html`
                             <div class="compose-queue-stack-item" role="listitem">
-                                <span class="compose-queue-stack-content" title=${rowText}>
-                                    ${rowText}
-                                </span>
+                                <div class="compose-queue-stack-content" title=${rowText}>
+                                    ${parsed.text.trim() && html`
+                                        <div class="compose-queue-stack-text">${parsed.text}</div>
+                                    `}
+                                    ${(parsed.messageRefs.length > 0 || parsed.fileRefs.length > 0) && html`
+                                        <div class="compose-queue-stack-refs">
+                                            ${parsed.messageRefs.map((id) => html`
+                                                <${FilePill}
+                                                    key=${'queue-msg-' + id}
+                                                    prefix="compose"
+                                                    label=${'msg:' + id}
+                                                    title=${'Message reference: ' + id}
+                                                    icon="message"
+                                                />
+                                            `)}
+                                            ${parsed.fileRefs.map((path) => {
+                                                const label = path.split('/').pop() || path;
+                                                return html`
+                                                    <${FilePill}
+                                                        key=${'queue-file-' + path}
+                                                        prefix="compose"
+                                                        label=${label}
+                                                        title=${path}
+                                                        onClick=${() => onOpenFilePill?.(path)}
+                                                    />
+                                                `;
+                                            })}
+                                        </div>
+                                    `}
+                                </div>
                                 <button
                                     class="compose-queue-stack-steer-btn"
                                     type="button"

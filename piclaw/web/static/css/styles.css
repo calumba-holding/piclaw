@@ -2312,10 +2312,29 @@ body {
     font-size: 11.5px;
     color: var(--text-secondary);
     line-height: 1.2;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: hidden;
+}
+
+.compose-queue-stack-text {
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+}
+
+.compose-queue-stack-refs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-width: 0;
+}
+
+.compose-queue-stack-refs .compose-file-pill {
+    background: var(--bg-primary);
+    padding: 1px 6px;
 }
 
 .compose-queue-stack-steer-btn {

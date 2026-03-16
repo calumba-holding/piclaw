@@ -19,7 +19,7 @@ export function readViewportHeight(runtime = {}) {
   return null;
 }
 
-export function syncStandaloneMobileViewport(runtime = {}) {
+export function syncStandaloneMobileViewport(runtime = {}, options = {}) {
   if (!shouldUseStandaloneMobileViewportFix(runtime)) {
     return null;
   }
@@ -35,26 +35,33 @@ export function syncStandaloneMobileViewport(runtime = {}) {
     doc.documentElement.style.setProperty('--app-height', `${height}px`);
   }
 
-  try {
-    if (typeof win.scrollTo === 'function') {
-      win.scrollTo(0, 0);
-    }
-  } catch {}
+  // Do not force the page back to the top during normal viewport sync.
+  // On mobile, virtual keyboard / caret movement triggers visualViewport
+  // resize+scroll events while typing. Resetting scroll here causes the
+  // chat to jump on every keystroke. Keep scroll resets opt-in for any
+  // future call sites that explicitly need a top reset.
+  if (options.resetScroll === true) {
+    try {
+      if (typeof win.scrollTo === 'function') {
+        win.scrollTo(0, 0);
+      }
+    } catch {}
 
-  try {
-    if (doc.scrollingElement) {
-      doc.scrollingElement.scrollTop = 0;
-      doc.scrollingElement.scrollLeft = 0;
-    }
-    if (doc.documentElement) {
-      doc.documentElement.scrollTop = 0;
-      doc.documentElement.scrollLeft = 0;
-    }
-    if (doc.body) {
-      doc.body.scrollTop = 0;
-      doc.body.scrollLeft = 0;
-    }
-  } catch {}
+    try {
+      if (doc.scrollingElement) {
+        doc.scrollingElement.scrollTop = 0;
+        doc.scrollingElement.scrollLeft = 0;
+      }
+      if (doc.documentElement) {
+        doc.documentElement.scrollTop = 0;
+        doc.documentElement.scrollLeft = 0;
+      }
+      if (doc.body) {
+        doc.body.scrollTop = 0;
+        doc.body.scrollLeft = 0;
+      }
+    } catch {}
+  }
 
   return height;
 }

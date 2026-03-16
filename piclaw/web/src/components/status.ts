@@ -27,6 +27,8 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
 
     const PREVIEW_MAX_CHARS_PER_LINE = 160;
 
+    const stripInternalTags = (value) => String(value || '').replace(/<\/?internal>/gi, '');
+
     const countSoftLines = (line) => {
         if (!line) return 1;
         return Math.max(1, Math.ceil(line.length / PREVIEW_MAX_CHARS_PER_LINE));
@@ -117,7 +119,10 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
 
     const renderThinkingPanel = ({ panelTitle, text, fullText, totalLines, maxLines, titleClass, panelKey }) => {
         const isExpanded = expandedPanels.has(panelKey);
-        const sourceText = fullText || text || '';
+        const rawSourceText = fullText || text || '';
+        const sourceText = panelKey === 'thought' || panelKey === 'draft'
+            ? stripInternalTags(rawSourceText)
+            : rawSourceText;
         const isCollapsible = typeof maxLines === 'number';
         const showClose = isExpanded && isCollapsible;
         const truncated = isCollapsible

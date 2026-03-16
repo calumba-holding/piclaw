@@ -34,6 +34,15 @@ function makeReasoningModel(overrides: Partial<Model<any>> = {}): Model<any> {
   return makeModel({ reasoning: true, id: "reasoning-model", ...overrides });
 }
 
+function makeOpus46Model(overrides: Partial<Model<any>> = {}): Model<any> {
+  return makeReasoningModel({
+    provider: "github-copilot",
+    id: "claude-opus-4.6-1m",
+    name: "Claude Opus 4.6 (1M)",
+    ...overrides,
+  });
+}
+
 type ToolDef = { name: string; execute: (...args: any[]) => Promise<any> };
 type HandlerEntry = { event: string; handler: (...args: any[]) => any };
 
@@ -193,6 +202,15 @@ describe("model-control extension", () => {
     expect(result.details.available_thinking_levels).toContain("high");
   });
 
+  test("get_model_state exposes xhigh for Opus 4.6 variants", async () => {
+    fake.setCurrentModel(makeOpus46Model());
+    fake.setThinkingLevel("xhigh");
+    const ctx = fake.makeCtx();
+    const result = await callTool(fake.tools, "get_model_state", {}, ctx);
+    expect(result.content[0].text).toContain("Thinking level: xhigh");
+    expect(result.details.available_thinking_levels).toContain("xhigh");
+  });
+
   // -- list_models -----------------------------------------------------------
 
   test("list_models shows all available", async () => {
@@ -342,6 +360,15 @@ describe("model-control extension", () => {
     const result = await callTool(fake.tools, "switch_thinking", { level: "high" }, ctx);
     expect(result.content[0].text).toContain("Thinking level set to high");
     expect(result.details.supports_thinking).toBe(true);
+  });
+
+  test("switch_thinking accepts xhigh for Opus 4.6 variants", async () => {
+    fake.setCurrentModel(makeOpus46Model());
+    fake.setThinkingLevel("high");
+    const ctx = fake.makeCtx();
+    const result = await callTool(fake.tools, "switch_thinking", { level: "xhigh" }, ctx);
+    expect(result.content[0].text).toContain("Thinking level set to xhigh");
+    expect(result.details.available_levels).toContain("xhigh");
   });
 
   test("switch_thinking unknown level", async () => {
