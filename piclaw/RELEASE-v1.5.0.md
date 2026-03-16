@@ -21,6 +21,20 @@ the iframe felt like rendering. Opening a `.drawio` file in a tab uses a
 single iframe rather than the previous "iframes all the way down" approach,
 which frankly nobody asked for.
 
+### ZetaOffice document viewer
+Open `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, and `.odp` files directly
+in the browser using the vendored ZetaOffice WASM viewer. No cloud round-trip,
+no external CDN — the entire runtime is served locally through the extension
+route system.
+
+**Requires HTTPS.** ZetaOffice's WASM workers need `SharedArrayBuffer`, which
+browsers only expose in secure contexts with the appropriate COOP/COEP headers.
+If you're running piclaw without TLS (plain `http://localhost`), the viewer
+will not load. Use `mkcert` for local dev certificates, or run behind a
+TLS-terminating reverse proxy. The extension route sets the required
+`Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` headers
+automatically on the `/office-viewer/*` route.
+
 ### Route-backed viewers for CSV, PDF, and images
 Dedicated lightweight viewer routes for CSV, PDF, and image files — served
 through the same extension route infrastructure as ZetaOffice and draw.io.
@@ -121,6 +135,12 @@ Notable closures:
 - Run `make local-install` or rebuild the Docker image.
 - The draw.io vendor assets add ~80 MB to the package. If you're on a
   metered connection, perhaps make a cup of tea.
+- **ZetaOffice requires HTTPS** — the WASM document viewer needs
+  `SharedArrayBuffer`, which browsers gate behind secure contexts. Use
+  `mkcert` for local certs, or run behind a TLS-terminating proxy. Plain
+  `http://localhost` will not work for Office file previews. All other
+  features (draw.io, CSV, PDF, image viewers, editor, chat) work fine
+  without TLS.
 - No database migrations. No breaking API changes. No new environment
   variables.
 - If you previously had a vendored ZetaOffice install, it continues to work
