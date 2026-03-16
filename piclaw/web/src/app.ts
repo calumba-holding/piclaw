@@ -59,6 +59,7 @@ import { resolveQueueActionChatJid, shouldClearQueuedSteerState } from './ui/que
 import { isCompactionStatus } from './ui/status-duration.js';
 import { installStandaloneMobileViewportFix } from './ui/mobile-viewport.js';
 import { resolveOptionalApi } from './ui/optional-api.js';
+import { dispatchExtensionUiBrowserEvent, isExtensionUiEventType } from './ui/extension-ui-events.js';
 import { watchReturnToApp, watchStandaloneWebAppMode } from './ui/app-resume.js';
 
 const BTW_SESSION_KEY = 'piclaw_btw_session';
@@ -2048,6 +2049,18 @@ function MainApp({ locationParams }) {
         if (eventType === 'workspace_update') {
             if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('workspace-update', { detail: data }));
+            }
+            return;
+        }
+
+        if (isExtensionUiEventType(eventType)) {
+            if (!isCurrentChatEvent) return;
+            dispatchExtensionUiBrowserEvent(eventType, data);
+            if (eventType === 'extension_ui_notify' && typeof data?.message === 'string') {
+                showIntentToast(data.message, null, data?.type || 'info');
+            }
+            if (eventType === 'extension_ui_error' && typeof data?.error === 'string') {
+                showIntentToast('Extension UI error', data.error, 'error', 5000);
             }
             return;
         }

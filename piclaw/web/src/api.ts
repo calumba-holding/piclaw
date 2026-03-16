@@ -716,6 +716,22 @@ export class SSEClient {
             this.onEvent('workspace_update', JSON.parse(e.data));
         });
 
+        [
+            'extension_ui_request',
+            'extension_ui_timeout',
+            'extension_ui_notify',
+            'extension_ui_status',
+            'extension_ui_working',
+            'extension_ui_widget',
+            'extension_ui_title',
+            'extension_ui_editor_text',
+            'extension_ui_error',
+        ].forEach((eventType) => {
+            this.eventSource.addEventListener(eventType, (e) => {
+                this.onEvent(eventType, JSON.parse(e.data));
+            });
+        });
+
         this.eventSource.addEventListener('agent_draft', (e) => {
             this.onEvent('agent_draft', JSON.parse(e.data));
         });

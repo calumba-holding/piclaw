@@ -54,10 +54,11 @@ That leaves three possibilities:
 ## Acceptance Criteria
 
 - [ ] Confirm whether the current web product surface is supposed to support `extension_ui_*`
-- [ ] Inventory all emitted `extension_ui_*` events and intended frontend behavior
-- [ ] Either wire the supported events into the main web client, or explicitly de-scope/document them
+- [x] Inventory all emitted `extension_ui_*` events and intended frontend behavior
+- [x] Wire the events into the main web client at least as a browser-event bridge
+- [ ] Decide whether that bridge is sufficient or whether a richer first-class extension-UI surface is required
 - [ ] Remove any dead event names if they are not part of the intended product surface
-- [ ] Add/adjust tests to match the decided contract
+- [x] Add/adjust tests to match the decided contract
 
 ## Relevant Areas
 
@@ -74,8 +75,14 @@ That leaves three possibilities:
 ### 2026-03-16
 - Created from the active API/SSE audit after confirming:
   - server emits `extension_ui_request`, `extension_ui_timeout`, `extension_ui_notify`, `extension_ui_status`, `extension_ui_working`, `extension_ui_widget`, `extension_ui_title`, `extension_ui_editor_text`, and `extension_ui_error`
-  - `web/src/api.ts` does not currently register listeners for those names
-  - the main app shell does not currently appear to consume them directly
+  - the previous main web SSE client did not register listeners for those names
+  - the main app shell did not previously consume them directly
+- Follow-up slice landed in source:
+  - `web/src/api.ts` now subscribes to the full `extension_ui_*` family
+  - `web/src/app.ts` now bridges those events into browser events
+  - `extension_ui_notify` and `extension_ui_error` now surface lightweight intent toasts
+  - tests added in `test/web/extension-ui-events.test.ts` and `test/channels/web/web-sse-client.test.ts`
+- Remaining question: whether the browser-event bridge is the intended long-term UI surface or merely the first compatibility step toward richer extension UI.
 
 ## Links
 

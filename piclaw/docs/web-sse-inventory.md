@@ -146,17 +146,15 @@ The current event space is not namespaced hierarchically, but it is still unders
 
 That means this audit probably does **not** need a disruptive event renaming pass unless stronger evidence of confusion appears.
 
-### 5) `extension_ui_*` looks like a live server-side family without a matching main web-client consumer
-The server still emits a complete `extension_ui_*` SSE family from `src/channels/web/ui-bridge.ts`, and the server-side tests exercise those emissions.
+### 5) `extension_ui_*` is now subscribed client-side, but still only lightly surfaced in the main app shell
+The server emits a complete `extension_ui_*` SSE family from `src/channels/web/ui-bridge.ts`, and the browser SSE client now subscribes to those events as well.
 
-However, the current main web SSE client in `web/src/api.ts` does **not** register listeners for those event names, and the main app shell does not currently appear to consume them.
+The current main app shell exposes them as browser events (`piclaw-extension-ui` and subtype events such as `piclaw-extension-ui:notify`) and surfaces `extension_ui_notify` / `extension_ui_error` as intent toasts.
 
-That may be intentional unfinished extension-UI groundwork, but it is now a concrete audit follow-up rather than a vague suspicion.
+That closes the earlier transport dead-end, but it does **not** yet amount to a full first-class extension-UI product surface in the main web app.
 
 ## Suggested next checks
 
 1. Decide whether `agent_response` should remain broad or be split/documented more explicitly.
-2. Audit the `extension_ui_*` family end-to-end and either:
-   - wire it into the current web client, or
-   - explicitly document/de-scope it as latent extension groundwork.
+2. Decide whether the current lightweight browser-event bridge for `extension_ui_*` should grow into a richer first-class extension-UI surface.
 3. Compare this server inventory against any tests that assume a wider SSE contract than the server now emits.

@@ -209,10 +209,15 @@ fixes or follow-up tickets.
 - Deepened the SSE artefact by documenting `agent_status` subtypes (`tool_call`, `tool_status`, `intent`, `error`) in `piclaw/piclaw/docs/web-sse-inventory.md`.
 - Confirmed and documented another concrete contract gap:
   - server emits a full `extension_ui_*` SSE family
-  - the main web SSE client does not currently register listeners for that family
+  - the main web SSE client did not previously register listeners for that family
 - Captured that as an explicit follow-up ticket:
   - `piclaw/kanban/00-inbox/extension-ui-sse-client-contract-gap.md`
-- Remaining work is still broader response-format consistency analysis plus deciding whether to wire, document, or trim the `extension_ui_*` SSE family.
+- Then landed a first concrete resolution slice:
+  - `web/src/api.ts` now subscribes to the full `extension_ui_*` SSE family
+  - `web/src/app.ts` bridges those events into browser events for downstream UI consumers
+  - `extension_ui_notify` and `extension_ui_error` now surface lightweight intent toasts
+  - tests added in `test/web/extension-ui-events.test.ts`
+- Remaining work is still broader response-format consistency analysis plus deciding whether that browser-event bridge is sufficient or whether a richer first-class extension-UI surface is warranted.
 - This ticket remains the active umbrella for that work rather than being closed after incremental guardrail slices.
 
 ### 2026-03-15

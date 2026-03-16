@@ -94,6 +94,9 @@ test("SSEClient no longer registers stale agent_request listeners", () => {
     expect(seenEvents).toContain("agent_status");
     expect(seenEvents).toContain("new_post");
     expect(seenEvents).toContain("workspace_update");
+    expect(seenEvents).toContain("extension_ui_request");
+    expect(seenEvents).toContain("extension_ui_notify");
+    expect(seenEvents).toContain("extension_ui_error");
   } finally {
     globalThis.EventSource = OriginalEventSource;
   }
