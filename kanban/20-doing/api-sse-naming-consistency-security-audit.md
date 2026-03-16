@@ -194,7 +194,15 @@ fixes or follow-up tickets.
   - `/reply` remains the main verb-style outlier beside noun-style content routes
   - response envelopes are lightweight but not formally standardised
   - `extension_ui_*` SSE is a likely end-to-end contract gap to audit next
-- Remaining work is still deeper payload-shape/documentation consistency across SSE families plus test-backed route-inventory coverage so new mutating routes do not skip classification.
+- Added test-backed route-inventory coverage in `piclaw/test/channels/web/http-route-classification.test.ts` so every currently known mutating web route is explicitly classified as one of:
+  - data-rate-limited
+  - auth-rate-limited
+  - enrol-rate-limited
+  - internal-secret-only
+  - deprecated no-op exception
+- Focused validation passed:
+  - `bun test --max-concurrency=1 test/channels/web/http-route-classification.test.ts test/channels/web/security-hardening.test.ts test/channels/web/http-dispatch-workspace.test.ts test/channels/web/ui-endpoints.test.ts`
+- Remaining work is still deeper payload-shape/documentation consistency across SSE families plus the extension-UI SSE contract follow-up surfaced by the endpoint/SSE inventories.
 - This ticket remains the active umbrella for that work rather than being closed after incremental guardrail slices.
 
 ### 2026-03-15
