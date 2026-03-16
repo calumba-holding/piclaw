@@ -40,7 +40,7 @@ Everything else in active use is effectively chat-scoped.
 | `interaction_updated` | chat-scoped | `src/channels/web/interaction-service.ts`, `src/channels/web/link-previews.ts` | `InteractionRow` (often profile-decorated) | Used for edits / link-preview enrichment / interaction refreshes. |
 | `interaction_deleted` | chat-scoped | `src/channels/web.ts` | `{ chat_jid, ids: number[] }` | Broadcast after delete operations. |
 | `agent_response` | chat-scoped | `src/channels/web/agent-events.ts`, `src/channels/web/interaction-service.ts`, `src/channels/web/handlers/agent.ts` | assistant interaction row or profile-decorated interaction payload | This name is overloaded slightly: both streamed live-response publication and completed interaction broadcasts use it. |
-| `agent_status` | chat-scoped | `src/channels/web/agent-events.ts`, `src/channels/web/handlers/agent.ts` | `{ chat_jid, thread_id, agent_id, turn_id, type, ... }` plus profile fields | Used for intent/tool/error/compaction/retry status. This is the main live status channel. |
+| `agent_status` | chat-scoped | `src/channels/web/agent-events.ts`, `src/channels/web/handlers/agent.ts` | `{ chat_jid, thread_id, agent_id, turn_id, type, ... }` plus profile fields | Used for intent/tool/error/compaction/retry status. This is the main live status channel. See subtype table below. |
 | `agent_thought` | chat-scoped | `src/channels/web/agent-events.ts` | `{ chat_jid, thread_id, agent_id, turn_id, text, total_lines, ...profile }` | Preview/summary thought payload. |
 | `agent_thought_delta` | chat-scoped | `src/channels/web/agent-events.ts` | `{ chat_jid, thread_id, agent_id, turn_id, delta, reset?, ...profile }` | Full-fidelity thought stream when enabled. |
 | `agent_draft` | chat-scoped | `src/channels/web/agent-events.ts` | `{ chat_jid, thread_id, agent_id, turn_id, text, total_lines, kind, mode, ...profile }` | Preview/summary draft payload. |
@@ -87,6 +87,26 @@ The web SSE client currently listens for:
 
 Source: `web/src/api.ts`
 
+## `agent_status` subtype inventory
+
+`agent_status` is the only major SSE event family whose payload meaning varies
+substantially by subtype.
+
+| `type` | Typical extra fields | Emitted from | Meaning |
+|---|---|---|---|
+| `tool_call` | `title` | `agent-events.ts` | A tool call started or was recognised from a tool-related session event. |
+| `tool_status` | `title`, `status` | `agent-events.ts` | Tool execution progress/completion (`Working...`, `Done`, `Failed`). |
+| `intent` | `title`, `detail?`, `intent_key?`, `started_at?` | `agent-events.ts`, web handlers | User-facing turn state such as retrying, compacting, auto-compaction cancellation, queued steering, etc. |
+| `error` | `title` | `agent-events.ts`, web handlers | User-visible terminal or near-terminal error state. |
+
+Common base fields remain:
+
+- `chat_jid`
+- `thread_id`
+- `agent_id`
+- `turn_id`
+- profile decoration such as `agent_name`, `agent_avatar`, `user_name`, `user_avatar`, `user_avatar_background`
+
 ## Audit findings so far
 
 ### 1) Stale listener cleanup identified and resolved
@@ -126,9 +146,17 @@ The current event space is not namespaced hierarchically, but it is still unders
 
 That means this audit probably does **not** need a disruptive event renaming pass unless stronger evidence of confusion appears.
 
+### 5) `extension_ui_*` looks like a live server-side family without a matching main web-client consumer
+The server still emits a complete `extension_ui_*` SSE family from `src/channels/web/ui-bridge.ts`, and the server-side tests exercise those emissions.
+
+However, the current main web SSE client in `web/src/api.ts` does **not** register listeners for those event names, and the main app shell does not currently appear to consume them.
+
+That may be intentional unfinished extension-UI groundwork, but it is now a concrete audit follow-up rather than a vague suspicion.
+
 ## Suggested next checks
 
-1. Confirm whether `agent_request` / `agent_request_timeout` are dead listeners or missing server emits.
-2. Inventory payload shapes more deeply for the `agent_status` subtypes (`intent`, `tool_call`, `tool_status`, `error`, etc.).
-3. Decide whether `agent_response` should remain broad or be split/documented more explicitly.
-4. Compare this server inventory against any tests that assume a wider SSE contract than the server now emits.
+1. Decide whether `agent_response` should remain broad or be split/documented more explicitly.
+2. Audit the `extension_ui_*` family end-to-end and either:
+   - wire it into the current web client, or
+   - explicitly document/de-scope it as latent extension groundwork.
+3. Compare this server inventory against any tests that assume a wider SSE contract than the server now emits.

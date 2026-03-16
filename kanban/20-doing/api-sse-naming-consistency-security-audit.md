@@ -202,7 +202,13 @@ fixes or follow-up tickets.
   - deprecated no-op exception
 - Focused validation passed:
   - `bun test --max-concurrency=1 test/channels/web/http-route-classification.test.ts test/channels/web/security-hardening.test.ts test/channels/web/http-dispatch-workspace.test.ts test/channels/web/ui-endpoints.test.ts`
-- Remaining work is still deeper payload-shape/documentation consistency across SSE families plus the extension-UI SSE contract follow-up surfaced by the endpoint/SSE inventories.
+- Deepened the SSE artefact by documenting `agent_status` subtypes (`tool_call`, `tool_status`, `intent`, `error`) in `piclaw/piclaw/docs/web-sse-inventory.md`.
+- Confirmed and documented another concrete contract gap:
+  - server emits a full `extension_ui_*` SSE family
+  - the main web SSE client does not currently register listeners for that family
+- Captured that as an explicit follow-up ticket:
+  - `piclaw/kanban/00-inbox/extension-ui-sse-client-contract-gap.md`
+- Remaining work is still broader response-format consistency analysis plus deciding whether to wire, document, or trim the `extension_ui_*` SSE family.
 - This ticket remains the active umbrella for that work rather than being closed after incremental guardrail slices.
 
 ### 2026-03-15
