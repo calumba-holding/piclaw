@@ -28,6 +28,7 @@ const COPY_ITEMS = [
   // Core JS
   "js/app.min.js",
   "js/bootstrap.js",
+  "js/main.js",
   "js/PreConfig.js",
   "js/PostConfig.js",
   "js/extensions.min.js",
@@ -45,6 +46,8 @@ const COPY_ITEMS = [
   "styles/",
   // Images (toolbar icons, UI elements)
   "images/",
+  // Localization and app resources
+  "resources/",
   // mxGraph resources
   "mxgraph/",
   // Math rendering

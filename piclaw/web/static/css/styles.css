@@ -1583,6 +1583,11 @@ body {
     transition: opacity var(--ui-transition-fast), background-color var(--ui-transition-fast), color var(--ui-transition-fast);
 }
 
+.dock-panel-close > svg,
+.dock-panel-close > svg * {
+    pointer-events: none;
+}
+
 .dock-panel-close:hover,
 .dock-panel-close:focus-visible {
     background: var(--bg-hover);

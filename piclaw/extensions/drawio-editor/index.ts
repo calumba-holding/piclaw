@@ -43,6 +43,11 @@ const MIME_TYPES: Record<string, string> = {
   ".ttf": "font/ttf",
 };
 
+const DRAWIO_FRAME_CSP =
+  "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; " +
+  "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; " +
+  "frame-ancestors 'self'; base-uri 'self'; form-action 'self'";
+
 // ── Editor wrapper page ─────────────────────────────────────────
 
 /**
@@ -210,6 +215,7 @@ function handleRoute(req: Request, pathname: string): Response | null {
         "Cache-Control": "no-cache",
         // Allow embedding in same-origin iframes (pane system)
         "X-Frame-Options": "SAMEORIGIN",
+        "Content-Security-Policy": DRAWIO_FRAME_CSP,
       },
     });
   }
@@ -244,8 +250,11 @@ function handleRoute(req: Request, pathname: string): Response | null {
       // draw.io JS is versioned by release; cache for 1 day
       "Cache-Control": "public, max-age=86400",
       // Override global X-Frame-Options: DENY so the draw.io editor
-      // can be loaded inside the wrapper page's iframe (same-origin)
+      // can be loaded inside same-origin iframes.
       "X-Frame-Options": "SAMEORIGIN",
+      // Override the global CSP frame-ancestors 'none' so draw.io can be
+      // embedded by our wrapper page and pane iframe on the same origin.
+      "Content-Security-Policy": DRAWIO_FRAME_CSP,
     },
   });
 }
