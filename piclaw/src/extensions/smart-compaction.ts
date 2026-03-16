@@ -389,6 +389,198 @@ function buildSelectivePrompt(
 }
 
 // ---------------------------------------------------------------------------
+// No-op detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Detect compaction windows where an LLM call is unnecessary.
+ *
+ * Two patterns are detected:
+ *
+ * 1. **Split-turn continuation** — The compaction window contains zero user
+ *    messages (the agent was executing a long tool-call sequence that hit the
+ *    token limit mid-turn). The previous summary already describes the goal
+ *    and progress; we just append a mechanical file-ops delta.
+ *
+ * 2. **Minimal content** — Very little user input (<100 chars) and no file
+ *    modifications. The previous summary is still valid.
+ *
+ * Returns a `{ compaction }` result to short-circuit the LLM path, or
+ * `null` to fall through to selective/built-in compaction.
+ */
+function tryNoOpCompaction(
+  llmMessages: Message[],
+  preparation: {
+    previousSummary?: string;
+    fileOps: FileOperations;
+  },
+  firstKeptEntryId: string,
+  tokensBefore: number,
+  ctx: { ui: { notify: (msg: string, level?: "info" | "warning" | "error") => void } },
+): { compaction: CompactionResult } | null {
+  const { previousSummary, fileOps } = preparation;
+
+  // We can only do no-op if there IS a previous summary to reuse
+  if (!previousSummary || previousSummary.length < MIN_SUMMARY_CHARS) {
+    return null;
+  }
+
+  // Count user messages (non-slash-command)
+  let userMessageCount = 0;
+  let userTotalChars = 0;
+  for (const msg of llmMessages) {
+    if (msg.role === "user") {
+      const text = extractText(msg.content);
+      if (text && !text.trim().startsWith("/")) {
+        userMessageCount++;
+        userTotalChars += text.length;
+      }
+    }
+  }
+
+  const { readFiles, modifiedFiles } = fileListsFromOps(fileOps);
+  const hasModifications = modifiedFiles.length > 0;
+
+  // ── Pattern 1: Split-turn continuation ────────────────────────────
+  // Zero user messages → the goal/context hasn't changed, just more tool work.
+  if (userMessageCount === 0) {
+    const delta = buildMechanicalDelta(llmMessages, modifiedFiles, readFiles);
+    const summary = appendDeltaToSummary(previousSummary, delta, fileOps);
+
+    ctx.ui.notify(
+      `No-op compaction: split-turn continuation (0 user msgs, ${llmMessages.length} tool msgs) → reused summary + delta`,
+      "info",
+    );
+
+    return {
+      compaction: { summary, firstKeptEntryId, tokensBefore },
+    };
+  }
+
+  // ── Pattern 2: Minimal content ────────────────────────────────────
+  // Tiny user input, no modifications → nothing new to capture.
+  if (userTotalChars < 100 && !hasModifications) {
+    const summary = updateFileLists(previousSummary, fileOps);
+
+    ctx.ui.notify(
+      `No-op compaction: minimal content (${userTotalChars} user chars, 0 modifications) → reused summary`,
+      "info",
+    );
+
+    return {
+      compaction: { summary, firstKeptEntryId, tokensBefore },
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Build a compact mechanical description of what happened in a split-turn
+ * window (tool calls only, no user messages).
+ */
+function buildMechanicalDelta(
+  messages: Message[],
+  modifiedFiles: string[],
+  readFiles: string[],
+): string {
+  // Count tool calls by type
+  const toolCounts: Record<string, number> = {};
+  for (const msg of messages) {
+    if (msg.role === "assistant" && Array.isArray(msg.content)) {
+      for (const block of msg.content as any[]) {
+        if (block.type === "toolCall") {
+          const name = block.name as string;
+          toolCounts[name] = (toolCounts[name] || 0) + 1;
+        }
+      }
+    }
+  }
+
+  const parts: string[] = [];
+  parts.push(
+    `Continued execution: ${messages.length} messages (split-turn, no new user input)`,
+  );
+
+  const toolSummary = Object.entries(toolCounts)
+    .sort(([, a], [, b]) => b - a)
+    .map(([name, count]) => `${name}×${count}`)
+    .join(", ");
+  if (toolSummary) parts.push(`Tool calls: ${toolSummary}`);
+
+  if (modifiedFiles.length > 0) {
+    const shown = modifiedFiles.slice(0, 10);
+    parts.push(`Files modified: ${shown.join(", ")}${modifiedFiles.length > 10 ? ` (+${modifiedFiles.length - 10} more)` : ""}`);
+  }
+
+  if (readFiles.length > 0) {
+    parts.push(`Files read: ${readFiles.length} files`);
+  }
+
+  return parts.join("\n");
+}
+
+/**
+ * Append a mechanical delta to the previous summary, preserving structure.
+ * Also updates the file lists at the end.
+ */
+function appendDeltaToSummary(
+  previousSummary: string,
+  delta: string,
+  fileOps: FileOperations,
+): string {
+  // Strip old file-list tags from previous summary — we'll re-append fresh ones
+  let base = previousSummary
+    .replace(/<read-files>[\s\S]*?<\/read-files>/g, "")
+    .replace(/<modified-files>[\s\S]*?<\/modified-files>/g, "")
+    .trimEnd();
+
+  // Insert delta before Critical Context or at the end
+  const criticalIdx = base.lastIndexOf("## Critical Context");
+  if (criticalIdx > 0) {
+    base =
+      base.slice(0, criticalIdx) +
+      `\n### Split-Turn Continuation\n${delta}\n\n` +
+      base.slice(criticalIdx);
+  } else {
+    base += `\n\n### Split-Turn Continuation\n${delta}`;
+  }
+
+  return appendFileLists(base, fileOps);
+}
+
+/**
+ * Update file lists in a summary without changing anything else.
+ */
+function updateFileLists(summary: string, fileOps: FileOperations): string {
+  const base = summary
+    .replace(/<read-files>[\s\S]*?<\/read-files>/g, "")
+    .replace(/<modified-files>[\s\S]*?<\/modified-files>/g, "")
+    .trimEnd();
+
+  return appendFileLists(base, fileOps);
+}
+
+/**
+ * Append deterministic file-list tags to a summary string.
+ */
+function appendFileLists(base: string, fileOps: FileOperations): string {
+  const { readFiles, modifiedFiles } = fileListsFromOps(fileOps);
+  const parts: string[] = [base];
+
+  if (readFiles.length > 0) {
+    parts.push(`\n<read-files>\n${readFiles.join("\n")}\n</read-files>`);
+  }
+  if (modifiedFiles.length > 0) {
+    parts.push(
+      `\n<modified-files>\n${modifiedFiles.join("\n")}\n</modified-files>`,
+    );
+  }
+
+  return parts.join("\n");
+}
+
+// ---------------------------------------------------------------------------
 // Extension factory
 // ---------------------------------------------------------------------------
 
@@ -405,6 +597,20 @@ export const smartCompaction: ExtensionFactory = (pi: ExtensionAPI) => {
 
     if (messagesToSummarize.length === 0) return;
 
+    // ── No-op detection ──────────────────────────────────────────────
+    // Skip the LLM call entirely when we can produce a good summary
+    // mechanically. This saves ~60-110s and 100-270k input tokens.
+
+    const llmMessages = convertToLlm(messagesToSummarize);
+    const noOpResult = tryNoOpCompaction(
+      llmMessages,
+      preparation,
+      firstKeptEntryId,
+      tokensBefore,
+      ctx,
+    );
+    if (noOpResult) return noOpResult;
+
     // Short conversations → built-in full-pass is fine
     if (messagesToSummarize.length < SELECTIVE_THRESHOLD) return;
 
@@ -412,8 +618,6 @@ export const smartCompaction: ExtensionFactory = (pi: ExtensionAPI) => {
       `Smart compaction: ${messagesToSummarize.length} msgs → selective extraction`,
       "info",
     );
-
-    const llmMessages = convertToLlm(messagesToSummarize);
 
     const promptText = buildSelectivePrompt(
       llmMessages,

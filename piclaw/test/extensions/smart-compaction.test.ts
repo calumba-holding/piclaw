@@ -472,6 +472,255 @@ describe("smart-compaction", () => {
     });
   });
 
+  describe("no-op detection", () => {
+    it("skips LLM for split-turn continuation (0 user messages)", async () => {
+      // Build a window with only assistant tool calls and tool results — no user messages
+      const splitTurnMsgs: any[] = [];
+      for (let i = 0; i < 60; i++) {
+        if (i % 2 === 0) {
+          splitTurnMsgs.push(
+            assistantToolCallMsg([
+              { id: `tc-${i}`, name: "edit", args: { path: `/workspace/file-${i}.ts` } },
+            ]),
+          );
+        } else {
+          splitTurnMsgs.push(
+            toolResultMsg(`tc-${i - 1}`, "edit", `Edited file-${i}.ts successfully`),
+          );
+        }
+      }
+
+      const prep = makePreparation(60, {
+        messagesToSummarize: splitTurnMsgs,
+        previousSummary:
+          "## Goal\nImplement feature X\n\n## Constraints\n- none\n\n## Progress\n### Done\n- [x] Started\n### In Progress\n- [ ] Working\n### Blocked\n\n## Key Decisions\n\n## Next Steps\n1. Continue\n\n## Critical Context\n- Important stuff",
+        fileOps: {
+          read: new Set(["/a.ts"]),
+          written: new Set<string>(),
+          edited: new Set(["/b.ts", "/c.ts"]),
+        },
+      });
+
+      const ctx = makeCtx();
+      const result = await handler!(
+        {
+          preparation: prep,
+          branchEntries: [],
+          signal: new AbortController().signal,
+        },
+        ctx,
+      );
+
+      // Should NOT call the LLM
+      expect(completeSimple).not.toHaveBeenCalled();
+
+      // Should return a compaction result
+      expect(result).toBeDefined();
+      expect(result.compaction).toBeDefined();
+      expect(result.compaction.summary).toContain("Implement feature X"); // preserved from previous
+      expect(result.compaction.summary).toContain("Split-Turn Continuation"); // delta appended
+      expect(result.compaction.summary).toContain("split-turn"); // mechanical delta
+      expect(result.compaction.summary).toContain("<modified-files>"); // file lists updated
+
+      // Should notify
+      expect(ctx.ui.notify).toHaveBeenCalledWith(
+        expect.stringContaining("split-turn continuation"),
+        "info",
+      );
+    });
+
+    it("skips LLM for minimal content (tiny user input, no modifications)", async () => {
+      // User sent < 100 chars, no writes/edits
+      const minimalMsgs: any[] = [
+        userMsg("ok"), // 2 chars
+        assistantToolCallMsg([{ id: "tc-1", name: "read", args: { path: "/a.ts" } }]),
+        toolResultMsg("tc-1", "read", "file contents..."),
+      ];
+      // Pad to 60 messages with reads
+      for (let i = 3; i < 60; i++) {
+        if (i % 2 === 1) {
+          minimalMsgs.push(
+            assistantToolCallMsg([
+              { id: `tc-${i}`, name: "read", args: { path: `/file-${i}.ts` } },
+            ]),
+          );
+        } else {
+          minimalMsgs.push(toolResultMsg(`tc-${i - 1}`, "read", `contents of file-${i}`));
+        }
+      }
+
+      const prep = makePreparation(60, {
+        messagesToSummarize: minimalMsgs,
+        previousSummary:
+          "## Goal\nExplore codebase\n\n## Constraints\n\n## Progress\n### Done\n- [x] Read files\n### In Progress\n### Blocked\n\n## Key Decisions\n\n## Next Steps\n\n## Critical Context\n- Reading files",
+        fileOps: {
+          read: new Set(["/a.ts", "/b.ts"]),
+          written: new Set<string>(),
+          edited: new Set<string>(),
+        },
+      });
+
+      const ctx = makeCtx();
+      const result = await handler!(
+        {
+          preparation: prep,
+          branchEntries: [],
+          signal: new AbortController().signal,
+        },
+        ctx,
+      );
+
+      expect(completeSimple).not.toHaveBeenCalled();
+      expect(result).toBeDefined();
+      expect(result.compaction.summary).toContain("Explore codebase");
+
+      expect(ctx.ui.notify).toHaveBeenCalledWith(
+        expect.stringContaining("minimal content"),
+        "info",
+      );
+    });
+
+    it("does NOT no-op when user has substantial input", async () => {
+      const substantiveMsgs: any[] = [
+        userMsg("Please refactor the authentication module to use JWT tokens instead of session cookies. This is critical for our API."),
+      ];
+      // Pad with reads
+      for (let i = 1; i < 60; i++) {
+        if (i % 2 === 1) {
+          substantiveMsgs.push(
+            assistantToolCallMsg([
+              { id: `tc-${i}`, name: "read", args: { path: `/file-${i}.ts` } },
+            ]),
+          );
+        } else {
+          substantiveMsgs.push(toolResultMsg(`tc-${i - 1}`, "read", `contents`));
+        }
+      }
+
+      const summaryText =
+        "## Goal\nUpdated\n## Constraints\n## Progress\n### Done\n### In Progress\n### Blocked\n## Key Decisions\n## Next Steps\n## Critical Context";
+
+      (completeSimple as any).mockResolvedValueOnce({
+        content: [{ type: "text", text: summaryText }],
+        stopReason: "end",
+      });
+
+      const prep = makePreparation(60, {
+        messagesToSummarize: substantiveMsgs,
+        previousSummary:
+          "## Goal\nOld goal\n## Constraints\n## Progress\n### Done\n### In Progress\n### Blocked\n## Key Decisions\n## Next Steps\n## Critical Context",
+        fileOps: {
+          read: new Set(["/a.ts"]),
+          written: new Set<string>(),
+          edited: new Set<string>(),
+        },
+      });
+
+      const result = await handler!(
+        {
+          preparation: prep,
+          branchEntries: [],
+          signal: new AbortController().signal,
+        },
+        makeCtx(),
+      );
+
+      // Should call LLM since user had real input (>100 chars)
+      expect(completeSimple).toHaveBeenCalledTimes(1);
+      expect(result).toBeDefined();
+    });
+
+    it("does NOT no-op without a previous summary", async () => {
+      const splitTurnMsgs: any[] = [];
+      for (let i = 0; i < 60; i++) {
+        splitTurnMsgs.push(
+          i % 2 === 0
+            ? assistantToolCallMsg([{ id: `tc-${i}`, name: "edit", args: { path: `/f${i}.ts` } }])
+            : toolResultMsg(`tc-${i - 1}`, "edit", `ok`),
+        );
+      }
+
+      const summaryText =
+        "## Goal\nFirst compaction\n## Constraints\n## Progress\n### Done\n### In Progress\n### Blocked\n## Key Decisions\n## Next Steps\n## Critical Context";
+
+      (completeSimple as any).mockResolvedValueOnce({
+        content: [{ type: "text", text: summaryText }],
+        stopReason: "end",
+      });
+
+      const prep = makePreparation(60, {
+        messagesToSummarize: splitTurnMsgs,
+        previousSummary: undefined, // No previous summary
+        fileOps: {
+          read: new Set<string>(),
+          written: new Set<string>(),
+          edited: new Set(["/f0.ts"]),
+        },
+      });
+
+      await handler!(
+        {
+          preparation: prep,
+          branchEntries: [],
+          signal: new AbortController().signal,
+        },
+        makeCtx(),
+      );
+
+      // Without previous summary, can't do no-op → falls through to LLM
+      expect(completeSimple).toHaveBeenCalledTimes(1);
+    });
+
+    it("preserves Critical Context section in split-turn delta", async () => {
+      const splitTurnMsgs = [
+        assistantToolCallMsg([{ id: "tc-1", name: "write", args: { path: "/new.ts" } }]),
+        toolResultMsg("tc-1", "write", "Created /new.ts"),
+      ];
+      // Pad to reach threshold
+      for (let i = 2; i < 50; i++) {
+        splitTurnMsgs.push(
+          i % 2 === 0
+            ? assistantToolCallMsg([{ id: `tc-${i}`, name: "read", args: { path: `/r${i}.ts` } }])
+            : toolResultMsg(`tc-${i - 1}`, "read", "ok"),
+        );
+      }
+
+      const prep = makePreparation(50, {
+        messagesToSummarize: splitTurnMsgs,
+        previousSummary:
+          "## Goal\nBuild widget\n\n## Progress\n### Done\n- [x] init\n### In Progress\n### Blocked\n\n## Critical Context\n- Widget state lives in /widget.ts\n- Uses React hooks pattern",
+        fileOps: {
+          read: new Set(["/r2.ts"]),
+          written: new Set(["/new.ts"]),
+          edited: new Set<string>(),
+        },
+      });
+
+      const result = await handler!(
+        {
+          preparation: prep,
+          branchEntries: [],
+          signal: new AbortController().signal,
+        },
+        makeCtx(),
+      );
+
+      expect(completeSimple).not.toHaveBeenCalled();
+      const summary = result.compaction.summary;
+
+      // Critical Context should still be there
+      expect(summary).toContain("Widget state lives in /widget.ts");
+      expect(summary).toContain("Uses React hooks pattern");
+
+      // Delta should be BEFORE Critical Context
+      const deltaIdx = summary.indexOf("Split-Turn Continuation");
+      const criticalIdx = summary.indexOf("## Critical Context");
+      expect(deltaIdx).toBeGreaterThan(-1);
+      expect(criticalIdx).toBeGreaterThan(-1);
+      expect(deltaIdx).toBeLessThan(criticalIdx);
+    });
+  });
+
   describe("prompt construction", () => {
     it("includes head, tail, and gap markers for large conversations", async () => {
       let capturedPrompt = "";
