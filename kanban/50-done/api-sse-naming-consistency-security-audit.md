@@ -243,7 +243,7 @@ fixes or follow-up tickets.
 - Final consolidation pass split the remaining structural questions into explicit follow-up tickets:
   - `piclaw/kanban/50-done/decide-legacy-web-api-compatibility-route-retirement.md`
   - `piclaw/kanban/50-done/formalize-web-api-response-envelope-policy.md`
-  - `piclaw/kanban/00-inbox/clarify-agent-response-sse-contract.md`
+  - `piclaw/kanban/50-done/clarify-agent-response-sse-contract.md`
   - `piclaw/kanban/00-inbox/extension-ui-sse-client-contract-gap.md`
 - With those remaining structural questions extracted, the main audit umbrella is now considered complete enough to move to review.
 - Review focus was:

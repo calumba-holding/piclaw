@@ -39,7 +39,7 @@ Everything else in active use is effectively chat-scoped.
 | `new_reply` | chat-scoped | `src/channels/web/posts-service.ts` | `InteractionRow` | Emitted via the same post-storage flow as `new_post`. |
 | `interaction_updated` | chat-scoped | `src/channels/web/interaction-service.ts`, `src/channels/web/link-previews.ts` | `InteractionRow` (often profile-decorated) | Used for edits / link-preview enrichment / interaction refreshes. |
 | `interaction_deleted` | chat-scoped | `src/channels/web.ts` | `{ chat_jid, ids: number[] }` | Broadcast after delete operations. |
-| `agent_response` | chat-scoped | `src/channels/web/agent-events.ts`, `src/channels/web/interaction-service.ts`, `src/channels/web/handlers/agent.ts` | assistant interaction row or profile-decorated interaction payload | This name is overloaded slightly: both streamed live-response publication and completed interaction broadcasts use it. |
+| `agent_response` | chat-scoped | `src/channels/web/agent-events.ts`, `src/channels/web/interaction-service.ts`, `src/channels/web/handlers/agent.ts` | assistant interaction row (usually profile-decorated) | Canonical timeline-insertion event for persisted assistant messages. Multiple server write paths emit it, but the payload contract is the same interaction-style row. |
 | `agent_status` | chat-scoped | `src/channels/web/agent-events.ts`, `src/channels/web/handlers/agent.ts` | `{ chat_jid, thread_id, agent_id, turn_id, type, ... }` plus profile fields | Used for intent/tool/error/compaction/retry status. This is the main live status channel. See subtype table below. |
 | `agent_thought` | chat-scoped | `src/channels/web/agent-events.ts` | `{ chat_jid, thread_id, agent_id, turn_id, text, total_lines, ...profile }` | Preview/summary thought payload. |
 | `agent_thought_delta` | chat-scoped | `src/channels/web/agent-events.ts` | `{ chat_jid, thread_id, agent_id, turn_id, delta, reset?, ...profile }` | Full-fidelity thought stream when enabled. |
@@ -128,13 +128,17 @@ Current TypeScript server-source inventory did **not** find live `broadcastEvent
 
 The corresponding obsolete chat-scoped SSE names were also removed from `src/channels/web/sse.ts`.
 
-### 2) `agent_response` is doing double duty
-`agent_response` is used for more than one closely related publication path:
+### 2) `agent_response` comes from multiple write paths, but is one payload contract
+`agent_response` is emitted from more than one server path, but those paths all converge on the same practical contract:
 
-- streamed/live assistant response publication
-- interaction-style response publication helpers
+- a persisted assistant interaction row being inserted into the timeline
+- usually decorated with agent/user profile fields before broadcast
 
-This is not necessarily wrong, but it is worth documenting because it makes the event name broader than a single narrow payload origin.
+That means the current event is broader in origin than in payload shape.
+The audit follow-up conclusion is therefore:
+
+- keep `agent_response` as the canonical assistant timeline-insertion event
+- do not split it further unless a genuinely different payload family appears later
 
 ### 3) Timeline event family is acceptably coherent
 The timeline-facing event family is currently fairly clean:
@@ -164,8 +168,6 @@ That closes the earlier transport dead-end, but it does **not** yet amount to a 
 
 ## Suggested next checks
 
-1. Decide whether `agent_response` should remain broad or be split/documented more explicitly.
-   - ticket: `kanban/00-inbox/clarify-agent-response-sse-contract.md`
-2. Decide whether the current lightweight browser-event bridge for `extension_ui_*` should grow into a richer first-class extension-UI surface.
+1. Decide whether the current lightweight browser-event bridge for `extension_ui_*` should grow into a richer first-class extension-UI surface.
    - ticket: `kanban/00-inbox/extension-ui-sse-client-contract-gap.md`
-3. Compare this server inventory against any tests that assume a wider SSE contract than the server now emits.
+2. Compare this server inventory against any tests that assume a wider SSE contract than the server now emits.

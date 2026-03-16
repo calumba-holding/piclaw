@@ -101,6 +101,13 @@ describe("web agent streaming", () => {
 
     const responses = events.filter((event) => event.type === "agent_response");
     expect(responses.length).toBeGreaterThanOrEqual(2);
+    for (const response of responses) {
+      expect(typeof response.data?.id).toBe("number");
+      expect(typeof response.data?.timestamp).toBe("string");
+      expect(response.data?.data?.type).toBe("agent_response");
+      expect(typeof response.data?.data?.content).toBe("string");
+      expect(response.data?.delta).toBeUndefined();
+    }
 
     const done = events.find(
       (event) => event.type === "agent_status" && event.data?.type === "done"
