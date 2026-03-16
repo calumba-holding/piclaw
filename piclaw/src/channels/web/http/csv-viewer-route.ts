@@ -32,16 +32,20 @@ function generateCsvViewerPage(): string {
   html, body {
     width: 100%; height: 100%; margin: 0; overflow: hidden;
     background: #fff; color: #222;
+    color-scheme: light;
     font-family: system-ui, -apple-system, sans-serif; font-size: 12px;
   }
   @media (prefers-color-scheme: dark) {
-    html, body { background: #111; color: #e0e0e0; }
+    html, body { background: #111; color: #e0e0e0; color-scheme: dark; }
     th { background: #1a1a1a !important; color: #ccc; border-color: #333 !important; }
     td { border-color: #262626 !important; }
     td:first-child { background: #161616 !important; color: #777; }
     tbody tr:nth-child(even) td:not(:first-child) { background: rgba(255,255,255,0.02); }
     #toolbar { background: rgba(20,20,20,0.95); }
-    #toolbar input { background: #222; color: #e0e0e0; border-color: #444; }
+    #toolbar label { color: #aaa; }
+    #toolbar input { background: #222; color: #e0e0e0; border-color: #444; color-scheme: dark; }
+    #toolbar input::placeholder { color: #8a8a8a; }
+    #toolbar .info { color: #888; }
   }
   .grid-wrap { width: 100%; height: 100%; overflow: auto; }
   table { border-collapse: separate; border-spacing: 0; min-width: 100%; width: max-content; }

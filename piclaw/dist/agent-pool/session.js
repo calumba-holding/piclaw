@@ -33,6 +33,7 @@ const EXTENSIONS_DIR = resolve(__dirname, "../../extensions");
 const OPTIONAL_EXTENSIONS = [
     { path: resolve(EXTENSIONS_DIR, "azure-openai.ts"), envGate: "AOAI_BASE_URL" },
     { path: resolve(EXTENSIONS_DIR, "context-mode.ts") },
+    { path: resolve(EXTENSIONS_DIR, "office-viewer", "index.ts") },
 ];
 /** Walk up from startDir looking for a node_modules that contains @mariozechner/pi-ai. */
 function findNodeModules(startDir) {

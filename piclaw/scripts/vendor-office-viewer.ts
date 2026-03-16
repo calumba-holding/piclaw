@@ -9,8 +9,9 @@
  * Libraries:
  *   - docx-preview  — .docx → HTML rendering
  *   - xlsx (SheetJS) — .xlsx/.xls/.csv parsing → HTML table
+ *   - chart.js       — peer dependency for pptxviewjs chart rendering
  *   - pptxviewjs     — .pptx → canvas-based slide rendering
- *   - jszip           — peer dependency for pptxviewjs
+ *   - jszip          — peer dependency for pptxviewjs
  */
 
 import { createHash } from "node:crypto";
@@ -38,6 +39,11 @@ const VENDOR_ENTRIES: VendorEntry[] = [
     packageName: "xlsx",
     packagePath: "dist/xlsx.full.min.js",
     outputFile: `${OUTPUT_DIR}/xlsx.full.min.js`,
+  },
+  {
+    packageName: "chart.js",
+    packagePath: "dist/chart.umd.min.js",
+    outputFile: `${OUTPUT_DIR}/chart.umd.min.js`,
   },
   {
     packageName: "pptxviewjs",

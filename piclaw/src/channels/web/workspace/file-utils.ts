@@ -42,6 +42,18 @@ export function contentTypeForPath(filePath: string): string {
       return "text/typescript";
     case ".jsx":
       return "text/jsx";
+    case ".csv":
+      return "text/csv";
+    case ".tsv":
+      return "text/tab-separated-values";
+    case ".pdf":
+      return "application/pdf";
+    case ".docx":
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    case ".xlsx":
+      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    case ".pptx":
+      return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
     case ".svg":
       return "image/svg+xml";
     case ".png":

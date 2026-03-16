@@ -35,6 +35,18 @@ const MIME_TYPES: Record<string, string> = {
 /** Standard security headers — no COOP/COEP needed (no WASM workers). */
 const HEADERS: Record<string, string> = {
   "X-Frame-Options": "SAMEORIGIN",
+  "Content-Security-Policy": [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "frame-src 'self'",
+    "frame-ancestors 'self'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; '),
 };
 
 // ── Route handler ───────────────────────────────────────────────
@@ -74,7 +86,7 @@ function handleRoute(req: Request, pathname: string): Response | null {
       ...HEADERS,
       "Content-Type": getMimeType(realPath),
       "Content-Length": String(statSync(realPath).size),
-      "Cache-Control": "public, max-age=86400",
+      "Cache-Control": "no-cache",
     },
   });
 }
@@ -94,7 +106,7 @@ export default function officeViewer(pi: any) {
     name: "open_office_viewer",
     label: "Open Office Viewer",
     description:
-      "Open an Office document (.docx, .xlsx, .pptx, .odt, .ods, .odp) in the ZetaOffice WASM viewer. " +
+      "Open an Office document (.docx, .xlsx, .pptx, .odt, .ods, .odp) in the built-in Office viewer. " +
       "Returns a URL the user can open in their browser.",
     parameters: {
       type: "object",

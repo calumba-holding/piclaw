@@ -34,11 +34,14 @@ function generatePdfViewerPage(): string {
     margin: 0;
     overflow: hidden;
     background: #1e1e1e;
+    color: #e0e0e0;
+    font-family: system-ui, -apple-system, sans-serif;
   }
-  iframe {
+  object {
     width: 100%;
     height: 100%;
     border: none;
+    display: block;
     background: #1e1e1e;
   }
   .empty {
@@ -51,6 +54,21 @@ function generatePdfViewerPage(): string {
     font: 14px system-ui, -apple-system, sans-serif;
     padding: 24px;
     text-align: center;
+  }
+  .fallback {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .fallback-card {
+    max-width: 420px;
+    text-align: center;
+  }
+  .fallback-card a {
+    color: #7dc3ff;
   }
 </style>
 </head>
@@ -67,10 +85,13 @@ function generatePdfViewerPage(): string {
   }
 
   var rawUrl = '/workspace/raw?path=' + encodeURIComponent(path);
-  var iframe = document.createElement('iframe');
-  iframe.src = rawUrl;
-  iframe.title = path.split('/').pop() || 'document.pdf';
-  document.body.appendChild(iframe);
+  var name = path.split('/').pop() || 'document.pdf';
+  var objectEl = document.createElement('object');
+  objectEl.data = rawUrl;
+  objectEl.type = 'application/pdf';
+  objectEl.setAttribute('aria-label', name);
+  objectEl.innerHTML = '<div class="fallback"><div class="fallback-card"><p>PDF preview is unavailable in this browser context.</p><p><a href="' + rawUrl + '" target="_blank" rel="noopener noreferrer">Open PDF in a new tab</a></p></div></div>';
+  document.body.appendChild(objectEl);
 })();
 </script>
 </body>

@@ -73,15 +73,25 @@ export function handleWorkspaceDelete(req: Request): Response {
   return jsonResponse(result.body, result.status);
 }
 
-/** Handle GET /workspace/raw: serve raw file content for download. */
+/** Handle GET /workspace/raw: serve raw file content for download or same-origin embedding. */
 export function handleWorkspaceRaw(req: Request): Response {
   const url = new URL(req.url);
   const result = workspaceService.getRaw(url.searchParams.get("path"));
   if (result.status !== 200) {
-    return new Response(result.body as string, { status: result.status });
+    return new Response(result.body as string, {
+      status: result.status,
+      headers: {
+        "X-Frame-Options": "SAMEORIGIN",
+        "Content-Security-Policy": "default-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
+      },
+    });
   }
   return new Response(result.body as Blob, {
-    headers: { "Content-Type": result.contentType || "application/octet-stream" },
+    headers: {
+      "Content-Type": result.contentType || "application/octet-stream",
+      "X-Frame-Options": "SAMEORIGIN",
+      "Content-Security-Policy": "default-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
+    },
   });
 }
 

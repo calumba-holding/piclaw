@@ -11,6 +11,11 @@
       "license": "Apache-2.0",
       "repository": "git://github.com/SheetJS/sheetjs.git"
     },
+    "chart.js": {
+      "version": "4.5.1",
+      "license": "MIT",
+      "repository": "https://github.com/chartjs/Chart.js.git"
+    },
     "pptxviewjs": {
       "version": "1.1.8",
       "license": "MIT",
@@ -43,6 +48,13 @@
       "size_bytes": 881727
     },
     {
+      "package_name": "chart.js",
+      "package_path": "dist/chart.umd.min.js",
+      "output_file": "extensions/office-viewer/vendor/chart.umd.min.js",
+      "sha256": "48444a82d4edcb5bec0f1965faacdde18d9c17db3063d042abada2f705c9f54a",
+      "size_bytes": 208522
+    },
+    {
       "package_name": "pptxviewjs",
       "package_path": "dist/PptxViewJS.min.js",
       "output_file": "extensions/office-viewer/vendor/PptxViewJS.min.js",
@@ -72,5 +84,5 @@
     }
   ],
   "metadata_file": "extensions/office-viewer/vendor/office-viewer-libs.meta.json",
-  "total_size_bytes": 1805166
+  "total_size_bytes": 2013688
 }

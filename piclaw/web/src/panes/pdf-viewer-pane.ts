@@ -3,8 +3,8 @@
  * pdf-viewer-pane.ts — WebPaneExtension for PDF viewing.
  *
  * In preview mode (workspace browser): shows a launch card with "Open in Tab" button.
- * In edit/tab mode: embeds the raw PDF directly via the browser's built-in renderer.
- * Zero chrome — no wrapper page, no pdf.js.
+ * In edit/tab mode: loads a same-origin PDF wrapper page that embeds the raw PDF.
+ * Zero chrome — no pdf.js; falls back to an open-in-new-tab link when embedding fails.
  */
 
 import type { PaneCapability, PaneContext, PaneInstance, WebPaneExtension } from './pane-types.js';
@@ -77,10 +77,10 @@ class PdfViewerInstance implements PaneInstance {
     constructor(container: HTMLElement, context: PaneContext) {
         this.container = container;
         const filePath = context.path || '';
-        const rawUrl = `/workspace/raw?path=${encodeURIComponent(filePath)}`;
+        const viewerUrl = `/pdf-viewer/?path=${encodeURIComponent(filePath)}`;
 
         this.iframe = document.createElement('iframe');
-        this.iframe.src = rawUrl;
+        this.iframe.src = viewerUrl;
         this.iframe.style.cssText = 'width:100%;height:100%;border:none;background:#1e1e1e;';
         container.appendChild(this.iframe);
     }

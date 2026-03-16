@@ -58,6 +58,19 @@
   }
   #toolbar label:hover { background: rgba(255,255,255,0.08); color: #e0e0e0; }
   #toolbar input[type="checkbox"] { width: 13px; height: 13px; accent-color: #1d9bf0; }
+  #toolbar button {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 28px; height: 24px; padding: 0 8px;
+    border: none; border-radius: 3px;
+    background: rgba(255,255,255,0.08); color: #ccc;
+    font: 11px 'Inter', system-ui, -apple-system, sans-serif;
+    cursor: pointer;
+  }
+  #toolbar button:hover { background: rgba(255,255,255,0.15); color: #fff; }
+  #toolbar .zoom-label {
+    min-width: 44px; text-align: center; line-height: 24px;
+    font-size: 11px; color: #aaa; user-select: none;
+  }
 
   /* docx — full-bleed document, no extra padding */
   #docx-container { width: 100%; height: 100%; overflow: auto; display: none; background: #fff; }
@@ -118,6 +131,7 @@
 <script src="jszip.min.js"></script>
 <script src="docx-preview.min.js"></script>
 <script src="xlsx.full.min.js"></script>
+<script src="chart.umd.min.js"></script>
 <script src="PptxViewJS.min.js"></script>
 <script>
 (function() {
@@ -136,6 +150,11 @@
   // ── Toolbar helpers ─────────────────────────────────────────
   var toolbar = document.getElementById('toolbar');
 
+  function clearToolbar() {
+    toolbar.innerHTML = '';
+    toolbar.classList.remove('visible');
+  }
+
   function addToggle(label, defaultOn, onChange) {
     var lbl = document.createElement('label');
     var cb = document.createElement('input');
@@ -146,6 +165,50 @@
     toolbar.appendChild(lbl);
     cb.addEventListener('change', function() { onChange(cb.checked); });
     return cb;
+  }
+
+  function addButton(label, title, onClick) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = label;
+    if (title) btn.title = title;
+    btn.addEventListener('click', onClick);
+    toolbar.appendChild(btn);
+    return btn;
+  }
+
+  function addZoomControls(getScale, setScale, fitScale) {
+    var zoomLabel = document.createElement('span');
+    zoomLabel.className = 'zoom-label';
+
+    function clamp(v) {
+      return Math.max(0.3, Math.min(4, v));
+    }
+
+    function refreshZoomLabel() {
+      zoomLabel.textContent = Math.round(getScale() * 100) + '%';
+    }
+
+    addButton('−', 'Zoom out', function() {
+      setScale(clamp(getScale() / 1.15));
+      refreshZoomLabel();
+    });
+    toolbar.appendChild(zoomLabel);
+    addButton('+', 'Zoom in', function() {
+      setScale(clamp(getScale() * 1.15));
+      refreshZoomLabel();
+    });
+    addButton('Fit', 'Fit to pane', function() {
+      setScale(clamp(fitScale()));
+      refreshZoomLabel();
+    });
+    addButton('1:1', 'Reset zoom', function() {
+      setScale(1);
+      refreshZoomLabel();
+    });
+
+    refreshZoomLabel();
+    return refreshZoomLabel;
   }
 
   function showToolbar() { toolbar.classList.add('visible'); }
@@ -172,13 +235,35 @@
       renderFootnotes: true, renderEndnotes: true,
       renderChanges: false, renderComments: false,
     };
+    var scale = 1;
+    var firstRender = true;
+
+    function setScale(next) {
+      scale = Math.max(0.3, Math.min(4, Number(next) || 1));
+      el.style.zoom = String(scale);
+    }
+
+    function fitScale() {
+      var content = el.querySelector('.docx-wrapper') || el.lastElementChild || el.firstElementChild;
+      if (!content) return scale || 1;
+      var contentWidth = content.scrollWidth || content.offsetWidth || content.getBoundingClientRect().width || 1;
+      var availableWidth = Math.max(320, el.getBoundingClientRect().width - 24);
+      return availableWidth / contentWidth;
+    }
 
     function rerender() {
       el.innerHTML = '';
       docx.renderAsync(buf, el, null, opts)
+        .then(function() {
+          setScale(firstRender ? fitScale() : scale);
+          firstRender = false;
+          if (refreshZoomLabel) refreshZoomLabel();
+        })
         .catch(function(err) { showError('DOCX render failed', err.message); });
     }
 
+    clearToolbar();
+    var refreshZoomLabel = addZoomControls(function() { return scale; }, setScale, fitScale);
     showToolbar();
     addToggle('Track changes', false, function(on) { opts.renderChanges = on; rerender(); });
     addToggle('Comments', false, function(on) { opts.renderComments = on; rerender(); });
@@ -197,6 +282,21 @@
     var tabBar = document.getElementById('xlsx-tabs');
     var tableWrap = document.getElementById('xlsx-table-wrap');
     var showComments = false;
+    var scale = 1;
+    var firstRender = true;
+
+    function setScale(next) {
+      scale = Math.max(0.3, Math.min(4, Number(next) || 1));
+      tableWrap.style.zoom = String(scale);
+    }
+
+    function fitScale() {
+      var tbl = tableWrap.querySelector('table');
+      if (!tbl) return scale || 1;
+      var contentWidth = tbl.scrollWidth || tbl.getBoundingClientRect().width || 1;
+      var availableWidth = Math.max(320, tableWrap.clientWidth - 24);
+      return availableWidth / contentWidth;
+    }
 
     function showSheet(sheetName) {
       var ws = wb.Sheets[sheetName];
@@ -247,6 +347,10 @@
       tabBar.querySelectorAll('button').forEach(function(b) {
         b.classList.toggle('active', b.textContent === sheetName);
       });
+
+      setScale(firstRender ? fitScale() : scale);
+      firstRender = false;
+      if (refreshZoomLabel) refreshZoomLabel();
     }
 
     var activeSheet = wb.SheetNames[0];
@@ -258,6 +362,8 @@
       tabBar.appendChild(btn);
     });
 
+    clearToolbar();
+    var refreshZoomLabel = addZoomControls(function() { return scale; }, setScale, fitScale);
     showToolbar();
     addToggle('Comments', false, function(on) { showComments = on; showSheet(activeSheet); });
 
@@ -269,12 +375,27 @@
     var container = document.getElementById('pptx-container');
     container.style.display = 'flex';
     var canvas = document.getElementById('pptx-canvas');
+    var canvasWrap = document.getElementById('pptx-canvas-wrap');
     var status = document.getElementById('pptx-status');
     var prevBtn = document.getElementById('pptx-prev');
     var nextBtn = document.getElementById('pptx-next');
+    var scale = 1;
 
     var PPTXViewer = window.PptxViewJS && window.PptxViewJS.PPTXViewer;
     if (!PPTXViewer) return showError('PPTX library not loaded', 'PptxViewJS failed to initialize.');
+
+    function setScale(next) {
+      scale = Math.max(0.3, Math.min(4, Number(next) || 1));
+      canvas.style.zoom = String(scale);
+    }
+
+    function fitScale() {
+      var width = canvas.width || canvas.clientWidth || 1;
+      var height = canvas.height || canvas.clientHeight || 1;
+      var availWidth = Math.max(320, canvasWrap.clientWidth - 24);
+      var availHeight = Math.max(200, canvasWrap.clientHeight - 24);
+      return Math.min(availWidth / width, availHeight / height);
+    }
 
     var viewer = new PPTXViewer({ canvas: canvas });
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
@@ -282,6 +403,8 @@
 
     viewer.loadFile(file).then(function() {
       viewer.render();
+      setScale(fitScale());
+      if (refreshZoomLabel) refreshZoomLabel();
       updateNav();
     }).catch(function(err) { showError('PPTX render failed', err.message); });
 
@@ -293,9 +416,12 @@
       nextBtn.disabled = cur >= total;
     }
 
-    prevBtn.addEventListener('click', function() { viewer.previousSlide().then(function() { viewer.render(); updateNav(); }); });
-    nextBtn.addEventListener('click', function() { viewer.nextSlide().then(function() { viewer.render(); updateNav(); }); });
-    // No toolbar toggles for PPTX — PptxViewJS doesn't expose notes/comments
+    clearToolbar();
+    var refreshZoomLabel = addZoomControls(function() { return scale; }, setScale, fitScale);
+    showToolbar();
+
+    prevBtn.addEventListener('click', function() { viewer.previousSlide().then(function() { viewer.render(); setScale(scale); updateNav(); }); });
+    nextBtn.addEventListener('click', function() { viewer.nextSlide().then(function() { viewer.render(); setScale(scale); updateNav(); }); });
   }
 
   // ── Error ───────────────────────────────────────────────────
