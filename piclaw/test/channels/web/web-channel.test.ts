@@ -698,6 +698,53 @@ test("web channel processes messages normally when a turn is inflight but not ac
   expect(contents).toContain("should process immediately despite stale inflight");
 });
 
+test("web channel keeps new auto submissions deferred when deferred backlog exists after restart", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats; DELETE FROM chat_cursors;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+
+  let processChatEnqueued = false;
+  const webMod = await import("../../../src/channels/web.js");
+  const web = new (webMod.WebChannel as any)({
+    queue: { enqueue: () => { processChatEnqueued = true; } },
+    agentPool: {
+      isStreaming: () => false,
+      isActive: () => false,
+      runAgent: async () => ({ status: "success", result: "ok" }),
+      getContextUsageForChat: async () => null,
+    },
+  });
+
+  web.enqueueQueuedFollowupItem("web:default", 0, "older deferred");
+
+  const req = new Request("http://test/agent/default/message", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: "new turn should defer behind backlog" }),
+  });
+
+  const res = await (web as any).handleRequest(req);
+  const payload = await res.json();
+
+  expect(res.status).toBe(201);
+  expect(payload.queued).toBe("followup");
+  expect(processChatEnqueued).toBe(false);
+
+  const queueState = await (web as any).handleRequest(new Request("http://test/agent/queue-state"));
+  const queuePayload = await queueState.json();
+  expect(queuePayload.count).toBe(2);
+  expect(queuePayload.items.map((item: any) => item.content)).toContain("older deferred");
+  expect(queuePayload.items.map((item: any) => item.content)).toContain("new turn should defer behind backlog");
+
+  const timeline = db.getTimeline("web:default", 10);
+  expect(timeline.length).toBe(0);
+});
+
 test("web channel exposes queued follow-up items from queue-state", async () => {
   const ws = createTempWorkspace("piclaw-web-channel-");
   cleanupWorkspace = ws.cleanup;

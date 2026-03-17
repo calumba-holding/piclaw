@@ -119,6 +119,7 @@ export async function handleAgentMessage(
   const isActive = typeof (channel.agentPool as { isActive?: (chatJid: string) => boolean }).isActive === "function"
     ? (channel.agentPool as { isActive: (chatJid: string) => boolean }).isActive(chatJid)
     : isStreaming;
+  const hasQueuedBacklog = channel.getQueuedFollowupCount(chatJid) > 0;
   // NOTE: we intentionally use the in-memory active-run flags—not the DB
   // inflight marker—to decide whether to queue/defer. The DB marker survives
   // restarts and can be stale (cleared only when recovery runs), so trusting
@@ -212,10 +213,15 @@ export async function handleAgentMessage(
   // Normal in-turn user messages should remain out of the timeline until the
   // current turn fully finalizes. Queue them in server state first, then
   // persist/broadcast the real user message only when consumed.
-  const shouldDeferQueuedFollowup = !command && !themeCommand && !testCardCommand && isActive && (requestMode === "queue" || requestMode === "auto");
+  const shouldDeferQueuedFollowup =
+    !command &&
+    !themeCommand &&
+    !testCardCommand &&
+    (isActive || hasQueuedBacklog) &&
+    (requestMode === "queue" || requestMode === "auto");
 
   console.log(
-    `[web] handleAgentMessage ${chatJid}: mode=${requestMode}, isStreaming=${isStreaming}, isActive=${isActive}, ` +
+    `[web] handleAgentMessage ${chatJid}: mode=${requestMode}, isStreaming=${isStreaming}, isActive=${isActive}, hasQueuedBacklog=${hasQueuedBacklog}, ` +
       `shouldDefer=${shouldDeferQueuedFollowup}, hasCommand=${!!command}, ` +
       `content=${content.slice(0, 60)}`
   );

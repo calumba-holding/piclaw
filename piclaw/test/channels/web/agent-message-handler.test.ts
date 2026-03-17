@@ -23,6 +23,7 @@ describe("web agent message handler", () => {
         queuedFollowups.push({ chatJid, content });
         return 999;
       },
+      getQueuedFollowupCount: () => 0,
       broadcastEvent: (event: string, payload: unknown) => {
         broadcasts.push({ event, payload });
       },
@@ -84,6 +85,7 @@ describe("web agent message handler", () => {
         queuedFollowups.push({ chatJid, content });
         return 111;
       },
+      getQueuedFollowupCount: () => 0,
       broadcastEvent: (event: string, payload: unknown) => {
         broadcasts.push({ event, payload });
       },
@@ -143,6 +145,7 @@ describe("web agent message handler", () => {
         queuedFollowups.push({ chatJid, content });
         return 999;
       },
+      getQueuedFollowupCount: () => 0,
       broadcastEvent: () => {},
       storeMessage: () => {
         storeMessageCalls += 1;
@@ -188,6 +191,7 @@ describe("web agent message handler", () => {
           headers: { "Content-Type": "application/json" },
         }),
       enqueueQueuedFollowupItem: () => 999,
+      getQueuedFollowupCount: () => 0,
       broadcastEvent: () => {},
       storeMessage: () => null,
       sendMessage: async (_chatJid: string, _content: string, options: unknown) => {
@@ -227,6 +231,7 @@ describe("web agent message handler", () => {
         queuedFollowups.push({ chatJid, content });
         return 777;
       },
+      getQueuedFollowupCount: () => 0,
       broadcastEvent: () => {},
       storeMessage: () => {
         storeMessageCalls += 1;

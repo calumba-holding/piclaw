@@ -1,10 +1,10 @@
 ---
 id: pending-user-turns-after-reload-not-fully-handled
 title: Pending user turns after reload are still not fully handled
-status: review
+status: doing
 priority: high
 created: 2026-03-14
-updated: 2026-03-16
+updated: 2026-03-17
 target_release: next
 estimate: M
 risk: medium
@@ -103,6 +103,51 @@ Potential remaining failure modes include:
 
 ## Updates
 
+### 2026-03-17 (implementation tranche)
+- Implemented restart/recovery fixes for the three confirmed active gaps:
+  1. `resumePendingChats(...)` now scans known chats beyond `chat_cursors` rows, so chats with persisted turns but no cursor row are no longer skipped.
+  2. `resumePendingChats(...)` now enqueues chats that have deferred queued follow-ups even when persisted backlog is empty.
+  3. `handleAgentMessage(...)` now defers new `auto/queue` submissions when either `(isActive || hasQueuedBacklog)` so post-restart submissions cannot jump ahead of existing deferred backlog.
+- Added/updated regression coverage:
+  - `test/channels/web/recovery.test.ts`
+    - `resumePendingChats scans known chats even when a cursor row is missing`
+    - `resumePendingChats enqueues deferred-only queued followups`
+  - `test/channels/web/web-channel.test.ts`
+    - `web channel keeps new auto submissions deferred when deferred backlog exists after restart`
+  - Updated `test/channels/web/agent-message-handler.test.ts` mocks to cover the new queue-backlog branch cleanly.
+- Validation evidence:
+  - `bun test test/channels/web/recovery.test.ts`
+  - `bun test test/channels/web/web-channel.test.ts`
+  - `bun test test/channels/web/agent-message-handler.test.ts`
+  - `bun run quality` → `1022 pass, 2 skip, 0 fail`
+- Files changed:
+  - `piclaw/src/channels/web/recovery.ts`
+  - `piclaw/src/channels/web/handlers/agent.ts`
+  - `piclaw/test/channels/web/recovery.test.ts`
+  - `piclaw/test/channels/web/web-channel.test.ts`
+  - `piclaw/test/channels/web/agent-message-handler.test.ts`
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
+
+### 2026-03-17
+- Lane change: `40-review` → `20-doing` to continue active investigation after user request for a deeper root-cause audit.
+- Completed deep code review of restart/reload turn-recovery paths (`src/channels/web/recovery.ts`, `src/channels/web/handlers/agent.ts`, `src/channels/web.ts`, `src/runtime/startup.ts`, `web/src/app.ts`).
+- Confirmed concrete backend ordering/recovery gaps that can still make pending turns look lost or out-of-order after reload:
+  1. `resumePendingChats(...)` only scans chats present in `chat_cursors` and skips chats with no cursor row (`recovery.ts`: `if (since === undefined) continue`).
+     - If a first-ever user turn is persisted but the process restarts before `processChat()` begins, there may be no cursor row yet.
+     - Startup resume can miss that chat entirely, leaving the turn undrained until another message arrives.
+  2. Startup resume only keys off persisted messages (`getMessagesSince(...)`) and does not trigger drain for deferred queued follow-ups alone.
+     - Deferred queue survives restart in `chat_cursors.queued_followups_json`, but no `processChat()` run is enqueued when persisted backlog is empty.
+     - Result: queued user turns can stall indefinitely after restart unless another event nudges processing.
+  3. New post-restart submissions can bypass older deferred queued turns because defer gating uses only `isActive` (`agent.ts`: `shouldDeferQueuedFollowup ... && isActive ...`).
+     - After restart, `isActive` is false even when deferred queue backlog exists.
+     - A newly submitted normal turn can be persisted and processed before older deferred queued turns.
+  4. `processChat()` prioritizes persisted backlog and only materializes deferred queue when `messages.length === 0`.
+     - This reinforces the skip-ahead behavior above (new persisted turns can run before older deferred items).
+- Secondary reliability gap found:
+  - Stale inflight markers older than `MAX_INFLIGHT_AGE_MS` are cleared without rollback and without explicit terminal failure publication (`recovery.ts`).
+  - That path avoids retry loops but can still violate “never silently lost” semantics for long-downtime restarts.
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 1, deps: 2, risk: 1)
+
 ### 2026-03-16
 - Kept open intentionally after the first concrete fix landed.
 - The same-millisecond cursor / monotonic timestamp bug is now fixed, but this ticket still represents the broader “is any real reload/pending-turn gap still reproducible in practice?” question.
@@ -137,6 +182,7 @@ Potential remaining failure modes include:
 - `kanban/50-done/queue-inflight-turn-parenting-regression.md`
 - `kanban/50-done/fix-queued-message-loss-after-mid-queue-removal.md`
 - `kanban/50-done/fix-active-inactive-streaming-state-mismatch-for-queue-submit.md`
+- `kanban/20-doing/queued-followup-stack-does-not-refresh-after-removal.md`
 - `piclaw/src/channels/web/recovery.ts`
 - `piclaw/src/channels/web/chat-run-control.ts`
 - `piclaw/src/channels/web/handlers/agent.ts`

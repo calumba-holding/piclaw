@@ -47,6 +47,8 @@ describe("web recovery helpers", () => {
         rolledBack.push({ chatJid, prevTs });
       },
       getAllChatCursors: () => ({}),
+      getKnownChatJids: () => [],
+      getDeferredQueuedFollowups: () => [],
       getMessagesSince: () => [],
     };
 
@@ -94,6 +96,8 @@ describe("web recovery helpers", () => {
       clearInflightMarker: (chatJid) => { cleared.push(chatJid); },
       rollbackInflightRun: (chatJid, prevTs) => { rolledBack.push({ chatJid, prevTs }); },
       getAllChatCursors: () => ({}),
+      getKnownChatJids: () => [],
+      getDeferredQueuedFollowups: () => [],
       getMessagesSince: () => [],
     };
 
@@ -131,6 +135,8 @@ describe("web recovery helpers", () => {
       clearInflightMarker: () => {},
       rollbackInflightRun: () => {},
       getAllChatCursors: () => ({}),
+      getKnownChatJids: () => [],
+      getDeferredQueuedFollowups: () => [],
       getMessagesSince: () => [],
     };
 
@@ -160,6 +166,8 @@ describe("web recovery helpers", () => {
       clearInflightMarker: () => {},
       rollbackInflightRun: () => {},
       getAllChatCursors: () => ({ "web:1": "t1", "web:2": "t2" }),
+      getKnownChatJids: () => ["web:1", "web:2"],
+      getDeferredQueuedFollowups: () => [],
       getMessagesSince: (chatJid) => (chatJid === "web:2" ? [{ id: "m" }] : []),
     };
 
@@ -168,6 +176,69 @@ describe("web recovery helpers", () => {
     expect(enqueued.map((item) => item.key)).toEqual(["resume:web:2"]);
     await enqueued[0].task();
     expect(processed).toEqual([{ chatJid: "web:2", agentId: "default" }]);
+  });
+
+  test("resumePendingChats scans known chats even when a cursor row is missing", async () => {
+    const enqueued: Array<{ key: string; task: () => Promise<void> }> = [];
+    const calls: Array<{ chatJid: string; since: string }> = [];
+
+    const ctx: WebRecoveryContext = {
+      assistantName: "Pi",
+      defaultAgentId: "default",
+      enqueue: (task, key) => {
+        enqueued.push({ key, task });
+      },
+      processChat: async () => {},
+    };
+
+    const store: WebRecoveryStore = {
+      getInflightRuns: () => [],
+      transaction: (run) => run(),
+      hasAgentRepliesAfter: () => false,
+      clearInflightMarker: () => {},
+      rollbackInflightRun: () => {},
+      getAllChatCursors: () => ({ "web:known": "t1" }),
+      getKnownChatJids: () => ["web:known", "web:new"],
+      getDeferredQueuedFollowups: () => [],
+      getMessagesSince: (chatJid, since) => {
+        calls.push({ chatJid, since });
+        return chatJid === "web:new" ? [{ id: "new-msg" }] : [];
+      },
+    };
+
+    resumePendingChats(ctx, undefined, store);
+
+    expect(calls).toContainEqual({ chatJid: "web:new", since: "" });
+    expect(enqueued.map((item) => item.key)).toEqual(["resume:web:new"]);
+  });
+
+  test("resumePendingChats enqueues deferred-only queued followups", async () => {
+    const enqueued: Array<{ key: string; task: () => Promise<void> }> = [];
+
+    const ctx: WebRecoveryContext = {
+      assistantName: "Pi",
+      defaultAgentId: "default",
+      enqueue: (task, key) => {
+        enqueued.push({ key, task });
+      },
+      processChat: async () => {},
+    };
+
+    const store: WebRecoveryStore = {
+      getInflightRuns: () => [],
+      transaction: (run) => run(),
+      hasAgentRepliesAfter: () => false,
+      clearInflightMarker: () => {},
+      rollbackInflightRun: () => {},
+      getAllChatCursors: () => ({ "web:queue-only": "" }),
+      getKnownChatJids: () => ["web:queue-only"],
+      getDeferredQueuedFollowups: () => [{ rowId: -1, queuedContent: "queued after restart", threadId: null, queuedAt: "2026-01-01T00:00:00.000Z" }],
+      getMessagesSince: () => [],
+    };
+
+    resumePendingChats(ctx, undefined, store);
+
+    expect(enqueued.map((item) => item.key)).toEqual(["resume:web:queue-only"]);
   });
 
   test("inflight recovery and resume_pending collapse to one queued replay per chat", async () => {
@@ -197,6 +268,8 @@ describe("web recovery helpers", () => {
       clearInflightMarker: () => {},
       rollbackInflightRun: () => {},
       getAllChatCursors: () => ({ "web:1": "t0" }),
+      getKnownChatJids: () => ["web:1"],
+      getDeferredQueuedFollowups: () => [],
       getMessagesSince: () => [{ id: "m1" }],
     };
 
