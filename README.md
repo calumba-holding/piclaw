@@ -23,15 +23,49 @@ PiClaw is a Docker-based sandbox for running the [Pi Coding Agent](https://githu
 
 ## Quick Start
 
+> [!IMPORTANT]
+> The **preferred and supported** way to run PiClaw is the published GHCR image:
+> **`ghcr.io/rcarmo/piclaw`**.
+>
+> Building from source is still supported for development, but production/runtime issues should be validated against GHCR first.
+
+### Run from GHCR (recommended)
+
 ```bash
-make build    # Build the Docker image
-make up       # Start the container (supervisord launches piclaw)
+mkdir -p ./home ./workspace
+
+docker pull ghcr.io/rcarmo/piclaw:latest
+
+docker run -d \
+  --name piclaw \
+  --restart unless-stopped \
+  -p 8080:8080 \
+  -e PICLAW_WEB_PORT=8080 \
+  -v "$(pwd)/home:/config" \
+  -v "$(pwd)/workspace:/workspace" \
+  ghcr.io/rcarmo/piclaw:latest
 ```
 
-Open `http://localhost:8080` in your browser. To use `pi` interactively instead:
+Open `http://localhost:8080` in your browser.
+
+To use `pi` interactively in that container:
 
 ```bash
 docker exec -u agent -it piclaw bash
+cd /workspace && pi
+```
+
+### Build from source (development)
+
+```bash
+make build    # Build the local Docker image
+make up       # Start docker-compose stack (supervisord launches piclaw)
+```
+
+With the default compose setup, the container name is `pibox`:
+
+```bash
+docker exec -u agent -it pibox bash
 cd /workspace && pi
 ```
 
@@ -40,10 +74,28 @@ cd /workspace && pi
 The easiest way to set up model/provider credentials is from the **terminal pane** in the web UI.
 
 > [!NOTE]
-> For security, the authenticated web terminal is **disabled by default**. To use it, set `PICLAW_WEB_TERMINAL_ENABLED=1` before starting piclaw, for example:
+> For security, the authenticated web terminal is **disabled by default**.
+>
+> Enable it either by:
 >
 > ```bash
+> # Source/compose flow
 > PICLAW_WEB_TERMINAL_ENABLED=1 make up
+> ```
+>
+> or
+>
+> ```bash
+> # GHCR docker run flow
+> docker run -d \
+>   --name piclaw \
+>   --restart unless-stopped \
+>   -p 8080:8080 \
+>   -e PICLAW_WEB_PORT=8080 \
+>   -e PICLAW_WEB_TERMINAL_ENABLED=1 \
+>   -v "$(pwd)/home:/config" \
+>   -v "$(pwd)/workspace:/workspace" \
+>   ghcr.io/rcarmo/piclaw:latest
 > ```
 
 1. Open the web UI.
@@ -156,7 +208,10 @@ Tests use the Bun runner (`cd piclaw && bun test`). Sequential mode is recommend
 
 ## CI / Release
 
-Pushing a version tag triggers `.github/workflows/publish.yml` — multi-arch builds (amd64 + arm64) published to GHCR.
+Pushing a version tag triggers `.github/workflows/publish.yml` — multi-arch builds (amd64 + arm64) published to GHCR as:
+
+- `ghcr.io/rcarmo/piclaw:<tag>`
+- `ghcr.io/rcarmo/piclaw:latest`
 
 ```bash
 make bump-patch   # bump patch version, commit, and tag
@@ -166,11 +221,11 @@ make push         # push commits + tag → triggers CI
 
 ## Container runtime
 
-PiClaw works with any OCI-compliant runtime:
+PiClaw works with any OCI-compliant runtime.
 
-- **Docker** / Docker Desktop — primary target
-- **Apple Containers** (macOS 26+)
-- **Podman**, **nerdctl**, etc.
+- **Preferred/supported image source:** `ghcr.io/rcarmo/piclaw`
+- **Primary runtime target:** Docker / Docker Desktop
+- Also works on Apple Containers (macOS 26+), Podman, nerdctl, etc.
 
 ## Documentation
 
