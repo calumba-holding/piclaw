@@ -2032,6 +2032,7 @@ body {
 }
 
 .compose-input-wrapper {
+    position: relative;
     flex: 1;
     width: 100%;
     display: flex;
@@ -2677,13 +2678,15 @@ body {
 
 
 .compose-connection-status {
-    position: static;
+    position: absolute;
+    top: -10px;
+    right: 10px;
+    z-index: 3;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 24px;
-    min-height: 24px;
-    padding: 0 7px;
+    min-height: 22px;
+    padding: 0 8px;
     border-radius: var(--radius-full);
     border: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
     font-size: 10.5px;
@@ -2694,11 +2697,12 @@ body {
     flex: 0 0 auto;
     color: inherit;
     vertical-align: middle;
+    pointer-events: none;
+    box-shadow: var(--shadow-sm);
 }
 
 .compose-connection-status.connection-status {
-    position: static;
-    right: auto;
+    right: 10px;
     bottom: auto;
 }
 

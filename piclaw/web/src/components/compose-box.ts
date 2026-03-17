@@ -215,6 +215,14 @@ export function ComposeBox({
     const notificationActive = notificationPermission === 'granted' && notificationsEnabled;
     const notificationTitle = notificationActive ? 'Disable notifications' : 'Enable notifications';
     const hasAttachments = mediaFiles.length > 0 || fileRefs.length > 0 || messageRefs.length > 0;
+    const connectionStatusLabel = connectionStatus === 'disconnected'
+        ? 'Reconnecting'
+        : String(connectionStatus || 'Connecting')
+            .replace(/[-_]+/g, ' ')
+            .replace(/^./, (match) => match.toUpperCase());
+    const connectionStatusTitle = connectionStatus === 'disconnected'
+        ? 'Reconnecting'
+        : `Connection: ${connectionStatusLabel}`;
 
     const visibleMentionAgents = getVisibleMentionAgents(activeChatAgents, { currentChatJid, limit: 4 });
     const hasVisibleMentionAgents = visibleMentionAgents.length > 0;
@@ -1073,6 +1081,11 @@ export function ComposeBox({
                 onDragLeave=${handleDragLeave}
                 onDrop=${handleDrop}
             >
+                ${connectionStatus !== 'connected' && html`
+                    <span class="compose-connection-status connection-status ${connectionStatus}" title=${connectionStatusTitle}>
+                        ${connectionStatusLabel}
+                    </span>
+                `}
                 <div class="compose-input-main">
                     ${submitError && !hasAttachments && html`
                         <div class="compose-submit-error compose-submit-error-top" role="status" aria-live="polite">${submitError}</div>
@@ -1255,11 +1268,6 @@ export function ComposeBox({
                     </div>
                     `}
                     <div class="compose-actions ${searchMode ? 'search-mode' : ''}">
-                        ${connectionStatus !== 'connected' && html`
-                            <span class="compose-connection-status connection-status ${connectionStatus}" title=${connectionStatus === 'disconnected' ? 'Reconnecting...' : `Connection: ${connectionStatus}`}>
-                                ${connectionStatus === 'disconnected' ? 'Reconnecting...' : connectionStatus}
-                            </span>
-                        `}
                     ${showAgentAffordance && html`
                         <div class="compose-agent-hints compose-agent-hints-inline" title="Active chat agents you can mention with @name">
                             <span class="compose-agent-hints-label">Agents</span>
