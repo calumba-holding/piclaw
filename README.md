@@ -243,9 +243,12 @@ PiClaw works with any OCI-compliant runtime.
 
 ## Documentation
 
+- [Changelog](CHANGELOG.md) — user-visible and operator-visible changes since `v1.5.2`
 - [Configuration](docs/configuration.md) — all env vars, TOTP, TLS, keychain, Pushover, WhatsApp
 - [Reverse proxy / Cloudflare Tunnel](docs/reverse-proxy.md) — trust-proxy setup, forwarded headers, examples, troubleshooting
 - [Architecture](docs/architecture.md) — codebase layout and design decisions
+- [Extension UI contract](docs/extension-ui-contract.md) — when to use pane extensions vs timeline UI vs the `extension_ui_*` bridge
+- [Web pane extensions](docs/web-pane-extensions.md) — first-class pane host contract for custom editors/viewers/tools
 - [Storage model](docs/storage.md) — SQLite schema and data lifecycle
 - [Runtime flows](docs/runtime-flows.md) — message processing, queue/steering, Adaptive Cards, side prompts, and crash recovery
 - [Tools and skills](docs/tools-and-skills.md) — built-in tools, slash commands, and skill catalogue

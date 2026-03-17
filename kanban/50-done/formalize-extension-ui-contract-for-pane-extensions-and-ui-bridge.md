@@ -1,10 +1,11 @@
 ---
 id: formalize-extension-ui-contract-for-pane-extensions-and-ui-bridge
 title: Formalize extension UI contract for pane extensions and the UI bridge
-status: next
+status: done
 priority: medium
 created: 2026-03-16
 updated: 2026-03-17
+completed: 2026-03-17
 target_release: next
 estimate: S
 risk: medium
@@ -47,21 +48,21 @@ The remaining product/contract gap is to define how these two surfaces fit
 
 ## Acceptance Criteria
 
-- [ ] Record that pane extensions are the existing first-class host model for
+- [x] Record that pane extensions are the existing first-class host model for
       substantial extension UI in the web app.
-- [ ] Classify current `extension_ui_*` families into:
+- [x] Classify current `extension_ui_*` families into:
   - supported public bridge events,
   - shell-owned affordances,
   - internal/private implementation details,
   - deprecated or legacy events.
-- [ ] Clarify what third-party/workspace extensions should prefer for each UI class:
+- [x] Clarify what third-party/workspace extensions should prefer for each UI class:
   - pane extension,
   - browser-event bridge,
   - timeline/adaptive-card/message-based UI,
   - or no supported surface.
-- [ ] Document the non-goals clearly enough that extension authors do not assume
+- [x] Document the non-goals clearly enough that extension authors do not assume
       a richer plugin UI platform than what Piclaw actually ships.
-- [ ] Create focused follow-up tickets only for the remaining genuine gaps.
+- [x] Create focused follow-up tickets only for the remaining genuine gaps.
 
 ## Implementation Paths
 
@@ -90,25 +91,44 @@ UI affordances rather than re-litigating whether a host should exist.
 
 ## Test Plan
 
-- [ ] Audit current pane-host implementation and built-in pane usage.
-- [ ] Inventory current `extension_ui_*` events and whether the shell visibly
+- [x] Audit current pane-host implementation and built-in pane usage.
+- [x] Inventory current `extension_ui_*` events and whether the shell visibly
       reacts to them.
-- [ ] Produce a surface-mapping table such as:
+- [x] Produce a surface-mapping table such as:
   - substantial file/tool UI → pane extension
   - lightweight prompt/status/toast/editor helpers → bridge events
   - structured conversation actions → adaptive cards / timeline messages
-- [ ] Create smaller follow-up tickets only where the current contract still has
+- [x] Create smaller follow-up tickets only where the current contract still has
       real product ambiguity.
 
 ## Definition of Done
 
-- [ ] Ticket scope no longer includes already-shipped pane-host work
-- [ ] Current first-class host model explicitly recorded
-- [ ] Bridge event categories documented
-- [ ] Third-party/workspace extension guidance clarified
-- [ ] Only genuine remaining gaps left as follow-up tickets
+- [x] Ticket scope no longer includes already-shipped pane-host work
+- [x] Current first-class host model explicitly recorded
+- [x] Bridge event categories documented
+- [x] Third-party/workspace extension guidance clarified
+- [x] Only genuine remaining gaps left as follow-up tickets
 
 ## Updates
+
+### 2026-03-17 (implementation)
+- Lane change: `10-next` → `50-done`.
+- Added `docs/extension-ui-contract.md` to formalize the product contract between:
+  - pane extensions as the first-class mounted UI host,
+  - Adaptive Cards / timeline UI for structured conversational interactions,
+  - and the lower-level `extension_ui_*` browser-event bridge for lightweight web-session integrations.
+- Classified current `extension_ui_*` families by contract class and whether they have shell-visible effects.
+- Updated companion docs so the contract is discoverable from the main web-pane and architecture documentation:
+  - `docs/web-pane-extensions.md`
+  - `docs/architecture.md`
+  - `docs/tools-and-skills.md`
+  - `README.md`
+- Outcome: no new implementation ticket was required for a missing first-class pane host, because that host already exists; the remaining gap was documentation/contract clarity.
+- Validation:
+  - docs reviewed against `piclaw/src/channels/web/ui-bridge.ts`
+  - docs reviewed against `piclaw/web/src/ui/extension-ui-events.ts`
+  - docs reviewed against current shell behavior in `piclaw/web/src/app.ts`
+- Quality: ★★★★★ 9/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 2)
 
 ### 2026-03-17
 - Reassessed against the current implementation and removed scope that is already shipped.

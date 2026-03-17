@@ -4,18 +4,38 @@ This document explains how to create a custom pane extension for the piclaw
 web UI. Pane extensions provide content-area UI components — editors, viewers,
 previewers, or tools — managed by the `PaneRegistry`.
 
+Pane extensions are the web app's **first-class host model** for substantial
+extension UI. If you need a persistent mounted UI surface, start here.
+For the higher-level product contract between pane extensions, timeline-native
+UI, and the lower-level `extension_ui_*` bridge, see
+[extension-ui-contract.md](extension-ui-contract.md).
+
 ## Current built-in panes
 
 | ID | Placement | Description |
 |---|---|---|
 | `editor` | tabs | CodeMirror 6 editor (fallback for all text files). Lazy-loaded. |
-| `drawio` | tabs | Self-hosted draw.io editor for `.drawio` files. |
-| `office-viewer` | tabs | Route-backed JS Office viewer for `.docx/.xlsx/.pptx` and OpenDocument files. |
-| `csv-viewer` | tabs | Table viewer for `.csv` / `.tsv` files. |
-| `pdf-viewer` | tabs | Inline PDF viewer. |
-| `image-viewer` | tabs | Inline image viewer with zoom. |
-| `workspace-preview` | tabs | Default workspace preview surface. |
+| `drawio` | tabs | Self-hosted draw.io editor for `.drawio` files. Workspace preview exposes an **Edit in Tab** CTA. |
+| `office-viewer` | tabs | Route-backed JS Office viewer for `.docx/.xlsx/.pptx` and OpenDocument files. Workspace preview exposes an **Open in Tab** CTA. |
+| `csv-viewer` | tabs | Table viewer for `.csv` / `.tsv` files. Workspace preview exposes an **Open in Tab** CTA. |
+| `pdf-viewer` | tabs | Inline PDF viewer. Workspace preview exposes an **Open in Tab** CTA. |
+| `image-viewer` | tabs | Inline image viewer with zoom. Workspace preview exposes an **Open in Tab** CTA. |
+| `workspace-preview` | tabs | Default workspace preview surface. Generic text previews keep the lightweight explorer-header editor action instead. |
 | `terminal` | dock | Authenticated terminal pane (feature-flagged). |
+
+## Choosing the right surface
+
+Use a pane extension when you need:
+
+- a mounted content-area UI
+- tab or dock placement
+- focus/resize/dispose lifecycle
+- substantial tool or file interaction
+
+Prefer other surfaces when:
+
+- the interaction belongs in conversation history → use timeline messages or Adaptive Cards
+- the interaction is only a lightweight browser-session signal → use the `extension_ui_*` browser-event bridge
 
 ## Concepts
 
@@ -159,6 +179,18 @@ The pane with the highest priority wins. The built-in editor returns `1`
 If `canHandle()` throws, the exception is caught and the pane is skipped.
 If `resolve()` returns no match, the host falls back to the built-in editor.
 
+## Preview affordance guidance
+
+Specialized preview panes in the workspace explorer should keep their
+preview-card affordances intentional and narrow:
+
+- **Draw.io** → `Edit in Tab` because the promoted destination is an editor
+- **Office / CSV / PDF / Image** → `Open in Tab` because the promoted destination is a dedicated viewer tab
+- **Generic workspace preview** → keep using the explorer-header editor action rather than duplicating pane-specific CTA chrome inside the preview body
+
+Avoid inventing pane-specific “open elsewhere” routes unless the destination is
+materially different from the normal tab-opening path.
+
 ## Host ↔ Pane communication
 
 | Direction | Method | When |
@@ -202,12 +234,12 @@ Verify no leaked listeners or DOM nodes after pane lifecycle:
 | ID | Placement | Priority | Location | Description |
 |---|---|---|---|---|
 | `editor` | tabs | 1 | `extensions/editor/editor-extension.ts` | CodeMirror 6 editor — handles all text files (fallback). Lazy-loaded as `editor.bundle.js` (889 KB). |
-| `drawio` | tabs | 10 | `web/src/panes/drawio-pane.ts` | Self-hosted draw.io editor for `.drawio` files. Uses iframe + extension route. |
-| `office-viewer` | tabs | 10 | `web/src/panes/office-viewer-pane.ts` | Built-in JS viewer (`/office-viewer/*`) for `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.odp` with zoom/fit/search and format-specific controls. |
-| `csv-viewer` | tabs | 10 | `web/src/panes/csv-viewer-pane.ts` | Lightweight table viewer for `.csv` and `.tsv` files. |
-| `pdf-viewer` | tabs | 10 | `web/src/panes/pdf-viewer-pane.ts` | Inline PDF viewer for `.pdf` files. |
-| `image-viewer` | tabs | 10 | `web/src/panes/image-viewer-pane.ts` | Inline image viewer with zoom for common image formats. |
-| `workspace-preview` | tabs | — | `web/src/panes/workspace-preview-pane.ts` | Default workspace preview surface for the explorer sidebar. |
+| `drawio` | tabs | 10 | `web/src/panes/drawio-pane.ts` | Self-hosted draw.io editor for `.drawio` files. Uses iframe + extension route; workspace preview promotes via **Edit in Tab**. |
+| `office-viewer` | tabs | 10 | `web/src/panes/office-viewer-pane.ts` | Built-in JS viewer (`/office-viewer/*`) for `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.odp` with zoom/fit/search and format-specific controls; workspace preview promotes via **Open in Tab**. |
+| `csv-viewer` | tabs | 10 | `web/src/panes/csv-viewer-pane.ts` | Lightweight table viewer for `.csv` and `.tsv` files; workspace preview promotes via **Open in Tab**. |
+| `pdf-viewer` | tabs | 10 | `web/src/panes/pdf-viewer-pane.ts` | Inline PDF viewer for `.pdf` files; workspace preview promotes via **Open in Tab**. |
+| `image-viewer` | tabs | 10 | `web/src/panes/image-viewer-pane.ts` | Inline image viewer with zoom for common image formats; workspace preview promotes via **Open in Tab**. |
+| `workspace-preview` | tabs | — | `web/src/panes/workspace-preview-pane.ts` | Default workspace preview surface for the explorer sidebar; generic text previews rely on the explorer header's editor action instead of pane-body CTA duplication. |
 | `terminal` | dock | — | `web/src/panes/terminal-pane.ts` | Terminal dock pane. Feature-flagged behind `PICLAW_WEB_TERMINAL_ENABLED`. |
 
 ### Editor extension architecture

@@ -109,6 +109,7 @@ These are compiled into the package and registered via `extensionFactories` on t
 | `scheduledTasks` | `schedule_task`, `/tasks`, `/scheduled` slash commands |
 | `sqlIntrospect` | `introspect_sql` (read-only SQLite queries) |
 | `internalTools` | `list_internal_tools` |
+| `sendAdaptiveCard` | `send_adaptive_card` for agent-owned Adaptive Card posting |
 | `uiThemeExtension` | `/theme`, `/tint` web UI theme controls |
 | `smartCompaction` | Smart compaction via `session_before_compact` hook (DB-driven file lists, junk-path filtering) |
 
@@ -142,7 +143,7 @@ The web UI uses a separate **pane extension** system for content-area components
 | `workspace-preview` | tabs | `web/src/panes/workspace-preview-pane.ts` |
 | `terminal` | dock | `web/src/panes/terminal-pane.ts` |
 
-The editor extension is lazy-loaded as a separate bundle (`editor.bundle.js`, 889 KB) on first file open. Specialized viewers (draw.io, office, CSV, PDF, image) use route-backed iframes served through the extension route system. See [web-pane-extensions.md](web-pane-extensions.md) for the full contract.
+The editor extension is lazy-loaded as a separate bundle (`editor.bundle.js`, 889 KB) on first file open. Specialized viewers (draw.io, office, CSV, PDF, image) use route-backed iframes served through the extension route system, and their workspace-preview affordances now normalize around explicit “Edit/Open in Tab” promotion actions. See [web-pane-extensions.md](web-pane-extensions.md) for the pane contract and [extension-ui-contract.md](extension-ui-contract.md) for how pane extensions fit alongside timeline-native UI and the lower-level `extension_ui_*` bridge.
 
 ## Web UI loading sequence
 
@@ -212,4 +213,6 @@ For the message‑level flow, see [runtime-flows.md](runtime-flows.md).
 
 ## Additional documentation
 
+- [Web pane extensions](web-pane-extensions.md) — first-class pane host contract for editors/viewers/tools in tabs and dock
+- [Extension UI contract](extension-ui-contract.md) — when to use pane extensions vs timeline UI vs the `extension_ui_*` bridge
 - [Turn mechanism audit](turn-mechanism-audit.md) — full-stack audit: state machine, queue/steering, crash recovery, client architecture, and data flow diagrams

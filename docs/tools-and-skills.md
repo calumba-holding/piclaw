@@ -30,6 +30,7 @@ Core tools (from `pi`):
 - `list_internal_tools` — list available tools with descriptions
 - `open_office_viewer` — open an Office document (`.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.odp`) in the built-in JS Office viewer (`/office-viewer/*`)
 - `open_drawio_editor` — open a `.drawio` diagram file in the self-hosted draw.io editor (creates the file if it doesn't exist)
+- `send_adaptive_card` — post an agent-owned Adaptive Card message in the web UI timeline
 - `exec_batch` — run multiple shell commands and return concise summaries for each
 
 `messages` `search` accepts `query`, `chat_jid` (or `*`/`all`), `role`, `after`, `before`, `since`, `limit`, `offset`, and `details_max_chars` for controlling detail payloads.
@@ -75,6 +76,16 @@ Each skill keeps its script alongside its `SKILL.md` for portability. Current se
 | `extension-design` | Design and audit Pi extensions safely |
 | `extension-troubleshoot` | Diagnose and fix extension issues (imports, DB init, watcher perms) |
 | `kanban-management` | Manage kanban board: ideation, triage, quality scoring, definition-of-done tracking |
+
+## Web extension UI note
+
+For web-facing extension work, prefer the following order of surfaces:
+
+1. **Pane extensions** for substantial mounted UI
+2. **Adaptive Cards / timeline messages** for structured conversational UI
+3. **`extension_ui_*` bridge events** for lightweight browser-session integrations
+
+See [extension-ui-contract.md](extension-ui-contract.md) and [web-pane-extensions.md](web-pane-extensions.md) for the current contract.
 
 ## Slash commands
 
