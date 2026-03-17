@@ -287,6 +287,30 @@ describe("parseControlCommand", () => {
     expect(cmd).toEqual({ type: "agent_avatar", avatar: "https://example.com/avatar.png", raw: "/agent-avatar https://example.com/avatar.png" });
   });
 
+  test("/user-github accepts @handle", () => {
+    expect(parseControlCommand("/user-github @octocat")).toEqual({
+      type: "user_github",
+      profile: "@octocat",
+      raw: "/user-github @octocat",
+    });
+  });
+
+  test("/user-github accepts bare handle", () => {
+    expect(parseControlCommand("/user-github octocat")).toEqual({
+      type: "user_github",
+      profile: "octocat",
+      raw: "/user-github octocat",
+    });
+  });
+
+  test("/user-github accepts GitHub URL", () => {
+    expect(parseControlCommand("/user-github https://github.com/octocat?tab=repositories")).toEqual({
+      type: "user_github",
+      profile: "https://github.com/octocat?tab=repositories",
+      raw: "/user-github https://github.com/octocat?tab=repositories",
+    });
+  });
+
   // Unknown commands return null
   test("unknown command returns null", () => {
     expect(parseControlCommand("/unknowncommand")).toBeNull();

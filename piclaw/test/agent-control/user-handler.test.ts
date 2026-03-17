@@ -65,6 +65,15 @@ test("handleUserGithub validates and handles fetch failures", async () => {
 
   const invalid = await mod.handleUserGithub({} as any, { type: "user_github", profile: "https://example.com/not-github" } as any);
   expect(invalid.status).toBe("error");
+  expect(invalid.message).toContain("Usage: /user-github");
+
+  const ambiguousInput = await mod.handleUserGithub({} as any, { type: "user_github", profile: "rcarmo extra" } as any);
+  expect(ambiguousInput.status).toBe("error");
+  expect(ambiguousInput.message).toContain("Usage: /user-github");
+
+  const repoLike = await mod.handleUserGithub({} as any, { type: "user_github", profile: "https://github.com/rcarmo/rcarmo.github.io" } as any);
+  expect(repoLike.status).toBe("error");
+  expect(repoLike.message).toContain("Usage: /user-github");
 
   globalThis.fetch = (async () => {
     throw new Error("network down");
@@ -77,7 +86,7 @@ test("handleUserGithub validates and handles fetch failures", async () => {
   expect(httpError.message).toContain("HTTP 404");
 });
 
-test("handleUserGithub stores profile on success", async () => {
+test("handleUserGithub stores profile on success for handle and URL", async () => {
   const mod = await setup();
 
   globalThis.fetch = async () =>
@@ -90,7 +99,18 @@ test("handleUserGithub stores profile on success", async () => {
       { status: 200, headers: { "Content-Type": "application/json" } }
     ) as any;
 
-  const result = await mod.handleUserGithub({} as any, { type: "user_github", profile: "@rcarmo" } as any);
-  expect(result.status).toBe("success");
-  expect(result.message).toContain("Rui Carmo");
+  const withAt = await mod.handleUserGithub({} as any, { type: "user_github", profile: "@rcarmo" } as any);
+  expect(withAt.status).toBe("success");
+  expect(withAt.message).toContain("Rui Carmo");
+
+  const withName = await mod.handleUserGithub({} as any, { type: "user_github", profile: "rcarmo" } as any);
+  expect(withName.status).toBe("success");
+  expect(withName.message).toContain("Rui Carmo");
+
+  const withUrl = await mod.handleUserGithub({} as any, {
+    type: "user_github",
+    profile: "https://www.github.com/rcarmo?tab=repositories",
+  } as any);
+  expect(withUrl.status).toBe("success");
+  expect(withUrl.message).toContain("Rui Carmo");
 });

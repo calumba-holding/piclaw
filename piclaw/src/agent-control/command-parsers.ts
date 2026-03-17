@@ -352,7 +352,7 @@ export function parseUserAvatar(args: string, raw: string): AgentControlCommand 
   };
 }
 
-/** Parse /user-github arguments: GitHub profile URL or username. */
+/** Parse /user-github arguments: GitHub profile URL, @handle, or username. */
 export function parseUserGithub(args: string, raw: string): AgentControlCommand {
   return {
     type: "user_github",

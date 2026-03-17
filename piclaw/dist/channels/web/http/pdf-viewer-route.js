@@ -1,10 +1,16 @@
 /**
  * pdf-viewer-route.ts — Lightweight authenticated PDF viewer route.
  *
- * Serves a same-origin HTML wrapper around the browser's built-in PDF renderer.
+ * Serves:
+ *   - /pdf-viewer            -> same-origin HTML PDF wrapper
+ *   - /pdf-viewer/?path=...  -> workspace file preview
+ *   - /pdf-viewer/?media=... -> media attachment preview
+ *   - /pdf-viewer/source?... -> inline PDF stream for attachment previews
  */
 import { registerExtensionRoute } from "./extension-routes.js";
+import { MediaService } from "../media-service.js";
 const ROUTE_PREFIX = "/pdf-viewer";
+const mediaService = new MediaService();
 const VIEWER_CSP = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",
@@ -73,32 +79,113 @@ function generatePdfViewerPage() {
 <script>
 (function () {
   'use strict';
-  var params = new URLSearchParams(location.search);
-  var path = params.get('path') || '';
 
-  if (!path) {
-    document.body.innerHTML = '<div class="empty">Missing <code>?path=...</code> query parameter.</div>';
+  var params = new URLSearchParams(location.search);
+  var hashParams = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+
+  function getFlexibleParam(name) {
+    var direct = params.get(name);
+    if (direct) return direct;
+    for (var it = params.entries(), next = it.next(); !next.done; next = it.next()) {
+      var key = String(next.value[0] || '');
+      var normalized = key.replace(/^amp;/i, '');
+      if (normalized === name) return String(next.value[1] || '');
+    }
+    return '';
+  }
+
+  function firstNonEmpty(parts) {
+    for (var i = 0; i < parts.length; i++) {
+      if (parts[i]) return parts[i];
+    }
+    return '';
+  }
+
+  var path = firstNonEmpty([
+    getFlexibleParam('path'),
+    hashParams.get('path') || '',
+  ]);
+
+  var media = firstNonEmpty([
+    getFlexibleParam('media'),
+    hashParams.get('media') || '',
+  ]);
+
+  var explicitName = firstNonEmpty([
+    getFlexibleParam('name'),
+    hashParams.get('name') || '',
+  ]);
+
+  var sourceUrl = '';
+  if (path) {
+    sourceUrl = '/workspace/raw?path=' + encodeURIComponent(path);
+  } else if (/^\\d+$/.test(media) && Number(media) > 0) {
+    sourceUrl = '/pdf-viewer/source?media=' + encodeURIComponent(media);
+  }
+
+  if (!sourceUrl) {
+    document.body.innerHTML = '<div class="empty">Missing <code>?path=...</code> or <code>?media=...</code> query parameter.</div>';
     return;
   }
 
-  var rawUrl = '/workspace/raw?path=' + encodeURIComponent(path);
-  var name = path.split('/').pop() || 'document.pdf';
+  var inferredName = path ? (path.split('/').pop() || 'document.pdf') : ('attachment-' + media + '.pdf');
+  var name = explicitName || inferredName;
+
   var objectEl = document.createElement('object');
-  objectEl.data = rawUrl;
+  objectEl.data = sourceUrl;
   objectEl.type = 'application/pdf';
   objectEl.setAttribute('aria-label', name);
-  objectEl.innerHTML = '<div class="fallback"><div class="fallback-card"><p>PDF preview is unavailable in this browser context.</p><p><a href="' + rawUrl + '" target="_blank" rel="noopener noreferrer">Open PDF in a new tab</a></p></div></div>';
+  objectEl.innerHTML = '<div class="fallback"><div class="fallback-card"><p>PDF preview is unavailable in this browser context.</p><p><a href="' + sourceUrl + '" target="_blank" rel="noopener noreferrer">Open PDF in a new tab</a></p></div></div>';
   document.body.appendChild(objectEl);
 })();
 </script>
 </body>
 </html>`;
 }
+function parsePositiveInt(value) {
+    if (!value)
+        return null;
+    if (!/^\d+$/.test(value))
+        return null;
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed <= 0)
+        return null;
+    return parsed;
+}
+function handlePdfMediaSource(req) {
+    const url = new URL(req.url);
+    const mediaId = parsePositiveInt(url.searchParams.get("media"));
+    if (!mediaId) {
+        return new Response("Missing or invalid media id", { status: 400 });
+    }
+    const result = mediaService.getMedia(mediaId, false);
+    if (result.status !== 200) {
+        return new Response("Not Found", { status: 404 });
+    }
+    const contentType = (result.contentType || "").toLowerCase();
+    if (contentType !== "application/pdf") {
+        return new Response("Unsupported Media Type", { status: 415 });
+    }
+    const headers = {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": "inline",
+        "Cache-Control": "no-cache",
+        "X-Frame-Options": "SAMEORIGIN",
+        "Content-Security-Policy": VIEWER_CSP,
+    };
+    if (req.method === "HEAD") {
+        return new Response(null, { status: 200, headers });
+    }
+    return new Response(result.body, { status: 200, headers });
+}
 function handlePdfViewerRoute(req, pathname) {
     if (req.method !== "GET" && req.method !== "HEAD") {
         return new Response("Method Not Allowed", { status: 405 });
     }
     const relative = pathname.replace(/^\/pdf-viewer\/?/, "");
+    if (relative === "source") {
+        return handlePdfMediaSource(req);
+    }
     if (relative && !relative.startsWith("?")) {
         return new Response("Not Found", { status: 404 });
     }

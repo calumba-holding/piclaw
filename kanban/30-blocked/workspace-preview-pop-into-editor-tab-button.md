@@ -1,10 +1,10 @@
 ---
 id: workspace-preview-pop-into-editor-tab-button
 title: Add an "Open in editor tab" button to the workspace preview pane
-status: inbox
+status: blocked
 priority: medium
 created: 2026-03-15
-updated: 2026-03-16
+updated: 2026-03-17
 target_release: next
 estimate: S
 risk: low
@@ -81,6 +81,11 @@ Why it is not preferred for v1:
 - [ ] Update history captures implementation and validation evidence.
 
 ## Updates
+
+### 2026-03-17
+- Lane change: `inbox` → `blocked` via triage submission (`action: triage_radio_apply`, `workspace_preview_pop_into_editor_tab_button_decision_2: defer`).
+- Deferred to avoid expanding preview affordance work while core queue/reload recovery and attachment fixes are stabilized.
+- Quality: ★★★☆☆ 5/10 (problem: 1, scope: 1, test: 1, deps: 0, risk: 2)
 
 ### 2026-03-16
 - Refinement triage kept this ticket focused on the generic workspace preview surface itself.

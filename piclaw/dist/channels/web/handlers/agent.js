@@ -599,6 +599,9 @@ export async function processChat(channel, chatJid, agentId, threadRootId) {
         ? INTERACTIVE_WEB_TIMEOUT_MS
         : (BACKGROUND_AGENT_TIMEOUT > 0 ? BACKGROUND_AGENT_TIMEOUT : AGENT_TIMEOUT);
     let turnCount = 0;
+    let hadIntermediateOutput = false;
+    let persistedIntermediateOutput = false;
+    let intermediatePersistFailed = false;
     const publishDraftFallback = (reason) => {
         // Draft fallback should publish the currently visible draft for whichever
         // turn failed to finalize, even if earlier turns in the same session were
@@ -674,6 +677,7 @@ export async function processChat(channel, chatJid, agentId, threadRootId) {
             const isFirstTurn = turnCount === 0;
             turnCount++;
             if (turn.text || turn.attachments.length > 0) {
+                hadIntermediateOutput = true;
                 const stored = storeAgentTurn(channel, emitter, {
                     chatJid,
                     text: turn.text,
@@ -683,8 +687,12 @@ export async function processChat(channel, chatJid, agentId, threadRootId) {
                     skipPlaceholder: isFirstTurn,
                 });
                 if (!stored) {
+                    intermediatePersistFailed = true;
                     console.warn(`[web] Failed to persist intermediate turn ${turnCount} for ${chatJid} ` +
                         `(${turn.text.length} chars, ${turn.attachments.length} attachments)`);
+                }
+                else {
+                    persistedIntermediateOutput = true;
                 }
             }
         },
@@ -788,6 +796,31 @@ export async function processChat(channel, chatJid, agentId, threadRootId) {
         return;
     }
     if (!finalized && !hasOutput) {
+        if (persistedIntermediateOutput) {
+            // A prior turn in the same run was already persisted (e.g. auto-
+            // compaction produced a trailing empty turn). Treat this as success and
+            // do not emit the no-response warning.
+            await finalizeSuccessfulRun();
+            return;
+        }
+        if (hadIntermediateOutput && intermediatePersistFailed) {
+            const errorText = "Agent produced intermediate output but it could not be persisted.";
+            endChatRunWithError(chatJid, {
+                prevTs: prevCursor,
+                failedTs: lastMessage.timestamp,
+                messageId: lastMessage.id,
+                threadRootId: resolvedThreadRootId ?? null,
+                createdAt: new Date().toISOString(),
+            });
+            trackedEmitter.status({
+                thread_id: threadId,
+                agent_id: agentId,
+                type: "error",
+                title: errorText,
+                turn_id: turnId,
+            });
+            return;
+        }
         // Check if a draft buffer existed — if so, the agent DID produce content
         // but persistence failed, which is a real error worth recording.
         const draft = channel.getBuffer(turnId, "draft");

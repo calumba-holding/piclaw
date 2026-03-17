@@ -1,9 +1,10 @@
 ---
 id: drawio-editor-extension
 title: Self-hosted draw.io editor extension
-status: review
+status: done
 created: 2026-03-16
-updated: 2026-03-16
+updated: 2026-03-17
+completed: 2026-03-17
 tags:
   - work-item
   - kanban
@@ -47,6 +48,14 @@ Integrate draw.io as a self-hosted diagram editor extension using the extension 
 - [x] Security headers properly scoped
 - [ ] End-to-end test: create diagram, save, reload, verify persistence
 - [ ] Verify draw.io editor loads correctly in browser
+
+## Updates
+
+### 2026-03-17
+- Lane change: `review` → `done` via triage submission (`action: triage_radio_apply`, `drawio_editor_extension_decision: done`).
+- File moved from `kanban/40-review/` to `kanban/50-done/`.
+- Noted remaining unchecked acceptance items (end-to-end persistence verification) as follow-up validation work outside this closure.
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 1, deps: 1, risk: 2)
 
 ## Notes
 

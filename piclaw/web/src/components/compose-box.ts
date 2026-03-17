@@ -146,6 +146,10 @@ export function ComposeBox({
     isAgentActive = false,
     activeChatAgents = [],
     currentChatJid = 'web:default',
+    connectionStatus = 'connected',
+    onSetFileRefs,
+    onSetMessageRefs,
+    onSubmitError,
 }) {
     const [content, setContent] = useState('');
     const [searchText, setSearchText] = useState('');
@@ -162,6 +166,7 @@ export function ComposeBox({
     const [modelOptions, setModelOptions] = useState([]);
     const [loadingModels, setLoadingModels] = useState(false);
     const [footerWidth, setFooterWidth] = useState(0);
+    const [submitError, setSubmitError] = useState(null);
     const textareaRef = useRef(null);
     const slashRef = useRef(null);
     const mentionRef = useRef(null);
@@ -210,6 +215,7 @@ export function ComposeBox({
     const notificationsAvailable = notificationsSupported && notificationsSecure && !notificationDenied;
     const notificationActive = notificationPermission === 'granted' && notificationsEnabled;
     const notificationTitle = notificationActive ? 'Disable notifications' : 'Enable notifications';
+    const hasAttachments = mediaFiles.length > 0 || fileRefs.length > 0 || messageRefs.length > 0;
 
     const visibleMentionAgents = getVisibleMentionAgents(activeChatAgents, { currentChatJid, limit: 4 });
     const hasVisibleMentionAgents = visibleMentionAgents.length > 0;
@@ -526,6 +532,7 @@ export function ComposeBox({
         setSlashMatches([]);
         setShowMention(false);
         setMentionMatches([]);
+        setSubmitError(null);
 
         // Capture media/refs before clearing so the async send can use them
         const capturedMediaFiles = includeMedia ? [...mediaFiles] : [];
@@ -546,6 +553,14 @@ export function ComposeBox({
             historyIndexRef.current = -1;
             historyDraftRef.current = '';
         }
+
+        const restoreDraft = () => {
+            if (includeMedia) setMediaFiles([...capturedMediaFiles]);
+            if (includeFileRefs) onSetFileRefs?.(capturedFileRefs);
+            if (includeMessageRefs) onSetMessageRefs?.(capturedMessageRefs);
+            setContent(baseContent);
+            requestAnimationFrame(() => resizeTextarea());
+        };
 
         // Clear compose box immediately so user can keep typing
         if (clearAfterSubmit) {
@@ -586,7 +601,7 @@ export function ComposeBox({
                 const mediaBlock = mediaIds.length
                     ? `Images:\n${mediaIds.map((id, index) => {
                         const file = capturedMediaFiles[index];
-                        const label = file?.name || `image-${index + 1}`;
+                        const label = file?.name || `attachment-${index + 1}`;
                         return `- attachment:${id} (${label})`;
                     }).join('\n')}`
                     : '';
@@ -608,6 +623,12 @@ export function ComposeBox({
 
                 onPost?.();
             } catch (error) {
+                if (clearAfterSubmit) {
+                    restoreDraft();
+                }
+                const message = error?.message || 'Failed to send message.';
+                setSubmitError(message);
+                onSubmitError?.(message);
                 console.error('Failed to post:', error);
             }
         })();
@@ -777,6 +798,7 @@ export function ComposeBox({
         const list = Array.from(files || []).filter((file) => file && file.type && file.type.startsWith('image/'));
         if (!list.length) return;
         setMediaFiles((current) => [...current, ...list]);
+        setSubmitError(null);
     };
 
     const handleFileChange = (e) => {
@@ -835,6 +857,13 @@ export function ComposeBox({
 
     const removeMediaFile = (index) => {
         setMediaFiles((current) => current.filter((_, idx) => idx !== index));
+    };
+
+    const clearAllAttachmentRefs = () => {
+        setSubmitError(null);
+        setMediaFiles([]);
+        onClearFileRefs?.();
+        onClearMessageRefs?.();
     };
 
     const handleLocation = () => {
@@ -952,6 +981,7 @@ export function ComposeBox({
     // Auto-resize textarea
     const handleInput = (e) => {
         const value = e.target.value;
+        setSubmitError(null);
         resizeTextarea(e.target);
         updateValue(value);
     };
@@ -1005,29 +1035,33 @@ export function ComposeBox({
                                         </div>
                                     `}
                                 </div>
-                                <button
-                                    class="compose-queue-stack-steer-btn"
-                                    type="button"
-                                    title="Inject queued follow-up as steer"
-                                    onClick=${() => handleInjectQueuedFollowup(item)}
-                                >
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M4 20h12a2 2 0 0 0 2-2V8" />
-                                        <polyline points="14 12 18 8 22 12" />
-                                    </svg>
-                                    <span>Steer</span>
-                                </button>
-                                <button
-                                    class="compose-queue-stack-close-btn"
-                                    type="button"
-                                    title="Cancel queued message"
-                                    onClick=${() => onRemoveQueuedFollowup?.(item)}
-                                >
-                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                        <line x1="18" y1="6" x2="6" y2="18" />
-                                        <line x1="6" y1="6" x2="18" y2="18" />
-                                    </svg>
-                                </button>
+                                <div class="compose-queue-stack-actions" role="group" aria-label="Queued follow-up controls">
+                                    <button
+                                        class="compose-queue-stack-steer-btn"
+                                        type="button"
+                                        title="Inject queued follow-up as steer"
+                                        aria-label="Inject queued follow-up as steer"
+                                        onClick=${() => handleInjectQueuedFollowup(item)}
+                                    >
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M4 20h12a2 2 0 0 0 2-2V8" />
+                                            <polyline points="14 12 18 8 22 12" />
+                                        </svg>
+                                        <span>Steer</span>
+                                    </button>
+                                    <button
+                                        class="compose-queue-stack-close-btn"
+                                        type="button"
+                                        title="Cancel queued message"
+                                        aria-label="Cancel queued message"
+                                        onClick=${() => onRemoveQueuedFollowup?.(item)}
+                                    >
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <line x1="18" y1="6" x2="6" y2="18" />
+                                            <line x1="6" y1="6" x2="18" y2="18" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                         `;
                     })}
@@ -1041,8 +1075,14 @@ export function ComposeBox({
                 onDrop=${handleDrop}
             >
                 <div class="compose-input-main">
-                    ${(fileRefs.length > 0 || mediaFiles.length > 0 || messageRefs.length > 0) && html`
+                    ${submitError && !hasAttachments && html`
+                        <div class="compose-submit-error compose-submit-error-top" role="status" aria-live="polite">${submitError}</div>
+                    `}
+                    ${hasAttachments && html`
                         <div class="compose-file-refs">
+                            ${submitError && html`
+                                <div class="compose-submit-error" role="status" aria-live="polite">${submitError}</div>
+                            `}
                             ${messageRefs.map((id) => {
                                 return html`
                                     <${FilePill}
@@ -1070,18 +1110,27 @@ export function ComposeBox({
                                 `;
                             })}
                             ${mediaFiles.map((file, index) => {
-                                const label = file?.name || `image-${index + 1}`;
+                                const label = file?.name || `attachment-${index + 1}`;
                                 return html`
                                     <${FilePill}
                                         key=${label + index}
                                         prefix="compose"
                                         label=${label}
                                         title=${label}
-                                        removeTitle="Remove image"
+                                        removeTitle="Remove attachment"
                                         onRemove=${() => removeMediaFile(index)}
                                     />
                                 `;
                             })}
+                            <button
+                                type="button"
+                                class="compose-clear-attachments-btn"
+                                onClick=${clearAllAttachmentRefs}
+                                title="Clear all attachments and references"
+                                aria-label="Clear all attachments and references"
+                            >
+                                Clear all
+                            </button>
                         </div>
                     `}
                     ${!searchMode && typeof onPopOutChat === 'function' && html`
@@ -1207,6 +1256,11 @@ export function ComposeBox({
                     </div>
                     `}
                     <div class="compose-actions ${searchMode ? 'search-mode' : ''}">
+                        ${connectionStatus !== 'connected' && html`
+                            <span class="compose-connection-status connection-status ${connectionStatus}" title=${connectionStatus === 'disconnected' ? 'Reconnecting...' : `Connection: ${connectionStatus}`}>
+                                ${connectionStatus === 'disconnected' ? 'Reconnecting...' : connectionStatus}
+                            </span>
+                        `}
                     ${showAgentAffordance && html`
                         <div class="compose-agent-hints compose-agent-hints-inline" title="Active chat agents you can mention with @name">
                             <span class="compose-agent-hints-label">Agents</span>

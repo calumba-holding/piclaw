@@ -309,7 +309,7 @@ export function parseUserAvatar(args, raw) {
         raw,
     };
 }
-/** Parse /user-github arguments: GitHub profile URL or username. */
+/** Parse /user-github arguments: GitHub profile URL, @handle, or username. */
 export function parseUserGithub(args, raw) {
     return {
         type: "user_github",

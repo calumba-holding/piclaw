@@ -22,6 +22,7 @@ const ALLOWED_HTML_TAGS = new Set([
     'ruby',
     'rt',
     'rp',
+    'span',
 ]);
 
 const SAFE_TAGS = new Set([
@@ -307,6 +308,27 @@ function normalizeHtmlCodeTags(text) {
     });
 }
 
+const RESTORABLE_HTML_ATTRS = {
+    span: new Set(['title', 'class', 'lang', 'dir']),
+};
+
+function extractRestorableAttributes(tagName, rawAttrs) {
+    const allowed = RESTORABLE_HTML_ATTRS[tagName];
+    if (!allowed || !rawAttrs) return '';
+
+    const attrs = [];
+    const regex = /([a-zA-Z_:][\w:.-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'`=<>]+)))?/g;
+    let match;
+    while ((match = regex.exec(rawAttrs))) {
+        const name = (match[1] || '').toLowerCase();
+        if (!name || name.startsWith('on') || !allowed.has(name)) continue;
+        const rawValue = match[2] ?? match[3] ?? match[4] ?? '';
+        attrs.push(` ${name}="${escapeHtmlAttr(rawValue)}"`);
+    }
+
+    return attrs.join('');
+}
+
 function restoreAllowedHtmlTags(text) {
     if (!text) return text;
     return text.replace(/&lt;([\s\S]*?)&gt;/g, (match, content) => {
@@ -315,14 +337,18 @@ function restoreAllowedHtmlTags(text) {
         const rawTag = isClosing ? trimmed.slice(1).trim() : trimmed;
         const isSelfClosing = rawTag.endsWith('/');
         const tagContent = isSelfClosing ? rawTag.slice(0, -1).trim() : rawTag;
-        const tagName = tagContent.split(/\s+/)[0]?.toLowerCase();
+        const [tagToken = ''] = tagContent.split(/\s+/, 1);
+        const tagName = tagToken.toLowerCase();
         if (!tagName || !ALLOWED_HTML_TAGS.has(tagName)) return match;
         // Void tag: never emit a closing </br>
         if (tagName === 'br') {
             return isClosing ? '' : '<br>';
         }
         if (isClosing) return `</${tagName}>`;
-        return `<${tagName}>`;
+
+        const attrSource = tagContent.slice(tagToken.length).trim();
+        const attrs = extractRestorableAttributes(tagName, attrSource);
+        return `<${tagName}${attrs}>`;
     });
 }
 

@@ -9,7 +9,14 @@
  */
 import { USER_AVATAR, USER_NAME, setUserAvatar, setUserAvatarBackground, setUserName, } from "../../core/config.js";
 import { updateUserConfig } from "../agent-control-helpers.js";
+import { splitArgs } from "../parser-utils.js";
 const CLEAR_VALUES = ["clear", "none", "off", "default"];
+const USER_GITHUB_HANDLE_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/;
+function normalizeHandle(login) {
+    if (!USER_GITHUB_HANDLE_RE.test(login))
+        return null;
+    return login;
+}
 /** Handle /user-name: update the user display name. */
 export async function handleUserName(_session, command) {
     if (!command.name) {
@@ -51,23 +58,38 @@ export async function handleUserAvatar(_session, command) {
     };
 }
 function normalizeGithubProfile(input) {
-    const raw = (input || "").trim();
+    if (!input)
+        return null;
+    const tokens = splitArgs(input);
+    if (tokens.length !== 1)
+        return null;
+    const raw = tokens[0].trim();
     if (!raw)
         return null;
-    if (raw.startsWith("@"))
-        return raw.slice(1).trim() || null;
-    if (!raw.includes("://"))
-        return raw;
-    try {
-        const url = new URL(raw);
-        if (!url.hostname.endsWith("github.com"))
-            return null;
-        const slug = url.pathname.split("/").filter(Boolean)[0];
-        return slug || null;
-    }
-    catch {
+    const candidate = raw.startsWith("@") ? raw.slice(1).trim() : raw;
+    if (!candidate)
         return null;
+    if (candidate.includes("/")) {
+        const isPotentialUrl = candidate.includes("://") ||
+            candidate.startsWith("github.com/") ||
+            candidate.startsWith("www.github.com/");
+        if (!isPotentialUrl)
+            return null;
+        try {
+            const normalized = candidate.includes("://") ? candidate : `https://${candidate}`;
+            const url = new URL(normalized);
+            if (!/^(www\.)?github\.com$/i.test(url.hostname))
+                return null;
+            const segments = url.pathname.split("/").filter(Boolean);
+            if (segments.length !== 1)
+                return null;
+            return normalizeHandle(segments[0] || "") || null;
+        }
+        catch {
+            return null;
+        }
     }
+    return normalizeHandle(candidate);
 }
 /** Handle /user-github: update the user GitHub profile. */
 export async function handleUserGithub(_session, command) {
@@ -75,7 +97,8 @@ export async function handleUserGithub(_session, command) {
     if (!login) {
         return {
             status: "error",
-            message: "Usage: /user-github <github profile URL or username>",
+            message: "Usage: /user-github <github profile URL|@handle|handle>\n" +
+                "Examples: /user-github @octocat, /user-github octocat, /user-github https://github.com/octocat.",
         };
     }
     const apiUrl = `https://api.github.com/users/${encodeURIComponent(login)}`;

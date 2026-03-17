@@ -1,9 +1,10 @@
 ---
 id: queued-followup-stack-does-not-refresh-after-removal
 title: Queued follow-up stack does not refresh immediately after removal
-status: doing
+status: done
 created: 2026-03-15
-updated: 2026-03-16
+updated: 2026-03-17
+completed: 2026-03-17
 tags:
   - work-item
   - kanban
@@ -23,6 +24,10 @@ new submissions do not immediately appear in the stack. The stack only catches
 up later / after further refresh or state changes.
 
 ## Updates
+
+### 2026-03-17
+- Lane change: `doing` → `done` via triage submission (`action: triage_radio_apply`, `queued_followup_stack_does_not_refresh_after_removal: done`).
+- This is now considered closed from board perspective; runtime verification of queue reordering across reload/reconnect flows remains the last open behavior check for broader correctness.
 
 ### 2026-03-16
 - Additional user-reported failure mode: after a reload, normal submitted messages can

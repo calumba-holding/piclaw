@@ -46,7 +46,7 @@ export const CONTROL_COMMAND_DEFINITIONS = [
     { name: "/agent-avatar", description: "Set or show the agent avatar URL" },
     { name: "/user-name", description: "Set or show your display name" },
     { name: "/user-avatar", description: "Set or show your avatar URL" },
-    { name: "/user-github", description: "Set your name/avatar from a GitHub profile URL" },
+    { name: "/user-github", description: "Set your name/avatar from a GitHub handle or profile URL" },
     { name: "/export-html", description: "Export session to HTML" },
     { name: "/passkey", description: "Manage passkeys (enrol/list/delete)", aliases: ["/passkeys"] },
     { name: "/totp", description: "Show a TOTP enrolment QR code" },
