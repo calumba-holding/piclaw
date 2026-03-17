@@ -227,11 +227,20 @@ export async function handleAgentMessage(
   );
 
   if (shouldDeferQueuedFollowup) {
-    return queueDeferredFollowup(content, {
+    const response = queueDeferredFollowup(content, {
       mediaIds: normalized.mediaIds,
       contentBlocks: normalized.contentBlocks,
       linkPreviews: normalized.linkPreviews,
     });
+
+    // If we are deferring only because persisted/deferred backlog exists but
+    // no run is currently active, proactively wake processChat so the backlog
+    // drains instead of passively accumulating more deferred messages.
+    if (hasQueuedBacklog && !isActive) {
+      channel.resumeChat(chatJid);
+    }
+
+    return response;
   }
 
   if (!command && !themeCommand && isStreaming && requestMode === "steer") {

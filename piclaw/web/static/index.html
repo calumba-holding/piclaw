@@ -28,13 +28,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#ffffff">
+    <meta id="dynamic-theme-color" name="theme-color" content="#ffffff">
+    <meta id="theme-color-light" name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+    <meta id="theme-color-dark" name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>PiClaw</title>
     <meta name="apple-mobile-web-app-title" content="PiClaw">
-    <link rel="stylesheet" href="/static/dist/app.bundle.css?v=1773759932">
-    <link rel="manifest" href="/manifest.json?v=1773759932">
+    <link rel="stylesheet" href="/static/dist/app.bundle.css?v=1773760638">
+    <link rel="manifest" href="/manifest.json?v=1773760638">
     <link id="dynamic-favicon" rel="icon" href="/favicon.ico" data-default="/favicon.ico">
     <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png">
     <link rel="icon" type="image/png" sizes="512x512" href="/static/icon-512.png">
@@ -58,10 +60,10 @@
     <script src="/static/js/marked.min.js"></script>
     <script src="/static/js/vendor/katex.min.js"></script>
     <script src="/static/js/vendor/beautiful-mermaid.js"></script>
-    <script type="module" src="/static/dist/app.bundle.js?v=1773759932"></script>
+    <script type="module" src="/static/dist/app.bundle.js?v=1773760638"></script>
     <script type="module">
         // Fallback error display for module errors
-        import('/static/dist/app.bundle.js?v=1773759932').catch(function(e) {
+        import('/static/dist/app.bundle.js?v=1773760638').catch(function(e) {
             document.getElementById('app').innerHTML = '<pre style="padding:20px;color:red;">Module Error: ' + e.message + '</pre>';
         });
     </script>

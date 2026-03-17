@@ -69,9 +69,9 @@ describe("web recovery helpers", () => {
     expect(processed).toEqual([{ chatJid: "web:2", agentId: "default" }]);
   });
 
-  test("recoverInflightRuns skips stale inflight markers without rollback", () => {
+  test("recoverInflightRuns rolls back stale inflight markers to preserve pending turns", () => {
     const staleStartedAt = "2026-01-01T00:00:00Z";
-    const now = new Date("2026-01-01T01:00:00Z").getTime(); // 1 hour later — well past 30 min limit
+    const now = new Date("2026-01-01T01:00:00Z").getTime(); // 1 hour later — well past stale warning threshold
 
     const inflights = [
       { chatJid: "web:stale", prevTs: "t0", messageId: "m1", startedAt: staleStartedAt },
@@ -103,14 +103,9 @@ describe("web recovery helpers", () => {
 
     recoverInflightRuns(ctx, store);
 
-    // Stale inflight should be cleared (not rolled back)
-    expect(cleared).toEqual(["web:stale"]);
-    expect(rolledBack).toEqual([]);
-    // No task enqueued for stale inflights (hasAgentRepliesAfter returns false
-    // but the marker was cleared without rollback, so the second loop's
-    // hasAgentRepliesAfter check still returns false and enqueues).
-    // However the cursor was NOT rolled back, so the enqueued processChat
-    // will pick up the NEXT message, not the stale one.
+    // Stale inflight markers are replayed (rollback + resume), not skipped.
+    expect(cleared).toEqual([]);
+    expect(rolledBack).toEqual([{ chatJid: "web:stale", prevTs: "t0" }]);
     expect(enqueued).toEqual(["resume:web:stale"]);
   });
 

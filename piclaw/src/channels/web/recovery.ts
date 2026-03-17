@@ -65,10 +65,12 @@ const defaultStore: WebRecoveryStore = {
   getMessagesSince,
 };
 
-/** Maximum age (ms) of an inflight marker before recovery skips it.
- *  If the marker is older than this, the run already timed out on a
- *  previous boot and replaying it is unlikely to succeed.  Defaults to
- *  30 minutes — well above the 15-minute interactive timeout.  */
+/**
+ * Maximum age (ms) at which we log inflight markers as stale.
+ *
+ * We still replay stale markers (rollback + resume) to preserve user turns,
+ * but emit a warning so operators can spot pathological restart loops.
+ */
 const MAX_INFLIGHT_AGE_MS = 30 * 60 * 1000;
 
 /** Recover interrupted runs left inflight after a restart. */
@@ -102,21 +104,13 @@ export function recoverInflightRuns(
           continue;
         }
 
-        // Skip stale inflight markers.  If the marker has survived multiple
-        // restarts without producing a terminal reply, the message is unlikely
-        // to succeed on replay (e.g. contextless recovery, stuck model).
-        // Clear the marker WITHOUT rolling back the cursor so the next
-        // `resumePendingChats` picks up the *next* pending message instead of
-        // endlessly retrying the same one.
         const inflightAge = now - new Date(inflight.startedAt).getTime();
         if (inflightAge > MAX_INFLIGHT_AGE_MS) {
           console.warn(
             `[web] Inflight run for ${inflight.chatJid} is stale ` +
               `(${Math.round(inflightAge / 1000)}s old, started ${inflight.startedAt}) — ` +
-              "clearing marker without rollback to avoid retry loop"
+              "rolling back and replaying to preserve the pending user turn"
           );
-          store.clearInflightMarker(inflight.chatJid);
-          continue;
         }
 
         store.rollbackInflightRun(inflight.chatJid, inflight.prevTs);
@@ -130,8 +124,7 @@ export function recoverInflightRuns(
   for (const inflight of inflights) {
     // Re-enqueue a processChat task unless the run already completed
     // (terminal agent reply exists). For rolled-back inflights, this retries
-    // the same message. For stale-cleared inflights (cursor not rolled back),
-    // processChat will pick up the NEXT pending message from the cursor.
+    // the same pending message from the restored cursor frontier.
     if (!store.hasAgentRepliesAfter(inflight.chatJid, inflight.startedAt)) {
       console.log(`[web] Recovering interrupted run for ${inflight.chatJid} (started ${inflight.startedAt})`);
       // Reuse the same stable resume key used by resume_pending IPC so

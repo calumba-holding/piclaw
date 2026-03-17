@@ -698,7 +698,7 @@ test("web channel processes messages normally when a turn is inflight but not ac
   expect(contents).toContain("should process immediately despite stale inflight");
 });
 
-test("web channel keeps new auto submissions deferred when deferred backlog exists after restart", async () => {
+test("web channel defers new auto submissions behind deferred backlog and wakes a drain run", async () => {
   const ws = createTempWorkspace("piclaw-web-channel-");
   cleanupWorkspace = ws.cleanup;
   restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
@@ -733,7 +733,8 @@ test("web channel keeps new auto submissions deferred when deferred backlog exis
 
   expect(res.status).toBe(201);
   expect(payload.queued).toBe("followup");
-  expect(processChatEnqueued).toBe(false);
+  // Backlog-only defer path should proactively wake processChat.
+  expect(processChatEnqueued).toBe(true);
 
   const queueState = await (web as any).handleRequest(new Request("http://test/agent/queue-state"));
   const queuePayload = await queueState.json();

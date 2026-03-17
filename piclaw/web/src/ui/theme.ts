@@ -494,21 +494,52 @@ function clearCssVariables() {
     THEME_VAR_KEYS.forEach((key) => root.style.removeProperty(key));
 }
 
-function ensureMetaTag(name) {
+function ensureMetaTag(name, options = {}) {
     if (typeof document === 'undefined') return null;
-    let tag = document.querySelector(`meta[name="${name}"]`);
+    const id = typeof options.id === 'string' && options.id.trim() ? options.id.trim() : null;
+    let tag = id
+        ? document.getElementById(id)
+        : document.querySelector(`meta[name="${name}"]`);
     if (!tag) {
         tag = document.createElement('meta');
-        tag.setAttribute('name', name);
         document.head.appendChild(tag);
     }
+    tag.setAttribute('name', name);
+    if (id) tag.setAttribute('id', id);
     return tag;
+}
+
+function resolveThemeColorForMode(mode) {
+    const themeName = normalizeThemeName(currentTheme?.theme || 'default');
+    const tint = currentTheme?.tint ? String(currentTheme.tint).trim() : null;
+    let palette = resolvePalette(themeName, mode);
+    if (themeName === 'default' && tint) {
+        palette = buildTintedPalette(palette, tint, mode);
+    }
+    if (palette?.bgPrimary) return palette.bgPrimary;
+    return mode === 'dark' ? DEFAULT_DARK.bgPrimary : DEFAULT_LIGHT.bgPrimary;
 }
 
 function updateMetaColor(color, mode) {
     if (typeof document === 'undefined') return;
-    const themeMeta = ensureMetaTag('theme-color');
-    if (themeMeta && color) themeMeta.setAttribute('content', color);
+
+    const themeMeta = ensureMetaTag('theme-color', { id: 'dynamic-theme-color' });
+    if (themeMeta && color) {
+        themeMeta.removeAttribute('media');
+        themeMeta.setAttribute('content', color);
+    }
+
+    const lightThemeMeta = ensureMetaTag('theme-color', { id: 'theme-color-light' });
+    if (lightThemeMeta) {
+        lightThemeMeta.setAttribute('media', '(prefers-color-scheme: light)');
+        lightThemeMeta.setAttribute('content', resolveThemeColorForMode('light'));
+    }
+
+    const darkThemeMeta = ensureMetaTag('theme-color', { id: 'theme-color-dark' });
+    if (darkThemeMeta) {
+        darkThemeMeta.setAttribute('media', '(prefers-color-scheme: dark)');
+        darkThemeMeta.setAttribute('content', resolveThemeColorForMode('dark'));
+    }
 
     const tileMeta = ensureMetaTag('msapplication-TileColor');
     if (tileMeta && color) tileMeta.setAttribute('content', color);
