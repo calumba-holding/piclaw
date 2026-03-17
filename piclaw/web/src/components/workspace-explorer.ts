@@ -2057,6 +2057,7 @@ export function WorkspaceExplorer({
             <input type="file" multiple style="display:none" ref=${uploadInputRef} onChange=${handleUploadInputChange} />
             <div class="workspace-header">
                 <div class="workspace-header-left">
+                    <span>Workspace</span>
                     <div class="workspace-menu-wrap">
                         <button
                             ref=${headerMenuButtonRef}
@@ -2065,8 +2066,8 @@ export function WorkspaceExplorer({
                                 e.stopPropagation();
                                 setHeaderMenuOpen((prev) => !prev);
                             }}
-                            title="Workspace menu"
-                            aria-label="Workspace menu"
+                            title="Workspace actions"
+                            aria-label="Workspace actions"
                             aria-haspopup="menu"
                             aria-expanded=${headerMenuOpen ? 'true' : 'false'}
                         >
@@ -2117,7 +2118,6 @@ export function WorkspaceExplorer({
                             </div>
                         `}
                     </div>
-                    <span>Workspace</span>
                 </div>
                 <div class="workspace-header-actions">
                     <button class="workspace-create" onClick=${handleCreateFileClick} title="New file" disabled=${uploading}>
