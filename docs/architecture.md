@@ -67,9 +67,9 @@ piclaw/
 │   ├── editor/                  # Standalone editor web pane extension
 │   │   ├── editor-extension.ts  # StandaloneEditorInstance + registration
 │   │   └── vendor/              # Vendored CodeMirror bundle
-│   └── office-viewer/           # ZetaOffice WASM document viewer extension
+│   └── office-viewer/           # Lightweight JS Office document viewer extension
 │       ├── index.ts             # Route registration + asset serving
-│       └── vendor/              # Vendored ZetaOffice WASM assets
+│       └── vendor/              # Vendored JS viewer assets (docx-preview/xlsx/pptxviewjs/jszip/chart.js)
 └── web/
     ├── src/
     │   ├── app.ts               # Main Preact app
@@ -82,7 +82,7 @@ piclaw/
     │   │   ├── tab-store.ts     # Framework-agnostic tab state
     │   │   ├── terminal-pane.ts # Terminal dock scaffold
     │   │   ├── drawio-pane.ts   # Draw.io editor pane (iframe embed)
-    │   │   ├── office-viewer-pane.ts  # ZetaOffice document viewer pane
+    │   │   ├── office-viewer-pane.ts  # Office document viewer pane (iframe route-backed)
     │   │   ├── csv-viewer-pane.ts     # CSV/TSV table viewer pane
     │   │   ├── pdf-viewer-pane.ts     # PDF viewer pane
     │   │   ├── image-viewer-pane.ts   # Image viewer pane
@@ -123,7 +123,7 @@ In addition to the inline factories, piclaw ships **optional extensions** under 
 | `azure-openai.ts` | `AOAI_BASE_URL` must be set | Azure OpenAI + Foundry provider with managed-identity or API-key auth |
 | `context-mode.ts` | Always loaded | Tool-output storage, search handles, and `exec_batch` tool |
 | `drawio-editor/` | Always loaded | Self-hosted draw.io editor with extension route, save endpoint, and workspace export |
-| `office-viewer/` | Always loaded | ZetaOffice WASM document viewer with extension route |
+| `office-viewer/` | Always loaded | Lightweight JS Office document viewer with extension route |
 
 These extensions are **experimental** — their API surface and loading mechanism may change between releases. They use relative imports (`../src/...`) to reference piclaw internals and require a `node_modules` symlink next to the `extensions/` directory (created automatically at startup) for jiti to resolve deep package imports.
 

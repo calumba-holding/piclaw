@@ -14,7 +14,7 @@ PiClaw is a Docker-based sandbox for running the [Pi Coding Agent](https://githu
 - **Disk usage starburst** — folder-size visualization with hover details and drill-down
 - **Code editor** — built-in CodeMirror 6 with syntax highlighting for 12 languages, search/replace, and save
 - **Draw.io editor** — self-hosted vendored draw.io with SVG/PNG/XML export to workspace, zero external dependencies
-- **Document viewer** — ZetaOffice WASM viewer for `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.odp` files
+- **Document viewer** — lightweight self-hosted JS viewer for `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.odp` (docx-preview + SheetJS + PptxViewJS, no WASM secure-context dependency)
 - **Route-backed viewers** — dedicated lightweight viewers for CSV/TSV, PDF, and image files
 - **Persistent storage** — SQLite-backed messages, media, tasks, token usage, and encrypted keychain
 - **Skills** — setup, debugging, Playwright, scheduling, charts, web search, Adaptive Card authoring, and more
@@ -57,6 +57,9 @@ This stores credentials in the agent profile inside the container, so the web UI
 
 If you prefer, you can do the same via `docker exec` or `/shell <command>` in the web UI. See [docs/configuration.md](docs/configuration.md) for details.
 
+> [!NOTE]
+> Provider auth login is currently **terminal-first**. Chat-level `/login` passthrough is tracked in the kanban ticket `login-command-passthrough`.
+
 ## Web UI
 
 The UI is single-user, mobile-friendly, and streams updates over SSE:
@@ -97,7 +100,10 @@ Click a `.drawio` file in the workspace explorer (or use the `open_drawio_editor
 
 ### Document and file viewers
 
-- **Office documents** — `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.odp` open in the ZetaOffice WASM viewer (vendored, no external CDN)
+- **Office documents** — `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.odp` open in the built-in JS Office viewer (vendored, no external CDN)
+  - DOCX: zoom/fit controls, comments/track-changes/continuous/fluid toggles, in-document search
+  - XLSX: sheet tabs, comments/formula view, CSV/JSON export, named ranges panel, freeze panes, dark mode, search
+  - PPTX: high-quality rendering, slide navigation (buttons + keyboard), size modes (fit/width/height/1:1), search, metadata overlay
 - **CSV/TSV** — dedicated table viewer with column sorting
 - **PDF** — inline PDF viewer
 - **Images** — inline image viewer with zoom

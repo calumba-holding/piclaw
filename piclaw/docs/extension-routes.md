@@ -7,7 +7,7 @@ assets or APIs from the piclaw process.
 
 This is the mechanism used by:
 
-- `office-viewer` to serve the ZetaOffice WASM viewer
+- `office-viewer` to serve the lightweight JS Office viewer
 - `drawio-editor` to serve the vendored draw.io app and save endpoint
 - `editor-vendor` to serve CodeMirror directly from the editor extension vendor dir
 - `csv-viewer` to serve a lightweight same-origin CSV/TSV table viewer
@@ -23,7 +23,7 @@ Use an extension route when an extension needs one of these:
 
 Good examples:
 
-- `/office-viewer/*` for COOP/COEP-scoped WASM assets
+- `/office-viewer/*` for self-hosted JS Office viewer assets and wrapper HTML
 - `/drawio/*` for embedded editor assets and save/export helpers
 - `/editor-vendor/*` for lazily loaded browser-side vendor code
 

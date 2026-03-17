@@ -128,7 +128,7 @@ Extension routes are registered dynamically through `src/channels/web/http/exten
 | Method | Path | Source | Auth | Notes |
 |---|---|---|---|---|
 | GET | `/api/extension-routes` | `extension-routes.ts` | authenticated | Lists currently registered route prefixes and extension paths. |
-| GET/HEAD | `/office-viewer/*` | workspace extension | authenticated | ZetaOffice viewer assets with scoped COOP/COEP headers. |
+| GET/HEAD | `/office-viewer/*` | workspace extension | authenticated | Lightweight JS Office viewer assets (docx/xlsx/pptx libs + `viewer.html`) with no-cache serving for rapid updates. |
 | GET/HEAD | `/drawio/*` | workspace extension | authenticated | Vendored draw.io editor assets plus wrapper/editor endpoints. |
 | POST | `/drawio/save` | workspace extension | authenticated + CSRF | Draw.io workspace save/export endpoint. |
 | GET/HEAD | `/editor-vendor/*` | built-in route registration | authenticated | CodeMirror vendor asset route used by the lazy editor bundle. |

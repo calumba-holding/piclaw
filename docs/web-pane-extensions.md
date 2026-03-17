@@ -10,7 +10,7 @@ previewers, or tools — managed by the `PaneRegistry`.
 |---|---|---|
 | `editor` | tabs | CodeMirror 6 editor (fallback for all text files). Lazy-loaded. |
 | `drawio` | tabs | Self-hosted draw.io editor for `.drawio` files. |
-| `office-viewer` | tabs | ZetaOffice WASM viewer for Office documents. |
+| `office-viewer` | tabs | Route-backed JS Office viewer for `.docx/.xlsx/.pptx` and OpenDocument files. |
 | `csv-viewer` | tabs | Table viewer for `.csv` / `.tsv` files. |
 | `pdf-viewer` | tabs | Inline PDF viewer. |
 | `image-viewer` | tabs | Inline image viewer with zoom. |
@@ -203,7 +203,7 @@ Verify no leaked listeners or DOM nodes after pane lifecycle:
 |---|---|---|---|---|
 | `editor` | tabs | 1 | `extensions/editor/editor-extension.ts` | CodeMirror 6 editor — handles all text files (fallback). Lazy-loaded as `editor.bundle.js` (889 KB). |
 | `drawio` | tabs | 10 | `web/src/panes/drawio-pane.ts` | Self-hosted draw.io editor for `.drawio` files. Uses iframe + extension route. |
-| `office-viewer` | tabs | 10 | `web/src/panes/office-viewer-pane.ts` | ZetaOffice WASM viewer for `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.odp`. |
+| `office-viewer` | tabs | 10 | `web/src/panes/office-viewer-pane.ts` | Built-in JS viewer (`/office-viewer/*`) for `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.odp` with zoom/fit/search and format-specific controls. |
 | `csv-viewer` | tabs | 10 | `web/src/panes/csv-viewer-pane.ts` | Lightweight table viewer for `.csv` and `.tsv` files. |
 | `pdf-viewer` | tabs | 10 | `web/src/panes/pdf-viewer-pane.ts` | Inline PDF viewer for `.pdf` files. |
 | `image-viewer` | tabs | 10 | `web/src/panes/image-viewer-pane.ts` | Inline image viewer with zoom for common image formats. |

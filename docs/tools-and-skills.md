@@ -28,7 +28,7 @@ Core tools (from `pi`):
 - `schedule_task` — schedule agent prompts or shell commands (cron, interval, or one-shot)
 - `introspect_sql` — run read-only SQL queries against the messages database
 - `list_internal_tools` — list available tools with descriptions
-- `open_office_viewer` — open an Office document (`.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.odp`) in the ZetaOffice WASM viewer
+- `open_office_viewer` — open an Office document (`.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.odp`) in the built-in JS Office viewer (`/office-viewer/*`)
 - `open_drawio_editor` — open a `.drawio` diagram file in the self-hosted draw.io editor (creates the file if it doesn't exist)
 - `exec_batch` — run multiple shell commands and return concise summaries for each
 
@@ -128,6 +128,10 @@ Direct commands (no LLM round-trip):
 | `/btw <question>` | Open a side-conversation panel in the web UI and stream an answer without interrupting the main chat |
 | `/tasks [filter]` | List scheduled tasks (via extension) |
 | `/scheduled [filter]` | Alias for `/tasks` |
+
+> [!NOTE]
+> Provider-auth `/login` is currently terminal-first (`pi /login` in the terminal pane or `docker exec`).
+> Chat-level `/login` passthrough is tracked in the kanban ticket `login-command-passthrough`.
 
 `/search` performs a workspace full‑text search (notes + skills) without calling the LLM:
 
