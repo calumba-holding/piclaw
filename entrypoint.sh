@@ -14,6 +14,45 @@ SUPERVISOR_CONF="${SUPERVISOR_CONF:-$DEFAULT_SUPERVISOR_CONF}"
 WORKSPACE_SUPERVISOR_DIR="/workspace/.piclaw/supervisor"
 SUPERVISOR_DEFAULTS_DIR="/usr/local/share/piclaw/supervisor"
 
+ensure_config_link() {
+    local item="$1"
+    local target="/config/$item"
+    local link="$HOME_DIR/$item"
+
+    mkdir -p /config
+
+    if [ "$item" = ".pi" ]; then
+        mkdir -p "$target/agent"
+    else
+        if [ ! -e "$target" ] && [ -e "$link" ] && [ ! -L "$link" ]; then
+            cp -a "$link" "$target" 2>/dev/null || true
+        fi
+        if [ ! -e "$target" ]; then
+            touch "$target"
+        fi
+    fi
+
+    if [ -L "$link" ]; then
+        local resolved
+        resolved="$(readlink -f "$link" 2>/dev/null || true)"
+        if [ "$resolved" = "$target" ]; then
+            return
+        fi
+        rm -f "$link"
+    fi
+
+    if [ -e "$link" ] && [ ! -L "$link" ]; then
+        if [ "$item" = ".pi" ]; then
+            cp -a "$link/." "$target/" 2>/dev/null || true
+            rm -rf "$link"
+        else
+            rm -f "$link"
+        fi
+    fi
+
+    ln -sfn "$target" "$link"
+}
+
 if [ ! -f "$MARKER_FILE" ] || [ ! -f "$HOME_DIR/.bashrc" ]; then
     echo "Initializing home directory..."
     if [ -d "$SKEL_DIR" ] && [ "$(ls -A "$SKEL_DIR" 2>/dev/null)" ]; then
@@ -55,18 +94,15 @@ PROFILE
              "$HOME_DIR/.pi/agent/prompts" \
              "$HOME_DIR/.pi/agent/themes"
 
-    for item in .gitconfig .pi; do
-        target="/config/$item"
-        link="$HOME_DIR/$item"
-        if [ -e "$target" ] || [ -d "$target" ]; then
-            rm -rf "$link" 2>/dev/null || true
-            ln -sf "$target" "$link"
-        fi
-    done
-
     chown -R agent:agent "$HOME_DIR"
     echo "$(id -u agent):$(id -g agent)" > "$MARKER_FILE"
 fi
+
+# Always reconcile persistent config links, even on restart with existing marker.
+ensure_config_link .pi
+ensure_config_link .gitconfig
+chown -R agent:agent /config/.pi 2>/dev/null || true
+chown agent:agent /config/.gitconfig 2>/dev/null || true
 
 if [ -d "/workspace" ] && [ ! -f "/workspace/AGENTS.md" ]; then
     if [ -f "$HOME_DIR/workspace-skel/AGENTS.md" ]; then
