@@ -81,7 +81,11 @@ COPY --chown=agent:agent piclaw/skills/ /home/agent/.pi/agent/skills/
 
 # Ship piclaw orchestrator and install globally
 COPY --chown=agent:agent piclaw/ /home/agent/piclaw/
-RUN /tmp/build-piclaw-package.sh && rm -f /tmp/install-agent-runtime.sh /tmp/build-piclaw-package.sh
+RUN /tmp/build-piclaw-package.sh && \
+    PI_CLI="$(readlink -f /usr/local/lib/bun/bin/pi)" && \
+    sed -i '1s/env node/env bun/' "$PI_CLI" && \
+    chmod +x "$PI_CLI" && \
+    rm -f /tmp/install-agent-runtime.sh /tmp/build-piclaw-package.sh
 
 # Layer 5: Save skeleton
 RUN cp -a /home/agent/. /etc/skel.agent/ && \
