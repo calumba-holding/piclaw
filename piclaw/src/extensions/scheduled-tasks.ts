@@ -158,6 +158,7 @@ export const scheduledTasks: ExtensionFactory = (pi: ExtensionAPI) => {
     name: "schedule_task",
     label: "schedule_task",
     description: "Schedule an agent prompt or shell command to run later or on a recurring basis.",
+    promptSnippet: "schedule_task: create one-time, interval, or cron agent/shell tasks.",
     parameters: ScheduleTaskSchema,
     async execute(_toolCallId, params) {
       const chatJid = typeof params.chat_jid === "string" && params.chat_jid.trim()

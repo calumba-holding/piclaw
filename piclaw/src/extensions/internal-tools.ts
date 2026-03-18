@@ -42,6 +42,7 @@ export const internalTools: ExtensionFactory = (pi: ExtensionAPI) => {
     name: "list_internal_tools",
     label: "list_internal_tools",
     description: "List available internal tools with brief descriptions.",
+    promptSnippet: "list_internal_tools: Discover available internal tools and their schemas.",
     parameters: InternalToolsSchema,
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       const query = params.query?.trim().toLowerCase() || "";

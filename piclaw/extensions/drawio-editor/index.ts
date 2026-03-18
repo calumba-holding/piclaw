@@ -592,6 +592,7 @@ export default function drawioEditor(pi: any) {
     description:
       "Open a .drawio diagram file in the self-hosted draw.io editor. " +
       "Returns a URL the user can open to edit the diagram in their browser.",
+    promptSnippet: "open_drawio_editor: open/create a draw.io file in the hosted editor tab.",
     parameters: {
       type: "object",
       properties: {

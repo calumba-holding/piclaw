@@ -164,6 +164,7 @@ export const modelControl: ExtensionFactory = (pi: ExtensionAPI) => {
     name: "switch_model",
     label: "switch_model",
     description: "Switch the active model for the current session.",
+    promptSnippet: "switch_model: change the active model using provider/model or model id.",
     parameters: Type.Object({
       model: Type.String({ description: "Model identifier (provider/modelId or modelId)." }),
     }),

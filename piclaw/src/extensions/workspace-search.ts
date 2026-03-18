@@ -62,6 +62,7 @@ export const workspaceSearch: ExtensionFactory = (api) => {
     name: "search_workspace",
     label: "search_workspace",
     description: "Search indexed workspace content (notes + skills by default).",
+    promptSnippet: "search_workspace: full-text search over indexed workspace notes/skills/files.",
     parameters: WorkspaceSearchSchema,
     execute,
   });

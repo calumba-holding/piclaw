@@ -254,6 +254,7 @@ export const fileAttachments: ExtensionFactory = (pi: ExtensionAPI) => {
     name: "attach_file",
     label: "attach_file",
     description: "Attach a file from the workspace so the user can download it in the web UI. Returns an attachment handle.",
+    promptSnippet: "attach_file: upload a workspace file so the user gets a download card.",
     parameters: AttachmentSchema,
     execute,
   });
@@ -262,6 +263,7 @@ export const fileAttachments: ExtensionFactory = (pi: ExtensionAPI) => {
     name: "read_attachment",
     label: "read_attachment",
     description: "Load an attachment by id and return its contents (text/image/base64).",
+    promptSnippet: "read_attachment: load attachment bytes/text/image data by media id.",
     parameters: ReadAttachmentSchema,
     execute: executeReadAttachment,
   });
@@ -270,6 +272,7 @@ export const fileAttachments: ExtensionFactory = (pi: ExtensionAPI) => {
     name: "export_attachment",
     label: "export_attachment",
     description: "Export an attachment by id to /workspace/tmp for shell tools.",
+    promptSnippet: "export_attachment: write attachment content to /workspace/tmp and return the file path.",
     parameters: ExportAttachmentSchema,
     execute: executeExportAttachment,
   });

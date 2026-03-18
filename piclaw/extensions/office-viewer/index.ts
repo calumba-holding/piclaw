@@ -108,6 +108,7 @@ export default function officeViewer(pi: any) {
     description:
       "Open an Office document (.docx, .xlsx, .pptx, .odt, .ods, .odp) in the built-in Office viewer. " +
       "Returns a URL the user can open in their browser.",
+    promptSnippet: "open_office_viewer: open Office documents in the built-in browser viewer.",
     parameters: {
       type: "object",
       properties: {

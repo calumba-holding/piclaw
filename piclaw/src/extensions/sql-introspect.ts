@@ -81,6 +81,7 @@ export const sqlIntrospect: ExtensionFactory = (pi: ExtensionAPI) => {
     name: "introspect_sql",
     label: "introspect_sql",
     description: "Run read-only SQL against the messages database for introspection.",
+    promptSnippet: "introspect_sql: Run read-only SELECT/PRAGMA/WITH/EXPLAIN SQL queries against SQLite.",
     parameters: SqlIntrospectSchema,
     async execute(_toolCallId, params) {
       const query = normalizeQuery(params.query);

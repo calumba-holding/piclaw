@@ -739,6 +739,7 @@ export const messagesCrud: ExtensionFactory = (pi: ExtensionAPI) => {
     name: "messages",
     label: "messages",
     description: "Search, retrieve, add, post, or delete messages via shared store.",
+    promptSnippet: "messages: search/get/add/post/delete rows in the shared message timeline store.",
     parameters: MessagesSchema,
     async execute(_toolCallId, params) {
       const defaultChat = getChatJid("web:default");
