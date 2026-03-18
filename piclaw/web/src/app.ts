@@ -2685,6 +2685,7 @@ function MainApp({ locationParams }) {
             `}
             ${showEditorPaneContainer && html`
                 <div class="editor-pane-container">
+                    ${zenMode && html`<div class="zen-hover-zone"></div>`}
                     ${editorOpen && html`
                         <${TabStrip}
                             tabs=${tabStripTabs}

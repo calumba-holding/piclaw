@@ -1817,7 +1817,7 @@ body {
 .app-shell.zen-mode .tab-strip {
     opacity: 0;
     pointer-events: none;
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     right: 0;
@@ -1828,22 +1828,17 @@ body {
     transition: opacity 150ms ease;
 }
 
-/* Hover-reveal zone at top of screen */
-.app-shell.zen-mode .editor-pane-container {
-    position: relative;
-}
-
-.app-shell.zen-mode .editor-pane-container::before {
-    content: '';
-    position: absolute;
+/* Thin hover-reveal zone pinned to top of viewport */
+.app-shell.zen-mode .zen-hover-zone {
+    position: fixed;
     top: 0;
     left: 0;
     right: 0;
-    height: 12px;
+    height: 6px;
     z-index: 101;
 }
 
-.app-shell.zen-mode .editor-pane-container:hover > .tab-strip,
+.app-shell.zen-mode .zen-hover-zone:hover ~ .tab-strip,
 .app-shell.zen-mode .tab-strip:hover {
     opacity: 1;
     pointer-events: auto;
