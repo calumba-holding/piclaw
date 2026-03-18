@@ -1522,15 +1522,51 @@ function MainApp({ locationParams }) {
     }, [applyModelState, currentChatJid]);
 
     const refreshActiveChatAgents = useCallback(() => {
-        getActiveChatAgents()
-            .then((payload) => {
-                const chats = Array.isArray(payload?.chats)
-                    ? payload.chats.filter((chat) => chat && typeof chat.agent_name === 'string' && chat.agent_name.trim())
-                    : [];
-                setActiveChatAgents(chats);
+        const targetChatJid = currentChatJid;
+        const normalizeChats = (rows) => Array.isArray(rows)
+            ? rows.filter((chat) => chat && typeof chat.chat_jid === 'string' && typeof chat.agent_name === 'string' && chat.agent_name.trim())
+            : [];
+
+        Promise.all([
+            getActiveChatAgents().catch(() => ({ chats: [] })),
+            getChatBranches().catch(() => ({ chats: [] })),
+        ])
+            .then(([activePayload, branchPayload]) => {
+                if (activeChatJidRef.current !== targetChatJid) return;
+
+                const activeChats = normalizeChats(activePayload?.chats);
+                const branchChats = normalizeChats(branchPayload?.chats);
+
+                if (branchChats.length === 0) {
+                    setActiveChatAgents(activeChats);
+                    return;
+                }
+
+                const current = branchChats.find((chat) => chat.chat_jid === targetChatJid)
+                    || activeChats.find((chat) => chat.chat_jid === targetChatJid)
+                    || null;
+                const rootChatJid = String(current?.root_chat_jid || current?.chat_jid || targetChatJid || '').trim();
+
+                const family = rootChatJid
+                    ? branchChats.filter((chat) => String(chat.root_chat_jid || chat.chat_jid || '').trim() === rootChatJid)
+                    : branchChats;
+
+                const activeByChat = new Map(activeChats.map((chat) => [chat.chat_jid, chat]));
+                const base = family.length > 0 ? family : branchChats;
+                const merged = base.map((chat) => {
+                    const active = activeByChat.get(chat.chat_jid);
+                    return active
+                        ? { ...chat, ...active, is_active: active.is_active ?? chat.is_active }
+                        : chat;
+                });
+
+                setActiveChatAgents(merged);
             })
-            .catch(() => {});
-    }, []);
+            .catch(() => {
+                if (activeChatJidRef.current !== targetChatJid) return;
+                setActiveChatAgents([]);
+            });
+    }, [currentChatJid]);
     const refreshCurrentChatBranches = useCallback(() => {
         getChatBranches(currentRootChatJid)
             .then((payload) => {
