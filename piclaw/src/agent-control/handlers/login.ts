@@ -8,8 +8,8 @@
  *   /login  → posts a provider status card with login/logout actions
  *   /logout → same card, focused on logged-in providers
  *
- * Card submissions trigger OAuth flows or API key storage via the
- * adaptive card action handler in web.ts.
+ * Card submissions are intercepted in the adaptive card action handler
+ * (web.ts) and routed back through applySlashCommand.
  */
 
 import type { AgentSession, ModelRegistry } from "@mariozechner/pi-coding-agent";
@@ -35,11 +35,16 @@ interface AuthStorageLike {
 }
 
 /** Known providers that support direct API key authentication. */
-const API_KEY_PROVIDERS: Array<{ id: string; name: string; envVar: string }> = [
-  { id: "anthropic", name: "Anthropic", envVar: "ANTHROPIC_API_KEY" },
-  { id: "openai", name: "OpenAI", envVar: "OPENAI_API_KEY" },
-  { id: "google", name: "Google AI", envVar: "GOOGLE_API_KEY" },
-  { id: "azure", name: "Azure OpenAI", envVar: "AZURE_OPENAI_API_KEY" },
+const API_KEY_PROVIDERS: Array<{ id: string; name: string; envVar: string; hint: string }> = [
+  { id: "anthropic", name: "Anthropic", envVar: "ANTHROPIC_API_KEY", hint: "sk-ant-..." },
+  { id: "openai", name: "OpenAI", envVar: "OPENAI_API_KEY", hint: "sk-proj-..." },
+  { id: "google", name: "Google AI", envVar: "GOOGLE_API_KEY", hint: "AIza..." },
+];
+
+/** Providers that use env vars / managed identity rather than /login. */
+const ENV_ONLY_PROVIDERS: Array<{ id: string; name: string; vars: string[] }> = [
+  { id: "azure", name: "Azure OpenAI", vars: ["AOAI_BASE_URL", "AOAI_RESOURCE", "AOAI_MODEL_ID"] },
+  { id: "azure-openai", name: "Azure OpenAI", vars: ["AOAI_BASE_URL", "AOAI_RESOURCE", "AOAI_MODEL_ID"] },
 ];
 
 function getAuthStorage(session: AgentSession, modelRegistry: ModelRegistry): AuthStorageLike | null {
@@ -115,11 +120,7 @@ function buildProviderCardPayload(providers: ProviderInfo[]): Record<string, unk
     title: p.name,
     value: buildStatusEmoji(p),
   }));
-  body.push({
-    type: "FactSet",
-    facts,
-    spacing: "medium",
-  });
+  body.push({ type: "FactSet", facts, spacing: "medium" });
 
   // Provider picker
   const providerChoices = providers.map((p) => ({
@@ -127,12 +128,7 @@ function buildProviderCardPayload(providers: ProviderInfo[]): Record<string, unk
     value: p.id,
   }));
   body.push(
-    {
-      type: "TextBlock",
-      text: "Provider",
-      weight: "Bolder",
-      spacing: "medium",
-    },
+    { type: "TextBlock", text: "Provider", weight: "Bolder", spacing: "medium" },
     {
       type: "Input.ChoiceSet",
       id: "provider",
@@ -143,23 +139,17 @@ function buildProviderCardPayload(providers: ProviderInfo[]): Record<string, unk
   );
 
   // Action picker
-  const actionChoices: Array<{ title: string; value: string }> = [
-    { title: "Login with OAuth", value: "oauth" },
-    { title: "Enter API key", value: "api_key" },
-    { title: "Logout", value: "logout" },
-  ];
   body.push(
-    {
-      type: "TextBlock",
-      text: "Action",
-      weight: "Bolder",
-      spacing: "medium",
-    },
+    { type: "TextBlock", text: "Action", weight: "Bolder", spacing: "medium" },
     {
       type: "Input.ChoiceSet",
       id: "action",
       style: "compact",
-      choices: actionChoices,
+      choices: [
+        { title: "Login with OAuth", value: "oauth" },
+        { title: "Enter API key", value: "api_key" },
+        { title: "Logout", value: "logout" },
+      ],
       value: "api_key",
     },
   );
@@ -168,7 +158,7 @@ function buildProviderCardPayload(providers: ProviderInfo[]): Record<string, unk
   body.push(
     {
       type: "TextBlock",
-      text: "API Key (only needed for \"Enter API key\" action)",
+      text: "API Key (only for \"Enter API key\" action)",
       spacing: "medium",
       isSubtle: true,
       wrap: true,
@@ -181,21 +171,29 @@ function buildProviderCardPayload(providers: ProviderInfo[]): Record<string, unk
     },
   );
 
+  // Azure / env-only provider note
+  const envNote = ENV_ONLY_PROVIDERS.map(
+    (p) => `**${p.name}**: configured via env vars (${p.vars.join(", ")})`
+  ).join("\n\n");
+  body.push({
+    type: "TextBlock",
+    text: envNote,
+    spacing: "medium",
+    isSubtle: true,
+    wrap: true,
+    size: "Small",
+  });
+
   return {
     type: "AdaptiveCard",
     version: "1.5",
     body,
     actions: [
-      {
-        type: "Action.Submit",
-        title: "Submit",
-        data: { intent: "provider-auth" },
-      },
+      { type: "Action.Submit", title: "Submit", data: { intent: "provider-auth" } },
     ],
   };
 }
 
-/** Build the adaptive_card content block for the provider auth card. */
 function buildProviderAuthCard(providers: ProviderInfo[]): Record<string, unknown> {
   return {
     type: "adaptive_card",
@@ -207,11 +205,11 @@ function buildProviderAuthCard(providers: ProviderInfo[]): Record<string, unknow
   };
 }
 
-/** Handle /login — post provider auth card. */
+/** Handle /login — post provider auth card, or handle direct commands. */
 export async function handleLogin(
   session: AgentSession,
   modelRegistry: ModelRegistry,
-  _command: LoginCommand,
+  command: LoginCommand,
 ): Promise<AgentControlResult> {
   const authStorage = getAuthStorage(session, modelRegistry);
   if (!authStorage) {
@@ -219,153 +217,175 @@ export async function handleLogin(
   }
 
   const providers = getProviderStatus(authStorage);
+
+  // Direct /login <provider> key:<value> from card submission routing
+  if (command.provider) {
+    const providerArg = command.provider.trim();
+    const keyMatch = providerArg.match(/^(\S+)\s+key:(.+)$/i);
+    if (keyMatch) {
+      const providerId = keyMatch[1].toLowerCase();
+      const apiKey = keyMatch[2].trim();
+      if (!apiKey) {
+        return { status: "error", message: "API key cannot be empty." };
+      }
+      authStorage.set(providerId, { type: "api_key", key: apiKey });
+      authStorage.reload();
+      const providerName = providers.find((p) => p.id === providerId)?.name || providerId;
+      return { status: "success", message: `✓ API key stored for **${providerName}**. Use \`/model\` to select a model.` };
+    }
+
+    // Direct /login <provider> for OAuth
+    const providerId = providerArg.toLowerCase();
+    const provider = providers.find((p) => p.id === providerId);
+
+    // Check env-only providers
+    const envOnly = ENV_ONLY_PROVIDERS.find((p) => p.id === providerId);
+    if (envOnly) {
+      return {
+        status: "error",
+        message: `**${envOnly.name}** is configured via environment variables, not /login.\n\nRequired vars: ${envOnly.vars.map((v) => `\`${v}\``).join(", ")}`,
+      };
+    }
+
+    if (!provider) {
+      return {
+        status: "error",
+        message: `Unknown provider "${providerArg}". Available: ${providers.map((p) => p.id).join(", ")}`,
+      };
+    }
+
+    if (provider.hasOAuth) {
+      return startOAuthLogin(authStorage, providerId, provider.name);
+    }
+
+    return {
+      status: "error",
+      message: `**${provider.name}** only supports API key auth. Use \`/login\` and enter a key via the card.`,
+    };
+  }
+
+  // No arguments — show the card
   if (providers.length === 0) {
     return { status: "error", message: "No authentication providers available." };
   }
 
-  const card = buildProviderAuthCard(providers);
-
   return {
     status: "success",
     message: "Provider authentication",
-    contentBlocks: [card],
+    contentBlocks: [buildProviderAuthCard(providers)],
   };
 }
 
-/** Handle /logout — same card, but message hints at logout. */
+/**
+ * Start OAuth login — non-blocking.
+ *
+ * Immediately returns a message with instructions. The actual OAuth flow
+ * runs in the background; if the callback server succeeds, credentials
+ * are stored automatically. If not, the user already has the URL.
+ */
+function startOAuthLogin(
+  authStorage: AuthStorageLike,
+  providerId: string,
+  providerName: string,
+): AgentControlResult {
+  let authUrl = "";
+  let authInstructions = "";
+  let resolved = false;
+
+  // Start the login in the background — do NOT await
+  const loginPromise = authStorage.login(providerId, {
+    onAuth: (info) => {
+      authUrl = info.url;
+      authInstructions = info.instructions || "";
+    },
+    onProgress: () => {},
+    onPrompt: async () => "",
+    onManualCodeInput: () => {
+      return new Promise<string>((_resolve, reject) => {
+        // Let the callback server try for 3 minutes
+        setTimeout(() => reject(new Error("Timed out waiting for browser redirect")), 180_000);
+      });
+    },
+  });
+
+  // Handle background completion
+  loginPromise
+    .then(() => {
+      resolved = true;
+      authStorage.reload();
+      console.log(`[login] OAuth login completed for ${providerName}`);
+    })
+    .catch((err) => {
+      if (!resolved) {
+        console.warn(`[login] OAuth login failed for ${providerName}: ${err instanceof Error ? err.message : err}`);
+      }
+    });
+
+  // Wait briefly for onAuth to fire (it's typically synchronous/fast)
+  // We use a sync spin here because onAuth fires during the initial
+  // HTTP request phase of the OAuth flow, before any user interaction.
+  const start = Date.now();
+  while (!authUrl && Date.now() - start < 3000) {
+    // Bun supports Atomics.wait for sync sleep
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
+  }
+
+  if (authUrl) {
+    const lines = [
+      `**${providerName}** OAuth login started.`,
+      "",
+      "1. Open this URL in your browser:",
+      `   ${authUrl}`,
+      authInstructions ? `   ${authInstructions}` : "",
+      "",
+      "2. Complete the login in the browser.",
+      "3. The callback server is listening — if your browser can reach this container, login will complete automatically.",
+      "4. If it doesn't complete within a minute, credentials may need to be set via API key instead.",
+    ].filter(Boolean);
+    return { status: "success", message: lines.join("\n") };
+  }
+
+  return {
+    status: "error",
+    message: `Could not start OAuth flow for **${providerName}**. The provider may not be available. Try API key auth instead.`,
+  };
+}
+
+/** Handle /logout. */
 export async function handleLogout(
   session: AgentSession,
   modelRegistry: ModelRegistry,
-  _command: LogoutCommand,
+  command: LogoutCommand,
 ): Promise<AgentControlResult> {
   const authStorage = getAuthStorage(session, modelRegistry);
   if (!authStorage) {
     return { status: "error", message: "Auth storage is not available." };
   }
 
-  const providers = getProviderStatus(authStorage);
-  const loggedIn = providers.filter((p) => p.authType !== "none");
-  if (loggedIn.length === 0) {
-    return { status: "success", message: "No providers are currently logged in." };
+  if (!command.provider) {
+    const providers = getProviderStatus(authStorage);
+    const loggedIn = providers.filter((p) => p.authType !== "none");
+    if (loggedIn.length === 0) {
+      return { status: "success", message: "No providers are currently logged in." };
+    }
+    const lines = ["**Logged in providers:**", ""];
+    for (const p of loggedIn) {
+      lines.push(`• **${p.name}** (${p.id}) — ${p.authType}`);
+    }
+    lines.push("", "Use `/logout <provider>` to remove credentials.");
+    return { status: "success", message: lines.join("\n") };
   }
 
-  const card = buildProviderAuthCard(providers);
-
-  return {
-    status: "success",
-    message: "Provider authentication — select a provider and choose Logout",
-    contentBlocks: [card],
-  };
-}
-
-/**
- * Process a provider-auth card submission.
- *
- * Called from the adaptive card action handler when a card with
- * `intent: "provider-auth"` is submitted.
- *
- * Returns a result message to post back to the timeline.
- */
-export async function processProviderAuthSubmission(
-  session: AgentSession,
-  modelRegistry: ModelRegistry,
-  data: Record<string, unknown>,
-): Promise<{ status: "success" | "error"; message: string }> {
-  const authStorage = getAuthStorage(session, modelRegistry);
-  if (!authStorage) {
-    return { status: "error", message: "Auth storage is not available." };
-  }
-
-  const providerId = String(data.provider || "").trim();
-  const action = String(data.action || "").trim();
-  const apiKey = String(data.api_key || "").trim();
-
-  if (!providerId) {
-    return { status: "error", message: "No provider selected." };
-  }
-
+  const providerId = command.provider.trim().toLowerCase();
   const providers = getProviderStatus(authStorage);
   const provider = providers.find((p) => p.id === providerId);
   const providerName = provider?.name || providerId;
-
-  if (action === "logout") {
-    const cred = authStorage.get(providerId);
-    if (!cred) {
-      return { status: "error", message: `**${providerName}** is not logged in.` };
-    }
-    authStorage.set(providerId, undefined as unknown as Record<string, unknown>);
-    authStorage.reload();
-    return { status: "success", message: `✓ Logged out from **${providerName}**.` };
+  const cred = authStorage.get(providerId);
+  if (!cred) {
+    return { status: "error", message: `**${providerName}** is not logged in.` };
   }
 
-  if (action === "api_key") {
-    if (!apiKey) {
-      return { status: "error", message: "API key cannot be empty." };
-    }
-    authStorage.set(providerId, { type: "api_key", key: apiKey });
-    authStorage.reload();
-    return { status: "success", message: `✓ API key stored for **${providerName}**. Use \`/model\` to select a model.` };
-  }
-
-  if (action === "oauth") {
-    if (!provider?.hasOAuth) {
-      return { status: "error", message: `**${providerName}** does not support OAuth. Use API key instead.` };
-    }
-    return await runOAuthLogin(authStorage, providerId, providerName);
-  }
-
-  return { status: "error", message: `Unknown action: ${action}` };
-}
-
-/** Run the OAuth login flow with manual-paste callbacks. */
-async function runOAuthLogin(
-  authStorage: AuthStorageLike,
-  providerId: string,
-  providerName: string,
-): Promise<{ status: "success" | "error"; message: string }> {
-  let authUrl = "";
-  let authInstructions = "";
-
-  try {
-    const loginPromise = authStorage.login(providerId, {
-      onAuth: (info) => {
-        authUrl = info.url;
-        authInstructions = info.instructions || "";
-      },
-      onProgress: () => {},
-      onPrompt: async () => "",
-      onManualCodeInput: () => {
-        // The callback server won't work for remote browsers.
-        // We can't do interactive paste in this flow yet, so we let
-        // the callback server try and fail gracefully.
-        return new Promise<string>((_resolve, reject) => {
-          setTimeout(() => reject(new Error("Manual code input not supported in web flow yet")), 120_000);
-        });
-      },
-    });
-
-    await loginPromise;
-    authStorage.reload();
-    return {
-      status: "success",
-      message: `✓ Successfully logged in to **${providerName}** via OAuth. Use \`/model\` to select a model.`,
-    };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (authUrl) {
-      const lines = [
-        `OAuth for **${providerName}** needs manual completion:`,
-        "",
-        `1. Open this URL: ${authUrl}`,
-        authInstructions ? `   ${authInstructions}` : "",
-        `2. Complete login in your browser`,
-        `3. If the callback didn't work, copy the redirect URL and use:`,
-        `   \`/login ${providerId}\` then try OAuth again after setting up a tunnel`,
-        "",
-        `Error: ${msg}`,
-      ].filter(Boolean);
-      return { status: "error", message: lines.join("\n") };
-    }
-    return { status: "error", message: `Failed to login to **${providerName}**: ${msg}` };
-  }
+  authStorage.set(providerId, undefined as unknown as Record<string, unknown>);
+  authStorage.reload();
+  return { status: "success", message: `✓ Logged out from **${providerName}**.` };
 }
