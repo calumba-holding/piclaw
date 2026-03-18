@@ -1850,17 +1850,9 @@ body {
     display: none !important;
 }
 
-/* Zen mode editor: centered, 80% width, no gutters/chrome */
-.app-shell.zen-mode .editor-pane-host {
-    display: flex;
-    justify-content: center;
-    background: var(--bg-primary);
-}
-
-.app-shell.zen-mode .editor-pane-host > * {
-    width: 80%;
-    max-width: 80%;
-    min-width: 0;
+/* Zen mode editor: hide statusbar, center content at 80% width */
+.app-shell.zen-mode .cm-statusbar {
+    display: none !important;
 }
 
 .app-shell.zen-mode .editor-codemirror .cm-gutters {
@@ -1871,9 +1863,20 @@ body {
     background: var(--bg-primary);
 }
 
+.app-shell.zen-mode .editor-codemirror .cm-scroller {
+    padding: 0 10%;
+}
+
 .app-shell.zen-mode .editor-codemirror .cm-content {
     max-width: 100%;
-    padding: 2rem 0;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+}
+
+/* Hide the fixed connection-status pill in zen mode */
+.app-shell.zen-mode ~ .connection-status,
+.app-shell.zen-mode .connection-status {
+    display: none !important;
 }
 
 /* Zen mode transitions: respect prefers-reduced-motion */
