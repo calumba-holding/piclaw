@@ -1,9 +1,9 @@
 ---
 id: pi-generative-ui-integration-evaluation
 title: Evaluate integrating pi-generative-ui into piclaw
-status: inbox
+status: next
 created: 2026-03-13
-updated: 2026-03-16
+updated: 2026-03-18
 tags:
   - work-item
   - kanban

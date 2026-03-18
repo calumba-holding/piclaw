@@ -1,10 +1,10 @@
 ---
 id: investigate-pi-autoresearch
 title: Investigate pi-autoresearch for autonomous experiment-loop ideas
-status: inbox
+status: next
 priority: medium
 created: 2026-03-14
-updated: 2026-03-14
+updated: 2026-03-18
 target_release: later
 estimate: S
 risk: low

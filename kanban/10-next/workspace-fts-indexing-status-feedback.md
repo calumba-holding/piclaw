@@ -1,10 +1,10 @@
 ---
 id: workspace-fts-indexing-status-feedback
 title: Add workspace FTS indexing status and feedback in the UI
-status: inbox
+status: next
 priority: medium
 created: 2026-03-12
-updated: 2026-03-12
+updated: 2026-03-18
 estimate: M
 risk: medium
 tags:

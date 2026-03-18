@@ -1,10 +1,10 @@
 ---
 id: webapp-title-bar-color-does-not-update-on-ios
 title: Web app title bar color does not update on iOS
-status: inbox
+status: review
 priority: medium
 created: 2026-03-17
-updated: 2026-03-17
+updated: 2026-03-18
 tags:
   - work-item
   - kanban

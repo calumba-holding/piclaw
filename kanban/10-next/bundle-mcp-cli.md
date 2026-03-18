@@ -1,10 +1,10 @@
 ---
 id: bundle-mcp-cli
 title: Bundle mcp-cli for local MCP server management
-status: inbox
+status: next
 priority: medium
 created: 2026-03-11
-updated: 2026-03-12
+updated: 2026-03-18
 estimate: M
 risk: low
 tags:

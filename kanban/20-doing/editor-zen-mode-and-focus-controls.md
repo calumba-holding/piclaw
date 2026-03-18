@@ -1,10 +1,10 @@
 ---
 id: editor-zen-mode-and-focus-controls
 title: Add editor zen mode and related focus controls
-status: inbox
+status: doing
 priority: medium
 created: 2026-03-14
-updated: 2026-03-14
+updated: 2026-03-18
 tags:
   - work-item
   - kanban

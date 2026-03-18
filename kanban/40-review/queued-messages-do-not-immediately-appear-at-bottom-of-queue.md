@@ -1,10 +1,10 @@
 ---
 id: queued-messages-do-not-immediately-appear-at-bottom-of-queue
 title: Queued messages do not immediately appear at the bottom of the queue
-status: inbox
+status: review
 priority: medium
 created: 2026-03-17
-updated: 2026-03-17
+updated: 2026-03-18
 estimate: M
 risk: medium
 tags:

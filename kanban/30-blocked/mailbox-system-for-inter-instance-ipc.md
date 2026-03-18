@@ -1,10 +1,10 @@
 ---
 id: mailbox-system-for-inter-instance-ipc
 title: Add a mailbox system for inter-instance IPC
-status: inbox
+status: blocked
 priority: medium
 created: 2026-03-16
-updated: 2026-03-16
+updated: 2026-03-18
 target_release: later
 estimate: M
 risk: medium

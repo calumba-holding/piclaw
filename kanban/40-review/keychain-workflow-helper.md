@@ -1,10 +1,10 @@
 ---
 id: keychain-workflow-helper
 title: Keychain workflow helper — streamlined credential management
-status: inbox
+status: review
 priority: low
 created: 2026-03-11
-updated: 2026-03-12
+updated: 2026-03-18
 tags:
   - work-item
   - kanban

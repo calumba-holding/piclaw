@@ -1,9 +1,9 @@
 ---
 id: editor-diff-view
 title: Add a diff view in the editor
-status: inbox
+status: next
 created: 2026-03-13
-updated: 2026-03-13
+updated: 2026-03-18
 tags:
   - work-item
   - kanban

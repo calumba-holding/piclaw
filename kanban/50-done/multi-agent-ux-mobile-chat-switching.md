@@ -1,10 +1,11 @@
 ---
 id: multi-agent-ux-mobile-chat-switching
 title: Design multi-agent chat switching UX that works on mobile webapp and desktop
-status: inbox
+status: done
 priority: high
 created: 2026-03-17
-updated: 2026-03-17
+updated: 2026-03-18
+completed: 2026-03-18
 target_release: next
 estimate: M
 risk: medium

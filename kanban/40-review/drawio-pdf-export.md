@@ -1,10 +1,10 @@
 ---
 id: drawio-pdf-export
 title: Enable local PDF export from the draw.io editor
-status: inbox
+status: review
 priority: medium
 created: 2026-03-16
-updated: 2026-03-16
+updated: 2026-03-18
 target_release: next
 estimate: M
 risk: medium
