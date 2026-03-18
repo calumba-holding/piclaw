@@ -1,10 +1,10 @@
 ---
 id: audit-proxy-sensitive-web-flows
 title: Audit remaining proxy-sensitive web flows
-status: next
+status: doing
 priority: medium
 created: 2026-03-10
-updated: 2026-03-12
+updated: 2026-03-18
 target_release: next
 tags:
   - work-item
@@ -79,6 +79,7 @@ Use **Path A** now, with selective helper extraction from **Path B** only where 
 
 ### 2026-03-18
 - Lane change: `10-next` → `20-doing` from triage (`intent: triage-next-lane`, `audit-proxy-sensitive-web-flows: doing`).
+- Lane update confirmed via `triage-doing-blocked` (`auditProxy: doing`, `loginPassthrough: doing`).
 - Next step: complete route inventory for proxy-sensitive web flows and implement any hardening slices behind trusted-proxy conditions.
 
 ### 2026-03-12
