@@ -122,6 +122,30 @@ need the same immersive behavior.
 
 ## Updates
 
+### 2026-03-18 — Refinement batch 6–10 answered
+
+| # | Question | Decision |
+|---|----------|----------|
+| 6 | Keyboard shortcut | **Ctrl+Shift+Z** |
+| 7 | Transition animation | **Respect reduce-motion preference** (smooth when allowed, instant when not) |
+| 8 | No editor tab open | **No-op** — zen requires an active editor tab |
+| 9 | Browser fullscreen | **Optional separate** — zen stays in-viewport; native fullscreen available as a second toggle |
+| 10 | Button location | **Right end of the editor tab strip** |
+
+Cumulative design spec (questions 1–10):
+- **Enter**: Ctrl+Shift+Z or click button at right end of tab strip (only when editor tab active)
+- **Exit**: Ctrl+Shift+Z, Esc, or button (hover-revealed in tab strip area)
+- **Layout**: Everything hidden except editor. Tab strip hidden until hover near top edge.
+- **Terminal**: Auto-close on enter, auto-restore on exit.
+- **Chat/sidebar**: Completely hidden.
+- **Animation**: Smooth ~250ms slide/fade when `prefers-reduced-motion: no-preference`, instant snap otherwise.
+- **Browser fullscreen**: Separate opt-in (not tied to zen toggle).
+- **State**: Ephemeral session UI state, not persisted.
+- **Edge case**: Zen is a no-op when no editor tab is open.
+
+Quality: ★★★★☆ 9/10 (problem: 2, scope: 2, test: 2, deps: 2, risk: 1)
+- Ready for implementation.
+
 ### 2026-03-18 — Refinement batch 1–5 answered
 
 Answers from adaptive card submission (row 11724):
