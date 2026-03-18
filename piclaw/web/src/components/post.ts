@@ -564,7 +564,6 @@ function highlightHtml(html, query) {
  */
 export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMessage, agentName, agentAvatarUrl, userName, userAvatarUrl, userAvatarBackground, onDelete, isThreadReply, isThreadPrev, isThreadNext, isRemoving, highlightQuery, onFileRef }) {
     const [zoomedImage, setZoomedImage] = useState(null);
-    const [expandedSubmissionKeys, setExpandedSubmissionKeys] = useState(() => new Set());
     const contentRef = useRef(null);
 
     const data = post.data;
@@ -643,15 +642,6 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
     const handleDeleteClick = (e) => {
         e.stopPropagation();
         onDelete?.(post);
-    };
-
-    const toggleSubmissionDetails = (key) => {
-        setExpandedSubmissionKeys((current) => {
-            const next = new Set(current);
-            if (next.has(key)) next.delete(key);
-            else next.add(key);
-            return next;
-        });
     };
 
     const resolveInlineAttachments = (content, attachments) => {
@@ -754,6 +744,15 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
     const cardBlocks = useMemo(() => extractCardBlocks(blocks), [blocks]);
     const cardSubmissionBlocks = useMemo(() => extractAdaptiveCardSubmissionBlocks(blocks), [blocks]);
 
+    // Stable identity key for card blocks so the render effect only fires when
+    // a card's identity or lifecycle state actually changes — not on every
+    // parent re-render caused by unrelated SSE events.  This prevents the
+    // card DOM (and all user input state) from being torn down and rebuilt
+    // while the user is filling in a form.
+    const cardBlocksKey = useMemo(() => {
+        return cardBlocks.map((b) => `${b.card_id}:${b.state}`).join('|');
+    }, [cardBlocks]);
+
     // Render mermaid diagrams and enhance code blocks after content is mounted
     useEffect(() => {
         if (!contentRef.current) return undefined;
@@ -761,7 +760,10 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
         return enhanceCodeBlocks(contentRef.current);
     }, [renderedHtml]);
 
-    // Render adaptive cards into their containers
+    // Render adaptive cards into their containers.
+    // The effect depends on cardBlocksKey (card_id + state) rather than the
+    // full cardBlocks array, so unrelated parent re-renders won't destroy
+    // the card DOM and reset user inputs.
     const cardContainerRef = useRef(null);
     useEffect(() => {
         if (!cardContainerRef.current || cardBlocks.length === 0) return;
@@ -801,7 +803,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                 cardEl.textContent = block.fallback_text || 'Card failed to render.';
             });
         }
-    }, [cardBlocks, data.thread_id, post.id]);
+    }, [cardBlocksKey, post.id]);
 
     return html`
         <div id=${`post-${post.id}`} class="post ${isAgent ? 'agent-post' : ''} ${isThreadReply ? 'thread-reply' : ''} ${isThreadPrev ? 'thread-prev' : ''} ${isThreadNext ? 'thread-next' : ''} ${isRemoving ? 'removing' : ''}" onClick=${onClick}>
@@ -921,7 +923,6 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                         ${cardSubmissionBlocks.map((block, idx) => {
                             const meta = describeAdaptiveCardSubmission(block);
                             const submissionKey = `${block.card_id}-${idx}`;
-                            const isExpanded = expandedSubmissionKeys.has(submissionKey);
                             return html`
                                 <div key=${submissionKey} class="adaptive-card-submission-receipt">
                                     <div class="adaptive-card-submission-header">
@@ -931,37 +932,9 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                                             <span class="adaptive-card-submission-title-action">${meta.title}</span>
                                         </div>
                                     </div>
-                                    ${meta.summary && html`
-                                        <div class="adaptive-card-submission-summary">${meta.summary}</div>
-                                    `}
                                     ${meta.fields.length > 0 && html`
                                         <div class="adaptive-card-submission-fields">
                                             ${meta.fields.map((field) => html`
-                                                <span class="adaptive-card-submission-field" title=${`${field.key}: ${field.value}`}>
-                                                    <span class="adaptive-card-submission-field-key">${field.key}</span>
-                                                    <span class="adaptive-card-submission-field-sep">:</span>
-                                                    <span class="adaptive-card-submission-field-value">${field.value}</span>
-                                                </span>
-                                            `)}
-                                        </div>
-                                    `}
-                                    ${meta.hiddenFieldCount > 0 && html`
-                                        <button
-                                            type="button"
-                                            class="adaptive-card-submission-toggle"
-                                            aria-expanded=${isExpanded ? 'true' : 'false'}
-                                            onClick=${(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                toggleSubmissionDetails(submissionKey);
-                                            }}
-                                        >
-                                            ${isExpanded ? `Hide ${meta.hiddenFieldCount} more` : `Show ${meta.hiddenFieldCount} more`}
-                                        </button>
-                                    `}
-                                    ${isExpanded && meta.hiddenFields.length > 0 && html`
-                                        <div class="adaptive-card-submission-fields adaptive-card-submission-fields-extra">
-                                            ${meta.hiddenFields.map((field) => html`
                                                 <span class="adaptive-card-submission-field" title=${`${field.key}: ${field.value}`}>
                                                     <span class="adaptive-card-submission-field-key">${field.key}</span>
                                                     <span class="adaptive-card-submission-field-sep">:</span>

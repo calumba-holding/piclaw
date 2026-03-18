@@ -8,8 +8,6 @@ export interface AdaptiveCardSubmissionBlock {
   data?: unknown;
 }
 
-const MAX_SUBMISSION_FIELDS = 4;
-
 function formatSubmissionValue(value: unknown): string {
   if (value == null) return "";
   if (typeof value === "string") return value.trim();
@@ -72,9 +70,7 @@ export function describeAdaptiveCardSubmission(block: AdaptiveCardSubmissionBloc
   title: string;
   summary: string | null;
   fields: Array<{ key: string; value: string }>;
-  hiddenFields: Array<{ key: string; value: string }>;
   fieldCount: number;
-  hiddenFieldCount: number;
   submittedAt: string;
 } {
   const title = String(block.title || block.card_id || "Card submission").trim() || "Card submission";
@@ -83,17 +79,12 @@ export function describeAdaptiveCardSubmission(block: AdaptiveCardSubmissionBloc
     ? allFields.slice(0, 2).map(({ key, value }) => `${key}: ${value}`).join(", ")
     : formatSubmissionValue(block.data) || null;
   const fieldCount = allFields.length;
-  const visibleFields = allFields.slice(0, MAX_SUBMISSION_FIELDS);
-  const hiddenFields = allFields.slice(MAX_SUBMISSION_FIELDS);
-  const hiddenFieldCount = hiddenFields.length;
 
   return {
     title,
     summary,
-    fields: visibleFields,
-    hiddenFields,
+    fields: allFields,
     fieldCount,
-    hiddenFieldCount,
     submittedAt: block.submitted_at,
   };
 }

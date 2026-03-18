@@ -142,21 +142,20 @@ export function extractCardBlocks(contentBlocks: unknown): AdaptiveCardBlock[] {
 }
 
 export function normalizeAdaptiveCardAction(action: any): AdaptiveCardActionInfo {
-  const json = typeof action?.toJSON === "function" ? action.toJSON() : null;
+  // Read type/title/url/data directly from the live action object.
+  // Avoid calling action.toJSON() here — the SDK serialization reads from
+  // _propertyBag (original parse data), not the post-prepare _processedData
+  // that carries merged input values.  Accessing the live getters ensures we
+  // capture the user's actual input selections.
   const type =
     (typeof action?.getJsonTypeName === "function" ? action.getJsonTypeName() : "") ||
     action?.constructor?.name ||
-    json?.type ||
     "Unknown";
   const title =
-    (typeof action?.title === "string" ? action.title : "") ||
-    (typeof json?.title === "string" ? json.title : "") ||
-    "";
+    (typeof action?.title === "string" ? action.title : "") || "";
   const url =
-    (typeof action?.url === "string" ? action.url : "") ||
-    (typeof json?.url === "string" ? json.url : "") ||
-    undefined;
-  const data = action?.data ?? json?.data;
+    (typeof action?.url === "string" ? action.url : "") || undefined;
+  const data = action?.data ?? undefined;
   return { type, title, data, url, raw: action };
 }
 

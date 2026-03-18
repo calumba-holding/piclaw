@@ -66,24 +66,38 @@ function normalizeRole(input) {
         return 0;
     return null;
 }
+function parseMessageContentBlocks(raw) {
+    if (!raw)
+        return undefined;
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : undefined;
+    }
+    catch {
+        return undefined;
+    }
+}
 function clipContent(row, limit) {
     const max = Number.isFinite(limit ?? NaN) ? Math.max(limit, 0) : undefined;
+    const base = {
+        ...row,
+        content_blocks: parseMessageContentBlocks(row.content_blocks),
+        created_at: row.timestamp,
+    };
     if (max === undefined)
-        return { ...row, created_at: row.timestamp };
+        return base;
     if (max <= 0) {
         return {
-            ...row,
-            created_at: row.timestamp,
+            ...base,
             content: "",
             content_truncated: row.content.length > 0,
             content_full_length: row.content.length,
         };
     }
     if (row.content.length <= max)
-        return { ...row, created_at: row.timestamp };
+        return base;
     return {
-        ...row,
-        created_at: row.timestamp,
+        ...base,
         content: `${row.content.slice(0, Math.max(1, max - 1))}…`,
         content_truncated: true,
         content_full_length: row.content.length,
@@ -119,7 +133,7 @@ function runSearch(query, chatJid, roleFilter, limit, offset, afterTs, beforeTs)
             conditions.push(c);
         params.push(...timeValues);
         const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(" AND ")}` : "";
-        const sql = `SELECT rowid, chat_jid, sender, sender_name, content, timestamp, is_bot_message
+        const sql = `SELECT rowid, chat_jid, sender, sender_name, content, content_blocks, timestamp, is_bot_message
       FROM messages${whereClause} ORDER BY rowid DESC LIMIT ? OFFSET ?`;
         return db.prepare(sql).all(...params, limit, offset);
     }
@@ -141,7 +155,7 @@ function runSearch(query, chatJid, roleFilter, limit, offset, afterTs, beforeTs)
         for (const c of timeClauses)
             conditions.push(c);
         params.push(...timeValues);
-        const sql = `SELECT rowid, chat_jid, sender, sender_name, content, timestamp, is_bot_message
+        const sql = `SELECT rowid, chat_jid, sender, sender_name, content, content_blocks, timestamp, is_bot_message
       FROM messages WHERE ${conditions.join(" AND ")} ORDER BY rowid DESC LIMIT ? OFFSET ?`;
         return db.prepare(sql).all(...params, limit, offset);
     }
@@ -162,7 +176,7 @@ function runSearch(query, chatJid, roleFilter, limit, offset, afterTs, beforeTs)
             conditions.push(c);
         params.push(...timeValues);
         const sql = `SELECT messages.rowid, messages.chat_jid, messages.sender,
-      messages.sender_name, messages.content, messages.timestamp, messages.is_bot_message
+      messages.sender_name, messages.content, messages.content_blocks, messages.timestamp, messages.is_bot_message
       FROM messages
       JOIN messages_fts ON messages_fts.rowid = messages.rowid
       WHERE ${conditions.join(" AND ")} ORDER BY messages.rowid DESC LIMIT ? OFFSET ?`;
@@ -189,7 +203,7 @@ function runSearch(query, chatJid, roleFilter, limit, offset, afterTs, beforeTs)
         for (const c of timeClauses)
             conditions.push(c);
         params.push(...timeValues);
-        const sql = `SELECT rowid, chat_jid, sender, sender_name, content, timestamp, is_bot_message
+        const sql = `SELECT rowid, chat_jid, sender, sender_name, content, content_blocks, timestamp, is_bot_message
       FROM messages WHERE ${conditions.join(" AND ")} ORDER BY rowid DESC LIMIT ? OFFSET ?`;
         return db.prepare(sql).all(...params, limit, offset);
     }
@@ -206,21 +220,21 @@ function fetchByRowId(chatJid, roleFilter, rowId) {
         conditions.push("is_bot_message = ?");
         params.push(roleFilter);
     }
-    const sql = `SELECT rowid, chat_jid, sender, sender_name, content, timestamp, is_bot_message
+    const sql = `SELECT rowid, chat_jid, sender, sender_name, content, content_blocks, timestamp, is_bot_message
       FROM messages WHERE ${conditions.join(" AND ")} LIMIT 1`;
     return db.prepare(sql).get(...params) ?? null;
 }
 function fetchContextRows(chatJid, rowId, roleFilter, before, after) {
     const db = getDb();
     const beforeParams = [chatJid, rowId, before];
-    let beforeSql = "SELECT rowid, chat_jid, sender, sender_name, content, timestamp, is_bot_message\n      FROM messages WHERE chat_jid = ? AND rowid < ?";
+    let beforeSql = "SELECT rowid, chat_jid, sender, sender_name, content, content_blocks, timestamp, is_bot_message\n      FROM messages WHERE chat_jid = ? AND rowid < ?";
     if (roleFilter !== null) {
         beforeSql += " AND is_bot_message = ?";
         beforeParams.splice(2, 0, roleFilter);
     }
     beforeSql += " ORDER BY rowid DESC LIMIT ?";
     const afterParams = [chatJid, rowId, after];
-    let afterSql = "SELECT rowid, chat_jid, sender, sender_name, content, timestamp, is_bot_message\n      FROM messages WHERE chat_jid = ? AND rowid > ?";
+    let afterSql = "SELECT rowid, chat_jid, sender, sender_name, content, content_blocks, timestamp, is_bot_message\n      FROM messages WHERE chat_jid = ? AND rowid > ?";
     if (roleFilter !== null) {
         afterSql += " AND is_bot_message = ?";
         afterParams.splice(2, 0, roleFilter);
@@ -233,7 +247,7 @@ function fetchContextRows(chatJid, rowId, roleFilter, before, after) {
 }
 function fetchCascadeRows(chatJid, rowId) {
     return getDb()
-        .prepare("SELECT rowid, chat_jid, sender, sender_name, content, timestamp, is_bot_message FROM messages WHERE chat_jid = ? AND (rowid = ? OR thread_id = ?)")
+        .prepare("SELECT rowid, chat_jid, sender, sender_name, content, content_blocks, timestamp, is_bot_message FROM messages WHERE chat_jid = ? AND (rowid = ? OR thread_id = ?)")
         .all(chatJid, rowId, rowId);
 }
 function rowHasAttachments(rowId) {
@@ -585,6 +599,7 @@ const MESSAGES_TOOL_HINT = [
     "## Messages",
     "Use the messages tool to search, retrieve, add, post, and delete chat messages.",
     "Read operations are safe by default; delete requires explicit action=delete and can be dry-run with dry_run=true.",
+    "Read/search/get results include message metadata and include parsed content_blocks when available.",
     "The post action stores a message with content_blocks and broadcasts it to connected clients.",
     "Example:",
     "- search: { action: \"search\", query: \"keyword\", limit: 10 }",
