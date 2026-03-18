@@ -2382,6 +2382,31 @@ function MainApp({ locationParams }) {
         };
     }, [branchLoaderMode, branchLoaderSourceChatJid]);
 
+    const handleCreateSessionFromCompose = useCallback(async () => {
+        if (typeof window === 'undefined') return;
+
+        try {
+            const response = await api.forkChatBranch(currentChatJid);
+            const branch = response?.branch;
+            const nextChatJid = typeof branch?.chat_jid === 'string' && branch.chat_jid.trim() ? branch.chat_jid.trim() : null;
+            if (!nextChatJid) {
+                throw new Error('Branch fork did not return a chat id.');
+            }
+
+            await Promise.allSettled([
+                refreshActiveChatAgents(),
+                refreshCurrentChatBranches(),
+            ]);
+
+            const label = branch?.agent_name ? `@${branch.agent_name}` : nextChatJid;
+            showIntentToast('New branch created', `Switched to ${label}.`, 'info', 2500);
+            const url = buildChatWindowUrl(window.location.href, nextChatJid, { chatOnly: chatOnlyMode });
+            window.location.assign(url);
+        } catch (error) {
+            showIntentToast('Could not create branch', describeBranchOpenError(error), 'warning', 5000);
+        }
+    }, [chatOnlyMode, currentChatJid, refreshActiveChatAgents, refreshCurrentChatBranches, showIntentToast]);
+
     const handlePopOutChat = useCallback(async () => {
         if (typeof window === 'undefined' || isWebAppMode) return;
 
@@ -2662,6 +2687,7 @@ function MainApp({ locationParams }) {
                     onSetMessageRefs=${setMessageRefsFromCompose}
                     onSwitchChat=${handleBranchPickerChange}
                     onRenameSession=${handleRenameCurrentBranch}
+                    onCreateSession=${handleCreateSessionFromCompose}
                     activeEditorPath=${chatOnlyMode ? null : tabStripActiveId}
                     onAttachEditorFile=${chatOnlyMode ? undefined : attachActiveEditorFile}
                     onOpenFilePill=${openFileFromPill}

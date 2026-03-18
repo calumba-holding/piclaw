@@ -151,6 +151,7 @@ export function ComposeBox({
     onSubmitError,
     onSwitchChat,
     onRenameSession,
+    onCreateSession,
 }) {
     const [content, setContent] = useState('');
     const [searchText, setSearchText] = useState('');
@@ -251,7 +252,8 @@ export function ComposeBox({
     const hasSwitchableChatAgents = switchableChatAgents.length > 0;
     const canSwitchSession = hasSwitchableChatAgents && typeof onSwitchChat === 'function';
     const canRenameSession = !searchMode && typeof onRenameSession === 'function';
-    const showSessionSwitcherButton = !searchMode && (canSwitchSession || canRenameSession);
+    const canCreateSession = !searchMode && typeof onCreateSession === 'function';
+    const showSessionSwitcherButton = !searchMode && (canSwitchSession || canRenameSession || canCreateSession);
     const modelHintLabel = activeModel || '';
     const modelHintSuffix = supportsThinking && thinkingLevel ? ` (${thinkingLevel})` : '';
     const modelThinkingLabel = modelHintSuffix.trim() ? `${thinkingLevel}` : '';
@@ -458,7 +460,7 @@ export function ComposeBox({
     const toggleSessionPopup = (event) => {
         event?.preventDefault?.();
         event?.stopPropagation?.();
-        if (searchMode || (!canSwitchSession && !canRenameSession)) return;
+        if (searchMode || (!canSwitchSession && !canRenameSession && !canCreateSession)) return;
 
         setShowModelPopup(false);
         setShowSlash(false);
@@ -485,6 +487,17 @@ export function ComposeBox({
             await onRenameSession();
         } catch (error) {
             console.warn('Failed to rename session:', error);
+        }
+        requestAnimationFrame(() => textareaRef.current?.focus());
+    };
+
+    const handleCreateSession = async () => {
+        if (typeof onCreateSession !== 'function') return;
+        setShowSessionPopup(false);
+        try {
+            await onCreateSession();
+        } catch (error) {
+            console.warn('Failed to create session:', error);
         }
         requestAnimationFrame(() => textareaRef.current?.focus());
     };
@@ -1339,16 +1352,28 @@ export function ComposeBox({
                                     </button>
                                 `)}
                             </div>
-                            ${canRenameSession && html`
+                            ${(canCreateSession || canRenameSession) && html`
                                 <div class="compose-model-popup-actions">
-                                    <button
-                                        type="button"
-                                        class="compose-model-popup-btn primary"
-                                        onClick=${() => { void handleRenameSession(); }}
-                                        title="Rename current branch name and agent handle"
-                                    >
-                                        Rename current…
-                                    </button>
+                                    ${canCreateSession && html`
+                                        <button
+                                            type="button"
+                                            class="compose-model-popup-btn primary"
+                                            onClick=${() => { void handleCreateSession(); }}
+                                            title="Create a new agent/session branch from this chat"
+                                        >
+                                            New
+                                        </button>
+                                    `}
+                                    ${canRenameSession && html`
+                                        <button
+                                            type="button"
+                                            class="compose-model-popup-btn"
+                                            onClick=${() => { void handleRenameSession(); }}
+                                            title="Rename current branch name and agent handle"
+                                        >
+                                            Rename current…
+                                        </button>
+                                    `}
                                 </div>
                             `}
                         </div>
@@ -1382,19 +1407,6 @@ export function ComposeBox({
                     </div>
                     `}
                     <div class="compose-actions ${searchMode ? 'search-mode' : ''}">
-                    ${showSessionSwitcherButton && html`
-                        <button
-                            ref=${sessionButtonRef}
-                            type="button"
-                            class=${`icon-btn compose-mention-btn${showSessionPopup ? ' active' : ''}`}
-                            onClick=${toggleSessionPopup}
-                            title=${showSessionPopup ? 'Hide active sessions' : 'Switch active session/agent'}
-                            aria-label="Switch active session/agent"
-                            aria-expanded=${showSessionPopup ? 'true' : 'false'}
-                        >
-                            <span>@</span>
-                        </button>
-                    `}
                     ${showAgentAffordance && html`
                         <div class="compose-agent-hints compose-agent-hints-inline" title="Active chat agents you can mention with @name">
                             <span class="compose-agent-hints-label">Agents</span>
@@ -1413,6 +1425,19 @@ export function ComposeBox({
                     `}
                     ${!searchMode && contextUsage && contextUsage.percent != null && html`
                         <${ContextPie} usage=${contextUsage} />
+                    `}
+                    ${showSessionSwitcherButton && html`
+                        <button
+                            ref=${sessionButtonRef}
+                            type="button"
+                            class=${`icon-btn compose-mention-btn${showSessionPopup ? ' active' : ''}`}
+                            onClick=${toggleSessionPopup}
+                            title=${showSessionPopup ? 'Hide active sessions' : 'Switch active session/agent'}
+                            aria-label="Switch active session/agent"
+                            aria-expanded=${showSessionPopup ? 'true' : 'false'}
+                        >
+                            <span>@</span>
+                        </button>
                     `}
                     ${searchMode && html`
                         <label class="compose-search-scope-wrap" title="Search scope">
