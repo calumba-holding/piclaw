@@ -57,7 +57,7 @@ const SECURITY_HEADERS: Record<string, string> = {
   // set their own COOP/COEP on their route responses.
   "Content-Security-Policy":
     "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; " +
-    "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; " +
+    "img-src 'self' https: data: blob:; font-src 'self' data:; connect-src 'self'; " +
     "frame-src 'self'; " +
     "frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
 };
