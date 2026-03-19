@@ -103,11 +103,46 @@ function statusLabel(s) {
     return "—";
 }
 // ── Card 1: Provider picker ─────────────────────────────────────
+function methodsLabel(def) {
+    const parts = [];
+    if (def.hasOAuth)
+        parts.push("OAuth");
+    if (def.hasApiKey)
+        parts.push("Key");
+    if (def.isCustom)
+        parts.push("Configure");
+    return parts.join(" · ") || "—";
+}
 function buildPickerCard(statuses) {
-    const facts = statuses.map((s) => ({ title: s.def.name, value: statusLabel(s) }));
     const choices = statuses.map((s) => ({
-        title: `${s.def.name}${s.authType !== "none" ? ` (${statusLabel(s)})` : ""}`,
+        title: s.def.name,
         value: s.def.id,
+    }));
+    // Build column table rows
+    const headerRow = {
+        type: "ColumnSet",
+        spacing: "medium",
+        columns: [
+            { type: "Column", width: "stretch", items: [{ type: "TextBlock", text: "Provider", weight: "Bolder", size: "Small" }] },
+            { type: "Column", width: "80px", items: [{ type: "TextBlock", text: "Status", weight: "Bolder", size: "Small" }] },
+            { type: "Column", width: "100px", items: [{ type: "TextBlock", text: "Methods", weight: "Bolder", size: "Small" }] },
+        ],
+    };
+    const dataRows = statuses.map((s) => ({
+        type: "ColumnSet",
+        separator: false,
+        columns: [
+            { type: "Column", width: "stretch", items: [{ type: "TextBlock", text: s.def.name }] },
+            {
+                type: "Column", width: "80px",
+                items: [{
+                        type: "TextBlock",
+                        text: s.authType !== "none" ? statusLabel(s) : "—",
+                        color: s.authType !== "none" ? "Good" : "Attention",
+                    }],
+            },
+            { type: "Column", width: "100px", items: [{ type: "TextBlock", text: methodsLabel(s.def), size: "Small", isSubtle: true }] },
+        ],
     }));
     return {
         type: "adaptive_card",
@@ -120,11 +155,10 @@ function buildPickerCard(statuses) {
             version: "1.5",
             body: [
                 { type: "TextBlock", text: "Provider Authentication", weight: "Bolder", size: "Medium" },
-                { type: "TextBlock", text: "Select a provider and action. A follow-up form will appear.", wrap: true },
-                { type: "FactSet", facts, spacing: "medium" },
-                { type: "TextBlock", text: "Provider", weight: "Bolder", spacing: "medium" },
+                headerRow,
+                ...dataRows,
+                { type: "TextBlock", text: "Select provider and action", weight: "Bolder", separator: true, spacing: "medium" },
                 { type: "Input.ChoiceSet", id: "provider", style: "compact", choices, value: choices[0]?.value || "" },
-                { type: "TextBlock", text: "Action", weight: "Bolder", spacing: "medium" },
                 {
                     type: "Input.ChoiceSet", id: "action", style: "compact",
                     choices: [
