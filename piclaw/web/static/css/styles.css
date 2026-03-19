@@ -2464,11 +2464,6 @@ body {
     outline: none;
 }
 
-.compose-agent-chip.active {
-    border-color: color-mix(in srgb, var(--accent-color) 38%, var(--border-color));
-    color: var(--accent-color);
-}
-
 .compose-agent-chip-handle {
     font-family: var(--font-mono, monospace);
 }
@@ -2479,10 +2474,6 @@ body {
 
 .compose-agent-hints-inline .compose-agent-hints-label {
     margin-right: 2px;
-}
-
-.compose-agent-hints-inline + .compose-context-pie {
-    margin-left: 2px;
 }
 
 .compose-footer {

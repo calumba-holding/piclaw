@@ -70,8 +70,8 @@ function ContextPie({ usage }) {
         : `Context: ${pct.toFixed(0)}%`;
 
     // Pie arc: SVG circle with stroke-dasharray trick.
-    // Circle circumference = 2πr = 2π×7 ≈ 43.98
-    const r = 7;
+    // Circle circumference = 2πr = 2π×9 ≈ 56.55
+    const r = 9;
     const circ = 2 * Math.PI * r;
     const filled = (pct / 100) * circ;
 
@@ -81,18 +81,18 @@ function ContextPie({ usage }) {
 
     return html`
         <span class="compose-context-pie icon-btn" title=${label}>
-            <svg width="16" height="16" viewBox="0 0 20 20">
-                <circle cx="10" cy="10" r=${r}
+            <svg width="22" height="22" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r=${r}
                     fill="none"
                     stroke="var(--context-track, rgba(128,128,128,0.2))"
                     stroke-width="2.5" />
-                <circle cx="10" cy="10" r=${r}
+                <circle cx="12" cy="12" r=${r}
                     fill="none"
                     stroke=${color}
                     stroke-width="2.5"
                     stroke-dasharray=${`${filled} ${circ}`}
                     stroke-linecap="round"
-                    transform="rotate(-90 10 10)" />
+                    transform="rotate(-90 12 12)" />
             </svg>
         </span>
     `;
@@ -1491,6 +1491,9 @@ export function ComposeBox({
                                 </div>
                             </div>
                         `}
+                        ${!searchMode && contextUsage && contextUsage.percent != null && html`
+                            <${ContextPie} usage=${contextUsage} />
+                        `}
                     </div>
                     `}
                     <div class="compose-actions ${searchMode ? 'search-mode' : ''}">
@@ -1501,7 +1504,7 @@ export function ComposeBox({
                                 <button
                                     key=${agent.chat_jid || agent.agent_name}
                                     type="button"
-                                    class=${`compose-agent-chip${agent.is_active ? ' active' : ''}`}
+                                    class="compose-agent-chip"
                                     onClick=${() => handleAgentChipClick(agent)}
                                     title=${`${agent.chat_jid || 'Active agent'} — switch to @${agent.agent_name}`}
                                 >
@@ -1509,9 +1512,6 @@ export function ComposeBox({
                                 </button>
                             `)}
                         </div>
-                    `}
-                    ${!searchMode && contextUsage && contextUsage.percent != null && html`
-                        <${ContextPie} usage=${contextUsage} />
                     `}
                     ${showSessionSwitcherButton && html`
                         ${currentSessionAgent?.agent_name && html`

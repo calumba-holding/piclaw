@@ -2,11 +2,22 @@
 /**
  * close-of-day.ts – refresh situation notes and perform timeline noise cleanup
  * using the unified messages tool actions.
+ *
+ * Cleanup now resolves the full session scope (all web session trees) so branch
+ * chats are cleaned alongside the anchor chat — matching the behaviour of
+ * situate.ts and daily-notes.ts.
  */
 
+import { Database } from "bun:sqlite";
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { parseArgs } from "util";
+import {
+  resolveSessionScope,
+  fallbackSessionScope,
+  summariseSessionScope,
+  type SessionScope,
+} from "/workspace/scripts/lib/chat-session-scope";
 
 type MessagesParams = Record<string, unknown>;
 
@@ -119,6 +130,25 @@ const SINCE = (argConfig.values.since && argConfig.values.since.trim()) || since
 const TODAY = new Date().toISOString().slice(0, 10);
 const REPORT_PATH = argConfig.values.report || `/workspace/exports/close-of-day-${TODAY}.md`;
 
+const DB_PATH = `${process.env.PICLAW_STORE || "/workspace/.piclaw/store"}/messages.db`;
+
+/** Resolve the full session scope so cleanup covers all web branches. */
+function resolveCleanupScope(): SessionScope {
+  if (!existsSync(DB_PATH)) return fallbackSessionScope(CHAT_JID);
+  try {
+    const db = new Database(DB_PATH, { readonly: true });
+    const scope = resolveSessionScope(db, CHAT_JID);
+    db.close();
+    return scope;
+  } catch {
+    return fallbackSessionScope(CHAT_JID);
+  }
+}
+
+/** Set of chat JIDs that cleanup should cover. */
+let cleanupScope: SessionScope = fallbackSessionScope(CHAT_JID);
+let scopedChatJids: Set<string> = new Set([CHAT_JID]);
+
 function normalizeQuery(input: string): string {
   return input
     .replace(/%+/g, " ")
@@ -202,6 +232,8 @@ function searchPatternGroup(group: CleanupGroup, since: string): number[] {
     for (const row of rows) {
       if (typeof row.rowid !== "number" || !Number.isFinite(row.rowid)) continue;
       if (group.maxLength && row.content.length > group.maxLength) continue;
+      // Only include rows from scoped chats
+      if (row.chat_jid && !scopedChatJids.has(row.chat_jid)) continue;
 
       if (exactRequired) {
         if ((row.content || "").trim().toLowerCase() !== exactRequired) continue;
@@ -218,7 +250,7 @@ function searchPatternGroup(group: CleanupGroup, since: string): number[] {
       const role = group.role;
       const query: MessagesParams = {
         action: "search",
-        chat_jid: CHAT_JID,
+        chat_jid: "*",
         query: pattern,
         since,
         limit,
@@ -243,7 +275,7 @@ function searchPatternGroup(group: CleanupGroup, since: string): number[] {
       const role = group.role;
       const query: MessagesParams = {
         action: "search",
-        chat_jid: CHAT_JID,
+        chat_jid: "*",
         query: exactRaw,
         since,
         limit,
@@ -285,7 +317,7 @@ function deleteByRows(rowIds: number[], dryRun: boolean, force: boolean): Delete
     const chunk = requested.slice(i, i + 50);
     const result = runMessagesTool({
       action: "delete",
-      chat_jid: CHAT_JID,
+      chat_jid: "*",
       row_ids: chunk,
       dry_run: dryRun,
       force,
@@ -348,9 +380,14 @@ async function runSituate(): Promise<void> {
 function runCleanup(): Record<string, DeleteDetails> {
   runResticBackup();
 
+  // Resolve session scope so cleanup covers all branches
+  cleanupScope = resolveCleanupScope();
+  scopedChatJids = new Set(cleanupScope.chats.map(chat => chat.chatJid));
+
   console.log(`\n=== Close-of-day: timeline cleanup ===`);
   console.log(`Mode: ${DRY_RUN ? "dry-run" : "live delete"}`);
-  console.log(`Chat: ${CHAT_JID}`);
+  console.log(`Anchor chat: ${CHAT_JID}`);
+  console.log(`Scope: ${summariseSessionScope(cleanupScope)}`);
   console.log(`Since: ${SINCE}`);
 
   const groups: CleanupGroup[] = [

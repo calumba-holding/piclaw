@@ -200,7 +200,7 @@ function buildCard2Config(def) {
         { type: "TextBlock", text: "Saved to `~/.pi/agent/models.json` (backup created first). Restart needed to apply.", wrap: true, isSubtle: true },
     ];
     for (const field of def.customFields || []) {
-        let currentValue = "";
+        let currentValue = ""; // eslint-disable-line no-useless-assignment
         if (field.key === "modelId") {
             const m = existing.models;
             currentValue = m?.[0]?.id || "";

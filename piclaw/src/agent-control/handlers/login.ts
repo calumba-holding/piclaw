@@ -258,7 +258,7 @@ function buildCard2Config(def: ProviderDef): Record<string, unknown> {
   ];
 
   for (const field of def.customFields || []) {
-    let currentValue = "";
+    let currentValue = ""; // eslint-disable-line no-useless-assignment
     if (field.key === "modelId") {
       const m = existing.models as Array<{ id: string }> | undefined;
       currentValue = m?.[0]?.id || "";
