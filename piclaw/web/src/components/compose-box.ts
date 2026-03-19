@@ -154,10 +154,6 @@ export function ComposeBox({
     onCreateSession,
     onDeleteSession,
     onRestoreSession,
-    voiceEnabled = false,
-    voiceListening = false,
-    onVoiceToggle,
-    onMicClick,
 }) {
     const [content, setContent] = useState('');
     const [searchText, setSearchText] = useState('');
@@ -590,17 +586,9 @@ export function ComposeBox({
     const runModelCommand = async (commandText) => {
         if (searchMode || switchingModel) return;
 
-        setSubmitError(null);
         setSwitchingModel(true);
         try {
             const response = await sendAgentMessage('default', commandText, null, [], null, currentChatJid);
-            const cmdResult = response?.command;
-            if (cmdResult?.status === 'error') {
-                const message = cmdResult.message || 'Command failed.';
-                setSubmitError(message);
-                onSubmitError?.(message);
-                return false;
-            }
             const nextModel = extractCurrentModel(response);
             emitModelState({
                 model: nextModel ?? activeModel ?? null,
@@ -611,12 +599,11 @@ export function ComposeBox({
                 const latest = await getAgentModels(currentChatJid);
                 if (latest) emitModelState(latest);
             } catch {}
+            onPost?.();
             return true;
         } catch (error) {
             console.error('Failed to switch model:', error);
-            const message = error?.message || 'Failed to switch model.';
-            setSubmitError(message);
-            onSubmitError?.(message);
+            alert('Failed to switch model: ' + error.message);
             return false;
         } finally {
             setSwitchingModel(false);
@@ -752,15 +739,6 @@ export function ComposeBox({
                 onMessageResponse?.(response);
 
                 if (response?.command) {
-                    if (response.command.status === 'error') {
-                        const message = response.command.message || 'Command failed.';
-                        if (clearAfterSubmit) {
-                            restoreDraft();
-                        }
-                        setSubmitError(message);
-                        onSubmitError?.(message);
-                        return;
-                    }
                     emitModelState({
                         model: response.command.model_label ?? activeModel ?? null,
                         thinking_level: response.command.thinking_level,
@@ -772,9 +750,7 @@ export function ComposeBox({
                     } catch {}
                 }
 
-                if (!response?.ui_only) {
-                    onPost?.();
-                }
+                onPost?.();
             } catch (error) {
                 if (clearAfterSubmit) {
                     restoreDraft();
@@ -1335,7 +1311,6 @@ export function ComposeBox({
                     `}
                     <textarea
                         ref=${textareaRef}
-                        class="compose-input"
                         placeholder=${searchMode ? "Search (Enter to run)..." : "Message (Enter to send, Shift+Enter for newline)..."}
                         value=${searchMode ? searchText : content}
                         onInput=${handleInput}
@@ -1545,6 +1520,7 @@ export function ComposeBox({
                     <div class="compose-actions ${searchMode ? 'search-mode' : ''}">
                     ${showAgentAffordance && html`
                         <div class="compose-agent-hints compose-agent-hints-inline" title="Active chat agents you can mention with @name">
+                            <span class="compose-agent-hints-label">Agents</span>
                             ${visibleMentionAgents.map((agent) => html`
                                 <button
                                     key=${agent.chat_jid || agent.agent_name}
@@ -1662,21 +1638,6 @@ export function ComposeBox({
                                 <span class="compose-connection-status connection-status ${connectionStatus}" title=${connectionStatusTitle}>
                                     ${connectionStatusLabel}
                                 </span>
-                            `}
-                            ${!searchMode && onVoiceToggle && html`
-                                <button
-                                    class=${`icon-btn mic-btn${voiceListening ? ' listening' : ''}${voiceEnabled ? ' voice-active' : ''}`}
-                                    type="button"
-                                    onClick=${onMicClick}
-                                    title=${voiceListening ? 'Stop listening' : voiceEnabled ? 'Start listening' : 'Enable voice mode'}
-                                >
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                                        <line x1="12" y1="19" x2="12" y2="23"/>
-                                        <line x1="8" y1="23" x2="16" y2="23"/>
-                                    </svg>
-                                </button>
                             `}
                             ${!searchMode && html`
                                 <button 

@@ -3040,26 +3040,6 @@ body {
     color: var(--text-secondary);
 }
 
-/* ── Voice mode mic button ── */
-.mic-btn {
-    color: var(--text-secondary);
-    transition: color var(--ui-transition-fast);
-}
-
-.mic-btn.voice-active {
-    color: var(--accent-color);
-}
-
-.mic-btn.listening {
-    color: var(--danger-color);
-    animation: mic-pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes mic-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-}
-
 .media-files-preview {
     display: flex;
     flex-wrap: wrap;

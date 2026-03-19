@@ -32,7 +32,6 @@ import { dedupePosts } from './ui/timeline-utils.js';
 import { useAgentState } from './ui/use-agent-state.js';
 import { useSplitters } from './ui/use-splitters.js';
 import { useEditorState } from './ui/use-editor-state.js';
-import { hasSpeechRecognition, isIOS, isRecognizing, isStandaloneWebApp, speakTerse, startRecognition, stopRecognition, stopSpeaking } from './ui/voice-mode.js';
 import { initTheme, applyThemeFromEvent } from './ui/theme.js';
 import {
     LAST_ACTIVITY_TTL_MS,
@@ -302,84 +301,6 @@ function MainApp({ locationParams }) {
     useEffect(() => {
         if (zenMode && !editorOpen) exitZenMode();
     }, [zenMode, editorOpen, exitZenMode]);
-
-    // ── Voice mode ──────────────────────────────────────────────
-    const [voiceEnabled, setVoiceEnabled] = useState(() => {
-        try { return localStorage.getItem('piclaw-voice-mode') === '1'; } catch { return false; }
-    });
-    const [voiceListening, setVoiceListening] = useState(false);
-    const voiceLastInputWasVoiceRef = useRef(false);
-
-    const toggleVoiceMode = useCallback(() => {
-        const next = !voiceEnabled;
-        setVoiceEnabled(next);
-        try { localStorage.setItem('piclaw-voice-mode', next ? '1' : '0'); } catch {}
-        if (!next) {
-            stopRecognition();
-            stopSpeaking();
-            setVoiceListening(false);
-        }
-    }, [voiceEnabled]);
-
-    const handleMicClick = useCallback(() => {
-        if (!voiceEnabled) {
-            setVoiceEnabled(true);
-            try { localStorage.setItem('piclaw-voice-mode', '1'); } catch {}
-        }
-
-        const composeEl = document.querySelector('.compose-input') as HTMLTextAreaElement | null;
-        const syncFocusCompose = () => {
-            try {
-                composeEl?.focus();
-                const length = composeEl?.value?.length ?? 0;
-                composeEl?.setSelectionRange?.(length, length);
-            } catch {}
-        };
-        const applyComposeText = (text) => {
-            if (!composeEl) return;
-            composeEl.value = text;
-            composeEl.dispatchEvent(new Event('input', { bubbles: true }));
-        };
-
-        // Keep the fallback inside the original tap gesture for iOS/PWA keyboard dictation.
-        syncFocusCompose();
-
-        if (isRecognizing()) {
-            stopRecognition();
-            setVoiceListening(false);
-            return;
-        }
-
-        stopSpeaking();
-
-        // iOS standalone/PWA mode is unreliable for SpeechRecognition.
-        // Focus the compose box and let the user use keyboard dictation instead.
-        if (isIOS() && isStandaloneWebApp()) {
-            voiceLastInputWasVoiceRef.current = false;
-            setVoiceListening(false);
-            return;
-        }
-
-        if (!hasSpeechRecognition()) {
-            setVoiceListening(false);
-            return;
-        }
-
-        const started = startRecognition({
-            onInterim: (text) => applyComposeText(text),
-            onFinal: (text) => applyComposeText(text),
-            onEnd: () => setVoiceListening(false),
-            onError: (error) => {
-                console.warn('[voice]', error);
-                syncFocusCompose();
-                setVoiceListening(false);
-            },
-        });
-        if (started) {
-            setVoiceListening(true);
-            voiceLastInputWasVoiceRef.current = true;
-        }
-    }, [voiceEnabled]);
 
     // Mount/dispose editor extension instance when active tab changes
     useEffect(() => {
@@ -2317,11 +2238,6 @@ function MainApp({ locationParams }) {
                 post: data,
                 turnId: currentTurnIdRef.current,
             };
-            // Auto-speak terse summary when voice mode is on and last input was voice
-            if (voiceEnabled && voiceLastInputWasVoiceRef.current && data?.content) {
-                voiceLastInputWasVoiceRef.current = false;
-                speakTerse(data.content);
-            }
         }
         if (!activeHashtag && !activeSearch && !activeSearchOpen && isCurrentChatEvent && (eventType === 'new_post' || eventType === 'new_reply' || eventType === 'agent_response')) {
             setPosts((prev) => {
@@ -2952,10 +2868,6 @@ function MainApp({ locationParams }) {
                     activeChatAgents=${activeChatAgents}
                     currentChatJid=${currentChatJid}
                     connectionStatus=${connectionStatus}
-                    voiceEnabled=${voiceEnabled}
-                    voiceListening=${voiceListening}
-                    onVoiceToggle=${toggleVoiceMode}
-                    onMicClick=${handleMicClick}
                     activeModel=${activeModel}
                     modelUsage=${activeModelUsage}
                     thinkingLevel=${activeThinkingLevel}
