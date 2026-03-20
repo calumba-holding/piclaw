@@ -21,7 +21,6 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        working-directory: piclaw
         run: bun install --frozen-lockfile
 
       - name: Build web bundles and run web regression tests
