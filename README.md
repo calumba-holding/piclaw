@@ -33,6 +33,8 @@ Inspired by [agentbox](https://github.com/rcarmo/agentbox) and [nanoclaw](https:
 > This is the Docker-free install path.
 >
 > **Experimental for now**: Bun-first, Linux/macOS, and intended to avoid a manual build step, but not yet positioned as the main production install route.
+>
+> The repository root is the install/package boundary. The nested `runtime/` directory is the implementation subtree used by the packaged CLI, web assets, extensions, and skills.
 
 ```bash
 bun add -g github:rcarmo/piclaw
@@ -221,6 +223,8 @@ See [docs/reverse-proxy.md](docs/reverse-proxy.md) for forwarded-header requirem
 
 ## Development
 
+Run build/package commands from the **repo root**:
+
 ```bash
 make build-piclaw    # full build: vendor bundle + web assets + TypeScript
 make vendor          # rebuild vendored assets
@@ -229,7 +233,7 @@ make test            # full test suite
 make local-install   # pack, install globally, restart piclaw
 ```
 
-Tests use Bun. Sequential mode is recommended for SQLite safety:
+The implementation lives under `runtime/`, so direct Bun test runs should target that subtree. Sequential mode is recommended for SQLite safety:
 
 ```bash
 cd runtime && bun test --max-concurrency=1

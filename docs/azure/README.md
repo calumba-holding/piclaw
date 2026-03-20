@@ -36,6 +36,9 @@ Clone your Piclaw repo into `/workspace/piclaw`.
 
 ## 4) Build + install Piclaw globally
 
+The repo root is the package/install boundary. The nested `runtime/` directory
+contains the implementation tree, but it is not installed separately.
+
 ```bash
 cd /workspace/piclaw && make build-piclaw
 cd /workspace/piclaw

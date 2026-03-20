@@ -11,6 +11,10 @@ bun add -g github:rcarmo/piclaw
 This is the intended **Docker-free** install path for people who want the
 packaged PiClaw CLI and web assets without building from source manually.
 
+The repository root is the package/install boundary for this flow. The nested
+`runtime/` directory is an implementation detail that contains the runtime
+sources, web app, extensions, vendored assets, and skills.
+
 ## Current scope
 
 This path is intended for:
@@ -34,4 +38,5 @@ After install, the goal is that:
 
 - This path is Bun-first. npm parity is not part of the initial scope.
 - The published GHCR image remains the main documented production runtime.
+- Build, pack, and install commands should be run from the repo root; `runtime/` is not a separate package.
 - If repo-install behavior differs slightly from the published package layout, those differences should stay small and documented.
