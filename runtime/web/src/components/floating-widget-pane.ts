@@ -48,12 +48,19 @@ export function FloatingWidgetPane({ widget, onClose, onWidgetEvent }) {
         };
 
         const handleLoad = () => {
+            if (frameLoadedRef.current) return;
             frameLoadedRef.current = true;
             postToFrame('widget.init');
             postToFrame('widget.update');
         };
 
         iframe.addEventListener('load', handleLoad);
+
+        const readyState = iframe.contentDocument?.readyState;
+        if (readyState === 'complete' || readyState === 'interactive') {
+            queueMicrotask(handleLoad);
+        }
+
         return () => iframe.removeEventListener('load', handleLoad);
     }, [widget, srcDoc]);
 
