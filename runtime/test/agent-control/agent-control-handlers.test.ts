@@ -334,7 +334,7 @@ test("agent control info and mode commands", async () => {
   const commands = await applyControlCommand(session as any, registry, { type: "commands", raw: "/commands" });
   expect(commands.message).toContain("/model");
   expect(commands.message).not.toContain("/test-card");
-  expect(commands.message).not.toContain("/exit");
+  expect(commands.message).toContain("/exit");
   expect(commands.message).toContain("/session-rotate");
   expect(commands.message).toContain("/ext");
   expect(commands.message).toContain("/template");

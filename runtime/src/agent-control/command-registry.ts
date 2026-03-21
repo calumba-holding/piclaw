@@ -60,6 +60,7 @@ export const CONTROL_COMMAND_DEFINITIONS: ControlCommandDefinition[] = [
   { name: "/qr", description: "Generate a QR code for text or a URL" },
   { name: "/search", description: "Search notes and skills in the workspace" },
   { name: "/restart", description: "Restart the agent and stop subprocesses" },
+  { name: "/exit", description: "Exit the current piclaw process immediately (Supervisor will restart it)" },
   { name: "/login", description: "Login to an AI model provider (OAuth or API key)" },
   { name: "/logout", description: "Logout from an AI model provider" },
   { name: "/commands", description: "List available commands" },
