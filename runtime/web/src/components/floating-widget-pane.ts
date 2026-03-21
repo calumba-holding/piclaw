@@ -3,6 +3,7 @@ import { html, useEffect, useMemo, useRef } from '../vendor/preact-htm.js';
 import {
     buildWidgetSrcDoc,
     getGeneratedWidgetEmptyStateMessage,
+    getGeneratedWidgetHostPayload,
     getGeneratedWidgetIframeSandbox,
     getGeneratedWidgetInitPayload,
     getGeneratedWidgetSessionKey,
@@ -10,6 +11,8 @@ import {
 
 export function FloatingWidgetPane({ widget, onClose, onWidgetEvent }) {
     const frameRef = useRef(null);
+    const frameLoadedRef = useRef(false);
+    const srcDoc = useMemo(() => buildWidgetSrcDoc(widget), [widget]);
 
     useEffect(() => {
         if (!widget) return undefined;
@@ -21,25 +24,54 @@ export function FloatingWidgetPane({ widget, onClose, onWidgetEvent }) {
     }, [widget, onClose]);
 
     useEffect(() => {
+        frameLoadedRef.current = false;
+    }, [srcDoc]);
+
+    useEffect(() => {
         if (!widget) return undefined;
         const iframe = frameRef.current;
         if (!iframe) return undefined;
 
-        const sendInit = () => {
+        const postToFrame = (type) => {
             try {
                 iframe.contentWindow?.postMessage({
                     __piclawGeneratedWidgetHost: true,
-                    type: 'widget.init',
+                    type,
                     widgetId: widget?.widgetId || null,
                     toolCallId: widget?.toolCallId || null,
                     turnId: widget?.turnId || null,
-                    payload: getGeneratedWidgetInitPayload(widget),
+                    payload: type === 'widget.init'
+                        ? getGeneratedWidgetInitPayload(widget)
+                        : getGeneratedWidgetHostPayload(widget),
                 }, '*');
             } catch {}
         };
 
-        iframe.addEventListener('load', sendInit);
-        return () => iframe.removeEventListener('load', sendInit);
+        const handleLoad = () => {
+            frameLoadedRef.current = true;
+            postToFrame('widget.init');
+            postToFrame('widget.update');
+        };
+
+        iframe.addEventListener('load', handleLoad);
+        return () => iframe.removeEventListener('load', handleLoad);
+    }, [widget, srcDoc]);
+
+    useEffect(() => {
+        if (!widget || !frameLoadedRef.current) return undefined;
+        const iframe = frameRef.current;
+        if (!iframe?.contentWindow) return undefined;
+        try {
+            iframe.contentWindow.postMessage({
+                __piclawGeneratedWidgetHost: true,
+                type: 'widget.update',
+                widgetId: widget?.widgetId || null,
+                toolCallId: widget?.toolCallId || null,
+                turnId: widget?.turnId || null,
+                payload: getGeneratedWidgetHostPayload(widget),
+            }, '*');
+        } catch {}
+        return undefined;
     }, [widget]);
 
     useEffect(() => {
@@ -64,7 +96,6 @@ export function FloatingWidgetPane({ widget, onClose, onWidgetEvent }) {
         return () => window.removeEventListener('message', handleMessage);
     }, [widget, onWidgetEvent]);
 
-    const srcDoc = useMemo(() => buildWidgetSrcDoc(widget), [widget]);
     if (!widget) return null;
 
     const artifact = widget?.artifact || {};

@@ -182,6 +182,18 @@ export function getGeneratedWidgetInitPayload(widget: any): Record<string, unkno
   };
 }
 
+export function getGeneratedWidgetHostPayload(widget: any): Record<string, unknown> {
+  return {
+    ...getGeneratedWidgetInitPayload(widget),
+    subtitle: readOptionalString(widget?.subtitle) || '',
+    description: readOptionalString(widget?.description) || '',
+    error: readOptionalString(widget?.error) || null,
+    width: readFiniteNumber(widget?.width),
+    height: readFiniteNumber(widget?.height),
+    runtimeState: widget?.runtimeState && typeof widget.runtimeState === 'object' ? widget.runtimeState : null,
+  };
+}
+
 export function getGeneratedWidgetSubmissionText(payload: any): string | null {
   if (typeof payload === 'string' && payload.trim()) return payload.trim();
   if (!payload || typeof payload !== 'object') return null;
@@ -244,6 +256,8 @@ function buildWidgetBootstrapScript(widget: any): string {
 
   window.piclawWidget = {
     meta,
+    lastHostMessage: null,
+    hostState: null,
     ready(payload) { post('widget.ready', payload); },
     close(payload) { post('widget.close', payload); },
     requestRefresh(payload) { post('widget.request_refresh', payload); },
@@ -254,6 +268,10 @@ function buildWidgetBootstrapScript(widget: any): string {
     const data = event && event.data;
     if (!data || data.__piclawGeneratedWidgetHost !== true) return;
     if ((data.widgetId || null) !== (meta.widgetId || null)) return;
+    window.piclawWidget.lastHostMessage = data;
+    if (data.type === 'widget.init' || data.type === 'widget.update' || data.type === 'widget.complete' || data.type === 'widget.error') {
+      window.piclawWidget.hostState = data.payload || null;
+    }
     window.dispatchEvent(new CustomEvent('piclaw:widget-message', { detail: data }));
   });
 

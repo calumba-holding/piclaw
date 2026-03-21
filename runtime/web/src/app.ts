@@ -2724,6 +2724,7 @@ function MainApp({ locationParams }) {
         if (kind === 'widget.submit') {
             const submissionText = getGeneratedWidgetSubmissionText(event?.payload);
             const closeAfterSubmit = getGeneratedWidgetShouldCloseOnSubmit(event?.payload);
+            const submittedAt = new Date().toISOString();
 
             setFloatingWidget((current) => {
                 const currentKey = getGeneratedWidgetSessionKey(current);
@@ -2734,7 +2735,12 @@ function MainApp({ locationParams }) {
                         ...(current.runtimeState || {}),
                         lastEventKind: kind,
                         lastEventPayload: event?.payload || null,
-                        lastSubmitAt: new Date().toISOString(),
+                        lastSubmitAt: submittedAt,
+                        lastHostUpdate: {
+                            type: 'submit_pending',
+                            submittedAt,
+                            preview: submissionText || null,
+                        },
                     },
                 };
             });
@@ -2749,6 +2755,22 @@ function MainApp({ locationParams }) {
                 try {
                     const response = await api.sendAgentMessage('default', submissionText, null, [], isComposeBoxAgentActive ? 'queue' : null, currentChatJid);
                     handleMessageResponse(response);
+                    setFloatingWidget((current) => {
+                        const currentKey = getGeneratedWidgetSessionKey(current);
+                        if (!current || currentKey !== sessionKey) return current;
+                        return {
+                            ...current,
+                            runtimeState: {
+                                ...(current.runtimeState || {}),
+                                lastHostUpdate: {
+                                    type: response?.queued === 'followup' ? 'submit_queued' : 'submit_sent',
+                                    submittedAt,
+                                    preview: submissionText,
+                                    queued: response?.queued || null,
+                                },
+                            },
+                        };
+                    });
                     showIntentToast(
                         response?.queued === 'followup' ? 'Widget submission queued' : 'Widget submission sent',
                         response?.queued === 'followup'
@@ -2759,6 +2781,22 @@ function MainApp({ locationParams }) {
                     );
                     if (closeAfterSubmit) handleCloseFloatingWidget();
                 } catch (error) {
+                    setFloatingWidget((current) => {
+                        const currentKey = getGeneratedWidgetSessionKey(current);
+                        if (!current || currentKey !== sessionKey) return current;
+                        return {
+                            ...current,
+                            runtimeState: {
+                                ...(current.runtimeState || {}),
+                                lastHostUpdate: {
+                                    type: 'submit_failed',
+                                    submittedAt,
+                                    preview: submissionText,
+                                    error: error?.message || 'Could not send the widget message.',
+                                },
+                            },
+                        };
+                    });
                     showIntentToast('Widget submission failed', error?.message || 'Could not send the widget message.', 'warning', 5000);
                 }
             })();
@@ -2766,6 +2804,7 @@ function MainApp({ locationParams }) {
         }
 
         if (kind === 'widget.ready' || kind === 'widget.request_refresh') {
+            const eventAt = new Date().toISOString();
             setFloatingWidget((current) => {
                 const currentKey = getGeneratedWidgetSessionKey(current);
                 if (!current || currentKey !== sessionKey) return current;
@@ -2775,14 +2814,33 @@ function MainApp({ locationParams }) {
                         ...(current.runtimeState || {}),
                         lastEventKind: kind,
                         lastEventPayload: event?.payload || null,
-                        ...(kind === 'widget.ready' ? { readyAt: new Date().toISOString() } : {}),
-                        ...(kind === 'widget.request_refresh' ? { lastRefreshRequestAt: new Date().toISOString() } : {}),
+                        ...(kind === 'widget.ready'
+                            ? {
+                                readyAt: eventAt,
+                                lastHostUpdate: {
+                                    type: 'ready_ack',
+                                    at: eventAt,
+                                },
+                            }
+                            : {}),
+                        ...(kind === 'widget.request_refresh'
+                            ? {
+                                lastRefreshRequestAt: eventAt,
+                                refreshCount: Number(current?.runtimeState?.refreshCount || 0) + 1,
+                                lastHostUpdate: {
+                                    type: 'refresh_ack',
+                                    at: eventAt,
+                                    count: Number(current?.runtimeState?.refreshCount || 0) + 1,
+                                    echo: event?.payload || null,
+                                },
+                            }
+                            : {}),
                     },
                 };
             });
 
             if (kind === 'widget.request_refresh') {
-                showIntentToast('Widget refresh requested', 'Live widget refresh callbacks are not wired yet.', 'info', 3000);
+                showIntentToast('Widget refresh requested', 'The widget received a host acknowledgement update.', 'info', 3000);
             }
         }
     }, [currentChatJid, handleCloseFloatingWidget, handleMessageResponse, isComposeBoxAgentActive, showIntentToast]);
