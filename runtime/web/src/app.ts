@@ -58,6 +58,7 @@ import {
     primeProvisionalChatWindow,
 } from './ui/chat-window.js';
 import { resolveQueueActionChatJid, shouldClearQueuedSteerState } from './ui/queue-state.js';
+import { normalizeLiveGeneratedWidgetPayload, getGeneratedWidgetSessionKey } from './ui/generated-widget.js';
 import { isCompactionStatus } from './ui/status-duration.js';
 import { installStandaloneMobileViewportFix } from './ui/mobile-viewport.js';
 import { resolveOptionalApi } from './ui/optional-api.js';
@@ -232,6 +233,7 @@ function MainApp({ locationParams }) {
     const [isAgentTurnActive, setIsAgentTurnActive] = useState(false);
     const [btwSession, setBtwSession] = useState(() => loadStoredBtwSession());
     const [floatingWidget, setFloatingWidget] = useState(null);
+    const dismissedLiveWidgetKeysRef = useRef(new Set());
     const currentChatAgent = useMemo(
         () => activeChatAgents.find((chat) => chat?.chat_jid === currentChatJid) || null,
         [activeChatAgents, currentChatJid],
@@ -1940,6 +1942,37 @@ function MainApp({ locationParams }) {
         refreshModelAndQueueState();
     }, [refreshModelAndQueueState, refreshTimeline]);
 
+    const applyLiveGeneratedWidgetUpdate = useCallback((data, fallbackStatus = 'streaming') => {
+        const payload = normalizeLiveGeneratedWidgetPayload({
+            ...data,
+            ...((data && data.status) ? {} : { status: fallbackStatus }),
+        });
+        if (!payload) return;
+
+        const sessionKey = getGeneratedWidgetSessionKey(payload);
+        if (sessionKey && dismissedLiveWidgetKeysRef.current.has(sessionKey)) {
+            return;
+        }
+
+        setFloatingWidget((current) => {
+            const currentKey = getGeneratedWidgetSessionKey(current);
+            const sameSession = Boolean(sessionKey && currentKey && sessionKey === currentKey);
+            const mergedArtifact = {
+                ...((sameSession && current?.artifact) ? current.artifact : {}),
+                ...(payload.artifact || {}),
+            };
+            return {
+                ...(sameSession && current ? current : {}),
+                ...payload,
+                artifact: mergedArtifact,
+                source: 'live',
+                originChatJid: payload.originChatJid || currentChatJid,
+                openedAt: sameSession && current?.openedAt ? current.openedAt : new Date().toISOString(),
+                liveUpdatedAt: new Date().toISOString(),
+            };
+        });
+    }, [currentChatJid]);
+
     const handleSseEvent = useCallback((eventType, data) => {
         const turnId = data?.turn_id;
         const eventChatJid = typeof data?.chat_jid === 'string' && data.chat_jid.trim() ? data.chat_jid.trim() : null;
@@ -1953,6 +1986,51 @@ function MainApp({ locationParams }) {
 
         if (eventType === 'ui_theme') {
             applyThemeFromEvent(data);
+            return;
+        }
+
+        if (eventType === 'generated_widget_open') {
+            if (!isCurrentChatEvent) return;
+            if (turnId && !currentTurnIdRef.current) {
+                setActiveTurn(turnId);
+            }
+            applyLiveGeneratedWidgetUpdate(data, 'loading');
+            return;
+        }
+
+        if (eventType === 'generated_widget_delta') {
+            if (!isCurrentChatEvent) return;
+            if (turnId && !currentTurnIdRef.current) {
+                setActiveTurn(turnId);
+            }
+            applyLiveGeneratedWidgetUpdate(data, 'streaming');
+            return;
+        }
+
+        if (eventType === 'generated_widget_final') {
+            if (!isCurrentChatEvent) return;
+            if (turnId && !currentTurnIdRef.current) {
+                setActiveTurn(turnId);
+            }
+            applyLiveGeneratedWidgetUpdate(data, 'final');
+            return;
+        }
+
+        if (eventType === 'generated_widget_error') {
+            if (!isCurrentChatEvent) return;
+            applyLiveGeneratedWidgetUpdate(data, 'error');
+            return;
+        }
+
+        if (eventType === 'generated_widget_close') {
+            if (!isCurrentChatEvent) return;
+            const sessionKey = getGeneratedWidgetSessionKey(data);
+            setFloatingWidget((current) => {
+                if (!current || current?.source !== 'live') return current;
+                const currentKey = getGeneratedWidgetSessionKey(current);
+                if (sessionKey && currentKey && sessionKey !== currentKey) return current;
+                return null;
+            });
             return;
         }
 
@@ -2327,6 +2405,7 @@ function MainApp({ locationParams }) {
             }
         }
     }, [
+        applyLiveGeneratedWidgetUpdate,
         clearAgentRunState,
         clearLastActivityFlag,
         currentChatJid,
@@ -2607,6 +2686,10 @@ function MainApp({ locationParams }) {
 
     const handleOpenFloatingWidget = useCallback((widget) => {
         if (!widget || typeof widget !== 'object') return;
+        const sessionKey = getGeneratedWidgetSessionKey(widget);
+        if (sessionKey) {
+            dismissedLiveWidgetKeysRef.current.delete(sessionKey);
+        }
         setFloatingWidget({
             ...widget,
             openedAt: new Date().toISOString(),
@@ -2614,10 +2697,17 @@ function MainApp({ locationParams }) {
     }, []);
 
     const handleCloseFloatingWidget = useCallback(() => {
-        setFloatingWidget(null);
+        setFloatingWidget((current) => {
+            const sessionKey = getGeneratedWidgetSessionKey(current);
+            if (current?.source === 'live' && sessionKey) {
+                dismissedLiveWidgetKeysRef.current.add(sessionKey);
+            }
+            return null;
+        });
     }, []);
 
     useEffect(() => {
+        dismissedLiveWidgetKeysRef.current.clear();
         setFloatingWidget(null);
     }, [currentChatJid]);
 

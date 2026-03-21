@@ -1,4 +1,6 @@
 export type GeneratedWidgetKind = "html" | "svg";
+export type GeneratedWidgetSource = "timeline" | "live";
+export type GeneratedWidgetStatus = "loading" | "streaming" | "final" | "error";
 
 export interface GeneratedWidgetArtifact {
   kind: GeneratedWidgetKind;
@@ -14,6 +16,13 @@ export interface GeneratedWidgetPayload {
   originChatJid: string | null;
   widgetId: string | null;
   artifact: GeneratedWidgetArtifact;
+  source?: GeneratedWidgetSource;
+  status?: GeneratedWidgetStatus;
+  turnId?: string | null;
+  toolCallId?: string | null;
+  width?: number | null;
+  height?: number | null;
+  error?: string | null;
 }
 
 function getArtifact(block: any): GeneratedWidgetArtifact | null {
@@ -30,6 +39,33 @@ function getArtifact(block: any): GeneratedWidgetArtifact | null {
   return svg ? { kind, svg } : null;
 }
 
+function getLiveArtifact(block: any): GeneratedWidgetArtifact {
+  const artifact = block?.artifact && typeof block.artifact === 'object' ? block.artifact : {};
+  const rawSvg = typeof artifact.svg === 'string' ? artifact.svg : (typeof block?.svg === 'string' ? block.svg : '');
+  const rawHtml = typeof artifact.html === 'string'
+    ? artifact.html
+    : (typeof block?.html === 'string'
+      ? block.html
+      : (typeof block?.w === 'string'
+        ? block.w
+        : (typeof block?.content === 'string' ? block.content : '')));
+
+  const requestedKind = artifact.kind || block?.kind || null;
+  const kind = requestedKind === 'svg' || rawSvg ? 'svg' : 'html';
+  if (kind === 'svg') {
+    return rawSvg ? { kind, svg: rawSvg } : { kind };
+  }
+  return rawHtml ? { kind, html: rawHtml } : { kind };
+}
+
+function readFiniteNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function readOptionalString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
 export function buildGeneratedWidgetPayload(block: any, post?: any): GeneratedWidgetPayload | null {
   if (!block || block.type !== "generated_widget") return null;
   const artifact = getArtifact(block);
@@ -43,11 +79,69 @@ export function buildGeneratedWidgetPayload(block: any, post?: any): GeneratedWi
     originChatJid: typeof post?.chat_jid === "string" ? post.chat_jid : null,
     widgetId: block.widget_id || block.id || null,
     artifact,
+    source: 'timeline',
+    status: 'final',
+  };
+}
+
+export function normalizeLiveGeneratedWidgetPayload(block: any): GeneratedWidgetPayload | null {
+  if (!block || typeof block !== 'object') return null;
+
+  const artifact = getLiveArtifact(block);
+  const widgetId = readOptionalString(block?.widget_id) || readOptionalString(block?.widgetId) || readOptionalString(block?.tool_call_id) || readOptionalString(block?.toolCallId);
+  const toolCallId = readOptionalString(block?.tool_call_id) || readOptionalString(block?.toolCallId);
+  const turnId = readOptionalString(block?.turn_id) || readOptionalString(block?.turnId);
+  const title = readOptionalString(block?.title) || readOptionalString(block?.name) || 'Generated widget';
+  const subtitle = readOptionalString(block?.subtitle) || '';
+  const description = readOptionalString(block?.description) || subtitle;
+  const status = readOptionalString(block?.status);
+  const normalizedStatus = status === 'loading' || status === 'streaming' || status === 'final' || status === 'error'
+    ? status
+    : 'streaming';
+
+  return {
+    title,
+    subtitle,
+    description,
+    originPostId: readFiniteNumber(block?.origin_post_id) ?? readFiniteNumber(block?.originPostId),
+    originChatJid: readOptionalString(block?.origin_chat_jid) || readOptionalString(block?.originChatJid) || readOptionalString(block?.chat_jid) || null,
+    widgetId,
+    artifact,
+    source: 'live',
+    status: normalizedStatus,
+    turnId,
+    toolCallId,
+    width: readFiniteNumber(block?.width),
+    height: readFiniteNumber(block?.height),
+    error: readOptionalString(block?.error),
   };
 }
 
 export function canRenderGeneratedWidget(block: any): boolean {
   return buildGeneratedWidgetPayload(block, null) !== null;
+}
+
+export function getGeneratedWidgetSessionKey(widget: any): string | null {
+  const toolCallId = readOptionalString(widget?.toolCallId) || readOptionalString(widget?.tool_call_id);
+  if (toolCallId) return toolCallId;
+
+  const widgetId = readOptionalString(widget?.widgetId) || readOptionalString(widget?.widget_id);
+  if (widgetId) return widgetId;
+
+  const originPostId = readFiniteNumber(widget?.originPostId) ?? readFiniteNumber(widget?.origin_post_id);
+  if (originPostId !== null) return `post:${originPostId}`;
+  return null;
+}
+
+export function getGeneratedWidgetEmptyStateMessage(widget: any): string {
+  const status = readOptionalString(widget?.status);
+  if (status === 'loading' || status === 'streaming') {
+    return 'Widget is loading…';
+  }
+  if (status === 'error') {
+    return readOptionalString(widget?.error) || 'Widget failed to load.';
+  }
+  return 'Widget artifact is missing or unsupported.';
 }
 
 export function buildWidgetSrcDoc(widget: any): string {

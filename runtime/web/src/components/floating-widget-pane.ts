@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { html, useEffect, useMemo } from '../vendor/preact-htm.js';
-import { buildWidgetSrcDoc } from '../ui/generated-widget.js';
+import { buildWidgetSrcDoc, getGeneratedWidgetEmptyStateMessage } from '../ui/generated-widget.js';
 
 export function FloatingWidgetPane({ widget, onClose }) {
     useEffect(() => {
@@ -19,9 +19,14 @@ export function FloatingWidgetPane({ widget, onClose }) {
     const kind = artifact.kind || widget?.kind || 'html';
     const title = typeof widget?.title === 'string' && widget.title.trim() ? widget.title.trim() : 'Generated widget';
     const subtitle = typeof widget?.subtitle === 'string' && widget.subtitle.trim() ? widget.subtitle.trim() : '';
-    const originLabel = widget?.originPostId ? `Message #${widget.originPostId}` : 'Timeline launch';
+    const source = widget?.source === 'live' ? 'live' : 'timeline';
+    const status = typeof widget?.status === 'string' && widget.status.trim() ? widget.status.trim() : 'final';
+    const originLabel = source === 'live'
+        ? `Live widget • ${status.toUpperCase()}`
+        : (widget?.originPostId ? `Message #${widget.originPostId}` : 'Timeline launch');
     const description = typeof widget?.description === 'string' && widget.description.trim() ? widget.description.trim() : '';
     const emptyState = !srcDoc;
+    const emptyMessage = getGeneratedWidgetEmptyStateMessage(widget);
 
     return html`
         <div class="floating-widget-backdrop" onClick=${() => onClose?.()}>
@@ -50,7 +55,7 @@ export function FloatingWidgetPane({ widget, onClose }) {
                 </div>
                 <div class="floating-widget-body">
                     ${emptyState
-                        ? html`<div class="floating-widget-empty">Widget artifact is missing or unsupported.</div>`
+                        ? html`<div class="floating-widget-empty">${emptyMessage}</div>`
                         : html`
                             <iframe
                                 class="floating-widget-frame"

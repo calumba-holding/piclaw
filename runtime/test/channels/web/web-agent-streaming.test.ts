@@ -117,6 +117,108 @@ describe("web agent streaming", () => {
     restoreEnv();
   });
 
+  test("streams live generated widget events for show_widget tool calls", async () => {
+    const ws = getTestWorkspace();
+    const restoreEnv = setEnv({
+      PICLAW_WORKSPACE: ws.workspace,
+      PICLAW_STORE: ws.store,
+      PICLAW_DATA: ws.data,
+    });
+    initDatabase();
+
+    const events: Array<{ type: string; data: any }> = [];
+
+    const agentPool = {
+      setSessionBinder: () => {},
+      runAgent: async (_prompt: string, _chatJid: string, options: any) => {
+        options.onEvent?.(makeEvent("message_update", {
+          assistantMessageEvent: {
+            type: "toolcall_start",
+            contentIndex: 0,
+            partial: {
+              content: [{
+                type: "toolCall",
+                id: "widget-tool-1",
+                name: "show_widget",
+                arguments: {
+                  title: "Live widget",
+                  w: "<div>hel",
+                },
+              }],
+            },
+          },
+        }));
+        options.onEvent?.(makeEvent("message_update", {
+          assistantMessageEvent: {
+            type: "toolcall_delta",
+            contentIndex: 0,
+            delta: "lo",
+            partial: {
+              content: [{
+                type: "toolCall",
+                id: "widget-tool-1",
+                name: "show_widget",
+                arguments: {
+                  title: "Live widget",
+                  w: "<div>hello</div>",
+                  width: 800,
+                  height: 600,
+                },
+              }],
+            },
+          },
+        }));
+        options.onEvent?.(makeEvent("message_update", {
+          assistantMessageEvent: {
+            type: "toolcall_end",
+            contentIndex: 0,
+            toolCall: {
+              id: "widget-tool-1",
+              name: "show_widget",
+              arguments: {
+                title: "Live widget",
+                w: "<div>hello</div>",
+                width: 800,
+                height: 600,
+              },
+            },
+          },
+        }));
+        return { status: "success", result: "widget response", attachments: [] };
+      },
+      getContextUsageForChat: async () => null,
+    } as any;
+
+    const channel = new WebChannel({ queue: new AgentQueue(), agentPool });
+    channel.broadcastEvent = (type: string, data: unknown) => {
+      events.push({ type, data });
+    };
+
+    const interaction = channel.storeMessage("web:default", "show me a widget", false, []);
+    expect(interaction).not.toBeNull();
+
+    await channel.processChat("web:default", "default");
+
+    const openEvent = events.find((event) => event.type === "generated_widget_open");
+    expect(openEvent).toBeDefined();
+    expect(openEvent?.data?.chat_jid).toBe("web:default");
+    expect(openEvent?.data?.tool_call_id).toBe("widget-tool-1");
+    expect(openEvent?.data?.artifact?.html).toBe("<div>hel");
+
+    const deltaEvent = events.find((event) => event.type === "generated_widget_delta");
+    expect(deltaEvent).toBeDefined();
+    expect(deltaEvent?.data?.width).toBe(800);
+    expect(deltaEvent?.data?.height).toBe(600);
+    expect(deltaEvent?.data?.artifact?.html).toBe("<div>hello</div>");
+
+    const finalEvent = events.find((event) => event.type === "generated_widget_final");
+    expect(finalEvent).toBeDefined();
+    expect(finalEvent?.data?.status).toBe("final");
+    expect(finalEvent?.data?.artifact?.html).toBe("<div>hello</div>");
+
+    restoreEnv();
+  });
+
   test("auto-compaction start/end status events always carry non-empty titles", async () => {
     const ws = getTestWorkspace();
     const restoreEnv = setEnv({
