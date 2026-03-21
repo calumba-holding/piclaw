@@ -7,6 +7,7 @@ import { DEFAULT_AGENT_NAME, getAvatarInfo } from '../ui/agent-utils.js';
 import { getAttachmentPreviewKind } from '../ui/attachment-preview.js';
 import { extractCardBlocks, renderAdaptiveCard } from '../ui/adaptive-card-renderer.js';
 import { buildAdaptiveCardSubmissionFallbackText, describeAdaptiveCardSubmission, extractAdaptiveCardSubmissionBlocks } from '../ui/adaptive-card-submission.js';
+import { buildGeneratedWidgetPayload, canRenderGeneratedWidget } from '../ui/generated-widget.js';
 import { AttachmentPreviewModal } from './attachment-preview-modal.js';
 import { ImageModal } from './image-modal.js';
 import { FilePill } from './file-pill.js';
@@ -212,6 +213,49 @@ function ResourceBlock({ block }) {
                     </div>
                 `}
             `}
+        </div>
+    `;
+}
+
+function GeneratedWidgetLaunch({ block, post, onOpenWidget }) {
+    if (!block) return null;
+
+    const payload = buildGeneratedWidgetPayload(block, post);
+    const supportsRender = canRenderGeneratedWidget(block);
+    const kind = payload?.artifact?.kind || block?.artifact?.kind || block?.kind || null;
+    const title = payload?.title || block.title || block.name || 'Generated widget';
+    const description = payload?.description || block.description || block.subtitle || '';
+    const openLabel = block.open_label || 'Open widget';
+    const launchWidget = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!payload) return;
+        onOpenWidget?.(payload);
+    };
+
+    return html`
+        <div class="generated-widget-launch" onClick=${(e) => e.stopPropagation()}>
+            <div class="generated-widget-launch-header">
+                <div class="generated-widget-launch-eyebrow">Generated widget${kind ? ` • ${String(kind).toUpperCase()}` : ''}</div>
+                <div class="generated-widget-launch-title">${title}</div>
+            </div>
+            ${description && html`<div class="generated-widget-launch-description">${description}</div>`}
+            <div class="generated-widget-launch-actions">
+                <button
+                    class="generated-widget-launch-btn"
+                    type="button"
+                    disabled=${!supportsRender}
+                    onClick=${launchWidget}
+                    title=${supportsRender ? 'Open widget in a floating pane' : 'Unsupported widget artifact'}
+                >
+                    ${openLabel}
+                </button>
+                <span class="generated-widget-launch-note">
+                    ${supportsRender
+                        ? 'Opens in a dismissible floating pane.'
+                        : 'This widget artifact is missing or unsupported.'}
+                </span>
+            </div>
         </div>
     `;
 }
@@ -562,7 +606,7 @@ function highlightHtml(html, query) {
 /**
  * Single post component
  */
-export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMessage, agentName, agentAvatarUrl, userName, userAvatarUrl, userAvatarBackground, onDelete, isThreadReply, isThreadPrev, isThreadNext, isRemoving, highlightQuery, onFileRef }) {
+export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMessage, agentName, agentAvatarUrl, userName, userAvatarUrl, userAvatarBackground, onDelete, isThreadReply, isThreadPrev, isThreadNext, isRemoving, highlightQuery, onFileRef, onOpenWidget }) {
     const [zoomedImage, setZoomedImage] = useState(null);
     const contentRef = useRef(null);
 
@@ -674,6 +718,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
     const attachmentEntries = [];
     const resourceLinks = [];
     const resources = [];
+    const generatedWidgets = [];
     const textAnnotations = [];
     let mediaIndex = 0;
 
@@ -682,7 +727,9 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
             if (block?.type === 'text' && block.annotations) {
                 textAnnotations.push(block.annotations);
             }
-            if (block?.type === 'resource_link') {
+            if (block?.type === 'generated_widget') {
+                generatedWidgets.push(block);
+            } else if (block?.type === 'resource_link') {
                 resourceLinks.push(block);
             } else if (block?.type === 'resource') {
                 resources.push(block);
@@ -949,6 +996,18 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                                 </div>
                             `;
                         })}
+                    </div>
+                `}
+                ${generatedWidgets.length > 0 && html`
+                    <div class="generated-widget-launches">
+                        ${generatedWidgets.map((block, idx) => html`
+                            <${GeneratedWidgetLaunch}
+                                key=${block.widget_id || block.id || `${post.id}-widget-${idx}`}
+                                block=${block}
+                                post=${post}
+                                onOpenWidget=${onOpenWidget}
+                            />
+                        `)}
                     </div>
                 `}
                 ${textAnnotations.length > 0 && html`

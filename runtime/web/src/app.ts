@@ -18,6 +18,7 @@ import { html, render, useState, useEffect, useCallback, useRef, useMemo } from 
 import * as api from './api.js';
 import { ComposeBox } from './components/compose-box.js';
 import { BtwPanel } from './components/btw-panel.js';
+import { FloatingWidgetPane } from './components/floating-widget-pane.js';
 import { AgentRequestModal, AgentStatus } from './components/status.js';
 import { Timeline } from './components/timeline.js';
 import { WorkspaceExplorer } from './components/workspace-explorer.js';
@@ -230,6 +231,7 @@ function MainApp({ locationParams }) {
     const [followupQueueItems, setFollowupQueueItems] = useState([]);
     const [isAgentTurnActive, setIsAgentTurnActive] = useState(false);
     const [btwSession, setBtwSession] = useState(() => loadStoredBtwSession());
+    const [floatingWidget, setFloatingWidget] = useState(null);
     const currentChatAgent = useMemo(
         () => activeChatAgents.find((chat) => chat?.chat_jid === currentChatJid) || null,
         [activeChatAgents, currentChatJid],
@@ -2603,6 +2605,22 @@ function MainApp({ locationParams }) {
         };
     }, [branchLoaderMode, branchLoaderSourceChatJid]);
 
+    const handleOpenFloatingWidget = useCallback((widget) => {
+        if (!widget || typeof widget !== 'object') return;
+        setFloatingWidget({
+            ...widget,
+            openedAt: new Date().toISOString(),
+        });
+    }, []);
+
+    const handleCloseFloatingWidget = useCallback(() => {
+        setFloatingWidget(null);
+    }, []);
+
+    useEffect(() => {
+        setFloatingWidget(null);
+    }, [currentChatJid]);
+
     const handleCreateSessionFromCompose = useCallback(async () => {
         if (typeof window === 'undefined') return;
 
@@ -2887,6 +2905,7 @@ function MainApp({ locationParams }) {
                     onFileRef=${openFileFromPill}
                     onPostClick=${undefined}
                     onDeletePost=${handleDeletePost}
+                    onOpenWidget=${handleOpenFloatingWidget}
                     emptyMessage=${currentHashtag ? `No posts with #${currentHashtag}` : searchQuery ? `No results for "${searchQuery}"` : undefined}
                     agents=${agents}
                     user=${userProfile}
@@ -2910,6 +2929,10 @@ function MainApp({ locationParams }) {
                     onClose=${closeBtwPanel}
                     onRetry=${handleBtwRetry}
                     onInject=${handleBtwInject}
+                />
+                <${FloatingWidgetPane}
+                    widget=${floatingWidget}
+                    onClose=${handleCloseFloatingWidget}
                 />
                 <${ComposeBox}
                     onPost=${() => {
