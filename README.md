@@ -58,6 +58,8 @@ cd /workspace && pi
 >
 > **Experimental for now**: Bun-first, Linux/macOS, and intended to avoid a manual build step, but not yet positioned as the main production install route or a generally supported deployment target.
 >
+> It also runs directly on Windows — and there is even a PowerShell skill — but Windows is **not officially supported**. It technically works, but you're on your own.
+>
 > One reason this path exists is to support people who want to run PiClaw on low-end ARM SBCs, lightweight VMs, or other sandboxed environments where Docker is not the best fit or is not available.
 >
 > The repository root is the install/package boundary. The nested `runtime/` directory is the implementation subtree used by the packaged CLI, web assets, extensions, and skills.
