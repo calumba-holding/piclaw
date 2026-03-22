@@ -15,6 +15,7 @@
  *   - scheduledTasks: /tasks and /scheduled commands for task listing.
  *   - workspaceSearch: search_workspace tool for FTS over workspace files.
  *   - sendAdaptiveCard: send_adaptive_card for agent-owned Adaptive Card posting.
+ *   - sendDashboardWidget: send_dashboard_widget for posting the built-in live dashboard widget.
  *
  * Consumers:
  *   - agent-pool/session.ts passes builtinExtensionFactories to the resource loader.
@@ -31,6 +32,7 @@ import { workspaceSearch } from "./workspace-search.js";
 import { uiThemeExtension } from "./ui-theme.js";
 import { smartCompaction } from "./smart-compaction.js";
 import { sendAdaptiveCard } from "./send-adaptive-card.js";
+import { sendDashboardWidget } from "./send-dashboard-widget.js";
 
 /** Array of all built-in extension factories to register on session creation. */
 export const builtinExtensionFactories: ExtensionFactory[] = [
@@ -45,4 +47,5 @@ export const builtinExtensionFactories: ExtensionFactory[] = [
   uiThemeExtension,
   smartCompaction,
   sendAdaptiveCard,
+  sendDashboardWidget,
 ];

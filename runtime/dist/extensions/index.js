@@ -9,6 +9,7 @@ import { workspaceSearch } from "./workspace-search.js";
 import { uiThemeExtension } from "./ui-theme.js";
 import { smartCompaction } from "./smart-compaction.js";
 import { sendAdaptiveCard } from "./send-adaptive-card.js";
+import { sendDashboardWidget } from "./send-dashboard-widget.js";
 /** Array of all built-in extension factories to register on session creation. */
 export const builtinExtensionFactories = [
     fileAttachments,
@@ -22,4 +23,5 @@ export const builtinExtensionFactories = [
     uiThemeExtension,
     smartCompaction,
     sendAdaptiveCard,
+    sendDashboardWidget,
 ];
