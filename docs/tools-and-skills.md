@@ -31,6 +31,7 @@ Core tools (from `pi`):
 - `open_office_viewer` — open an Office document (`.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.odp`) in the built-in JS Office viewer (`/office-viewer/*`)
 - `open_drawio_editor` — open a `.drawio` diagram file in the self-hosted draw.io editor (creates the file if it doesn't exist)
 - `send_adaptive_card` — post an agent-owned Adaptive Card message in the web UI timeline
+- `send_dashboard_widget` — post the built-in host-backed live dashboard widget to the web UI timeline
 - `exec_batch` — run multiple shell commands and return concise summaries for each
 
 `messages` `search` accepts `query`, `chat_jid` (or `*`/`all`), `role`, `after`, `before`, `since`, `limit`, `offset`, and `details_max_chars` for controlling detail payloads.
@@ -66,7 +67,7 @@ Each skill keeps its script alongside its `SKILL.md` for portability. Current se
 | `playwright` | Local Playwright browser automation |
 | `schedule` | Create/modify scheduled tasks via IPC |
 | `send-message` | Send chat messages immediately via IPC (supports optional `media` attachments via `media` array) |
-| `token-chart` | Generate token usage charts (from `token_usage`) |
+| `token-chart` | Generate token usage charts (from `token_usage`); supports `--mode provider-model` for per-provider/model breakdowns |
 | `graphite-power-chart` | Generate Zigbee/Graphite charts for the web timeline |
 | `web-search` | Search the web via SearXNG and convert pages to Markdown |
 | `web-search-summary` | Search via SearXNG with auto-summarised results |

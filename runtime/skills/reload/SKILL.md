@@ -10,46 +10,43 @@ Reinstall the piclaw package from workspace source and restart the running proce
 immediately. The new process takes over on the same port.
 
 > ⚠️ **Important (container runtime):**
-> The installed runtime package now lives at `/usr/local/lib/bun/install/global/node_modules/piclaw`.
+> Always install to `/usr/local/lib/bun/install/global/node_modules/piclaw`.
 > Do **not** deploy to `/home/agent/.bun/...` in this container, or Supervisor may keep running an older build.
 
 ## Steps
 
-Run the following as a **single bash invocation**:
+Use the repo's canonical Makefile path:
 
 ```bash
-set -euo pipefail
-export BUN_INSTALL="/usr/local/lib/bun"
-export PATH="$BUN_INSTALL/bin:/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+cd /workspace/piclaw && make local-install
+```
 
-# 1. Build
+This is the authoritative reload/install workflow for this project in the container.
+It already does the right thing for this environment:
+
+1. `make build-piclaw` — builds vendor assets, web bundles, and TypeScript
+2. `bun pm pack` — creates a tarball from `/workspace/piclaw/runtime`
+3. installs the package into the active global Bun runtime under `/usr/local/lib/bun`
+4. restarts piclaw using the detected local service manager
+
+### Useful variants
+
+Build only:
+
+```bash
 cd /workspace/piclaw && make build-piclaw
+```
 
-# 2. Pack and install to the active global runtime path
-cd /workspace/piclaw
-bun pm pack --destination /tmp
-TARBALL=$(ls -t /tmp/piclaw-*.tgz | head -1)
-DEST_REAL="$BUN_INSTALL/install/global/node_modules/piclaw"
-sudo rm -rf "$DEST_REAL"
-sudo mkdir -p "$DEST_REAL"
-sudo tar -xzf "$TARBALL" -C "$DEST_REAL" --strip-components=1
-rm -f "$TARBALL"
-cd "$DEST_REAL" && sudo BUN_INSTALL_CACHE_DIR=/tmp/bun-cache bun install --production || true
-if [ -d "$DEST_REAL/extensions" ] && [ -d "$DEST_REAL/node_modules" ]; then
-  sudo ln -sfn "$DEST_REAL/node_modules" "$DEST_REAL/extensions/node_modules" 2>/dev/null || true
-fi
+Build vendor bundle only:
 
-# 3. Quick sanity check: show where piclaw resolves from
-PICLAW_BIN=$(command -v piclaw || true)
-echo "piclaw binary: ${PICLAW_BIN:-not found}"
-[ -n "$PICLAW_BIN" ] && readlink -f "$PICLAW_BIN" || true
+```bash
+cd /workspace/piclaw && make vendor
+```
 
-# 4. Launch restart (self-detaches + waits for current turn to finish)
-#    Logs stream to /tmp/restart-piclaw-force.log by default.
-PICLAW_RELOAD_LOG=/tmp/restart-piclaw-force.log \
-  /workspace/.pi/skills/reload/restart-piclaw.sh
+Restart only (after install is already done):
 
-echo "Reload scheduled. Check /tmp/restart-piclaw-force.log for status."
+```bash
+cd /workspace/piclaw && make restart
 ```
 
 ## How It Works
@@ -67,6 +64,8 @@ piclaw through it. Detection order (first match wins):
 Before restarting, the script:
 1. Waits (up to 120s) for the active agent turn to finish by polling `/agent/status`
 2. Queues a `resume_pending` IPC task so interrupted turns can resume after restart
+
+This recovery path is intended to work the same under Supervisor and `systemd --user`: once piclaw is back up, startup recovery plus the IPC watcher use the persisted SQLite + `PICLAW_DATA/ipc/tasks` state to resume pending work.
 
 ### Supervisor path (default in Docker containers)
 
@@ -106,7 +105,8 @@ command with `-- piclaw --port 8080`.
 
 ## Important Notes
 
+- Prefer `make local-install` over hand-written pack/install/restart command sequences.
 - Bun and piclaw are installed globally under `/usr/local/lib/bun` (root-owned).
-- The script logs the detected service manager and resolved `piclaw` binary path for easier debugging.
+- The Makefile delegates restart behavior to the local service-manager-aware flow (`make restart` / `restart-piclaw.sh`).
 - WhatsApp session state persists across restarts (stored in SQLite + auth dir).
 - Check `/tmp/restart-piclaw-force.log` if something goes wrong.
