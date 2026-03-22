@@ -72,7 +72,7 @@ export function FloatingWidgetPane({ widget, onClose, onWidgetEvent }) {
     }, [widget, srcDoc]);
 
     useEffect(() => {
-        if (!widget || !frameLoadedRef.current) return undefined;
+        if (!widget) return undefined;
         const iframe = frameRef.current;
         if (!iframe?.contentWindow) return undefined;
         try {
