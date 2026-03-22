@@ -517,20 +517,25 @@ function normalizeMathFences(text) {
     return output.join('\n');
 }
 
-/** Render markdown text to sanitised HTML with syntax highlighting. */
-export function renderMarkdown(text, onHashtagClick, options = {}) {
-    if (!text) return '';
-
-    const normalizedMath = normalizeMathFences(text);
+export function prepareMarkdownSource(text) {
+    const normalizedMath = normalizeMathFences(text || '');
     const { text: stripped, blocks: mermaidBlocks } = extractMermaidBlocks(normalizedMath);
 
     // Decode HTML entities first (in case content has encoded entities)
     const decoded = decodeEntitiesDeep(stripped, 2);
     const normalized = normalizeHtmlCodeTags(decoded);
     const escaped = normalized
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+        .replace(/</g, '&lt;');
     const safeHtml = restoreAllowedHtmlTags(escaped);
+
+    return { safeHtml, mermaidBlocks };
+}
+
+/** Render markdown text to sanitised HTML with syntax highlighting. */
+export function renderMarkdown(text, onHashtagClick, options = {}) {
+    if (!text) return '';
+
+    const { safeHtml, mermaidBlocks } = prepareMarkdownSource(text);
 
     // Render markdown to HTML (preserve escaped HTML)
     let html_content = window.marked

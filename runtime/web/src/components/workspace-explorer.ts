@@ -32,17 +32,10 @@ const isHiddenNode = (node) => {
     return node.name.startsWith('.');
 };
 
-const LIKELY_EDITABLE_FILE_EXTENSIONS = [
-    '.md', '.markdown', '.txt', '.ts', '.tsx', '.js', '.jsx', '.json', '.jsonl',
-    '.css', '.scss', '.html', '.htm', '.yaml', '.yml', '.sql', '.sqlite', '.xml',
-    '.svg', '.plist', '.sh', '.bash', '.zsh', '.py', '.go', '.toml', '.ini',
-    '.conf', '.cfg', '.env', '.gitignore', '.dockerignore', '.editorconfig',
-];
-
-function isLikelyEditableWorkspacePath(path) {
-    const normalized = String(path || '').trim().toLowerCase();
+function hasOpenableWorkspaceTab(path) {
+    const normalized = String(path || '').trim();
     if (!normalized || normalized.endsWith('/')) return false;
-    return LIKELY_EDITABLE_FILE_EXTENSIONS.some((suffix) => normalized.endsWith(suffix));
+    return Boolean(paneRegistry.resolve({ path: normalized, mode: 'edit' }));
 }
 
 // ── Tree data helpers ─────────────────────────────────────────────────────────
@@ -1419,8 +1412,8 @@ export function WorkspaceExplorer({
             setSelectedPath(clickedPath);
             const node = nodeMapRef.current.get(clickedPath);
             if (node) onFileSelectRef.current?.(node.path, node);
-            const shouldOpenEditor = !isActionClick && !isCaretClick && isLikelyEditableWorkspacePath(clickedPath);
-            if (shouldOpenEditor) {
+            const shouldOpenInTab = !isActionClick && !isCaretClick && hasOpenableWorkspaceTab(clickedPath);
+            if (shouldOpenInTab) {
                 onOpenEditorRef.current?.(clickedPath, previewRef.current);
             } else {
                 loadPreviewRef.current?.(clickedPath);
