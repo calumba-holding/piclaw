@@ -6,6 +6,11 @@ distribution: private
 
 # Export timeline PDF
 
+> ⚠️ Currently unsupported in this environment.
+>
+> This export path depends on server-side components that are not available here,
+> so it should not be treated as a supported/default workflow right now.
+
 Export chat history from the message database (`PICLAW_STORE/messages.db`) into a PDF using the web UI CSS and Markdown renderer.
 
 ## Steps
