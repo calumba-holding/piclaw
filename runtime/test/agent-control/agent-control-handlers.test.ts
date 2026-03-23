@@ -7,12 +7,30 @@
  */
 
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { existsSync, mkdirSync, readdirSync, rmSync, truncateSync, writeFileSync } from "fs";
-import { dirname, join } from "path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, truncateSync, writeFileSync } from "fs";
+import { dirname, join, resolve } from "path";
 import { withChatContext } from "../../src/core/chat-context.js";
 import { getTestWorkspace, setEnv } from "../helpers.js";
 
 let restoreEnv: (() => void) | null = null;
+
+// ── Config fixture ──────────────────────────────────────────────
+// Tests that call applyControlCommand with agent_avatar / user_github
+// write to the real PICLAW_CONFIG_PATH. Save and restore around all tests.
+const CONFIG_PATH = resolve(process.env.PICLAW_WORKSPACE || "/workspace", ".piclaw", "config.json");
+let savedConfig: string | null = null;
+
+function saveConfig() {
+  try { savedConfig = readFileSync(CONFIG_PATH, "utf-8"); } catch { savedConfig = null; }
+}
+
+function restoreConfig() {
+  if (savedConfig !== null) {
+    mkdirSync(dirname(CONFIG_PATH), { recursive: true });
+    writeFileSync(CONFIG_PATH, savedConfig, "utf-8");
+  }
+  savedConfig = null;
+}
 
 function cleanupRotatedSessionArtifacts(): void {
   const cwd = process.cwd();
@@ -23,11 +41,13 @@ function cleanupRotatedSessionArtifacts(): void {
 }
 
 beforeEach(() => {
+  saveConfig();
   cleanupRotatedSessionArtifacts();
 });
 
 afterEach(() => {
   cleanupRotatedSessionArtifacts();
+  restoreConfig();
   restoreEnv?.();
   restoreEnv = null;
 });

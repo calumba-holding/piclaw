@@ -2390,4 +2390,5 @@ This archives the branch agent and removes it from the branch picker. Chat histo
         </div>
     `}function oK(){let[_,$]=c(()=>typeof window>"u"?"http://localhost/":window.location.href);p(()=>{if(typeof window>"u")return;let Z=()=>$(window.location.href);return window.addEventListener("popstate",Z),()=>window.removeEventListener("popstate",Z)},[]);let j=x((Z,Y={})=>{if(typeof window>"u")return;let{replace:K=!1}=Y||{},Q=new URL(String(Z||""),window.location.href).toString();if(K)window.history.replaceState(null,"",Q);else window.history.pushState(null,"",Q);$(window.location.href)},[]),N=y0(()=>new URL(_).searchParams,[_]);return z`<${rK} locationParams=${N} navigate=${j} />`}A3(z`<${oK} />`,document.getElementById("app"));
 
-//# debugId=BA6771757AA4B4E764756E2164756E21
+//# debugId=EF82BA94FA2782D364756E2164756E21
+//# sourceMappingURL=app.bundle.js.map

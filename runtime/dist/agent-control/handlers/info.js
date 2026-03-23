@@ -189,19 +189,20 @@ export async function handleCommands(session, _command) {
     }
     const extensionRunner = session.extensionRunner;
     if (extensionRunner) {
-        const extCommands = extensionRunner.getRegisteredCommandsWithPaths();
-        const isPiBuiltin = (extensionPath) => {
-            if (!extensionPath)
+        const extCommands = extensionRunner.getRegisteredCommands();
+        const isPiBuiltin = (path) => {
+            if (!path)
                 return false;
-            return extensionPath.includes("node_modules/@mariozechner/pi-");
+            return path.includes("node_modules/@mariozechner/pi-");
         };
         for (const entry of extCommands) {
-            const name = entry.command?.name;
+            const name = entry.invocationName || entry.name;
             if (!name)
                 continue;
-            const description = entry.command.description || `extension (${entry.extensionPath})`;
-            const source = isPiBuiltin(entry.extensionPath) ? "pi-extension" : "extension";
-            addEntry(`/${name}`, description, source, entry.extensionPath || undefined);
+            const entryPath = entry.sourceInfo?.path;
+            const description = entry.description || `extension (${entryPath || "unknown"})`;
+            const source = isPiBuiltin(entryPath) ? "pi-extension" : "extension";
+            addEntry(`/${name}`, description, source, entryPath || undefined);
         }
     }
     for (const template of session.promptTemplates) {
