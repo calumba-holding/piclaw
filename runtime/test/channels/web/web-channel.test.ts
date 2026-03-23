@@ -378,6 +378,32 @@ test("web channel renames a registry-backed chat branch", async () => {
   expect(db.getChatBranchByAgentName("research-lead")?.chat_jid).toBe("web:default:branch:1");
 });
 
+test("web channel rename rejects missing agent_name", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats; DELETE FROM chat_cursors; DELETE FROM chat_branches;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Default");
+
+  const webMod = await import("../../../src/channels/web.js");
+  const web = new (webMod.WebChannel as any)({
+    queue: { enqueue: async (fn: () => Promise<void>) => fn() },
+    agentPool: { setSessionBinder: () => {} },
+  });
+
+  const res = await web.handleAgentBranchRename(new Request("https://e.test/agent/branch-rename", {
+    method: "POST",
+    body: JSON.stringify({ chat_jid: "web:default" }),
+    headers: { "Content-Type": "application/json" },
+  }));
+  expect(res.status).toBe(400);
+  const json = await res.json();
+  expect(json.error).toContain("Missing agent_name");
+});
+
 test("web channel prunes a registry-backed chat branch", async () => {
   const ws = createTempWorkspace("piclaw-web-channel-");
   cleanupWorkspace = ws.cleanup;

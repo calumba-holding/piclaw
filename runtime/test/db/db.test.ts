@@ -94,6 +94,63 @@ test("chat branch registry supports deliberate branch renames", () => {
   );
 });
 
+test("chat branch registry derives handle from chatJid when no agent_name given", () => {
+  const rootChatJid = `web:test-derive-${Date.now()}`;
+  db.storeChatMetadata(rootChatJid, new Date().toISOString(), "Root");
+
+  const branch = db.ensureChatBranch({
+    chat_jid: `${rootChatJid}:branch:my-research`,
+    root_chat_jid: rootChatJid,
+  });
+  expect(branch.agent_name).toBe("my-research");
+  expect(branch.display_name).toBeNull();
+});
+
+test("chat branch registry rejects rename with empty handle", () => {
+  const rootChatJid = `web:test-empty-${Date.now()}`;
+  db.storeChatMetadata(rootChatJid, new Date().toISOString(), "Root");
+  const branch = db.ensureChatBranch({
+    chat_jid: `${rootChatJid}:branch:valid`,
+    root_chat_jid: rootChatJid,
+    agent_name: "valid-name",
+  });
+
+  expect(() => db.renameChatBranchIdentity({
+    chat_jid: branch.chat_jid,
+    agent_name: "",
+  })).toThrow(/letter or number/);
+
+  expect(() => db.renameChatBranchIdentity({
+    chat_jid: branch.chat_jid,
+    agent_name: "---",
+  })).toThrow(/letter or number/);
+});
+
+test("chat branch registry always writes null display_name", () => {
+  const rootChatJid = `web:test-null-dn-${Date.now()}`;
+  db.storeChatMetadata(rootChatJid, new Date().toISOString(), "Root");
+
+  const branch = db.ensureChatBranch({
+    chat_jid: `${rootChatJid}:branch:check`,
+    root_chat_jid: rootChatJid,
+    agent_name: "check-agent",
+  });
+  expect(branch.display_name).toBeNull();
+
+  const renamed = db.renameChatBranchIdentity({
+    chat_jid: branch.chat_jid,
+    agent_name: "renamed-agent",
+  });
+  expect(renamed.display_name).toBeNull();
+
+  const archived = db.archiveChatBranch(branch.chat_jid);
+  const restored = db.restoreChatBranchIdentity({
+    chat_jid: archived.chat_jid,
+    agent_name: "restored-agent",
+  });
+  expect(restored.display_name).toBeNull();
+});
+
 test("chat branch registry supports pruning non-root branches", () => {
   const rootChatJid = `web:test-prune-${Date.now()}`;
   db.storeChatMetadata(rootChatJid, new Date().toISOString(), "Root");
