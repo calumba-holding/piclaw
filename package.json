@@ -36,8 +36,6 @@
     "build:vendor:terminal-fonts": "cd runtime && bun run scripts/vendor-firacode-nerd-font.ts",
     "build:vendor:ghostty-web": "cd runtime && bun run scripts/build-vendored-dependency.ts --manifest vendor-manifests/ghostty-web.json",
     "build:vendor:remote-display-decoder": "cd runtime && bun run scripts/build-remote-display-decoder-wasm.ts",
-    "build:vendor:zetajs": "cd runtime && bun run scripts/build-vendored-dependency.ts --manifest vendor-manifests/zetajs.json",
-    "build:vendor:zetaoffice-wasm": "cd runtime && bun run scripts/vendor-zetaoffice-wasm.ts",
     "build:vendor:office-viewer": "cd runtime && bun run scripts/vendor-office-viewer.ts",
     "build:vendor:drawio": "cd runtime && bun run scripts/vendor-drawio.ts",
     "build:vendor": "bun run build:vendor:mermaid && bun run build:vendor:codemirror && bun run build:vendor:preact-htm && bun run build:vendor:marked && bun run build:vendor:katex && bun run build:vendor:katex-assets && bun run build:vendor:terminal-fonts && bun run build:vendor:ghostty-web && bun run build:vendor:remote-display-decoder && bun run build:vendor:office-viewer && bun run build:vendor:drawio",
@@ -78,7 +76,6 @@
     "preact": "10.29.0",
     "qrcode-terminal": "0.12.0",
     "xlsx": "^0.18.5",
-    "zetajs": "1.2.0"
   },
   "devDependencies": {
     "@assemblyscript/loader": "^0.28.10",

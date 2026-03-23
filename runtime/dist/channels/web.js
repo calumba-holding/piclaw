@@ -829,11 +829,9 @@ export class WebChannel {
             ? payload.source_chat_jid.trim()
             : DEFAULT_CHAT_JID;
         const agentName = typeof payload?.agent_name === "string" ? payload.agent_name.trim() : "";
-        const displayName = typeof payload?.display_name === "string" ? payload.display_name.trim() : "";
         try {
             const branch = await this.agentPool.createForkedChatBranch?.(sourceChatJid, {
                 agentName: agentName || null,
-                displayName: displayName || null,
             });
             if (!branch) {
                 return this.json({ error: "Branch forking is not available." }, 501);
@@ -858,14 +856,12 @@ export class WebChannel {
             ? payload.chat_jid.trim()
             : DEFAULT_CHAT_JID;
         const hasAgentName = typeof payload?.agent_name === "string";
-        const hasDisplayName = typeof payload?.display_name === "string";
-        if (!hasAgentName && !hasDisplayName) {
-            return this.json({ error: "Missing agent_name or display_name" }, 400);
+        if (!hasAgentName) {
+            return this.json({ error: "Missing agent_name" }, 400);
         }
         try {
             const branch = await this.agentPool.renameChatBranch?.(chatJid, {
-                ...(hasAgentName ? { agentName: payload.agent_name ?? null } : {}),
-                ...(hasDisplayName ? { displayName: payload.display_name ?? null } : {}),
+                agentName: payload.agent_name ?? null,
             });
             if (!branch) {
                 return this.json({ error: "Branch renaming is not available." }, 501);
@@ -922,7 +918,6 @@ export class WebChannel {
         try {
             const branch = await this.agentPool.restoreChatBranch?.(chatJid, {
                 ...(typeof payload?.agent_name === "string" ? { agentName: payload.agent_name } : {}),
-                ...(typeof payload?.display_name === "string" ? { displayName: payload.display_name } : {}),
             });
             if (!branch) {
                 return this.json({ error: "Branch restore is not available." }, 501);

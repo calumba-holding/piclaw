@@ -98,7 +98,6 @@ export function storeChatMetadata(chatJid, timestamp, name) {
     }
     ensureChatBranch({
         chat_jid: chatJid,
-        display_name: typeof name === "string" && name.trim() ? name.trim() : null,
     });
 }
 /**

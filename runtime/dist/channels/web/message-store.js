@@ -7,7 +7,7 @@
  *
  * Consumers: web/posts-service.ts, web/agent-message-service.ts.
  */
-import { attachMediaToMessage, clampWebContent, createMedia, getDb, getMediaInfoById, getMessageByRowId, storeChatMetadata, storeMessage, } from "../../db.js";
+import { attachMediaToMessage, clampWebContent, createMedia, getChatBranchByChatJid, getDb, getMediaInfoById, getMessageByRowId, storeChatMetadata, storeMessage, } from "../../db.js";
 import { getWebPreviewMaxChars, shouldPreviewWebContent } from "../../db/web-content.js";
 import { scheduleLinkPreviews } from "./link-previews.js";
 import { createUuid } from "../../utils/ids.js";
@@ -83,7 +83,7 @@ export function storeWebMessage(channel, params, options = {}) {
     if (!params.isBot && (options.threadId === null || options.threadId === undefined)) {
         getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(rowId, rowId);
     }
-    storeChatMetadata(params.chatJid, msg.timestamp, "Web");
+    storeChatMetadata(params.chatJid, msg.timestamp, getChatBranchByChatJid(params.chatJid)?.agent_name || undefined);
     const interaction = getMessageByRowId(params.chatJid, rowId);
     if (interaction) {
         interaction.data.agent_id = params.agentId;

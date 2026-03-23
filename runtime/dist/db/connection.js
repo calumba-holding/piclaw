@@ -58,7 +58,6 @@ function createSchema(database) {
       root_chat_jid TEXT NOT NULL,
       parent_branch_id TEXT,
       agent_name TEXT NOT NULL,
-      display_name TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       archived_at TEXT,
@@ -475,17 +474,16 @@ function ensureChatBranchConstraints(database) {
           root_chat_jid TEXT NOT NULL,
           parent_branch_id TEXT,
           agent_name TEXT NOT NULL,
-          display_name TEXT,
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL,
           archived_at TEXT,
           FOREIGN KEY (chat_jid) REFERENCES chats(jid)
         );
         INSERT INTO chat_branches__migrated (
-          branch_id, chat_jid, root_chat_jid, parent_branch_id, agent_name, display_name, created_at, updated_at, archived_at
+          branch_id, chat_jid, root_chat_jid, parent_branch_id, agent_name, created_at, updated_at, archived_at
         )
         SELECT
-          branch_id, chat_jid, root_chat_jid, parent_branch_id, agent_name, display_name, created_at, updated_at, archived_at
+          branch_id, chat_jid, root_chat_jid, parent_branch_id, agent_name, created_at, updated_at, archived_at
         FROM chat_branches;
         DROP TABLE chat_branches;
         ALTER TABLE chat_branches__migrated RENAME TO chat_branches;
@@ -616,6 +614,18 @@ export function initDatabase() {
     ensureFts(db);
     ensureChatCursorFailedColumns(db);
     migrateChatCursors(db);
+    dropChatBranchDisplayName(db);
+}
+/**
+ * One-time migration: drop the legacy display_name column from chat_branches.
+ * Branch identity is now defined entirely by agent_name.
+ * Safe to re-run: checks column existence via PRAGMA table_info first.
+ */
+function dropChatBranchDisplayName(database) {
+    const cols = database.prepare("PRAGMA table_info(chat_branches)").all();
+    if (!cols.some((c) => c.name === "display_name"))
+        return;
+    database.exec("ALTER TABLE chat_branches DROP COLUMN display_name");
 }
 /**
  * Return the singleton Database instance.

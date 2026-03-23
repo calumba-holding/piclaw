@@ -5,7 +5,7 @@
  * Downloads the draw.war file from jgraph/drawio releases, extracts the
  * minimal webapp files needed for embed mode, and writes metadata.
  *
- * Pattern follows vendor-zetaoffice-wasm.ts / vendor-firacode-nerd-font.ts.
+ * Pattern follows vendor-firacode-nerd-font.ts.
  */
 
 import { createHash } from "node:crypto";
