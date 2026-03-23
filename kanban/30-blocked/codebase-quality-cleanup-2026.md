@@ -62,14 +62,14 @@ All must be completed before this ticket can close.
 
 These are desirable but not required to close this ticket:
 
-| Priority | Item |
-|---|---|
-| P2 | Adopt pino structured logging (replace 127 console.* calls) |
-| P2 | Group `channels/web/` 54 flat files into sub-directories |
-| P2 | Extract `core/config.ts` 45 constants into typed config objects |
-| P3 | Split `web/src/app.ts` (3,571 lines) |
-| P3 | Split `web/static/css/styles.css` (5,942 lines) |
-| P3 | Fix `ipc.ts → MediaService` dependency direction violation |
+| Priority | Ticket | Item |
+|---|---|---|
+| P2 | `adopt-pino-structured-logging` | Replace 127 console.* calls with pino |
+| P2 | `group-web-channel-flat-files` | Group 54 flat files into sub-directories |
+| P2 | `extract-typed-config-objects` | Extract 45 constants into typed config objects |
+| P3 | — | Split `web/src/app.ts` (3,571 lines) |
+| P3 | — | Split `web/static/css/styles.css` (5,942 lines) |
+| P3 | — | Fix `ipc.ts → MediaService` dependency direction violation |
 
 ## Completion criteria
 
