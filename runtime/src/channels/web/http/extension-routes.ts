@@ -6,7 +6,7 @@
  * prefix and dispatched before the 404 fallback in the request router.
  *
  * Use cases:
- *   - Serve WASM builds with COOP/COEP headers (e.g., ZetaOffice viewer)
+ *   - Serve WASM builds with COOP/COEP headers
  *   - Custom webhooks / API endpoints
  *   - Static asset serving with custom caching / headers
  *
