@@ -37,6 +37,13 @@ export type RemoteDisplayRect =
         y: number;
         width: number;
         height: number;
+      }
+    | {
+        kind: 'pipeline';
+        x: number;
+        y: number;
+        width: number;
+        height: number;
       };
 
 export type RemoteDisplayProtocolEvent =

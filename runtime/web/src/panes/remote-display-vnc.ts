@@ -427,6 +427,7 @@ function parseZrleRect(bytes, offset, width, height, pixelFormat, decodeRawRect,
     return {
         consumed: 4 + compressedLength,
         rgba,
+        decompressed: decoded,
     };
 }
 
@@ -437,6 +438,9 @@ function parseRreRect(bytes, offset, width, height, pixelFormat) {
 
     const view = new DataView(bytes.buffer, bytes.byteOffset + offset, bytes.byteLength - offset);
     const subrectCount = view.getUint32(0, false);
+    const totalSize = 4 + bytesPerPixel + subrectCount * (bytesPerPixel + 8);
+    if (bytes.byteLength < offset + totalSize) return null;
+
     let cursor = offset + 4;
     const background = decodePixelToRgba(bytes, cursor, format);
     if (!background) return null;
@@ -552,6 +556,7 @@ export class VncRemoteDisplayProtocol implements RemoteDisplayProtocolAdapter {
     constructor(options = {}) {
         this.shared = options.shared !== false;
         this.decodeRawRect = typeof options.decodeRawRect === 'function' ? options.decodeRawRect : decodeRawRectToRgba;
+        this.pipeline = options.pipeline || null;
         this.encodings = normalizeEncodings(options.encodings || null);
         this.state = 'version';
         this.buffer = new Uint8Array(0);
@@ -707,6 +712,9 @@ export class VncRemoteDisplayProtocol implements RemoteDisplayProtocolAdapter {
                 this.serverPixelFormat = parsePixelFormat(fixedView, 4);
                 this.serverName = bytesToAscii(this.consume(nameLength));
                 this.state = 'connected';
+                if (this.pipeline) {
+                    this.pipeline.initFramebuffer(this.framebufferWidth, this.framebufferHeight);
+                }
                 outgoing.push(encodePixelFormat(this.clientPixelFormat));
                 outgoing.push(buildSetEncodings(this.encodings));
                 outgoing.push(buildFramebufferUpdateRequest(false, this.framebufferWidth, this.framebufferHeight));
@@ -732,6 +740,7 @@ export class VncRemoteDisplayProtocol implements RemoteDisplayProtocolAdapter {
                     let offset = 4;
                     const rects: RemoteDisplayRect[] = [];
                     let incomplete = false;
+                    const usePipeline = !!this.pipeline;
                     for (let i = 0; i < numberOfRectangles; i += 1) {
                         if (this.buffer.byteLength < offset + 12) {
                             incomplete = true;
@@ -744,6 +753,8 @@ export class VncRemoteDisplayProtocol implements RemoteDisplayProtocolAdapter {
                         const height = rectView.getUint16(6, false);
                         const encoding = rectView.getInt32(8, false);
                         offset += 12;
+
+                        // ── Raw (0) ──────────────────────────────
                         if (encoding === 0) {
                             const bytesPerPixel = Math.max(1, Math.floor(Number(this.clientPixelFormat.bitsPerPixel || 0) / 8));
                             const dataLength = width * height * bytesPerPixel;
@@ -753,26 +764,38 @@ export class VncRemoteDisplayProtocol implements RemoteDisplayProtocolAdapter {
                             }
                             const raw = this.buffer.slice(offset, offset + dataLength);
                             offset += dataLength;
-                            rects.push({
-                                kind: 'rgba',
-                                x,
-                                y,
-                                width,
-                                height,
-                                rgba: this.decodeRawRect(raw, width, height, this.clientPixelFormat),
-                            });
+                            if (usePipeline) {
+                                this.pipeline.processRawRect(raw, x, y, width, height, this.clientPixelFormat);
+                                rects.push({ kind: 'pipeline', x, y, width, height });
+                            } else {
+                                rects.push({
+                                    kind: 'rgba',
+                                    x, y, width, height,
+                                    rgba: this.decodeRawRect(raw, width, height, this.clientPixelFormat),
+                                });
+                            }
                             continue;
                         }
+
+                        // ── RRE (2) ──────────────────────────────
                         if (encoding === 2) {
                             const rre = parseRreRect(this.buffer, offset, width, height, this.clientPixelFormat);
                             if (!rre) {
                                 incomplete = true;
                                 break;
                             }
+                            if (usePipeline) {
+                                const rreData = this.buffer.slice(offset, offset + rre.consumed);
+                                this.pipeline.processRreRect(rreData, x, y, width, height, this.clientPixelFormat);
+                                rects.push({ kind: 'pipeline', x, y, width, height });
+                            } else {
+                                rects.push({ kind: 'rgba', x, y, width, height, rgba: rre.rgba });
+                            }
                             offset += rre.consumed;
-                            rects.push({ kind: 'rgba', x, y, width, height, rgba: rre.rgba });
                             continue;
                         }
+
+                        // ── CopyRect (1) ─────────────────────────
                         if (encoding === 1) {
                             if (this.buffer.byteLength < offset + 4) {
                                 incomplete = true;
@@ -782,9 +805,16 @@ export class VncRemoteDisplayProtocol implements RemoteDisplayProtocolAdapter {
                             const srcX = copyView.getUint16(0, false);
                             const srcY = copyView.getUint16(2, false);
                             offset += 4;
-                            rects.push({ kind: 'copy', x, y, width, height, srcX, srcY });
+                            if (usePipeline) {
+                                this.pipeline.processCopyRect(x, y, width, height, srcX, srcY);
+                                rects.push({ kind: 'pipeline', x, y, width, height });
+                            } else {
+                                rects.push({ kind: 'copy', x, y, width, height, srcX, srcY });
+                            }
                             continue;
                         }
+
+                        // ── ZRLE (16) ────────────────────────────
                         if (encoding === 16) {
                             const zrle = parseZrleRect(this.buffer, offset, width, height, this.clientPixelFormat, this.decodeRawRect, this.inflateZrle);
                             if (!zrle) {
@@ -792,25 +822,41 @@ export class VncRemoteDisplayProtocol implements RemoteDisplayProtocolAdapter {
                                 break;
                             }
                             offset += zrle.consumed;
-                            if (zrle.skipped) {
-                                continue;
+                            if (zrle.skipped) continue;
+                            if (usePipeline && zrle.decompressed) {
+                                this.pipeline.processZrleTileData(zrle.decompressed, x, y, width, height, this.clientPixelFormat);
+                                rects.push({ kind: 'pipeline', x, y, width, height });
+                            } else {
+                                rects.push({ kind: 'rgba', x, y, width, height, rgba: zrle.rgba });
                             }
-                            rects.push({ kind: 'rgba', x, y, width, height, rgba: zrle.rgba });
                             continue;
                         }
+
+                        // ── Hextile (5) ──────────────────────────
                         if (encoding === 5) {
                             const hextile = parseHextileRect(this.buffer, offset, width, height, this.clientPixelFormat, this.decodeRawRect);
                             if (!hextile) {
                                 incomplete = true;
                                 break;
                             }
+                            if (usePipeline) {
+                                const hextileData = this.buffer.slice(offset, offset + hextile.consumed);
+                                this.pipeline.processHextileRect(hextileData, x, y, width, height, this.clientPixelFormat);
+                                rects.push({ kind: 'pipeline', x, y, width, height });
+                            } else {
+                                rects.push({ kind: 'rgba', x, y, width, height, rgba: hextile.rgba });
+                            }
                             offset += hextile.consumed;
-                            rects.push({ kind: 'rgba', x, y, width, height, rgba: hextile.rgba });
                             continue;
                         }
+
+                        // ── DesktopSize (-223) ───────────────────
                         if (encoding === -223) {
                             this.framebufferWidth = width;
                             this.framebufferHeight = height;
+                            if (usePipeline) {
+                                this.pipeline.initFramebuffer(width, height);
+                            }
                             rects.push({ kind: 'resize', x, y, width, height });
                             continue;
                         }
@@ -818,13 +864,19 @@ export class VncRemoteDisplayProtocol implements RemoteDisplayProtocolAdapter {
                     }
                     if (incomplete) break;
                     this.consume(offset);
-                    events.push({
+
+                    // If pipeline mode, attach the WASM framebuffer snapshot
+                    const event: any = {
                         type: 'framebuffer-update',
                         protocol: PROTOCOL,
                         width: this.framebufferWidth,
                         height: this.framebufferHeight,
                         rects,
-                    });
+                    };
+                    if (usePipeline) {
+                        event.framebuffer = this.pipeline.getFramebuffer();
+                    }
+                    events.push(event);
                     outgoing.push(buildFramebufferUpdateRequest(true, this.framebufferWidth, this.framebufferHeight));
                     progressed = true;
                     continue;

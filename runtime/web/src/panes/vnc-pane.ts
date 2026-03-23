@@ -753,9 +753,12 @@ class VncPaneInstance implements PaneInstance {
 
         const selectedEncodings = preferredEncodings == null ? null : String(preferredEncodings).trim();
         const wasmDecoder = await loadRemoteDisplayWasmDecoder();
-        const protocolOptions = wasmDecoder ? {
-            decodeRawRect: (bytes, width, height, pixelFormat) => wasmDecoder(bytes, width, height, pixelFormat),
-        } : {};
+        const protocolOptions: any = {};
+        if (wasmDecoder) {
+            protocolOptions.pipeline = wasmDecoder;
+            protocolOptions.decodeRawRect = (bytes, width, height, pixelFormat) =>
+                wasmDecoder.decodeRawRectToRgba(bytes, width, height, pixelFormat);
+        }
         const normalizedPassword = normalizeVncPassword(this.authPassword);
         if (normalizedPassword !== null) {
             protocolOptions.password = normalizedPassword;
