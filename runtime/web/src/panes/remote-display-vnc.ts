@@ -258,6 +258,7 @@ function decodePixelToRgba(bytes, offset, pixelFormat) {
 }
 
 function fillRgbaRect(surface, surfaceWidth, x, y, width, height, rgba) {
+    if (!rgba) return;
     for (let row = 0; row < height; row += 1) {
         for (let col = 0; col < width; col += 1) {
             const dst = ((y + row) * surfaceWidth + (x + col)) * 4;
@@ -334,7 +335,7 @@ function parseZrleRect(bytes, offset, width, height, pixelFormat, decodeRawRect,
                 continue;
             }
 
-            if (!runLengthEncoded && paletteSize > 1) {
+            if (!runLengthEncoded && paletteSize > 1 && paletteSize <= 16) {
                 const palette = [];
                 for (let i = 0; i < paletteSize; i += 1) {
                     const color = decodePixelToRgba(decoded, cursor, format);
@@ -420,7 +421,12 @@ function parseZrleRect(bytes, offset, width, height, pixelFormat, decodeRawRect,
                 continue;
             }
 
-            return null;
+            // Unknown or unused ZRLE subencoding — cannot decode this tile.
+            // Skip the entire rect rather than blocking the connection.
+            return {
+                consumed: 4 + compressedLength,
+                skipped: true,
+            };
         }
     }
 

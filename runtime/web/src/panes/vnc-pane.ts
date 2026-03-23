@@ -730,7 +730,7 @@ class VncPaneInstance implements PaneInstance {
                 clearTimeout(this.frameTimeoutId);
                 this.frameTimeoutId = null;
             }
-            if (!this.rawFallbackAttempted && !this.protocolRecovering && /unexpected eof|zlib|decompress|protocol|buffer/i.test(message)) {
+            if (!this.rawFallbackAttempted && !this.protocolRecovering && /unexpected eof|zlib|decompress|protocol|buffer|undefined|not an object|reading '0'/i.test(message)) {
                 this.rawFallbackAttempted = true;
                 this.protocolRecovering = true;
                 void this.connectWithEncodings('0');
