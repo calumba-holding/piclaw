@@ -646,21 +646,40 @@ class VncPaneInstance implements PaneInstance {
                     this.frameTimeoutId = null;
                 }
                 let painted = false;
-                for (const rect of event.rects || []) {
-                    if (rect.kind === 'resize') {
-                        this.ensureCanvasSize(rect.width, rect.height);
-                        continue;
+
+                // Pipeline mode: WASM owns the full framebuffer — paint it in one
+                // putImageData call instead of iterating individual rects.
+                if (event.framebuffer && event.framebuffer.length > 0 && event.width > 0 && event.height > 0) {
+                    this.ensureCanvasSize(event.width, event.height, { reveal: true });
+                    for (const rect of event.rects || []) {
+                        if (rect.kind === 'resize') {
+                            this.ensureCanvasSize(rect.width, rect.height);
+                        }
                     }
-                    if (rect.kind === 'copy') {
-                        this.ensureCanvasSize(event.width, event.height, { reveal: true });
-                        this.copyCanvasRect(rect);
+                    const ctx = this.canvas?.getContext('2d', { alpha: false });
+                    if (ctx) {
+                        const img = new ImageData(new Uint8ClampedArray(event.framebuffer), event.width, event.height);
+                        ctx.putImageData(img, 0, 0);
                         painted = true;
-                        continue;
                     }
-                    if (rect.kind === 'rgba') {
-                        this.ensureCanvasSize(event.width, event.height, { reveal: true });
-                        this.drawRgbaRect(rect);
-                        painted = true;
+                } else {
+                    // Non-pipeline mode: per-rect rendering
+                    for (const rect of event.rects || []) {
+                        if (rect.kind === 'resize') {
+                            this.ensureCanvasSize(rect.width, rect.height);
+                            continue;
+                        }
+                        if (rect.kind === 'copy') {
+                            this.ensureCanvasSize(event.width, event.height, { reveal: true });
+                            this.copyCanvasRect(rect);
+                            painted = true;
+                            continue;
+                        }
+                        if (rect.kind === 'rgba') {
+                            this.ensureCanvasSize(event.width, event.height, { reveal: true });
+                            this.drawRgbaRect(rect);
+                            painted = true;
+                        }
                     }
                 }
                 if (painted || this.hasRenderedFrame) {
