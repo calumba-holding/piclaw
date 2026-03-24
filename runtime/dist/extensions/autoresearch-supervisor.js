@@ -163,7 +163,7 @@ function buildStatusCardBlock(experimentId, summary, status, tmuxSession) {
         { title: "Runs", value: `${summary.totalRuns} (${summary.kept} kept, ${summary.discarded} discarded${summary.crashed ? `, ${summary.crashed} crashed` : ""})` },
         { title: `Best ${summary.metricName}`, value: bestLabel },
         { title: "Confidence", value: confLabel },
-        ...(summary.lastDescription ? [{ title: "Last", value: summary.lastDescription.slice(0, 80) }] : []),
+        ...(summary.lastDescription ? [{ title: "Last", value: summary.lastDescription.slice(0, 512) }] : []),
     ];
     const body = [
         { type: "TextBlock", text: `${statusEmoji} Autoresearch: ${summary.name}`, weight: "Bolder", size: "Medium" },
