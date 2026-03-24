@@ -455,13 +455,13 @@ async function startAutoresearch(
     return buildResult(`❌ Failed to create tmux session (exit ${tmuxResult.status}).`);
   }
 
-  const jsonlPath = join(projectDir, "autoresearch.jsonl");
+  const jsonlPath = join(sandboxDir, "autoresearch.jsonl");
 
   // Set up active experiment tracking
   activeExperiment = {
     id,
     tmuxSession,
-    projectDir,
+    projectDir: sandboxDir,
     jsonlPath,
     model: model || null,
     startedAt: new Date().toISOString(),
