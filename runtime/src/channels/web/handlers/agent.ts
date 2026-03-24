@@ -490,6 +490,9 @@ export async function handleAgentMessage(
         }
       } else {
         const sendOptions: Record<string, unknown> = { threadId: interaction.id };
+        if (result.mediaIds?.length) {
+          sendOptions.mediaIds = result.mediaIds;
+        }
         if (result.contentBlocks?.length) {
           sendOptions.contentBlocks = result.contentBlocks;
         }
@@ -690,7 +693,11 @@ export async function processChat(
       timestamp: nextQueued.queuedAt,
     });
     channel.broadcastEvent("new_post", queuedInteraction);
-    channel.resumeChat(chatJid, queuedInteraction.data?.thread_id ?? queuedInteraction.id);
+    // Resume using the newly materialized message row id as the frontier.
+    // If multiple queued follow-ups belong to the same thread root, reusing the
+    // stable thread id here would cause resume-task deduplication to collapse
+    // later hand-offs and stall the drain loop after one turn.
+    channel.resumeChat(chatJid, queuedInteraction.id);
     return true;
   };
 

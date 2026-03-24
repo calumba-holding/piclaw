@@ -11,6 +11,7 @@
 import type { AgentSession } from "@mariozechner/pi-coding-agent";
 import type { AgentControlCommand, AgentControlResult } from "../agent-control-types.js";
 import { formatCompactNumber } from "../agent-control-helpers.js";
+import { createMedia } from "../../db.js";
 import { killTrackedProcesses } from "../../utils/process-tracker.js";
 
 type RestartCommand = Extract<AgentControlCommand, { type: "restart" }>;
@@ -33,6 +34,57 @@ function scheduleProcessExit(): void {
   setTimeout(() => {
     process.exit(0);
   }, EXIT_DELAY_MS);
+}
+
+function toCompactReportFilename(timestamp: string): string {
+  return `compaction-report-${timestamp.replace(/[:.]/g, "-")}.md`;
+}
+
+function buildCompactReport(
+  summary: string,
+  tokensBefore: number,
+  firstKeptEntryId: string | number | null | undefined,
+  timestamp: string
+): string {
+  return [
+    "# Compaction report",
+    "",
+    `Generated: ${timestamp}`,
+    `Tokens before: ${formatCompactNumber(tokensBefore)}`,
+    `First kept entry: ${firstKeptEntryId ?? "unknown"}`,
+    "",
+    "## Summary",
+    "",
+    summary.trim() || "(empty summary)",
+    "",
+  ].join("\n");
+}
+
+function createCompactReportAttachment(
+  summary: string,
+  tokensBefore: number,
+  firstKeptEntryId: string | number | null | undefined,
+  timestamp: string
+): number | null {
+  try {
+    const filename = toCompactReportFilename(timestamp);
+    const content = buildCompactReport(summary, tokensBefore, firstKeptEntryId, timestamp);
+    return createMedia(
+      filename,
+      "text/markdown",
+      new TextEncoder().encode(content),
+      null,
+      {
+        source: "compact",
+        generated_at: timestamp,
+        tokens_before: tokensBefore,
+        first_kept_entry_id: firstKeptEntryId ?? null,
+      }
+    );
+  } catch (error) {
+    console.warn("[agent-control] Failed to create /compact report attachment:", error);
+    return null;
+  }
 }
 
 /** Handle /restart: reload the agent session from disk. */
@@ -83,14 +135,24 @@ export async function handleExit(session: AgentSession, _command: ExitCommand): 
 export async function handleCompact(session: AgentSession, command: CompactCommand): Promise<AgentControlResult> {
   try {
     const result = await session.compact(command.instructions?.trim() || undefined);
+    const generatedAt = new Date().toISOString();
+    const attachmentId = createCompactReportAttachment(
+      result.summary,
+      result.tokensBefore,
+      result.firstKeptEntryId,
+      generatedAt
+    );
     const lines = [
       "Compaction complete.",
       `Tokens before: ${formatCompactNumber(result.tokensBefore)}`,
       `First kept entry: ${result.firstKeptEntryId}`,
-      "Summary:",
-      result.summary,
+      attachmentId ? "Attached: full compaction report (.md)." : "Full compaction report attachment unavailable.",
     ];
-    return { status: "success", message: lines.join("\n") };
+    return {
+      status: "success",
+      message: lines.join("\n"),
+      ...(attachmentId ? { mediaIds: [attachmentId] } : {}),
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { status: "error", message };

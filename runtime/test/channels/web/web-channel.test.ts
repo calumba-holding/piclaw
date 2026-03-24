@@ -261,6 +261,56 @@ test("web channel handles /model command without queueing agent", async () => {
   expect(timeline.length).toBe(0);
 });
 
+test("web channel sends /compact result as an attachment instead of dumping the summary inline", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats; DELETE FROM chat_cursors;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+
+  const mediaId = db.createMedia(
+    "compaction-report-test.md",
+    "text/markdown",
+    new TextEncoder().encode("# Compaction report\n\n## Summary\n\nA long compacted summary."),
+    null,
+    { source: "compact" }
+  );
+
+  const webMod = await import("../../../src/channels/web.js");
+  const web = new (webMod.WebChannel as any)({
+    queue: { enqueue: () => {} },
+    agentPool: {
+      runAgent: async () => ({ status: "success", result: "ok" }),
+      applyControlCommand: async () => ({
+        status: "success",
+        message: "Compaction complete.\nTokens before: 1,200\nFirst kept entry: entry-1\nAttached: full compaction report (.md).",
+        mediaIds: [mediaId],
+      }),
+      getContextUsageForChat: async () => null,
+    },
+  });
+
+  const req = new Request("http://test/agent/default/message", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: "/compact shorten" }),
+  });
+
+  const res = await (web as any).handleRequest(req);
+  expect(res.status).toBe(201);
+
+  const timeline = db.getTimeline("web:default", 10);
+  expect(timeline).toHaveLength(2);
+  const assistant = timeline.find((item: any) => item.data.content?.includes("Compaction complete."));
+  expect(assistant).toBeTruthy();
+  expect(assistant.data.media_ids).toEqual([mediaId]);
+  expect(assistant.data.content).toContain("Attached: full compaction report (.md).");
+  expect(assistant.data.content).not.toContain("A long compacted summary.");
+});
+
 test("web channel relays peer messages into another active chat", async () => {
   const ws = createTempWorkspace("piclaw-web-channel-");
   cleanupWorkspace = ws.cleanup;
@@ -2346,6 +2396,91 @@ test("processChat drains multiple deferred queued follow-ups across resume tasks
   expect(contents).toContain("reply 1");
   expect(contents).toContain("queued two");
   expect(contents).toContain("reply 2");
+});
+
+test("processChat does not stall queued draining when multiple deferred items share the same thread root", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats; DELETE FROM chat_cursors; DELETE FROM chat_cursors;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+
+  const rootRowId = db.storeMessage({
+    id: `msg-${Math.random()}`,
+    chat_jid: "web:default",
+    sender: "user",
+    sender_name: "User",
+    content: "root user",
+    timestamp: new Date().toISOString(),
+    is_from_me: false,
+    is_bot_message: false,
+    thread_id: null,
+  });
+  db.getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(rootRowId, rootRowId);
+
+  const executedKeys: string[] = [];
+  let runningId: string | null = null;
+  const pending: Array<{ id?: string; fn: () => Promise<void> }> = [];
+  const enqueue = async (fn: () => Promise<void>, id?: string) => {
+    if (id && (runningId === id || pending.some((item) => item.id === id))) return;
+    pending.push({ fn, id });
+    if (runningId) return;
+    while (pending.length > 0) {
+      const next = pending.shift()!;
+      runningId = next.id ?? null;
+      executedKeys.push(next.id ?? "");
+      try {
+        await next.fn();
+      } finally {
+        runningId = null;
+      }
+    }
+  };
+
+  let runCount = 0;
+  const webMod = await import("../../../src/channels/web.js");
+  const web = new (webMod.WebChannel as any)({
+    queue: { enqueue },
+    agentPool: {
+      setSessionBinder: () => {},
+      runAgent: async () => {
+        runCount += 1;
+        return { status: "success", result: `threaded reply ${runCount}`, attachments: [] };
+      },
+      getContextUsageForChat: async () => null,
+    },
+  });
+
+  web.enqueueQueuedFollowupItem("web:default", 0, "threaded queued one", rootRowId, new Date().toISOString());
+  web.enqueueQueuedFollowupItem("web:default", 0, "threaded queued two", rootRowId, new Date().toISOString());
+
+  await web.processChat("web:default", "default");
+  await waitFor(() => runCount === 3 && web.getQueuedFollowupCount("web:default") === 0, 250, 10);
+
+  expect(runCount).toBe(3);
+  expect(web.getQueuedFollowupCount("web:default")).toBe(0);
+  // The initial root message is processed by the direct call above; the two
+  // queued follow-ups must each enqueue their own distinct resume task even
+  // though they share the same thread root.
+  expect(executedKeys).toHaveLength(2);
+  expect(new Set(executedKeys).size).toBe(2);
+
+  const timeline = db.getTimeline("web:default", 20);
+  const contents = timeline.map((item: any) => item.data.content);
+  expect(contents).toContain("root user");
+  expect(contents).toContain("threaded reply 1");
+  expect(contents).toContain("threaded queued one");
+  expect(contents).toContain("threaded reply 2");
+  expect(contents).toContain("threaded queued two");
+  expect(contents).toContain("threaded reply 3");
+
+  const threadedQueuedMessages = timeline.filter((item: any) => item.data.content?.startsWith("threaded queued"));
+  expect(threadedQueuedMessages).toHaveLength(2);
+  expect(threadedQueuedMessages[0].data.thread_id).toBe(rootRowId);
+  expect(threadedQueuedMessages[1].data.thread_id).toBe(rootRowId);
 });
 
 test("processChat preserves a deferred queued follow-up if materialization fails", async () => {

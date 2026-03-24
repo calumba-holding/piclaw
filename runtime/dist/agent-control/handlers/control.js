@@ -8,6 +8,7 @@
  * Consumers: agent-control-handlers.ts dispatches to these handlers.
  */
 import { formatCompactNumber } from "../agent-control-helpers.js";
+import { createMedia } from "../../db.js";
 import { killTrackedProcesses } from "../../utils/process-tracker.js";
 const EXIT_DELAY_MS = Number(process.env.PICLAW_EXIT_DELAY_MS || "150");
 function scheduleProcessExit() {
@@ -19,6 +20,39 @@ function scheduleProcessExit() {
     setTimeout(() => {
         process.exit(0);
     }, EXIT_DELAY_MS);
+}
+function toCompactReportFilename(timestamp) {
+    return `compaction-report-${timestamp.replace(/[:.]/g, "-")}.md`;
+}
+function buildCompactReport(summary, tokensBefore, firstKeptEntryId, timestamp) {
+    return [
+        "# Compaction report",
+        "",
+        `Generated: ${timestamp}`,
+        `Tokens before: ${formatCompactNumber(tokensBefore)}`,
+        `First kept entry: ${firstKeptEntryId ?? "unknown"}`,
+        "",
+        "## Summary",
+        "",
+        summary.trim() || "(empty summary)",
+        "",
+    ].join("\n");
+}
+function createCompactReportAttachment(summary, tokensBefore, firstKeptEntryId, timestamp) {
+    try {
+        const filename = toCompactReportFilename(timestamp);
+        const content = buildCompactReport(summary, tokensBefore, firstKeptEntryId, timestamp);
+        return createMedia(filename, "text/markdown", new TextEncoder().encode(content), null, {
+            source: "compact",
+            generated_at: timestamp,
+            tokens_before: tokensBefore,
+            first_kept_entry_id: firstKeptEntryId ?? null,
+        });
+    }
+    catch (error) {
+        console.warn("[agent-control] Failed to create /compact report attachment:", error);
+        return null;
+    }
 }
 /** Handle /restart: reload the agent session from disk. */
 export async function handleRestart(session, _command) {
@@ -64,14 +98,19 @@ export async function handleExit(session, _command) {
 export async function handleCompact(session, command) {
     try {
         const result = await session.compact(command.instructions?.trim() || undefined);
+        const generatedAt = new Date().toISOString();
+        const attachmentId = createCompactReportAttachment(result.summary, result.tokensBefore, result.firstKeptEntryId, generatedAt);
         const lines = [
             "Compaction complete.",
             `Tokens before: ${formatCompactNumber(result.tokensBefore)}`,
             `First kept entry: ${result.firstKeptEntryId}`,
-            "Summary:",
-            result.summary,
+            attachmentId ? "Attached: full compaction report (.md)." : "Full compaction report attachment unavailable.",
         ];
-        return { status: "success", message: lines.join("\n") };
+        return {
+            status: "success",
+            message: lines.join("\n"),
+            ...(attachmentId ? { mediaIds: [attachmentId] } : {}),
+        };
     }
     catch (err) {
         const message = err instanceof Error ? err.message : String(err);

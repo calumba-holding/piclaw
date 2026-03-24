@@ -202,7 +202,16 @@ export function buildTotpAdaptiveCard(params: {
       body: [
         { type: "TextBlock", text: title, weight: "Bolder", size: "Medium", wrap: true },
         { type: "TextBlock", text: intro, wrap: true, spacing: "Small" },
-        { type: "Image", url: imageUrl, altText: "TOTP QR code", size: "Medium", horizontalAlignment: "Center", spacing: "Medium" },
+        {
+          type: "Image",
+          url: imageUrl,
+          altText: "TOTP QR code",
+          size: "Large",
+          pixelWidth: 160,
+          pixelHeight: 160,
+          horizontalAlignment: "Center",
+          spacing: "Medium",
+        },
         {
           type: "FactSet",
           facts: [

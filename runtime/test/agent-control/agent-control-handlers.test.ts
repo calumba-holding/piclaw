@@ -462,11 +462,25 @@ test("agent control queue, compact, and abort commands", async () => {
   const ws = getTestWorkspace();
   restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
 
+  const db = await import("../../src/db.js");
+  db.initDatabase();
+
   const applyControlCommand = await getControl();
   const session = new RichSession();
 
   const compact = await applyControlCommand(session as any, registry, { type: "compact", instructions: "shorten", raw: "/compact shorten" });
   expect(compact.message).toContain("Compaction complete.");
+  expect(compact.message).toContain("Attached: full compaction report (.md).");
+  expect(compact.message).not.toContain("Summary:");
+  expect(compact.message).not.toContain("Summary");
+  expect(compact.mediaIds).toHaveLength(1);
+  const compactMedia = db.getMediaById(compact.mediaIds![0]);
+  expect(compactMedia?.filename).toMatch(/^compaction-report-.*\.md$/);
+  expect(compactMedia?.content_type).toBe("text/markdown");
+  const compactReport = compactMedia ? new TextDecoder().decode(compactMedia.data) : "";
+  expect(compactReport).toContain("# Compaction report");
+  expect(compactReport).toContain("## Summary");
+  expect(compactReport).toContain("Summary");
 
   const autoCompact = await applyControlCommand(session as any, registry, { type: "auto_compact", enabled: true, raw: "/auto-compact on" });
   expect(autoCompact.message).toContain("on");
