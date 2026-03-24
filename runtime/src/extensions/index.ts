@@ -34,6 +34,7 @@ import { smartCompaction } from "./smart-compaction.js";
 import { sendAdaptiveCard } from "./send-adaptive-card.js";
 import { sendDashboardWidget } from "./send-dashboard-widget.js";
 import { exitProcess } from "./exit-process.js";
+import { autoresearchSupervisor } from "./autoresearch-supervisor.js";
 
 /** Array of all built-in extension factories to register on session creation. */
 export const builtinExtensionFactories: ExtensionFactory[] = [
@@ -50,4 +51,5 @@ export const builtinExtensionFactories: ExtensionFactory[] = [
   sendAdaptiveCard,
   sendDashboardWidget,
   exitProcess,
+  autoresearchSupervisor,
 ];
