@@ -279,6 +279,7 @@ const StartSchema = Type.Object({
     prompt: Type.String({ description: "Initial prompt for the autoresearch agent (e.g. 'optimize test runtime')." }),
     model: Type.Optional(Type.String({ description: "Model to use (provider/id format). Defaults to current model." })),
     max_iterations: Type.Optional(Type.Integer({ description: "Maximum experiments before auto-stopping.", minimum: 1 })),
+    sandbox: Type.Optional(Type.Boolean({ description: "Copy project to a sandbox directory (default true). Set false for large repos — runs directly on a new git branch." })),
 });
 const StopSchema = Type.Object({
     generate_report: Type.Optional(Type.Boolean({ description: "Generate a markdown experiment report (default true)." })),
@@ -339,35 +340,56 @@ async function startAutoresearch(params, broadcastEvent) {
     const projectDir = resolve(params.project_dir);
     if (!existsSync(projectDir))
         return buildResult(`❌ Project directory does not exist: ${projectDir}`);
+    const useSandbox = params.sandbox !== false;
     // Generate a short unique experiment ID
     const id = `exp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     const sessionDir = join(SESSIONS_DIR, id);
-    const sandboxDir = join(sessionDir, "sandbox");
-    const jsonlPath = join(sandboxDir, "autoresearch.jsonl");
-    const hasExistingData = existsSync(jsonlPath);
-    if (hasExistingData) {
-        // Reuse existing sandbox — don't copy over it
-        console.log(`[autoresearch] Resuming existing experiment ${id} with ${parseJsonlFile(jsonlPath).length} entries`);
+    let workDir;
+    let branchName = null;
+    if (useSandbox) {
+        const sandboxDir = join(sessionDir, "sandbox");
+        const jsonlPath = join(sandboxDir, "autoresearch.jsonl");
+        const hasExistingData = existsSync(jsonlPath);
+        if (hasExistingData) {
+            console.log(`[autoresearch] Resuming existing experiment ${id} with ${parseJsonlFile(jsonlPath).length} entries`);
+        }
+        else {
+            mkdirSync(sessionDir, { recursive: true });
+            try {
+                execSync(`cp -a ${JSON.stringify(projectDir + "/")} ${JSON.stringify(sandboxDir)}`, { stdio: "ignore" });
+            }
+            catch (err) {
+                return buildResult(`❌ Failed to copy project to sandbox: ${err instanceof Error ? err.message : String(err)}`);
+            }
+        }
+        workDir = sandboxDir;
     }
     else {
-        // Fresh sandbox — copy project
+        // Direct mode — run on a new branch in the existing repo
         mkdirSync(sessionDir, { recursive: true });
+        ensureGitRepo(projectDir);
+        branchName = `autoresearch/${id}`;
         try {
-            execSync(`cp -a ${JSON.stringify(projectDir + "/")} ${JSON.stringify(sandboxDir)}`, { stdio: "ignore" });
+            execSync(`git checkout -b ${JSON.stringify(branchName)}`, { cwd: projectDir, stdio: "ignore" });
         }
         catch (err) {
-            return buildResult(`❌ Failed to copy project to sandbox: ${err instanceof Error ? err.message : String(err)}`);
+            return buildResult(`❌ Failed to create branch ${branchName}: ${err instanceof Error ? err.message : String(err)}`);
         }
+        workDir = projectDir;
     }
-    // Git safety — init in sandbox if needed
-    const gitNote = ensureGitRepo(sandboxDir);
+    // Git safety — init if needed (sandbox mode)
+    if (useSandbox) {
+        ensureGitRepo(workDir);
+    }
+    const jsonlPath = join(workDir, "autoresearch.jsonl");
+    const hasExistingData = existsSync(jsonlPath) && parseJsonlFile(jsonlPath).length > 0;
     // Install vendored extension + skill into the sub-agent's pi config
     const piAgentDir = join(sessionDir, ".pi", "agent");
     mkdirSync(piAgentDir, { recursive: true });
     installVendoredExtension(piAgentDir);
     // Write autoresearch config if max_iterations specified
     if (params.max_iterations) {
-        writeFileSync(join(sandboxDir, "autoresearch.config.json"), JSON.stringify({ maxIterations: params.max_iterations }, null, 2) + "\n");
+        writeFileSync(join(workDir, "autoresearch.config.json"), JSON.stringify({ maxIterations: params.max_iterations }, null, 2) + "\n");
     }
     // Build tmux command
     const tmuxSession = `${TMUX_SESSION_PREFIX}${id}`;
@@ -381,7 +403,7 @@ async function startAutoresearch(params, broadcastEvent) {
         : `"/skill:autoresearch-create ${escapedPrompt}"`;
     const continueFlag = hasExistingData ? "--continue" : "";
     const piCommand = [
-        `cd ${JSON.stringify(sandboxDir)}`,
+        `cd ${JSON.stringify(workDir)}`,
         `exec pi ${modelArgs} ${continueFlag} --extension ${JSON.stringify(extPath)} --skill ${JSON.stringify(skillPath)} --session-dir ${JSON.stringify(join(sessionDir, "sessions"))} ${piInvocation}`,
     ].join(" && ");
     const tmuxResult = spawnSync("tmux", [
@@ -397,7 +419,7 @@ async function startAutoresearch(params, broadcastEvent) {
     activeExperiment = {
         id,
         tmuxSession,
-        projectDir: sandboxDir,
+        projectDir: workDir,
         jsonlPath,
         model: model || null,
         startedAt: new Date().toISOString(),
@@ -457,12 +479,13 @@ async function startAutoresearch(params, broadcastEvent) {
         hasExistingData ? `✅ Autoresearch resumed.` : `✅ Autoresearch launched.`,
         `Experiment: ${id}`,
         `tmux session: ${tmuxSession}`,
-        `Project: ${sandboxDir}`,
+        `Project: ${workDir}`,
+        branchName ? `Branch: ${branchName} (direct mode)` : "Mode: sandboxed copy",
         model ? `Model: ${model}` : "Model: (pi default)",
         params.max_iterations ? `Max iterations: ${params.max_iterations}` : "",
-        hasExistingData ? `Resuming with existing JSONL data.` : (gitNote || ""),
+        hasExistingData ? `Resuming with existing JSONL data.` : "",
         "",
-        `Original source is safe — all changes happen in the sandbox.`,
+        useSandbox ? `Original source is safe — all changes happen in the sandbox.` : `⚠️ Direct mode — changes are made on branch ${branchName} in the original repo.`,
         `Use stop_autoresearch to stop and clean up.`,
     ].filter(Boolean);
     // Post initial timeline status card
