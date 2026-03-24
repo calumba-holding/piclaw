@@ -530,7 +530,7 @@ async function startAutoresearch(params, broadcastEvent, chatJid) {
         params.max_iterations ? `Max iterations: ${params.max_iterations}` : "",
         hasExistingData ? `Resuming with existing JSONL data.` : "",
         "",
-        useSandbox ? `Original source is safe — all changes happen in the sandbox.` : `⚠️ Direct mode — changes are made on branch ${branchName} in the original repo.`,
+        useSandbox ? `Experiment runs in a copied sandbox — the original repo is not modified by this run.` : `⚠️ Direct mode — changes are made on branch ${branchName} in the original repo.`,
         `Use stop_autoresearch to stop and clean up.`,
     ].filter(Boolean);
     // Post initial timeline status card
