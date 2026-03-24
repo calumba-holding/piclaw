@@ -808,6 +808,10 @@ export const autoresearchSupervisor: ExtensionFactory = (pi: ExtensionAPI) => {
         if (!activeExperiment) return;
         if (!tmuxSessionExists(activeExperiment.tmuxSession)) {
           stopPolling();
+          if (existsSync(activeExperiment.jsonlPath)) {
+            const summary = buildExperimentSummary(parseJsonlFile(activeExperiment.jsonlPath));
+            postStatusCard(activeExperiment.id, summary, summary.totalRuns > 0 ? "completed" : "failed");
+          }
           activeExperiment = null;
           return;
         }
@@ -819,8 +823,22 @@ export const autoresearchSupervisor: ExtensionFactory = (pi: ExtensionAPI) => {
             experiment_id: activeExperiment.id,
             entry,
           });
+          if (entry.type !== "config") {
+            const allEntries = parseJsonlFile(activeExperiment.jsonlPath);
+            const summary = buildExperimentSummary(allEntries);
+            postStatusCard(activeExperiment.id, summary, "running", "web:default", activeExperiment.tmuxSession);
+          }
         }
       }, 2000);
+
+      // Post an immediate status card with current state
+      if (existsSync(jsonlPath)) {
+        const currentEntries = parseJsonlFile(jsonlPath);
+        if (currentEntries.length > 0) {
+          const summary = buildExperimentSummary(currentEntries);
+          postStatusCard(id, summary, "running", "web:default", tmuxSession);
+        }
+      }
 
       console.log(`[autoresearch] Re-attached to running experiment ${id} (tmux: ${tmuxSession})`);
     } catch (err) {
