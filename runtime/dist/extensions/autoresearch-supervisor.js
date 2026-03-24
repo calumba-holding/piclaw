@@ -15,6 +15,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, symlinkSync, rmSync
 import { join, resolve, dirname } from "node:path";
 import { Type } from "@sinclair/typebox";
 import { WORKSPACE_DIR } from "../core/config.js";
+import { postMessagesToolMessage } from "./messages-crud.js";
 // ── Paths ───────────────────────────────────────────────────────
 const VENDOR_DIR = resolve(dirname(import.meta.dir), "..", "vendor", "autoresearch");
 const SESSIONS_DIR = join(WORKSPACE_DIR, ".piclaw", "autoresearch-sessions");
@@ -150,6 +151,60 @@ function buildExperimentSummary(entries) {
     }
     return { name, metricName, metricUnit, direction, totalRuns, kept, discarded, crashed, checksFailed, bestMetric, confidence, lastDescription };
 }
+// ── Timeline card helpers ───────────────────────────────────────
+function buildStatusCardBlock(experimentId, summary, status) {
+    const confLabel = summary.confidence !== null
+        ? (summary.confidence >= 2.0 ? `${summary.confidence.toFixed(1)}× ✅` : summary.confidence >= 1.0 ? `${summary.confidence.toFixed(1)}× ⚠️` : `${summary.confidence.toFixed(1)}× 🔴`)
+        : "—";
+    const bestLabel = summary.bestMetric !== null ? `${summary.bestMetric}${summary.metricUnit}` : "—";
+    const statusEmoji = status === "running" ? "🔬" : status === "completed" ? "✅" : status === "failed" ? "❌" : "⏹️";
+    const body = [
+        { type: "TextBlock", text: `${statusEmoji} Autoresearch: ${summary.name}`, weight: "Bolder", size: "Medium" },
+        {
+            type: "FactSet",
+            facts: [
+                { title: "Status", value: status },
+                { title: "Runs", value: `${summary.totalRuns} (${summary.kept} kept, ${summary.discarded} discarded${summary.crashed ? `, ${summary.crashed} crashed` : ""})` },
+                { title: `Best ${summary.metricName}`, value: bestLabel },
+                { title: "Confidence", value: confLabel },
+                ...(summary.lastDescription ? [{ title: "Last", value: summary.lastDescription.slice(0, 80) }] : []),
+            ],
+        },
+    ];
+    const actions = [];
+    if (status === "running") {
+        actions.push({ type: "Action.Submit", title: "⏹ Stop Experiment", data: { intent: "autoresearch-stop", experiment_id: experimentId } });
+    }
+    return {
+        type: "adaptive_card",
+        card_id: `autoresearch-status-${experimentId}`,
+        schema_version: "1.5",
+        state: status === "running" ? "active" : "completed",
+        fallback_text: `Autoresearch ${summary.name}: ${summary.totalRuns} runs, best ${summary.metricName}: ${bestLabel}`,
+        payload: {
+            type: "AdaptiveCard",
+            version: "1.5",
+            body,
+            ...(actions.length > 0 ? { actions } : {}),
+        },
+    };
+}
+function postStatusCard(experimentId, summary, status, chatJid = "web:default") {
+    try {
+        const card = buildStatusCardBlock(experimentId, summary, status);
+        const fallback = `Autoresearch ${summary.name}: ${summary.totalRuns} runs, best ${summary.metricName}: ${summary.bestMetric !== null ? `${summary.bestMetric}${summary.metricUnit}` : "—"}`;
+        postMessagesToolMessage({
+            action: "post",
+            type: "agent",
+            chat_jid: chatJid,
+            content: fallback,
+            content_blocks: [card],
+        }, chatJid);
+    }
+    catch (err) {
+        console.warn("[autoresearch] Failed to post status card:", err);
+    }
+}
 function generateReport(projectDir, jsonlPath) {
     const entries = parseJsonlFile(jsonlPath);
     const s = buildExperimentSummary(entries);
@@ -278,11 +333,18 @@ async function startAutoresearch(params, broadcastEvent) {
             return;
         // Check if tmux session is still alive
         if (!tmuxSessionExists(activeExperiment.tmuxSession)) {
+            const expId = activeExperiment.id;
+            const jsonlP = activeExperiment.jsonlPath;
             stopPolling();
+            if (existsSync(jsonlP)) {
+                const summary = buildExperimentSummary(parseJsonlFile(jsonlP));
+                postStatusCard(expId, summary, summary.totalRuns > 0 ? "completed" : "failed");
+            }
             broadcastEvent("autoresearch_stopped", {
-                experiment_id: activeExperiment.id,
+                experiment_id: expId,
                 reason: "process_exited",
             });
+            activeExperiment = null;
             return;
         }
         // Read new JSONL lines
@@ -308,6 +370,10 @@ async function startAutoresearch(params, broadcastEvent) {
                     entry,
                     summary,
                 });
+                // Post timeline card updates on milestones: every 5 runs or on new best
+                if (summary.totalRuns % 5 === 0 || entry.status === "keep") {
+                    postStatusCard(activeExperiment.id, summary, "running");
+                }
             }
         }
     }, 2000);
@@ -323,6 +389,10 @@ async function startAutoresearch(params, broadcastEvent) {
         `Open the terminal pane to see the TUI dashboard (Ctrl+X to expand).`,
         `Use stop_autoresearch to stop the experiment.`,
     ].filter(Boolean);
+    // Post initial timeline status card
+    const initialSummary = buildExperimentSummary([]);
+    initialSummary.name = params.prompt.slice(0, 80);
+    postStatusCard(id, initialSummary, "running");
     return buildResult(parts.join("\n"), {
         experiment_id: id,
         tmux_session: tmuxSession,
@@ -361,10 +431,11 @@ async function stopAutoresearch(params) {
         writeFileSync(reportPath, report, "utf-8");
         parts.push(`Report: ${reportPath}`);
     }
-    // Final summary
+    // Final summary + card
     if (existsSync(exp.jsonlPath)) {
         const summary = buildExperimentSummary(parseJsonlFile(exp.jsonlPath));
         parts.push("", `Results: ${summary.totalRuns} runs, ${summary.kept} kept, ${summary.discarded} discarded`, summary.bestMetric !== null ? `Best ${summary.metricName}: ${summary.bestMetric}${summary.metricUnit}` : "", summary.confidence !== null ? `Confidence: ${summary.confidence.toFixed(1)}×` : "");
+        postStatusCard(exp.id, summary, "stopped");
     }
     activeExperiment = null;
     return buildResult(parts.filter(Boolean).join("\n"), {
