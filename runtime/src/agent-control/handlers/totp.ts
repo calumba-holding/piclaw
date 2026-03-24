@@ -1,54 +1,104 @@
 /**
- * agent-control/handlers/totp.ts – Generate a TOTP enrolment QR code.
+ * agent-control/handlers/totp.ts – Build TOTP enrolment/setup confirmation flows.
  *
  * Commands:
- *   /totp enrol   – generate an SVG QR code for the configured TOTP secret
+ *   /totp                  – show single-card TOTP setup/secondary-device flow
+ *   /totp enrol / enroll   – alias for the same flow
+ *   /totp reset <code>     – verify current code, then show single-card reset confirmation flow
  */
 
 import type { AgentSession } from "@mariozechner/pi-coding-agent";
 import type { AgentControlCommand, AgentControlResult } from "../agent-control-types.js";
-import { ASSISTANT_NAME, USER_NAME, WEB_TOTP_SECRET } from "../../core/config.js";
+import { ASSISTANT_NAME, USER_NAME, WEB_TOTP_SECRET, WEB_TOTP_WINDOW } from "../../core/config.js";
 import { getChatChannel } from "../../core/chat-context.js";
+import { verifyTotp } from "../../channels/web/auth.js";
+import {
+  buildTotpAdaptiveCard,
+  createTotpCardToken,
+  hashTotpSecret,
+  type TotpCardFlow,
+} from "../../channels/web/totp-card.js";
 import { generateTotpQr } from "../../utils/totp-qr.js";
 
 type TotpCommand = Extract<AgentControlCommand, { type: "totp" }>;
 
-const base64Encode = (value: string): string => Buffer.from(value, "utf8").toString("base64");
+function createCandidateSecret(issuer: string, label: string): string {
+  return generateTotpQr({ issuer, label }).secret;
+}
 
-/** Handle `/totp` control commands for setup/status operations. */
+function describeFlow(flow: TotpCardFlow): string {
+  switch (flow) {
+    case "setup":
+      return "TOTP setup";
+    case "secondary":
+      return "TOTP device validation";
+    case "reset":
+      return "TOTP reset";
+    default:
+      return "TOTP";
+  }
+}
+
+/** Handle `/totp` control commands for single-card setup/reset flows. */
 export async function handleTotp(_session: AgentSession, command: TotpCommand): Promise<AgentControlResult> {
   const action = (command.action || "").toLowerCase();
-  if (action && action !== "enrol" && action !== "enroll") {
-    return { status: "error", message: "Usage: /totp enrol" };
-  }
-
-  if (!WEB_TOTP_SECRET || !WEB_TOTP_SECRET.trim()) {
-    return { status: "error", message: "TOTP is not configured (PICLAW_WEB_TOTP_SECRET is empty)." };
+  if (action && action !== "enrol" && action !== "enroll" && action !== "reset") {
+    return { status: "error", message: "Usage: /totp enrol|enroll|reset" };
   }
 
   const channel = getChatChannel();
   if (channel !== "web") {
-    return { status: "error", message: "TOTP enrolment QR codes are only available in the web UI." };
+    return { status: "error", message: "TOTP setup cards are only available in the web UI." };
+  }
+
+  const currentSecret = (WEB_TOTP_SECRET || "").trim();
+  const hasSecret = Boolean(currentSecret);
+  const isReset = action === "reset";
+
+  if (isReset && !hasSecret) {
+    return { status: "error", message: "TOTP is not configured (PICLAW_WEB_TOTP_SECRET is empty)." };
+  }
+
+  if (isReset) {
+    const code = (command.code || "").trim();
+    if (!code) {
+      return {
+        status: "error",
+        message: "Usage: /totp reset <6-digit code> (current TOTP code required for confirmation).",
+      };
+    }
+
+    if (!verifyTotp(currentSecret, code, WEB_TOTP_WINDOW)) {
+      return { status: "error", message: "Invalid confirmation code." };
+    }
   }
 
   const issuer = ASSISTANT_NAME || "Piclaw";
   const label = USER_NAME ? `${issuer}:${USER_NAME}` : issuer;
-
-  const result = generateTotpQr({
-    secret: WEB_TOTP_SECRET.trim(),
+  const flow: TotpCardFlow = isReset ? "reset" : hasSecret ? "secondary" : "setup";
+  const candidateSecret = flow === "secondary" ? currentSecret : createCandidateSecret(issuer, label);
+  const token = createTotpCardToken({
+    flow,
+    secret: candidateSecret,
+    previousSecretHash: hashTotpSecret(currentSecret),
+  });
+  const card = buildTotpAdaptiveCard({
+    flow,
+    secret: candidateSecret,
     issuer,
     label,
+    token,
   });
 
-  const dataUrl = `data:image/svg+xml;base64,${base64Encode(result.svg)}`;
-  const lines = [
-    "Scan this QR code with your authenticator app:",
-    `![totp-qr](${dataUrl})`,
-    "",
-    `Issuer: ${result.issuer}`,
-    `Label: ${result.label}`,
-    `Secret: ${result.secret}`,
-  ];
+  const message = flow === "setup"
+    ? "Use the card below to set up TOTP, then confirm it with a live 6-digit code from your authenticator. Nothing is saved until confirmation succeeds."
+    : flow === "secondary"
+      ? "Use the card below to add another TOTP device, then confirm it with a live 6-digit code. The active secret will not change."
+      : "Current TOTP code accepted. Use the card below to confirm the new secret with a live 6-digit code. Nothing changes until confirmation succeeds.";
 
-  return { status: "success", message: lines.join("\n") };
+  return {
+    status: "success",
+    message: `${describeFlow(flow)} — ${message}`,
+    contentBlocks: [card],
+  };
 }

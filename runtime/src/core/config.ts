@@ -23,7 +23,7 @@
 import { resolve } from "path";
 import { existsSync } from "fs";
 import { readEnvFile } from "./env.js";
-import { readJsonConfig } from "./config-store.js";
+import { readJsonConfig, writeJsonConfig } from "./config-store.js";
 
 // ---------------------------------------------------------------------------
 // .env file – loaded once at module init and merged with process.env below.
@@ -401,8 +401,8 @@ export const WEB_TLS_KEY =
   envConfig.PICLAW_WEB_TLS_KEY ||
   (HAS_DEFAULT_TLS ? DEFAULT_TLS_KEY_PATH : "");
 
-/** TOTP secret for web UI login (empty = auth disabled). Used by channels/web/auth.ts. */
-export const WEB_TOTP_SECRET =
+/** TOTP secret for web UI login (empty = auth disabled). Updated at runtime by /totp reset. */
+export let WEB_TOTP_SECRET =
   process.env.PICLAW_WEB_TOTP_SECRET ||
   envConfig.PICLAW_WEB_TOTP_SECRET ||
   configWebTotpSecret ||
@@ -564,6 +564,56 @@ export function setUserAvatar(avatar: string): void {
 /** Update the human user's avatar background colour. */
 export function setUserAvatarBackground(background: string): void {
   USER_AVATAR_BACKGROUND = background.trim();
+}
+
+/**
+ * Rotate/redefine the web-login TOTP secret and persist it to config.json.
+ *
+ * If a runtime secret env var exists, we update it so the new value takes effect
+ * immediately in the same process. Persistence remains in `.piclaw/config.json`
+ * under the `web.totpSecret` key.
+ */
+export function setWebTotpSecret(secret: string): string {
+  const next = (secret || "").trim();
+
+  const config = readJsonConfig(PICLAW_CONFIG_PATH);
+  const web =
+    config.web && typeof config.web === "object"
+      ? { ...(config.web as Record<string, unknown>) }
+      : {};
+  const totpKeys = [
+    "totpSecret",
+    "totp_secret",
+    "webTotpSecret",
+    "web_totp_secret",
+    "PICLAW_WEB_TOTP_SECRET",
+    "PICLAW_TOTP_SECRET",
+  ];
+
+  for (const key of totpKeys) {
+    delete web[key];
+  }
+
+  if (next) {
+    web.totpSecret = next;
+  }
+
+  if (Object.keys(web).length > 0) {
+    config.web = web;
+  } else {
+    delete config.web;
+  }
+
+  writeJsonConfig(PICLAW_CONFIG_PATH, config);
+
+  WEB_TOTP_SECRET = next;
+  if (next) {
+    process.env.PICLAW_WEB_TOTP_SECRET = next;
+  } else {
+    delete process.env.PICLAW_WEB_TOTP_SECRET;
+  }
+
+  return WEB_TOTP_SECRET;
 }
 
 // ---------------------------------------------------------------------------

@@ -303,6 +303,40 @@ describe("parseControlCommand", () => {
     });
   });
 
+  test("/totp without args shows QR flow when configured", () => {
+    expect(parseControlCommand("/totp")).toEqual({
+      type: "totp",
+      action: undefined,
+      raw: "/totp",
+    });
+  });
+
+  test("/totp reset is parsed as reset action", () => {
+    expect(parseControlCommand("/totp reset")).toEqual({
+      type: "totp",
+      action: "reset",
+      code: undefined,
+      raw: "/totp reset",
+    });
+  });
+
+  test("/totp reset with confirmation code is parsed", () => {
+    expect(parseControlCommand("/totp reset 123456")).toEqual({
+      type: "totp",
+      action: "reset",
+      code: "123456",
+      raw: "/totp reset 123456",
+    });
+  });
+
+  test("/totp invalid action stays known command for handler validation", () => {
+    expect(parseControlCommand("/totp nope")).toEqual({
+      type: "totp",
+      action: undefined,
+      raw: "/totp nope",
+    });
+  });
+
   // Unknown commands return null
   test("unknown command returns null", () => {
     expect(parseControlCommand("/unknowncommand")).toBeNull();

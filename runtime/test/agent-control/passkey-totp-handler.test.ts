@@ -5,6 +5,7 @@
  * safeguards.
  */
 
+import { createHmac } from "node:crypto";
 import { afterEach, expect, test } from "bun:test";
 
 import { createTempWorkspace, setEnv } from "../helpers.js";
@@ -12,7 +13,13 @@ import { createTempWorkspace, setEnv } from "../helpers.js";
 let restoreEnv: (() => void) | null = null;
 let cleanupWorkspace: (() => void) | null = null;
 
-afterEach(() => {
+afterEach(async () => {
+  try {
+    const config = await import("../../src/core/config.js");
+    config.setWebTotpSecret("");
+  } catch {
+    // Ignore when config was not loaded in the test.
+  }
   restoreEnv?.();
   restoreEnv = null;
   cleanupWorkspace?.();
@@ -34,10 +41,60 @@ async function setup(extraEnv: Record<string, string | undefined> = {}) {
   const db = (await import(`../../src/db.js${token}`)) as typeof import("../../src/db.js");
   db.initDatabase();
 
+  const config = (await import(`../../src/core/config.js`)) as typeof import("../../src/core/config.js");
+  config.setWebTotpSecret(extraEnv.PICLAW_WEB_TOTP_SECRET || "");
+
   const passkey = (await import(`../../src/agent-control/handlers/passkey.js${token}`)) as typeof import("../../src/agent-control/handlers/passkey.js");
   const totp = (await import(`../../src/agent-control/handlers/totp.js${token}`)) as typeof import("../../src/agent-control/handlers/totp.js");
+  const totpCard = (await import(`../../src/channels/web/totp-card.js`)) as typeof import("../../src/channels/web/totp-card.js");
 
-  return { db, passkey, totp };
+  return { db, config, passkey, totp, totpCard };
+}
+
+function extractTotpCardState(result: { contentBlocks?: unknown[] }, totpCard: typeof import("../../src/channels/web/totp-card.js")) {
+  const block = Array.isArray(result.contentBlocks) ? (result.contentBlocks[0] as Record<string, any> | undefined) : undefined;
+  const token = block?.payload?.actions?.[0]?.data?.__totp_token;
+  return typeof token === "string" ? totpCard.parseTotpCardToken(token) : { ok: false as const, error: "missing" as const };
+}
+
+const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+function decodeBase32(value: string): Buffer | null {
+  const clean = value.toUpperCase().replace(/[^A-Z2-7]/g, "");
+  if (!clean) return null;
+
+  let bits = 0;
+  let buffer = 0;
+  const bytes: number[] = [];
+
+  for (const char of clean) {
+    const index = BASE32_ALPHABET.indexOf(char);
+    if (index < 0) continue;
+    buffer = (buffer << 5) | index;
+    bits += 5;
+    if (bits >= 8) {
+      bits -= 8;
+      bytes.push((buffer >> bits) & 0xff);
+    }
+  }
+
+  return bytes.length > 0 ? Buffer.from(bytes) : null;
+}
+
+function totpCode(secret: string, timeMs = Date.now(), stepSeconds = 30, digits = 6): string {
+  const key = decodeBase32(secret) ?? Buffer.from(secret, "utf8");
+  const counter = Math.floor(timeMs / 1000 / stepSeconds);
+  const counterBuffer = Buffer.alloc(8);
+  counterBuffer.writeBigUInt64BE(BigInt(counter));
+  const hmac = createHmac("sha1", key).update(counterBuffer).digest();
+  const offset = hmac[hmac.length - 1] & 0x0f;
+  const code =
+    ((hmac[offset] & 0x7f) << 24) |
+    ((hmac[offset + 1] & 0xff) << 16) |
+    ((hmac[offset + 2] & 0xff) << 8) |
+    (hmac[offset + 3] & 0xff);
+
+  return (code % 10 ** digits).toString().padStart(digits, "0");
 }
 
 test("handlePasskey returns help, list, and delete validation errors", async () => {
@@ -71,14 +128,58 @@ test("handlePasskey enrol requires configured TOTP secret", async () => {
   expect(enrol.message).toContain("TOTP is not configured");
 });
 
-test("handleTotp validates action and rejects when secret missing", async () => {
-  const { totp } = await setup();
+test("handleTotp validates action and returns a single-card setup flow without committing immediately", async () => {
+  const { config, totp, totpCard } = await setup();
 
   const badAction = await totp.handleTotp({} as any, { type: "totp", action: "noop" } as any);
   expect(badAction.status).toBe("error");
-  expect(badAction.message).toContain("Usage: /totp enrol");
+  expect(badAction.message).toContain("Usage: /totp enrol|enroll|reset");
 
-  const missingSecret = await totp.handleTotp({} as any, { type: "totp", action: "enrol" } as any);
-  expect(missingSecret.status).toBe("error");
-  expect(missingSecret.message).toContain("TOTP is not configured");
+  const generated = await totp.handleTotp({} as any, { type: "totp", action: "enrol" } as any);
+  expect(generated.status).toBe("success");
+  expect(Array.isArray(generated.contentBlocks)).toBe(true);
+  expect(generated.message).toContain("Nothing is saved until confirmation succeeds");
+  expect(config.WEB_TOTP_SECRET).toBe("");
+
+  const parsed = extractTotpCardState(generated, totpCard);
+  expect(parsed.ok).toBe(true);
+  if (parsed.ok) {
+    expect(parsed.state.flow).toBe("setup");
+    expect(parsed.state.secret).not.toBe("");
+  }
+});
+
+test("handleTotp reuses the active secret for secondary-device setup and stages reset without committing", async () => {
+  const secret = "CURRENTSECRET";
+  const { config, totp, totpCard } = await setup({ PICLAW_WEB_TOTP_SECRET: secret });
+
+  const secondary = await totp.handleTotp({} as any, { type: "totp" } as any);
+  expect(secondary.status).toBe("success");
+  const secondaryState = extractTotpCardState(secondary, totpCard);
+  expect(secondaryState.ok).toBe(true);
+  if (secondaryState.ok) {
+    expect(secondaryState.state.flow).toBe("secondary");
+    expect(secondaryState.state.secret).toBe(secret);
+  }
+
+  const missingCode = await totp.handleTotp({} as any, { type: "totp", action: "reset" } as any);
+  expect(missingCode.status).toBe("error");
+  expect(missingCode.message).toContain("current TOTP code required for confirmation");
+
+  const badCode = await totp.handleTotp({} as any, { type: "totp", action: "reset", code: "000000" } as any);
+  expect(badCode.status).toBe("error");
+  expect(badCode.message).toContain("Invalid confirmation code");
+
+  const code = totpCode(secret);
+  const reset = await totp.handleTotp({} as any, { type: "totp", action: "reset", code } as any);
+  expect(reset.status).toBe("success");
+  expect(reset.message).toContain("Nothing changes until confirmation succeeds");
+  expect(config.WEB_TOTP_SECRET).toBe(secret);
+
+  const resetState = extractTotpCardState(reset, totpCard);
+  expect(resetState.ok).toBe(true);
+  if (resetState.ok) {
+    expect(resetState.state.flow).toBe("reset");
+    expect(resetState.state.secret).not.toBe(secret);
+  }
 });

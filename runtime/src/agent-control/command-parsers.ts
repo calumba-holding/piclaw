@@ -30,7 +30,7 @@ function parsePasskeyAction(action: string | undefined): PasskeyAction {
 
 function parseTotpAction(action: string | undefined): TotpAction {
   if (!action) return undefined;
-  return action === "enrol" || action === "enroll" ? action : undefined;
+  return action === "enrol" || action === "enroll" || action === "reset" ? action : undefined;
 }
 
 function parseSearchScope(value: string | undefined): SearchScope {
@@ -247,13 +247,16 @@ export function parsePasskey(args: string, raw: string): AgentControlCommand {
   };
 }
 
-/** Parse /totp arguments: action. */
+/** Parse /totp arguments: action [confirmation-code]. */
 export function parseTotp(args: string, raw: string): AgentControlCommand {
   const tokens = splitArgs(args);
   const action = parseTotpAction(tokens[0]?.toLowerCase());
+  const code = action === "reset" ? tokens.slice(1).join(" ").trim() || undefined : undefined;
+
   return {
     type: "totp",
     action,
+    code,
     raw,
   };
 }

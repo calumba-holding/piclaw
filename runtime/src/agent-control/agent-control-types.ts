@@ -175,7 +175,12 @@ export type AgentControlCommand =
     }
   | {
       type: "totp";
-      action?: "enrol" | "enroll";
+      action?: "enrol" | "enroll" | "reset";
+      /**
+       * Confirmation value for reset operations.
+       * Expected to be the current 6-digit TOTP code.
+       */
+      code?: string;
       raw: string;
     }
   | {

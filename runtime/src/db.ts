@@ -112,6 +112,7 @@ export {
   createWebSession,
   getWebSession,
   deleteExpiredWebSessions,
+  deleteAllWebSessions,
 } from "./db/web-sessions.js";
 export type {
   ChatBranchRecord,
