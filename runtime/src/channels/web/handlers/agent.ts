@@ -208,37 +208,11 @@ export async function handleAgentMessage(
     return channel.json({ queued: "steer", thread_id: null }, 201);
   };
 
-  // Normal in-turn user messages should remain out of the timeline until the
-  // current turn fully finalizes. Queue them in server state first, then
-  // persist/broadcast the real user message only when consumed.
-  const shouldDeferQueuedFollowup =
-    !command &&
-    !themeCommand &&
-    (isActive || hasQueuedBacklog) &&
-    (requestMode === "queue" || requestMode === "auto");
-
   console.log(
     `[web] handleAgentMessage ${chatJid}: mode=${requestMode}, isStreaming=${isStreaming}, isActive=${isActive}, hasQueuedBacklog=${hasQueuedBacklog}, ` +
-      `shouldDefer=${shouldDeferQueuedFollowup}, hasCommand=${!!command}, ` +
+      `shouldDefer=false, hasCommand=${!!command}, ` +
       `content=${content.slice(0, 60)}`
   );
-
-  if (shouldDeferQueuedFollowup) {
-    const response = queueDeferredFollowup(content, {
-      mediaIds: normalized.mediaIds,
-      contentBlocks: normalized.contentBlocks,
-      linkPreviews: normalized.linkPreviews,
-    });
-
-    // If we are deferring only because persisted/deferred backlog exists but
-    // no run is currently active, proactively wake processChat so the backlog
-    // drains instead of passively accumulating more deferred messages.
-    if (hasQueuedBacklog && !isActive) {
-      channel.resumeChat(chatJid);
-    }
-
-    return response;
-  }
 
   if (!command && !themeCommand && isStreaming && requestMode === "steer") {
     const steerResponse = await queueDeferredSteer(content, "compose");
@@ -322,6 +296,40 @@ export async function handleAgentMessage(
       },
       200,
     );
+  }
+
+  // Check early whether this message should be deferred as a queued followup.
+  // If so, skip DB persistence entirely — the message will be stored when
+  // materialised from the in-memory queue after the current turn completes.
+  // This prevents the cursor from advancing past queued messages during
+  // finalizeSuccessfulRun, which would cause them to be silently consumed.
+  const shouldDeferQueuedFollowup =
+    !command &&
+    !themeCommand &&
+    (isActive || hasQueuedBacklog) &&
+    (requestMode === "queue" || requestMode === "auto");
+
+  if (shouldDeferQueuedFollowup) {
+    console.log(
+      `[web] handleAgentMessage ${chatJid}: mode=${requestMode}, isStreaming=${isStreaming}, isActive=${isActive}, hasQueuedBacklog=${hasQueuedBacklog}, ` +
+        `shouldDefer=true, hasCommand=${!!command}, ` +
+        `content=${content.slice(0, 60)}`
+    );
+
+    const response = queueDeferredFollowup(content, {
+      mediaIds: normalized.mediaIds,
+      contentBlocks: normalized.contentBlocks,
+      linkPreviews: normalized.linkPreviews,
+    });
+
+    // If we are deferring only because persisted/deferred backlog exists but
+    // no run is currently active, proactively wake processChat so the backlog
+    // drains instead of passively accumulating more deferred messages.
+    if (hasQueuedBacklog && !isActive) {
+      channel.resumeChat(chatJid);
+    }
+
+    return response;
   }
 
   const interaction = storeAgentUserMessage(channel, chatJid, {
