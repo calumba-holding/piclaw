@@ -150,7 +150,6 @@ export interface ActiveChatAgent {
   root_chat_jid: string;
   parent_branch_id: string | null;
   agent_name: string;
-  display_name: string | null;
   archived_at?: string | null;
   session_id: string | null;
   session_name: string | null;
@@ -978,7 +977,6 @@ export class AgentPool {
           root_chat_jid: branch.root_chat_jid,
           parent_branch_id: branch.parent_branch_id,
           agent_name: branch.agent_name,
-          display_name: null,
           archived_at: branch.archived_at ?? null,
           session_id: entry.session.sessionId,
           session_name: entry.session.sessionName?.trim() || null,
@@ -1011,7 +1009,6 @@ export class AgentPool {
             root_chat_jid: branch.root_chat_jid,
             parent_branch_id: branch.parent_branch_id,
             agent_name: branch.agent_name,
-            display_name: null,
             archived_at: branch.archived_at ?? null,
             session_id: active?.session_id ?? null,
             session_name: active?.session_name ?? null,
