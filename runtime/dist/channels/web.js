@@ -1116,6 +1116,31 @@ export class WebChannel {
             }, 200);
         }
         const isTotpFlow = rawSubmissionData && rawSubmissionData.intent === "totp-confirm";
+        // ── Autoresearch stop card action ──────────────────────────
+        const isAutoresearchStop = rawSubmissionData && rawSubmissionData.intent === "autoresearch-stop";
+        if (isAutoresearchStop) {
+            updateSourceCard(markAdaptiveCardState(sourceInteraction.data?.content_blocks, normalized.cardId, "completed", submittedAt, { action_type: normalized.actionType, title: "Stop", data: { intent: "autoresearch-stop" }, submitted_at: submittedAt }));
+            // Trigger stop via the agent tool
+            const experimentId = typeof rawSubmissionData.experiment_id === "string" ? rawSubmissionData.experiment_id : "";
+            await this.sendMessage(chatJid, `Stopping autoresearch experiment${experimentId ? ` ${experimentId}` : ""}…`, { threadId });
+            // Import and invoke stop directly
+            try {
+                const { stopAutoresearchFromCard } = await import("./web/handlers/autoresearch-card-action.js");
+                const result = await stopAutoresearchFromCard();
+                await this.sendMessage(chatJid, result, { threadId });
+            }
+            catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                await this.sendMessage(chatJid, `Failed to stop experiment: ${msg}`, { threadId });
+            }
+            return this.json({
+                status: "ok",
+                card_updated: true,
+                source_post_id: sourcePostId,
+                card_id: normalized.cardId,
+                submitted_at: submittedAt,
+            }, 200);
+        }
         if (isTotpFlow) {
             const safeSubmissionMeta = {
                 action_type: normalized.actionType,
