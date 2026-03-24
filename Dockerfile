@@ -36,13 +36,13 @@ RUN apt-get update && \
     update-locale LANG=en_US.UTF-8 && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
-    ca-certificates curl wget unzip \
+    ca-certificates curl wget unzip bzip2 \
     bash-completion sudo less man \
     git vim tmux htop tree ripgrep jq \
     net-tools iproute2 dnsutils \
     rsync file strace \
     build-essential cmake make pkg-config \
-    procps psmisc supervisor sqlite3 restic openssh-client sshfs fuse3 && \
+    procps psmisc supervisor sqlite3 openssh-client sshfs fuse3 && \
     # Tailscale (for container networking scenarios)
     curl -fsSL https://tailscale.com/install.sh | sh && \
     mkdir -p /etc/supervisor/conf.d /var/log/supervisor /var/log/piclaw /var/run/supervisor && \
@@ -63,10 +63,13 @@ COPY supervisor/run-piclaw.sh /usr/local/bin/run-piclaw.sh
 COPY supervisor/supervisord.workspace.conf /usr/local/share/piclaw/supervisor/supervisord.conf
 COPY supervisor/conf.d/ /usr/local/share/piclaw/supervisor/conf.d/
 COPY scripts/docker/install-agent-runtime.sh /tmp/install-agent-runtime.sh
+COPY scripts/docker/install-restic-release.sh /tmp/install-restic-release.sh
 COPY scripts/docker/build-piclaw-package.sh /tmp/build-piclaw-package.sh
 COPY BUN_VERSION /tmp/BUN_VERSION
+COPY RESTIC_VERSION /tmp/RESTIC_VERSION
 COPY package.json /tmp/piclaw-package.json
-RUN chmod +x /entrypoint.sh /usr/local/bin/run-piclaw.sh /tmp/install-agent-runtime.sh /tmp/build-piclaw-package.sh
+RUN chmod +x /entrypoint.sh /usr/local/bin/run-piclaw.sh /tmp/install-agent-runtime.sh /tmp/install-restic-release.sh /tmp/build-piclaw-package.sh && \
+    /tmp/install-restic-release.sh
 
 # Layer 4: Install Homebrew, Bun, and Pi Coding Agent globally
 #   Homebrew needs the agent user; bun/pi/piclaw go into /usr/local/lib/bun/
@@ -87,14 +90,14 @@ COPY --chown=agent:agent skel/ /home/agent/workspace-skel/
 COPY --chown=agent:agent runtime/skills/ /home/agent/.pi/agent/skills/
 
 # Ship piclaw orchestrator repo layout and install globally
-COPY --chown=agent:agent package.json bun.lock README.md LICENSE /home/agent/piclaw/
+COPY --chown=agent:agent package.json bun.lock README.md LICENSE BUN_VERSION RESTIC_VERSION /home/agent/piclaw/
 COPY --chown=agent:agent docs/install-from-repo.md /home/agent/piclaw/docs/install-from-repo.md
 COPY --chown=agent:agent runtime/ /home/agent/piclaw/runtime/
 RUN /tmp/build-piclaw-package.sh && \
     PI_CLI="$(readlink -f /usr/local/lib/bun/bin/pi)" && \
     sed -i '1s/env node/env bun/' "$PI_CLI" && \
     chmod +x "$PI_CLI" && \
-    rm -f /tmp/install-agent-runtime.sh /tmp/build-piclaw-package.sh
+    rm -f /tmp/install-agent-runtime.sh /tmp/install-restic-release.sh /tmp/build-piclaw-package.sh
 
 # Layer 5: Save skeleton
 RUN cp -a /home/agent/. /etc/skel.agent/ && \

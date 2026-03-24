@@ -251,3 +251,9 @@ Restic snapshots are stored in the configured repository. The backup script live
 ```
 /workspace/.piclaw/restic/backup.sh
 ```
+
+The container image ships a pinned official `restic` binary with Azure backend support. The pinned version is tracked in the repo root at:
+
+```
+RESTIC_VERSION
+```

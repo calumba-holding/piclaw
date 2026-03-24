@@ -15,17 +15,18 @@ env:
   BUN_PREFER_BASELINE: "always"
 
 jobs:
-  resolve-bun-version:
-    name: Read pinned Bun version
+  resolve-runtime-versions:
+    name: Read pinned runtime versions
     runs-on: ubuntu-latest
     outputs:
-      bun_version: ${{ steps.resolve.outputs.version }}
+      bun_version: ${{ steps.resolve-bun.outputs.version }}
+      restic_version: ${{ steps.resolve-restic.outputs.version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Read Bun version from repo file
-        id: resolve
+        id: resolve-bun
         run: |
           version=$(tr -d '[:space:]' < BUN_VERSION)
           if [ -z "$version" ]; then
@@ -34,10 +35,20 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+      - name: Read restic version from repo file
+        id: resolve-restic
+        run: |
+          version=$(tr -d '[:space:]' < RESTIC_VERSION)
+          if [ -z "$version" ]; then
+            echo "RESTIC_VERSION file is empty"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
   # Build AMD64 image on native Intel runner
   build-amd64:
     name: Build AMD64 image
-    needs: resolve-bun-version
+    needs: resolve-runtime-versions
     runs-on: ubuntu-24.04
     outputs:
       digest: ${{ steps.build.outputs.digest }}
@@ -75,14 +86,17 @@ jobs:
           cache-from: type=gha,scope=amd64
           cache-to: type=gha,mode=max,scope=amd64
           build-args: |
-            BUN_VERSION=${{ needs.resolve-bun-version.outputs.bun_version }}
+            BUN_VERSION=${{ needs.resolve-runtime-versions.outputs.bun_version }}
             BUN_PREFER_BASELINE=${{ env.BUN_PREFER_BASELINE }}
 
       - name: Smoke test AMD64 image
         run: |
           IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
           docker run --rm --platform linux/amd64 "$IMAGE_REF" bun --version | tee /tmp/bun-version.txt
-          test "$(cat /tmp/bun-version.txt)" = "${{ needs.resolve-bun-version.outputs.bun_version }}"
+          test "$(cat /tmp/bun-version.txt)" = "${{ needs.resolve-runtime-versions.outputs.bun_version }}"
+          docker run --rm --platform linux/amd64 "$IMAGE_REF" restic version | tee /tmp/restic-version.txt
+          grep -q "restic ${{ needs.resolve-runtime-versions.outputs.restic_version }}" /tmp/restic-version.txt
+          docker run --rm --platform linux/amd64 "$IMAGE_REF" sh -lc 'strings "$(command -v restic)" | grep -qi azure.Config'
           docker run --rm --platform linux/amd64 "$IMAGE_REF" pi --version >/tmp/pi-version.txt
           test -s /tmp/pi-version.txt
           docker run --rm --platform linux/amd64 "$IMAGE_REF" piclaw --help >/tmp/piclaw-help.txt
@@ -91,7 +105,7 @@ jobs:
   # Build ARM64 image on native ARM runner
   build-arm64:
     name: Build ARM64 image
-    needs: resolve-bun-version
+    needs: resolve-runtime-versions
     runs-on: ubuntu-24.04-arm
     outputs:
       digest: ${{ steps.build.outputs.digest }}
@@ -129,14 +143,17 @@ jobs:
           cache-from: type=gha,scope=arm64
           cache-to: type=gha,mode=max,scope=arm64
           build-args: |
-            BUN_VERSION=${{ needs.resolve-bun-version.outputs.bun_version }}
+            BUN_VERSION=${{ needs.resolve-runtime-versions.outputs.bun_version }}
             BUN_PREFER_BASELINE=${{ env.BUN_PREFER_BASELINE }}
 
       - name: Smoke test ARM64 image
         run: |
           IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
           docker run --rm --platform linux/arm64 "$IMAGE_REF" bun --version | tee /tmp/bun-version.txt
-          test "$(cat /tmp/bun-version.txt)" = "${{ needs.resolve-bun-version.outputs.bun_version }}"
+          test "$(cat /tmp/bun-version.txt)" = "${{ needs.resolve-runtime-versions.outputs.bun_version }}"
+          docker run --rm --platform linux/arm64 "$IMAGE_REF" restic version | tee /tmp/restic-version.txt
+          grep -q "restic ${{ needs.resolve-runtime-versions.outputs.restic_version }}" /tmp/restic-version.txt
+          docker run --rm --platform linux/arm64 "$IMAGE_REF" sh -lc 'strings "$(command -v restic)" | grep -qi azure.Config'
           docker run --rm --platform linux/arm64 "$IMAGE_REF" pi --version >/tmp/pi-version.txt
           test -s /tmp/pi-version.txt
           docker run --rm --platform linux/arm64 "$IMAGE_REF" piclaw --help >/tmp/piclaw-help.txt
