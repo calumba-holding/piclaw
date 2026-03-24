@@ -342,6 +342,7 @@ PiClaw works with any OCI-compliant runtime.
 - [rcarmo/agentbox](https://github.com/rcarmo/agentbox)
 - [qwibitai/nanoclaw](https://github.com/qwibitai/nanoclaw)
 - [badlogic/pi-mono](https://github.com/badlogic/pi-mono)
+- [davebcn87/pi-autoresearch](https://github.com/davebcn87/pi-autoresearch) — autonomous experiment loop by Tobi Lutke and David Cortés (vendored under `runtime/vendor/autoresearch/`)
 
 ## Licence
 
