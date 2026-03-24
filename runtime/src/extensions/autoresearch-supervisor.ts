@@ -403,13 +403,21 @@ async function startAutoresearch(
   const projectDir = resolve(params.project_dir);
   if (!existsSync(projectDir)) return buildResult(`❌ Project directory does not exist: ${projectDir}`);
 
-  // Git safety
-  const gitNote = ensureGitRepo(projectDir);
-
-  // Set up experiment
+  // Set up experiment in a sandboxed copy
   const id = generateExperimentId();
   const sessionDir = join(SESSIONS_DIR, id);
+  const sandboxDir = join(sessionDir, "sandbox");
   mkdirSync(sessionDir, { recursive: true });
+
+  // Copy project into sandbox so the original is never touched
+  try {
+    execSync(`cp -a ${JSON.stringify(projectDir + "/")} ${JSON.stringify(sandboxDir)}`, { stdio: "ignore" });
+  } catch (err) {
+    return buildResult(`❌ Failed to copy project to sandbox: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // Git safety — init in sandbox if needed
+  const gitNote = ensureGitRepo(sandboxDir);
 
   // Install vendored extension + skill into the sub-agent's pi config
   const piAgentDir = join(sessionDir, ".pi", "agent");
@@ -419,7 +427,7 @@ async function startAutoresearch(
   // Write autoresearch config if max_iterations specified
   if (params.max_iterations) {
     writeFileSync(
-      join(projectDir, "autoresearch.config.json"),
+      join(sandboxDir, "autoresearch.config.json"),
       JSON.stringify({ maxIterations: params.max_iterations }, null, 2) + "\n",
     );
   }
@@ -432,7 +440,7 @@ async function startAutoresearch(
   const skillPath = join(VENDOR_DIR, "skills", "autoresearch-create");
   const escapedPrompt = params.prompt.replace(/"/g, '\\"');
   const piCommand = [
-    `cd ${JSON.stringify(projectDir)}`,
+    `cd ${JSON.stringify(sandboxDir)}`,
     `exec pi ${modelArgs} --extension ${JSON.stringify(extPath)} --skill ${JSON.stringify(skillPath)} --session-dir ${JSON.stringify(join(sessionDir, "sessions"))} "/skill:autoresearch-create ${escapedPrompt}"`,
   ].join(" && ");
 
@@ -509,10 +517,8 @@ async function startAutoresearch(
           summary,
         });
 
-        // Post timeline card updates on milestones: every 5 runs or on new best
-        if (summary.totalRuns % 5 === 0 || entry.status === "keep") {
-          postStatusCard(activeExperiment.id, summary, "running", "web:default", activeExperiment.tmuxSession);
-        }
+        // Post timeline card update on every result
+        postStatusCard(activeExperiment.id, summary, "running", "web:default", activeExperiment.tmuxSession);
       }
     }
   }, 2000);

@@ -24,13 +24,6 @@ let db = null;
 let dbMode = null;
 let dbPathCache = null;
 /**
- * Track which database destinations have already run full schema initialization.
- *
- * `initDatabase()` can be invoked repeatedly during tests; re-running schema and
- * migration statements is expensive and unnecessary when the backing DB hasn't changed.
- */
-const initializedDatabases = new Set();
-/**
  * Create all tables, indexes, FTS virtual tables, and triggers if they do
  * not already exist. Called once during initDatabase().
  *
@@ -578,7 +571,6 @@ export function initDatabase() {
         process.env.PICLAW_STORE === ":memory:";
     const nextMode = useMemory ? "memory" : "file";
     const nextPath = useMemory ? ":memory:" : path.join(STORE_DIR, "messages.db");
-    const nextDatabaseKey = `${nextMode}:${nextPath}`;
     let reuse = false;
     if (db && dbMode === nextMode && (nextMode === "memory" || dbPathCache === nextPath)) {
         try {
@@ -607,26 +599,22 @@ export function initDatabase() {
         }
         dbMode = nextMode;
         dbPathCache = nextPath;
-        initializedDatabases.delete(nextDatabaseKey);
     }
     if (!db) {
         throw new Error("Database initialization failed");
     }
-    if (!initializedDatabases.has(nextDatabaseKey)) {
-        db.exec(useMemory ? "PRAGMA journal_mode = MEMORY;" : "PRAGMA journal_mode = WAL;");
-        db.exec("PRAGMA busy_timeout = 5000;");
-        db.exec("PRAGMA secure_delete = ON;");
-        createSchema(db);
-        ensureChatBranchConstraints(db);
-        ensureMessageColumns(db);
-        ensureScheduledTaskColumns(db);
-        ensureWebSessionColumns(db);
-        ensureFts(db);
-        ensureChatCursorFailedColumns(db);
-        migrateChatCursors(db);
-        dropChatBranchDisplayName(db);
-        initializedDatabases.add(nextDatabaseKey);
-    }
+    db.exec(useMemory ? "PRAGMA journal_mode = MEMORY;" : "PRAGMA journal_mode = WAL;");
+    db.exec("PRAGMA busy_timeout = 5000;");
+    db.exec("PRAGMA secure_delete = ON;");
+    createSchema(db);
+    ensureChatBranchConstraints(db);
+    ensureMessageColumns(db);
+    ensureScheduledTaskColumns(db);
+    ensureWebSessionColumns(db);
+    ensureFts(db);
+    ensureChatCursorFailedColumns(db);
+    migrateChatCursors(db);
+    dropChatBranchDisplayName(db);
 }
 /**
  * One-time migration: drop the legacy display_name column from chat_branches.
