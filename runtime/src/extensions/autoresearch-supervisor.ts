@@ -356,13 +356,27 @@ interface PendingLaunch {
   project_dir: string;
   prompt: string;
   max_iterations?: number;
+  chat_jid?: string;
 }
 
 let pendingLaunch: PendingLaunch | null = null;
 
-/** Resolve the chat JID to use for status cards — prefer env override, then fallback. */
-function resolveStatusChatJid(): string {
-  return process.env.PICLAW_CHAT_JID || "web:default";
+/** Resolve the chat JID to use for status cards — prefer explicit, then env, then DB, then fallback. */
+function resolveStatusChatJid(explicitChatJid?: string): string {
+  if (explicitChatJid?.trim()) return explicitChatJid.trim();
+  if (process.env.PICLAW_CHAT_JID?.trim()) return process.env.PICLAW_CHAT_JID.trim();
+  return inferLatestWebChatJid() || "web:default";
+}
+
+/** Infer the latest web chat JID from the most recent user message. */
+function inferLatestWebChatJid(): string | null {
+  try {
+    const db = getDb();
+    const row = db.prepare("SELECT chat_jid FROM messages WHERE sender = 'web-user' ORDER BY rowid DESC LIMIT 1").get() as { chat_jid: string } | undefined;
+    return row?.chat_jid || null;
+  } catch {
+    return null;
+  }
 }
 
 export function getPendingLaunch(): PendingLaunch | null {
@@ -771,10 +785,10 @@ const HINT = [
  * Returns a human-readable result message.
  */
 export async function startAutoresearchFromCard(
-  params: { project_dir: string; prompt: string; model?: string; max_iterations?: number; sandbox?: boolean },
+  params: { project_dir: string; prompt: string; model?: string; max_iterations?: number; sandbox?: boolean; chat_jid?: string },
 ): Promise<string> {
   const noop = () => {};
-  const result = await startAutoresearch(params, noop, resolveStatusChatJid());
+  const result = await startAutoresearch(params, noop, resolveStatusChatJid(params.chat_jid));
   return result.content[0]?.type === "text" ? (result.content[0] as { text: string }).text : "Launched.";
 }
 
@@ -822,12 +836,13 @@ export const autoresearchSupervisor: ExtensionFactory = (pi: ExtensionAPI) => {
         }
 
         const currentModel = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : null;
+        const pickerChatJid = resolveStatusChatJid();
         pendingLaunch = {
           project_dir: params.project_dir,
           prompt: params.prompt,
           max_iterations: params.max_iterations,
+          chat_jid: pickerChatJid,
         };
-        const pickerChatJid = resolveStatusChatJid();
         const card = buildModelPickerCard(models, currentModel);
         postMessagesToolMessage({
           action: "post",

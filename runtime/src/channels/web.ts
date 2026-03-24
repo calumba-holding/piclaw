@@ -1449,6 +1449,7 @@ export class WebChannel implements WebChannelLike {
           prompt: pending.prompt,
           model: selectedModel,
           max_iterations: pending.max_iterations,
+          chat_jid: pending.chat_jid || chatJid,
         });
         await this.sendMessage(chatJid, result, { threadId });
       } catch (err) {

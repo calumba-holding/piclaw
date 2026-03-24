@@ -286,9 +286,24 @@ const StopSchema = Type.Object({
 });
 const StatusSchema = Type.Object({});
 let pendingLaunch = null;
-/** Resolve the chat JID to use for status cards — prefer env override, then fallback. */
-function resolveStatusChatJid() {
-    return process.env.PICLAW_CHAT_JID || "web:default";
+/** Resolve the chat JID to use for status cards — prefer explicit, then env, then DB, then fallback. */
+function resolveStatusChatJid(explicitChatJid) {
+    if (explicitChatJid?.trim())
+        return explicitChatJid.trim();
+    if (process.env.PICLAW_CHAT_JID?.trim())
+        return process.env.PICLAW_CHAT_JID.trim();
+    return inferLatestWebChatJid() || "web:default";
+}
+/** Infer the latest web chat JID from the most recent user message. */
+function inferLatestWebChatJid() {
+    try {
+        const db = getDb();
+        const row = db.prepare("SELECT chat_jid FROM messages WHERE sender = 'web-user' ORDER BY rowid DESC LIMIT 1").get();
+        return row?.chat_jid || null;
+    }
+    catch {
+        return null;
+    }
 }
 export function getPendingLaunch() {
     return pendingLaunch;
@@ -623,7 +638,7 @@ const HINT = [
  */
 export async function startAutoresearchFromCard(params) {
     const noop = () => { };
-    const result = await startAutoresearch(params, noop, resolveStatusChatJid());
+    const result = await startAutoresearch(params, noop, resolveStatusChatJid(params.chat_jid));
     return result.content[0]?.type === "text" ? result.content[0].text : "Launched.";
 }
 export const autoresearchSupervisor = (pi) => {
@@ -669,12 +684,13 @@ export const autoresearchSupervisor = (pi) => {
                     return buildResult("❌ No models available. Configure a model provider first (/login).");
                 }
                 const currentModel = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : null;
+                const pickerChatJid = resolveStatusChatJid();
                 pendingLaunch = {
                     project_dir: params.project_dir,
                     prompt: params.prompt,
                     max_iterations: params.max_iterations,
+                    chat_jid: pickerChatJid,
                 };
-                const pickerChatJid = resolveStatusChatJid();
                 const card = buildModelPickerCard(models, currentModel);
                 postMessagesToolMessage({
                     action: "post",
