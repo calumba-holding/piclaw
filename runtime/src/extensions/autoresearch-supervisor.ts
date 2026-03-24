@@ -425,10 +425,8 @@ async function startAutoresearch(
   const projectDir = resolve(params.project_dir);
   if (!existsSync(projectDir)) return buildResult(`❌ Project directory does not exist: ${projectDir}`);
 
-  // Use a stable experiment ID derived from the project dir so experiments
-  // can be resumed across restarts without losing JSONL history.
-  const stableHash = projectDir.replace(/[^a-z0-9]/gi, "-").replace(/-+/g, "-").slice(0, 40);
-  const id = `ar-${stableHash}`;
+  // Generate a short unique experiment ID
+  const id = `exp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
   const sessionDir = join(SESSIONS_DIR, id);
   const sandboxDir = join(sessionDir, "sandbox");
   const jsonlPath = join(sandboxDir, "autoresearch.jsonl");
@@ -816,16 +814,14 @@ export const autoresearchSupervisor: ExtensionFactory = (pi: ExtensionAPI) => {
       const tmuxSession = sessions[0];
       const id = tmuxSession.slice(TMUX_SESSION_PREFIX.length);
 
-      // Try to find the JSONL by scanning known session dirs
-      const sessionDir = join(SESSIONS_DIR, id);
-      if (!existsSync(sessionDir)) return;
-
-      // Read the tmux pane's cwd to find the project dir
+      // Read the tmux pane's cwd to find the working dir (sandbox)
       const cwdResult = spawnSync("tmux", ["display-message", "-t", tmuxSession, "-p", "#{pane_current_path}"], { encoding: "utf8" });
       const projectDir = cwdResult.stdout?.trim() || "";
       if (!projectDir || !existsSync(projectDir)) return;
 
+      // Look for JSONL in the working dir (which is the sandbox)
       const jsonlPath = join(projectDir, "autoresearch.jsonl");
+      if (!existsSync(jsonlPath)) return;
       activeExperiment = {
         id,
         tmuxSession,
