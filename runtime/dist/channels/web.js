@@ -638,30 +638,17 @@ export class WebChannel {
     async handleAgentContext(req) {
         return await handleAgentContextRequest(req, this.endpointContexts.agentStatus());
     }
-    /** GET /agent/autoresearch/status — current live autoresearch pane snapshot. */
+    /** GET /agent/autoresearch/status — current live autoresearch status-panel widget payload. */
     async handleAutoresearchStatus(req) {
         const url = new URL(req.url);
         const chatJid = url.searchParams.get("chat_jid")?.trim() || DEFAULT_CHAT_JID;
         try {
-            const { getAutoresearchStatusSnapshot } = await import("../extensions/autoresearch-supervisor.js");
-            return this.json(getAutoresearchStatusSnapshot(chatJid));
+            const { getAutoresearchWidgetPayload } = await import("../extensions/autoresearch-supervisor.js");
+            return this.json(getAutoresearchWidgetPayload(chatJid));
         }
         catch (error) {
             console.warn("[web] Failed to read autoresearch status:", error);
-            return this.json({
-                active: false,
-                state: "idle",
-                chat_jid: chatJid,
-                experiment_id: null,
-                tmux_session: null,
-                project_dir: null,
-                model: null,
-                max_iterations: null,
-                started_at: null,
-                updated_at: new Date().toISOString(),
-                can_stop: false,
-                summary: null,
-            });
+            return this.json(null);
         }
     }
     /** POST /agent/autoresearch/stop — stop the running autoresearch experiment for this chat. */
@@ -1199,6 +1186,7 @@ export class WebChannel {
                     model: selectedModel,
                     sandbox: useSandbox,
                     max_iterations: pending.max_iterations,
+                    variables: pending.variables,
                     chat_jid: pending.chat_jid || chatJid,
                 });
                 await this.sendMessage(chatJid, result, { threadId });

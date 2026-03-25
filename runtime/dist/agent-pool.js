@@ -39,6 +39,13 @@ import { withChatContext } from "./core/chat-context.js";
 import { getSessionFileSize, rotateSession, seedRotatedSession, forcePersistSessionFile } from "./session-rotation.js";
 import { archiveChatBranch, ensureChatBranch, getChatBranchByAgentName, getChatBranchByChatJid, listChatBranches, renameChatBranchIdentity, restoreChatBranchIdentity, storeChatMetadata, } from "./db.js";
 import { createUuid } from "./utils/ids.js";
+function formatTimeoutDuration(timeoutMs) {
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
+        return `${timeoutMs}ms`;
+    if (timeoutMs % 1000 === 0)
+        return `${Math.round(timeoutMs / 1000)}s`;
+    return `${(timeoutMs / 1000).toFixed(1)}s`;
+}
 function extractAssistantText(message) {
     if (!Array.isArray(message?.content))
         return "";
@@ -297,7 +304,7 @@ export class AgentPool {
                 const timedOut = timedOutRef.value;
                 writeAgentLog(this.logsDir, chatJid, duration, timedOut, finalText, null);
                 if (timedOut) {
-                    return { status: "error", result: null, error: `Timed out after ${timeoutMs}ms` };
+                    return { status: "error", result: null, error: `Timed out after ${formatTimeoutDuration(timeoutMs)}` };
                 }
                 console.log(`[agent-pool] Done in ${duration}ms (${finalText.length} chars, ${tracker.getTurnCount() + 1} turns, session ${chatJid})`);
                 return {
@@ -501,7 +508,7 @@ export class AgentPool {
                 status: "error",
                 result: null,
                 thinking: thinking || null,
-                error: timedOut ? `Timed out after ${timeoutMs}ms` : (err instanceof Error ? err.message : String(err)),
+                error: timedOut ? `Timed out after ${formatTimeoutDuration(timeoutMs)}` : (err instanceof Error ? err.message : String(err)),
                 model: `${model.provider}/${model.id}`,
                 stopReason: timedOut ? "aborted" : "error",
             };
@@ -517,7 +524,7 @@ export class AgentPool {
                     status: "error",
                     result: null,
                     thinking: thinking || null,
-                    error: timedOut ? `Timed out after ${timeoutMs}ms` : "Side prompt finished without a response.",
+                    error: timedOut ? `Timed out after ${formatTimeoutDuration(timeoutMs)}` : "Side prompt finished without a response.",
                     model: `${model.provider}/${model.id}`,
                     stopReason: timedOut ? "aborted" : "error",
                 };
@@ -536,7 +543,7 @@ export class AgentPool {
                 status: "error",
                 result: null,
                 thinking: thinking || extractAssistantThinking(completedMessage) || null,
-                error: timedOut ? `Timed out after ${timeoutMs}ms` : (completedMessage.errorMessage || "Side prompt failed."),
+                error: timedOut ? `Timed out after ${formatTimeoutDuration(timeoutMs)}` : (completedMessage.errorMessage || "Side prompt failed."),
                 model: `${model.provider}/${model.id}`,
                 usage: completedMessage.usage,
                 stopReason: timedOut ? "aborted" : completedMessage.stopReason,

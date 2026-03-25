@@ -195,36 +195,112 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
         `;
     };
 
-    const buildLinePath = (points, width, height, minValue, maxValue) => {
-        if (!Array.isArray(points) || points.length === 0) return '';
+    const projectSeriesPoint = (point, width, height, minValue, maxValue, minRun, maxRun, paddingX = 8, paddingY = 8) => {
         const range = Math.max(maxValue - minValue, 1e-9);
+        const innerWidth = Math.max(width - (paddingX * 2), 1);
+        const innerHeight = Math.max(height - (paddingY * 2), 1);
+        const runSpan = Math.max(maxRun - minRun, 1);
+        const x = maxRun === minRun
+            ? width / 2
+            : paddingX + (((point.run - minRun) / runSpan) * innerWidth);
+        const y = paddingY + (innerHeight - (((point.value - minValue) / range) * innerHeight));
+        return { x, y };
+    };
+
+    const buildLinePath = (points, width, height, minValue, maxValue, minRun, maxRun, paddingX = 8, paddingY = 8) => {
+        if (!Array.isArray(points) || points.length === 0) return '';
         return points.map((point, index) => {
-            const x = points.length === 1 ? width / 2 : (index / (points.length - 1)) * width;
-            const y = height - (((point.value - minValue) / range) * height);
+            const { x, y } = projectSeriesPoint(point, width, height, minValue, maxValue, minRun, maxRun, paddingX, paddingY);
             return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
         }).join(' ');
     };
 
-    const renderSeriesChart = (series) => {
-        const points = Array.isArray(series?.points) ? series.points.filter((point) => Number.isFinite(point?.value)) : [];
-        if (points.length === 0) return null;
-        const values = points.map((point) => point.value);
+    const formatMetricValue = (value, unit = '') => {
+        if (!Number.isFinite(value)) return '—';
+        const rounded = Math.abs(value) >= 100
+            ? value.toFixed(0)
+            : value.toFixed(2).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+        return `${rounded}${unit}`;
+    };
+
+    const SERIES_COLORS = [
+        'var(--accent-color)',
+        'color-mix(in srgb, var(--accent-color) 72%, var(--success-color))',
+        'var(--success-color)',
+        'color-mix(in srgb, var(--accent-color) 50%, var(--warning-color))',
+        'var(--warning-color)',
+        'var(--danger-color)',
+        'color-mix(in srgb, var(--accent-color) 42%, var(--text-primary))',
+        'color-mix(in srgb, var(--success-color) 46%, var(--text-primary))',
+    ];
+
+    const renderCombinedSeriesChart = (seriesList) => {
+        const normalized = Array.isArray(seriesList)
+            ? seriesList
+                .map((series, index) => ({
+                    ...series,
+                    color: SERIES_COLORS[index % SERIES_COLORS.length],
+                    points: Array.isArray(series?.points)
+                        ? series.points.filter((point) => Number.isFinite(point?.value) && Number.isFinite(point?.run))
+                        : [],
+                }))
+                .filter((series) => series.points.length > 0)
+            : [];
+        if (normalized.length === 0) return null;
+
+        const width = 320;
+        const height = 120;
+        const allPoints = normalized.flatMap((series) => series.points);
+        const values = allPoints.map((point) => point.value);
+        const runs = allPoints.map((point) => point.run);
         const minValue = Math.min(...values);
         const maxValue = Math.max(...values);
-        const width = 260;
-        const height = 72;
-        const path = buildLinePath(points, width, height, minValue, maxValue);
-        const latest = points[points.length - 1]?.value;
-        const unit = typeof series?.unit === 'string' ? series.unit : '';
+        const minRun = Math.min(...runs);
+        const maxRun = Math.max(...runs);
+
         return html`
-            <div class="agent-series-chart" key=${series?.key || series?.label}>
+            <div class="agent-series-chart agent-series-chart-combined">
                 <div class="agent-series-chart-header">
-                    <span class="agent-series-chart-title">${series?.label || 'Series'}</span>
-                    <span class="agent-series-chart-value">${latest != null ? `${latest}${unit}` : '—'}</span>
+                    <span class="agent-series-chart-title">Tracked variables</span>
+                    <span class="agent-series-chart-value">${normalized.length} series</span>
                 </div>
                 <svg class="agent-series-chart-svg" viewBox=${`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
-                    <path class="agent-series-chart-line" d=${path}></path>
+                    ${normalized.map((series) => html`
+                        <g key=${series?.key || series?.label}>
+                            <path
+                                class="agent-series-chart-line"
+                                d=${buildLinePath(series.points, width, height, minValue, maxValue, minRun, maxRun)}
+                                style=${`--agent-series-color: ${series.color};`}
+                            ></path>
+                            ${series.points.map((point, pointIndex) => {
+                                const projected = projectSeriesPoint(point, width, height, minValue, maxValue, minRun, maxRun);
+                                const unit = typeof series?.unit === 'string' ? series.unit : '';
+                                const tooltip = `${series?.label || 'Series'}: ${formatMetricValue(point.value, unit)} · run ${point.run}`;
+                                return html`
+                                    <g key=${`${series?.key || series?.label}-point-${pointIndex}`} class="agent-series-chart-point-group" style=${`--agent-series-color: ${series.color};`}>
+                                        <circle class="agent-series-chart-point-hit" cx=${projected.x} cy=${projected.y} r="8">
+                                            <title>${tooltip}</title>
+                                        </circle>
+                                        <circle class="agent-series-chart-point" cx=${projected.x} cy=${projected.y} r="3.25"></circle>
+                                    </g>
+                                `;
+                            })}
+                        </g>
+                    `)}
                 </svg>
+                <div class="agent-series-legend">
+                    ${normalized.map((series) => {
+                        const latest = series.points[series.points.length - 1]?.value;
+                        const unit = typeof series?.unit === 'string' ? series.unit : '';
+                        return html`
+                            <div key=${`${series?.key || series?.label}-legend`} class="agent-series-legend-item">
+                                <span class="agent-series-legend-swatch" style=${`--agent-series-color: ${series.color};`}></span>
+                                <span class="agent-series-legend-label">${series?.label || 'Series'}</span>
+                                <span class="agent-series-legend-value">${formatMetricValue(latest, unit)}</span>
+                            </div>
+                        `;
+                    })}
+                </div>
             </div>
         `;
     };
@@ -249,6 +325,8 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
         const series = Array.isArray(panel?.series) ? panel.series : [];
         const actions = Array.isArray(panel?.actions) ? panel.actions : [];
 
+        const isExpandable = Boolean(detailText || series.length > 0);
+
         return html`
             <div
                 class="agent-thinking agent-thinking-intent agent-thinking-autoresearch"
@@ -257,44 +335,62 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
                 style=${color ? `--turn-color: ${color};` : ''}
                 title=${detailText || titleText}
             >
-                <button
-                    class="agent-thinking-title intent agent-thinking-title-clickable"
-                    type="button"
-                    onClick=${() => ((detailText || series.length > 0) ? toggleExpand(panelKey) : null)}
-                >
-                    ${color && html`<span class=${dotClass} aria-hidden="true"></span>`}
-                    <span class="agent-thinking-title-text">${titleText}</span>
-                    ${collapsedText && html`<span class="agent-status-elapsed">${collapsedText}</span>`}
-                </button>
-                <div class="agent-thinking-actions">
-                    ${actions.map((action) => {
-                        const pendingKey = `${panelKey}:${action?.key || ''}`;
-                        const pending = pendingPanelActions?.has?.(pendingKey);
-                        return html`
-                            <button
-                                key=${pendingKey}
-                                class=${`agent-thinking-action-btn${action?.tone === 'danger' ? ' danger' : ''}`}
-                                onClick=${() => onExtensionPanelAction?.(panel, action)}
-                                disabled=${Boolean(pending)}
-                            >
-                                ${pending ? 'Working…' : (action?.label || 'Run')}
-                            </button>
-                        `;
-                    })}
+                <div class="agent-thinking-header agent-thinking-header-inline">
+                    <button
+                        class="agent-thinking-title intent agent-thinking-title-clickable"
+                        type="button"
+                        onClick=${() => (isExpandable ? toggleExpand(panelKey) : null)}
+                    >
+                        ${color && html`<span class=${dotClass} aria-hidden="true"></span>`}
+                        <span class="agent-thinking-title-text">${titleText}</span>
+                        ${collapsedText && html`<span class="agent-thinking-title-meta">${collapsedText}</span>`}
+                    </button>
+                    ${actions.length > 0 && html`
+                        <div class="agent-thinking-actions agent-thinking-actions-inline">
+                            ${actions.map((action) => {
+                                const pendingKey = `${panelKey}:${action?.key || ''}`;
+                                const pending = pendingPanelActions?.has?.(pendingKey);
+                                return html`
+                                    <button
+                                        key=${pendingKey}
+                                        class=${`agent-thinking-action-btn${action?.tone === 'danger' ? ' danger' : ''}`}
+                                        onClick=${() => onExtensionPanelAction?.(panel, action)}
+                                        disabled=${Boolean(pending)}
+                                    >
+                                        ${pending ? 'Working…' : (action?.label || 'Run')}
+                                    </button>
+                                `;
+                            })}
+                        </div>
+                    `}
                 </div>
-                ${isExpanded && detailText && html`
-                    <div
-                        class="agent-thinking-body"
-                        dangerouslySetInnerHTML=${{ __html: renderThinkingMarkdown(detailText) }}
-                    />
+                ${isExpandable && html`
+                    <button
+                        class="agent-thinking-corner-toggle"
+                        type="button"
+                        aria-label=${isExpanded ? `Collapse ${titleText}` : `Expand ${titleText}`}
+                        title=${isExpanded ? 'Collapse details' : 'Expand details'}
+                        onClick=${() => toggleExpand(panelKey)}
+                    >
+                        <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            ${isExpanded
+                                ? html`<polyline points="4 10 8 6 12 10"></polyline>`
+                                : html`<polyline points="4 6 8 10 12 6"></polyline>`}
+                        </svg>
+                    </button>
                 `}
-                ${isExpanded && series.length > 0 && html`
-                    <div class="agent-series-chart-grid">
-                        ${series.map((item) => renderSeriesChart(item))}
+                ${isExpanded && html`
+                    <div class=${`agent-thinking-autoresearch-layout${detailText ? '' : ' chart-only'}`}>
+                        ${detailText && html`
+                            <div
+                                class="agent-thinking-body agent-thinking-autoresearch-detail"
+                                dangerouslySetInnerHTML=${{ __html: renderThinkingMarkdown(detailText) }}
+                            />
+                        `}
+                        ${series.length > 0
+                            ? renderCombinedSeriesChart(series)
+                            : html`<div class="agent-thinking-body agent-thinking-autoresearch-summary">Variable history will appear after the first completed run.</div>`}
                     </div>
-                `}
-                ${isExpanded && series.length === 0 && html`
-                    <div class="agent-thinking-body agent-thinking-autoresearch-summary">Variable history will appear after the first completed run.</div>
                 `}
             </div>
         `;

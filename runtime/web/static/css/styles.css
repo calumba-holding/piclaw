@@ -3167,7 +3167,7 @@ body {
     line-height: 1;
     color: var(--text-secondary);
     cursor: pointer;
-    padding: 5px 10px;
+    padding: 3px 8px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -5028,6 +5028,7 @@ body {
     overflow-y: visible;
     box-shadow: inset 0 -1px 0 var(--pane-bottom-border);
     transition: background-color var(--ui-transition-fast), border-color var(--ui-transition-fast), box-shadow var(--ui-transition-fast);
+    position: relative;
 }
 
 .agent-thinking-title {
@@ -5039,9 +5040,26 @@ body {
     color: var(--turn-color, inherit);
 }
 
+.agent-thinking-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.agent-thinking-header-inline {
+    justify-content: space-between;
+}
+
 .agent-thinking-title-text {
     min-width: 0;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
+}
+
+.agent-thinking-title-meta {
+    color: var(--text-tertiary);
+    font-size: 0.92em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
 .agent-status-elapsed {
@@ -5087,6 +5105,12 @@ body {
     cursor: pointer;
     border-radius: var(--radius-sm);
     transition: background-color var(--ui-transition-fast), color var(--ui-transition-fast);
+}
+
+.agent-thinking-header-inline .agent-thinking-title-clickable {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-bottom: 0;
 }
 
 .agent-thinking-title-clickable:hover,
@@ -5172,8 +5196,50 @@ body {
     font-size: var(--font-size-sm);
 }
 
+.agent-thinking-corner-toggle {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg-tertiary, var(--bg-primary)) 88%, transparent);
+    color: var(--text-tertiary);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--shadow-color, #000) 10%, transparent);
+    cursor: pointer;
+    transition: background-color var(--ui-transition-fast), color var(--ui-transition-fast), border-color var(--ui-transition-fast), opacity var(--ui-transition-fast);
+    opacity: 0.82;
+}
+
+.agent-thinking-corner-toggle:hover,
+.agent-thinking-corner-toggle:focus-visible {
+    color: var(--accent-color);
+    border-color: color-mix(in srgb, var(--accent-color) 45%, var(--border-color));
+    background: color-mix(in srgb, var(--accent-color) 10%, var(--bg-tertiary, var(--bg-primary)));
+    opacity: 1;
+    outline: none;
+}
+
+.agent-thinking[data-expanded="true"] .agent-thinking-corner-toggle {
+    color: var(--turn-color, var(--accent-color));
+}
+
+.agent-thinking-autoresearch[data-expanded="true"] {
+    padding-bottom: calc(var(--spacing-md) + 10px);
+}
+
 .agent-thinking-autoresearch .agent-thinking-actions {
     justify-content: flex-end;
+}
+
+.agent-thinking-actions-inline {
+    margin-top: 0;
+    margin-left: auto;
+    flex-wrap: nowrap;
 }
 
 .agent-thinking-actions {
@@ -5186,14 +5252,15 @@ body {
 
 .agent-thinking-action-btn {
     border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
-    background: color-mix(in srgb, var(--bg-primary) 85%, transparent);
+    background: color-mix(in srgb, var(--bg-tertiary, var(--bg-primary)) 82%, transparent);
     color: var(--text-primary);
     border-radius: var(--radius-full);
     padding: 4px 10px;
     font-size: var(--font-size-xs);
     line-height: 1.2;
     cursor: pointer;
-    transition: background-color var(--ui-transition-fast), border-color var(--ui-transition-fast), color var(--ui-transition-fast), opacity var(--ui-transition-fast);
+    transition: background-color var(--ui-transition-fast), border-color var(--ui-transition-fast), color var(--ui-transition-fast), opacity var(--ui-transition-fast), box-shadow var(--ui-transition-fast);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--bg-primary) 65%, transparent);
 }
 
 .agent-thinking-action-btn:hover,
@@ -5205,13 +5272,14 @@ body {
 
 .agent-thinking-action-btn.danger {
     color: var(--danger-color, #ef4444);
-    border-color: color-mix(in srgb, var(--danger-color, #ef4444) 35%, var(--border-color));
+    border-color: color-mix(in srgb, var(--danger-color, #ef4444) 28%, var(--border-color));
+    background: color-mix(in srgb, var(--danger-color, #ef4444) 8%, var(--bg-tertiary, var(--bg-primary)));
 }
 
 .agent-thinking-action-btn.danger:hover,
 .agent-thinking-action-btn.danger:focus-visible {
-    background: color-mix(in srgb, var(--danger-color, #ef4444) 10%, transparent);
-    border-color: var(--danger-color, #ef4444);
+    background: color-mix(in srgb, var(--danger-color, #ef4444) 14%, var(--bg-tertiary, var(--bg-primary)));
+    border-color: color-mix(in srgb, var(--danger-color, #ef4444) 60%, var(--border-color));
     color: var(--danger-color, #ef4444);
 }
 
@@ -5220,19 +5288,38 @@ body {
     cursor: wait;
 }
 
-.agent-series-chart-grid {
+.agent-thinking-autoresearch-layout {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 48%);
+    gap: 12px;
+    align-items: start;
     margin-top: var(--spacing-sm);
 }
 
+.agent-thinking-autoresearch-layout.chart-only {
+    grid-template-columns: 1fr;
+}
+
+.agent-thinking-autoresearch-detail {
+    margin: 0;
+}
+
+.agent-series-chart-grid {
+    display: block;
+    margin: 0;
+}
+
 .agent-series-chart {
-    border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
+    --agent-series-color: color-mix(in srgb, var(--accent-color) 84%, var(--text-primary));
+    border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
     border-radius: var(--radius-md);
-    background: linear-gradient(180deg, color-mix(in srgb, var(--turn-color, var(--accent-color)) 8%, transparent), color-mix(in srgb, var(--bg-primary) 92%, transparent));
+    background: linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)), color-mix(in srgb, var(--bg-primary) 96%, transparent));
     padding: 8px;
-    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--bg-primary) 65%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--bg-primary) 65%, transparent), 0 1px 2px color-mix(in srgb, var(--shadow-color, #000) 8%, transparent);
+}
+
+.agent-series-chart-combined {
+    min-width: 0;
 }
 
 .agent-series-chart-header {
@@ -5250,24 +5337,110 @@ body {
 }
 
 .agent-series-chart-value {
-    color: var(--text-primary);
+    color: var(--agent-series-color);
     font-variant-numeric: tabular-nums;
+    font-weight: 600;
 }
 
 .agent-series-chart-svg {
     width: 100%;
-    height: 72px;
+    height: 120px;
     display: block;
     overflow: visible;
+    border-radius: calc(var(--radius-md) - 2px);
+    background:
+        repeating-linear-gradient(
+            to bottom,
+            color-mix(in srgb, var(--border-color) 24%, transparent) 0 1px,
+            transparent 1px 18px
+        ),
+        repeating-linear-gradient(
+            to right,
+            color-mix(in srgb, var(--border-color) 16%, transparent) 0 1px,
+            transparent 1px 36px
+        ),
+        color-mix(in srgb, var(--bg-secondary) 58%, var(--bg-primary));
 }
 
 .agent-series-chart-line {
     fill: none;
-    stroke: var(--turn-color, var(--accent-color));
+    stroke: var(--agent-series-color);
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
-    filter: drop-shadow(0 1px 2px color-mix(in srgb, var(--turn-color, var(--accent-color)) 20%, transparent));
+    filter: drop-shadow(0 1px 2px color-mix(in srgb, var(--agent-series-color) 20%, transparent));
+}
+
+.agent-series-chart-point-group {
+    pointer-events: auto;
+}
+
+.agent-series-chart-point-hit {
+    fill: transparent;
+    cursor: help;
+}
+
+.agent-series-chart-point {
+    fill: var(--agent-series-color);
+    stroke: color-mix(in srgb, var(--bg-primary) 80%, white);
+    stroke-width: 1.5;
+    opacity: 0.96;
+    transition: transform var(--ui-transition-fast), opacity var(--ui-transition-fast), stroke var(--ui-transition-fast);
+    transform-origin: center;
+}
+
+.agent-series-chart-point-group:hover .agent-series-chart-point,
+.agent-series-chart-point-group:focus-within .agent-series-chart-point {
+    transform: scale(1.35);
+    opacity: 1;
+    stroke: color-mix(in srgb, var(--agent-series-color) 35%, white);
+}
+
+.agent-series-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.agent-series-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 4px 8px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--bg-secondary) 86%, var(--bg-primary));
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.agent-series-legend-swatch {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--agent-series-color);
+    flex: 0 0 auto;
+}
+
+.agent-series-legend-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.agent-series-legend-value {
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    margin-left: 2px;
+}
+
+@media (max-width: 720px) {
+    .agent-thinking-autoresearch-layout {
+        grid-template-columns: 1fr;
+    }
 }
 
 .agent-thinking-body ul,

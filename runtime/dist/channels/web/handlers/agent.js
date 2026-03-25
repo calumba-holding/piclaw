@@ -642,9 +642,10 @@ export async function processChat(channel, chatJid, agentId, threadRootId) {
     const hasActiveClients = channel.sse.clients.size > 0;
     // Keep interactive web turns bounded so stalled sessions still reach a
     // terminal state, but do not clamp them too aggressively. A 5 minute cap
-    // proved too short for legitimate long-running tool workflows, so we allow
-    // up to 15 minutes here while still respecting any lower global timeout.
-    const INTERACTIVE_WEB_TIMEOUT_MS = Math.min(AGENT_TIMEOUT, 15 * 60 * 1000);
+    // proved too short for legitimate long-running tool workflows, and 15
+    // minutes has still been a little tight for some real sessions, so allow up
+    // to 20 minutes here while still respecting any lower global timeout.
+    const INTERACTIVE_WEB_TIMEOUT_MS = Math.min(AGENT_TIMEOUT, 20 * 60 * 1000);
     const timeoutMs = hasActiveClients
         ? INTERACTIVE_WEB_TIMEOUT_MS
         : (BACKGROUND_AGENT_TIMEOUT > 0 ? BACKGROUND_AGENT_TIMEOUT : AGENT_TIMEOUT);
