@@ -85,25 +85,17 @@ resolve_bun_version() {
   return 1
 }
 
-install_bun_release() {
-  local bun_version="$1"
-  local bun_target="$2"
-  local temp_dir
+install_bun_release() (
+  bun_version="$1"
+  bun_target="$2"
   temp_dir="$(mktemp -d)"
+  trap 'rm -rf "$temp_dir"' EXIT
 
-  local filename="bun-${bun_target}.zip"
-  local base_url="https://github.com/oven-sh/bun/releases/download/bun-v${bun_version}"
-  local url="${base_url}/${filename}"
-  local bundle="$temp_dir/$filename"
-  local checksums="$temp_dir/SHASUMS256.txt"
-  local expected_checksum
-  local actual_checksum
-
-  # Clean up temp_dir on return. Use a cleanup function so the trap
-  # does not leak $temp_dir into the caller's scope (bash RETURN traps
-  # can propagate with set -u and cause "unbound variable" crashes).
-  _bun_release_cleanup() { rm -rf "$temp_dir"; trap - RETURN; }
-  trap '_bun_release_cleanup' RETURN
+  filename="bun-${bun_target}.zip"
+  base_url="https://github.com/oven-sh/bun/releases/download/bun-v${bun_version}"
+  url="${base_url}/${filename}"
+  bundle="$temp_dir/$filename"
+  checksums="$temp_dir/SHASUMS256.txt"
 
   if ! curl -fsSL --fail "$url" -o "$bundle"; then
     echo "Unable to download Bun archive: $url" >&2
@@ -136,7 +128,7 @@ install_bun_release() {
 
   # Bun archives use a "bun-<target>" directory inside the zip.
   # Support both "bun-<target>/bun" and bare "<target>/bun" layouts.
-  local bun_binary=""
+  bun_binary=""
   for candidate in "$temp_dir/extract/bun-${bun_target}/bun" "$temp_dir/extract/${bun_target}/bun"; do
     if [ -f "$candidate" ]; then
       bun_binary="$candidate"
@@ -153,7 +145,7 @@ install_bun_release() {
   sudo mkdir -p "$BUN_INSTALL/bin"
   sudo cp "$bun_binary" "$BUN_INSTALL/bin/bun"
   sudo chmod 755 "$BUN_INSTALL/bin/bun"
-}
+)
 
 install_bun() {
   local bun_platform
