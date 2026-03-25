@@ -55,6 +55,7 @@ let _pendingContentVersion = 0;
 
 // Drag state
 let draggedCard: { card: CardData; fromLaneId: string; fromIndex: number } | null = null;
+let draggedLane: { laneId: string; fromIndex: number } | null = null;
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -205,7 +206,44 @@ function ItemMenuButton({ onArchive, isEditing, onCancelEdit }: any) {
           onClick=${(e: Event) => { e.stopPropagation(); onCancelEdit(); }} title="Cancel">${icons.x}</button>
       ` : html`
         <button class="kanban-plugin__item-postfix-button"
-          onClick=${(e: Event) => { e.stopPropagation(); onArchive(); }} title="Archive">${icons.moreVertical}</button>
+          onClick=${(e: Event) => { e.stopPropagation(); onArchive(); }} title="Archive">${icons.archive}</button>
+      `}
+    </div>`;
+}
+
+function LaneMenuButton({ onDelete }: { onDelete: () => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handlePointerDown = (event: Event) => {
+      const target = event.target as Node | null;
+      if (menuRef.current && target && !menuRef.current.contains(target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [isOpen]);
+
+  return html`
+    <div class="kanban-plugin__lane-menu" ref=${menuRef}>
+      <button
+        class="kanban-plugin__lane-settings-button"
+        onClick=${(e: Event) => { e.stopPropagation(); setIsOpen((prev: boolean) => !prev); }}
+        title="More options"
+      >${icons.moreVertical}</button>
+      ${isOpen && html`
+        <div class="kanban-plugin__lane-menu-popover">
+          <button
+            class="kanban-plugin__lane-menu-item danger"
+            onClick=${(e: Event) => { e.stopPropagation(); setIsOpen(false); onDelete(); }}
+          >
+            ${icons.trash}
+            <span>Delete lane</span>
+          </button>
+        </div>
       `}
     </div>`;
 }
@@ -290,28 +328,71 @@ function ItemForm({ onAdd, onCancel }: { onAdd: (title: string) => void; onCance
     </div>`;
 }
 
-function Lane({ lane, onUpdate, onDelete, onAddCard, onUpdateCard, onDeleteCard, onArchiveCard, onMoveCard }: any) {
+function Lane({ lane, laneIndex, onUpdate, onDelete, onAddCard, onUpdateCard, onDeleteCard, onArchiveCard, onMoveCard, onMoveLane }: any) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(lane.title);
   const [isAddingCard, setIsAddingCard] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isLaneDragOver, setIsLaneDragOver] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { if (isEditingTitle && titleInputRef.current) { titleInputRef.current.focus(); titleInputRef.current.select(); } }, [isEditingTitle]);
 
-  const handleDragOver = (e: DragEvent) => { e.preventDefault(); if (draggedCard) { e.dataTransfer!.dropEffect = 'move'; setIsDragOver(true); } };
+  const handleDragOver = (e: DragEvent) => {
+    e.preventDefault();
+    if (draggedCard) {
+      e.dataTransfer!.dropEffect = 'move';
+      setIsDragOver(true);
+    }
+    if (draggedLane) {
+      e.dataTransfer!.dropEffect = 'move';
+      setIsLaneDragOver(true);
+    }
+  };
   const handleDragLeave = (e: DragEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) setIsDragOver(false);
+    if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+      setIsDragOver(false);
+      setIsLaneDragOver(false);
+    }
   };
-  const handleDrop = (e: DragEvent) => { e.preventDefault(); setIsDragOver(false); if (draggedCard) onMoveCard(draggedCard.card, draggedCard.fromLaneId, lane.id); draggedCard = null; };
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    setIsLaneDragOver(false);
+    if (draggedCard) onMoveCard(draggedCard.card, draggedCard.fromLaneId, lane.id);
+    if (draggedLane && draggedLane.laneId !== lane.id) onMoveLane(draggedLane.laneId, lane.id);
+    draggedCard = null;
+    draggedLane = null;
+  };
+  const handleLaneDragStart = (e: DragEvent) => {
+    const target = e.target as HTMLElement | null;
+    if (!target?.closest('.kanban-plugin__lane-grip')) {
+      e.preventDefault();
+      return;
+    }
+    draggedLane = { laneId: lane.id, fromIndex: laneIndex };
+    e.dataTransfer!.effectAllowed = 'move';
+    e.dataTransfer!.setData('text/plain', lane.id);
+    setTimeout(() => { (e.currentTarget as HTMLElement).classList.add('is-lane-dragging'); }, 0);
+  };
+  const handleLaneDragEnd = (e: DragEvent) => {
+    draggedLane = null;
+    setIsLaneDragOver(false);
+    (e.currentTarget as HTMLElement).classList.remove('is-lane-dragging');
+  };
   const saveTitleEdit = () => { if (titleValue.trim()) onUpdate({ ...lane, title: titleValue.trim() }); setIsEditingTitle(false); };
   const handleAddCard = (title: string) => { onAddCard(lane.id, title); setIsAddingCard(false); };
 
   return html`
-    <div class="kanban-plugin__lane-wrapper">
-      <div class="kanban-plugin__lane ${isDragOver ? 'is-dropping' : ''}"
-        onDragOver=${handleDragOver} onDragLeave=${handleDragLeave} onDrop=${handleDrop}>
+    <div class="kanban-plugin__lane-wrapper ${isLaneDragOver ? 'is-lane-drop-target' : ''}"
+      draggable=${!isEditingTitle && !isAddingCard}
+      onDragStart=${handleLaneDragStart}
+      onDragEnd=${handleLaneDragEnd}
+      onDragOver=${handleDragOver}
+      onDragLeave=${handleDragLeave}
+      onDrop=${handleDrop}>
+      <div class="kanban-plugin__lane ${isDragOver ? 'is-dropping' : ''}">
         <div class="kanban-plugin__lane-header-wrapper">
           <div class="kanban-plugin__lane-grip">${icons.grip}</div>
           <div class="kanban-plugin__lane-title">
@@ -322,12 +403,11 @@ function Lane({ lane, onUpdate, onDelete, onAddCard, onUpdateCard, onDeleteCard,
                 onKeyDown=${(e: KeyboardEvent) => { if (e.key === 'Enter') saveTitleEdit(); if (e.key === 'Escape') { setTitleValue(lane.title); setIsEditingTitle(false); } }} />
             ` : html`
               <div class="kanban-plugin__lane-title-text" onDblClick=${() => setIsEditingTitle(true)} title=${lane.title}>${lane.title}</div>
-              <div class="kanban-plugin__lane-title-count">${lane.cards.length}</div>
             `}
           </div>
           <div class="kanban-plugin__lane-settings-button-wrapper">
             <button class="kanban-plugin__lane-settings-button" onClick=${() => setIsAddingCard(true)} title="Add card">${icons.plusCircle}</button>
-            <button class="kanban-plugin__lane-settings-button" onClick=${() => onDelete(lane)} title="More options">${icons.moreVertical}</button>
+            <${LaneMenuButton} onDelete=${() => onDelete(lane)} />
           </div>
         </div>
         <div class="kanban-plugin__lane-items">
@@ -449,6 +529,16 @@ function Board({ initialContent }: { initialContent: string }) {
   const addLane = (title: string) => { if (!board) return; saveBoard({ ...board, lanes: [...board.lanes, { id: createId('lane'), title, cards: [] }] }); setIsAddingLane(false); };
   const updateLane = (l: LaneData) => { if (!board) return; saveBoard({ ...board, lanes: board.lanes.map(x => x.id === l.id ? l : x) }); };
   const deleteLane = (l: LaneData) => { if (!board) return; saveBoard({ ...board, lanes: board.lanes.filter(x => x.id !== l.id) }); };
+  const moveLane = (fromLaneId: string, toLaneId: string) => {
+    if (!board || fromLaneId === toLaneId) return;
+    const fromIndex = board.lanes.findIndex((lane) => lane.id === fromLaneId);
+    const toIndex = board.lanes.findIndex((lane) => lane.id === toLaneId);
+    if (fromIndex === -1 || toIndex === -1) return;
+    const nextLanes = [...board.lanes];
+    const [moved] = nextLanes.splice(fromIndex, 1);
+    nextLanes.splice(toIndex, 0, moved);
+    saveBoard({ ...board, lanes: nextLanes });
+  };
   const addCard = (laneId: string, title: string) => { if (!board) return; const c: CardData = { id: createId('card'), title, checked: false, checkChar: ' ' }; saveBoard({ ...board, lanes: board.lanes.map(l => l.id === laneId ? { ...l, cards: [...l.cards, c] } : l) }); };
   const updateCard = (laneId: string, c: CardData) => { if (!board) return; saveBoard({ ...board, lanes: board.lanes.map(l => l.id === laneId ? { ...l, cards: l.cards.map(x => x.id === c.id ? c : x) } : l) }); };
   const deleteCard = (laneId: string, c: CardData) => { if (!board) return; saveBoard({ ...board, lanes: board.lanes.map(l => l.id === laneId ? { ...l, cards: l.cards.filter(x => x.id !== c.id) } : l) }); };
@@ -474,10 +564,10 @@ function Board({ initialContent }: { initialContent: string }) {
         <button class="secondary" onClick=${redo} disabled=${redoStack.length === 0} title="Redo (Ctrl+Y)">Redo</button>
       </div>
       <div class="kanban-plugin__board"><div>
-        ${board.lanes.map(lane => html`
-          <${Lane} key=${lane.id} lane=${lane} onUpdate=${updateLane} onDelete=${deleteLane}
+        ${board.lanes.map((lane, laneIndex) => html`
+          <${Lane} key=${lane.id} lane=${lane} laneIndex=${laneIndex} onUpdate=${updateLane} onDelete=${deleteLane}
             onAddCard=${addCard} onUpdateCard=${updateCard} onDeleteCard=${deleteCard}
-            onArchiveCard=${archiveCard} onMoveCard=${moveCard} />`)}
+            onArchiveCard=${archiveCard} onMoveCard=${moveCard} onMoveLane=${moveLane} />`)}
         ${isAddingLane && html`<${LaneForm} onAdd=${addLane} onCancel=${() => setIsAddingLane(false)} />`}
       </div></div>
       <${Archive} cards=${board.archive} onRestore=${restoreFromArchive} />

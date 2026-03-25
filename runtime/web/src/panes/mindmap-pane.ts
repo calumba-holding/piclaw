@@ -60,6 +60,7 @@ function createMindmapChrome(container: HTMLElement): void {
 
     // Toolbar
     const toolbar = document.createElement('div');
+    toolbar.id = 'toolbar';
     toolbar.className = 'mindmap-toolbar';
     toolbar.innerHTML = `
         <select id="layout-select">
@@ -68,10 +69,10 @@ function createMindmapChrome(container: HTMLElement): void {
             <option value="radial">Radial</option>
             <option value="force-directed">Force Directed</option>
         </select>
-        <button id="zoom-fit" title="Fit to view">⊞</button>
-        <button id="zoom-in"  title="Zoom in">+</button>
-        <button id="zoom-out" title="Zoom out">−</button>
-        <button id="reset-layout" title="Reset layout">↻</button>
+        <button type="button" id="zoom-fit" title="Fit to view">⊞</button>
+        <button type="button" id="zoom-in"  title="Zoom in">+</button>
+        <button type="button" id="zoom-out" title="Zoom out">−</button>
+        <button type="button" id="reset-layout" title="Reset layout">↻</button>
     `;
     container.appendChild(toolbar);
 

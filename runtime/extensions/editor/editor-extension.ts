@@ -291,7 +291,7 @@ export class StandaloneEditorInstance implements PaneInstance {
         lpBtn.className = `editor-status-button${this.livePreviewEnabled ? ' active' : ''}`;
         lpBtn.title = 'Toggle live preview (Alt+P)';
         lpBtn.textContent = 'Live Preview';
-        lpBtn.style.display = this.isMarkdownFile() ? '' : 'none';
+        lpBtn.style.display = this.supportsMarkdownLivePreview() ? '' : 'none';
         lpBtn.addEventListener('click', () => this.toggleLivePreview());
         this._lpBtn = lpBtn;
 
@@ -453,7 +453,7 @@ export class StandaloneEditorInstance implements PaneInstance {
         this.setDirty(false);
 
         if (this._lpBtn) {
-            this._lpBtn.style.display = this.isMarkdownFile() ? '' : 'none';
+            this._lpBtn.style.display = this.supportsMarkdownLivePreview() ? '' : 'none';
             this._lpBtn.classList.toggle('active', this.livePreviewEnabled);
         }
         this.updateWhitespaceControlState();
@@ -462,7 +462,7 @@ export class StandaloneEditorInstance implements PaneInstance {
         this.updateGutterWidth();
 
         // If this is a Markdown file and live preview is enabled, load it
-        if (this.isMarkdownFile() && this.livePreviewEnabled) {
+        if (this.supportsMarkdownLivePreview() && this.livePreviewEnabled) {
             this.applyLivePreview(true);
         }
     }
@@ -471,6 +471,13 @@ export class StandaloneEditorInstance implements PaneInstance {
     private isMarkdownFile(): boolean {
         const lower = (this.path || '').toLowerCase();
         return lower.endsWith('.md') || lower.endsWith('.markdown');
+    }
+
+    /** Some markdown-backed formats should open as raw source, not live preview. */
+    private supportsMarkdownLivePreview(): boolean {
+        const lower = (this.path || '').toLowerCase();
+        if (lower.endsWith('.kanban.md')) return false;
+        return this.isMarkdownFile();
     }
 
     /** Lazy-load and apply/remove markdown live preview extensions. */
@@ -506,7 +513,7 @@ export class StandaloneEditorInstance implements PaneInstance {
      * Only meaningful for Markdown files.
      */
     toggleLivePreview(): void {
-        if (!this.isMarkdownFile()) return;
+        if (!this.supportsMarkdownLivePreview()) return;
         this.livePreviewEnabled = !this.livePreviewEnabled;
         setLocalBool('piclaw_md_live_preview', this.livePreviewEnabled);
         this.applyLivePreview(this.livePreviewEnabled);
@@ -518,7 +525,7 @@ export class StandaloneEditorInstance implements PaneInstance {
 
     /** Whether live preview is currently on. */
     isLivePreview(): boolean {
-        return this.livePreviewEnabled && this.isMarkdownFile();
+        return this.livePreviewEnabled && this.supportsMarkdownLivePreview();
     }
 
     private isWhitespaceDisabledInCurrentMode(): boolean {
@@ -830,8 +837,14 @@ export class StandaloneEditorInstance implements PaneInstance {
     /** Update the file path (after rename). */
     setPath(newPath: string): void {
         this.path = newPath;
+        const livePreviewSupported = this.supportsMarkdownLivePreview();
         if (this._lpBtn) {
-            this._lpBtn.style.display = this.isMarkdownFile() ? '' : 'none';
+            this._lpBtn.style.display = livePreviewSupported ? '' : 'none';
+        }
+        if (!livePreviewSupported) {
+            void this.applyLivePreview(false);
+        } else if (this.livePreviewEnabled) {
+            void this.applyLivePreview(true);
         }
         this.updateWhitespaceControlState();
         void this.refreshBranchHint();

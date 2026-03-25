@@ -38,26 +38,61 @@
 .kanban-plugin { contain: content; height: 100%; width: 100%; position: relative; display: flex; flex-direction: column; }
 
 .kanban-plugin__search-wrapper {
-  width: 100%; position: sticky; top: 0; left: 0;
-  padding: 10px 13px; display: flex; justify-content: flex-end; align-items: center;
-  z-index: 2; background-color: var(--kb-bg); gap: 8px;
+  width: 100%;
+  position: sticky;
+  top: 0;
+  left: 0;
+  padding: 10px 13px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  z-index: 4;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--kb-bg) 96%, transparent), color-mix(in srgb, var(--kb-bg) 82%, transparent));
+  gap: 8px;
 }
 
 .kanban-plugin__search-wrapper button {
-  padding: 6px 12px; background: var(--kb-accent); color: var(--kb-accent-text);
-  border: none; border-radius: var(--kb-radius); cursor: pointer; font-size: 13px;
-  display: flex; align-items: center; gap: 4px; line-height: 1;
+  min-height: 34px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--kb-bg-secondary) 84%, transparent);
+  color: var(--kb-text);
+  border: 1px solid color-mix(in srgb, var(--kb-border) 88%, transparent);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
 }
-.kanban-plugin__search-wrapper button:hover { background: var(--kb-accent-hover); }
+.kanban-plugin__search-wrapper button:hover {
+  background: color-mix(in srgb, var(--kb-bg-hover) 88%, transparent);
+  border-color: color-mix(in srgb, var(--kb-border-focus) 36%, var(--kb-border));
+  transform: translateY(-1px);
+}
 .kanban-plugin__search-wrapper button.secondary {
-  background: var(--kb-bg-secondary); color: var(--kb-text-muted); border: 1px solid var(--kb-border);
+  background: color-mix(in srgb, var(--kb-bg-secondary) 78%, transparent);
+  color: var(--kb-text-muted);
 }
-.kanban-plugin__search-wrapper button.secondary:hover { background: var(--kb-bg-hover); color: var(--kb-text); }
+.kanban-plugin__search-wrapper button.secondary:hover { color: var(--kb-text); }
 
 .kanban-plugin__board { display: flex; width: 100%; height: 100%; overflow-x: auto; overflow-y: hidden; }
 .kanban-plugin__board > div { display: flex; align-items: flex-start; padding: 1rem; width: fit-content; height: 100%; }
 
-.kanban-plugin__lane-wrapper { display: flex; flex-shrink: 0; margin-inline-end: 10px; max-height: 100%; width: var(--lane-width); }
+.kanban-plugin__lane-wrapper { display: flex; flex-shrink: 0; margin-inline-end: 10px; max-height: 100%; width: var(--lane-width); position: relative; transition: transform 0.15s ease, opacity 0.15s ease; }
+.kanban-plugin__lane-wrapper.is-lane-dragging { opacity: 0.55; transform: scale(0.985); }
+.kanban-plugin__lane-wrapper.is-lane-drop-target::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 2px dashed var(--kb-border-focus);
+  border-radius: 8px;
+  pointer-events: none;
+}
 
 .kanban-plugin__lane {
   width: 100%; display: flex; flex-direction: column;
@@ -73,13 +108,13 @@
 }
 
 .kanban-plugin__lane-grip { cursor: grab; color: var(--kb-text-faint); display: flex; padding: 2px; opacity: 0; transition: opacity 0.15s; }
+.kanban-plugin__lane-grip:hover { color: var(--kb-text); }
 .kanban-plugin__lane-header-wrapper:hover .kanban-plugin__lane-grip { opacity: 1; }
 .kanban-plugin__lane-grip:active { cursor: grabbing; }
 .kanban-plugin__lane-grip svg { width: 14px; height: 14px; }
 
 .kanban-plugin__lane-title { font-weight: 600; font-size: 0.875rem; flex-grow: 1; width: 100%; display: flex; flex-direction: column; cursor: default; min-width: 0; }
 .kanban-plugin__lane-title-text { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.kanban-plugin__lane-title-count { border-radius: 3px; color: var(--kb-text-muted); font-size: 12px; font-weight: normal; padding: 3px 6px; background: var(--kb-bg-alt); margin-top: 2px; }
 
 .kanban-plugin__lane-title-input {
   flex: 1; padding: 4px 8px; background-color: var(--kb-bg);
@@ -90,10 +125,54 @@
 .kanban-plugin__lane-settings-button-wrapper { display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; }
 .kanban-plugin__lane-header-wrapper:hover .kanban-plugin__lane-settings-button-wrapper { opacity: 1; }
 .kanban-plugin__lane-settings-button {
-  font-size: 13px; color: var(--kb-text-muted); padding: 4px; background: transparent;
-  border: none; border-radius: var(--kb-radius); cursor: pointer;
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+  color: var(--kb-text-muted);
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
-.kanban-plugin__lane-settings-button:hover { background: var(--kb-bg-hover); color: var(--kb-text); }
+.kanban-plugin__lane-settings-button:hover {
+  background: var(--kb-bg-hover);
+  color: var(--kb-text);
+  border-color: color-mix(in srgb, var(--kb-border-focus) 28%, var(--kb-border));
+}
+.kanban-plugin__lane-menu { position: relative; }
+.kanban-plugin__lane-menu-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 160px;
+  background: color-mix(in srgb, var(--kb-bg) 94%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kb-border) 92%, transparent);
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.22);
+  padding: 6px;
+  z-index: 20;
+}
+.kanban-plugin__lane-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  background: transparent;
+  color: var(--kb-text);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+}
+.kanban-plugin__lane-menu-item:hover { background: var(--kb-bg-hover); }
+.kanban-plugin__lane-menu-item.danger { color: #ef4444; }
 
 .kanban-plugin__lane-items { padding: 4px 8px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1; min-height: 40px; }
 .kanban-plugin__lane-items:empty::after { content: ''; display: block; height: 40px; border: 2px dashed rgba(136,136,136,0.15); border-radius: 6px; }

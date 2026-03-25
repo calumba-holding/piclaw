@@ -15,12 +15,14 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, symlinkSync, rmSync
 import { join, resolve, dirname, basename } from "node:path";
 import { Type } from "@sinclair/typebox";
 import { WORKSPACE_DIR } from "../core/config.js";
+import { createMedia } from "../db/media.js";
 import { postMessagesToolMessage } from "./messages-crud.js";
 // ── Paths ───────────────────────────────────────────────────────
 const VENDOR_DIR = resolve(dirname(import.meta.dir), "..", "vendor", "autoresearch");
 const SESSIONS_DIR = join(WORKSPACE_DIR, ".piclaw", "autoresearch-sessions");
 const TMUX_SESSION_PREFIX = "autoresearch-";
 let activeExperiment = null;
+const autoresearchWidgetsByChat = new Map();
 // ── Helpers ─────────────────────────────────────────────────────
 function tmuxSessionExists(name) {
     const result = spawnSync("tmux", ["has-session", "-t", name], { stdio: "ignore" });
@@ -193,6 +195,51 @@ function buildAutoresearchSeries(entries) {
     }
     return Array.from(series.values()).filter((item) => item.points.length > 0);
 }
+function shellQuote(value) {
+    return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+function createReportRef(reportPath) {
+    if (!reportPath || !existsSync(reportPath))
+        return null;
+    try {
+        const data = readFileSync(reportPath);
+        const filename = basename(reportPath);
+        const mediaId = createMedia(filename, "text/markdown", data, null, {
+            size: data.length,
+            source_path: reportPath,
+            kind: "file",
+        });
+        return {
+            path: reportPath,
+            filename,
+            mediaId,
+            openUrl: `/workspace/raw?path=${encodeURIComponent(reportPath)}`,
+            downloadUrl: mediaId > 0 ? `/media/${mediaId}` : null,
+        };
+    }
+    catch (error) {
+        console.warn("[autoresearch] Failed to create report attachment:", error);
+        return {
+            path: reportPath,
+            filename: basename(reportPath),
+            mediaId: null,
+            openUrl: `/workspace/raw?path=${encodeURIComponent(reportPath)}`,
+            downloadUrl: null,
+        };
+    }
+}
+function postReportAttachment(chatJid, exp, report, state) {
+    if (!report?.mediaId)
+        return;
+    const verb = state === "completed" ? "completed" : state === "failed" ? "ended" : "stopped";
+    postMessagesToolMessage({
+        action: "post",
+        type: "agent",
+        chat_jid: chatJid,
+        content: `Autoresearch ${verb}: ${exp.displayName || exp.id}. Attached report: ${report.filename}`,
+        media_ids: [report.mediaId],
+    }, chatJid);
+}
 function buildAutoresearchPanel(exp, state, options = {}) {
     if (!exp || state === "idle")
         return null;
@@ -201,6 +248,13 @@ function buildAutoresearchPanel(exp, state, options = {}) {
     const series = buildAutoresearchSeries(entries);
     const runLabel = `${summary.totalRuns} run${summary.totalRuns === 1 ? "" : "s"}`;
     const stateLabel = state.replace(/[-_]+/g, " ");
+    const tmuxAttachCommand = exp.tmuxSession ? `tmux attach -t ${shellQuote(exp.tmuxSession)}` : "";
+    const reportLinks = options.report
+        ? [
+            `[Open report](${options.report.openUrl})`,
+            options.report.downloadUrl ? `[Download report](${options.report.downloadUrl})` : "",
+        ].filter(Boolean).join(" · ")
+        : "";
     const detailLines = [
         `- State: **${stateLabel}**`,
         `- Runs: **${summary.totalRuns}** (${summary.kept} kept, ${summary.discarded} discarded${summary.crashed ? `, ${summary.crashed} crashed` : ""})`,
@@ -209,9 +263,11 @@ function buildAutoresearchPanel(exp, state, options = {}) {
         exp.model ? `- Model: \`${exp.model}\`` : "",
         exp.maxIterations ? `- Max runs: **${exp.maxIterations}**` : "",
         exp.projectDir ? `- Project: \`${exp.projectDir}\`` : "",
-        exp.tmuxSession ? `- tmux: \`${exp.tmuxSession}\`` : "",
+        exp.tmuxSession ? `- tmux session: \`${exp.tmuxSession}\`` : "",
         summary.lastDescription ? `- Last run: ${summary.lastDescription}` : "",
         options.reason ? `- Reason: ${options.reason}` : "",
+        reportLinks ? `- Report: ${reportLinks}` : "",
+        tmuxAttachCommand ? "\n**Attach to session**\n```bash\n" + tmuxAttachCommand + "\n```" : "",
     ].filter(Boolean);
     const actions = [];
     if (state === "running") {
@@ -244,12 +300,18 @@ function buildAutoresearchWidgetPayload(exp, state, options = {}) {
         },
     };
 }
-function emitAutoresearchStatus(broadcastEvent, exp, state, summary, reason, entries) {
+function emitAutoresearchStatus(broadcastEvent, exp, state, summary, reason, entries, report) {
     try {
         if (!exp)
             return;
-        const widget = buildAutoresearchWidgetPayload(exp, state, { summary: summary ?? null, reason: reason ?? null, entries: entries ?? null });
+        const widget = buildAutoresearchWidgetPayload(exp, state, {
+            summary: summary ?? null,
+            reason: reason ?? null,
+            entries: entries ?? null,
+            report: report ?? null,
+        });
         if (!widget) {
+            autoresearchWidgetsByChat.delete(exp.chatJid);
             broadcastEvent("extension_ui_widget", {
                 chat_jid: exp.chatJid,
                 key: "autoresearch",
@@ -258,6 +320,7 @@ function emitAutoresearchStatus(broadcastEvent, exp, state, summary, reason, ent
             });
             return;
         }
+        autoresearchWidgetsByChat.set(exp.chatJid, widget);
         broadcastEvent("extension_ui_widget", widget);
     }
     catch {
@@ -266,11 +329,12 @@ function emitAutoresearchStatus(broadcastEvent, exp, state, summary, reason, ent
 }
 export function getAutoresearchWidgetPayload(chatJid) {
     const normalizedChatJid = typeof chatJid === "string" && chatJid.trim() ? chatJid.trim() : null;
-    if (!activeExperiment)
+    if (activeExperiment && (!normalizedChatJid || activeExperiment.chatJid === normalizedChatJid)) {
+        return buildAutoresearchWidgetPayload(activeExperiment, "running");
+    }
+    if (!normalizedChatJid)
         return null;
-    if (normalizedChatJid && activeExperiment.chatJid !== normalizedChatJid)
-        return null;
-    return buildAutoresearchWidgetPayload(activeExperiment, "running");
+    return autoresearchWidgetsByChat.get(normalizedChatJid) ?? null;
 }
 let autoresearchWidgetBroadcast = () => { };
 function generateReport(projectDir, jsonlPath) {
@@ -549,10 +613,8 @@ async function startAutoresearch(params, broadcastEvent, chatJid) {
         if (!tmuxSessionExists(activeExperiment.tmuxSession)) {
             const jsonlP = activeExperiment.jsonlPath;
             stopPolling();
-            const summary = existsSync(jsonlP)
-                ? buildExperimentSummary(parseJsonlFile(jsonlP))
-                : buildActiveExperimentSummary(activeExperiment);
-            emitAutoresearchStatus(broadcastEvent, activeExperiment, summary.totalRuns > 0 ? "completed" : "failed", summary, "process_exited");
+            const finalState = existsSync(jsonlP) && buildExperimentSummary(parseJsonlFile(jsonlP)).totalRuns > 0 ? "completed" : "failed";
+            finalizeAutoresearchRun(activeExperiment, finalState, { reason: "process_exited", generateReport: true });
             activeExperiment = null;
             return;
         }
@@ -575,8 +637,7 @@ async function startAutoresearch(params, broadcastEvent, chatJid) {
                 const tmux = activeExperiment.tmuxSession;
                 const reason = maxReached ? "max_iterations_idle" : "general_idle";
                 stopPolling();
-                const summary = buildExperimentSummary(allEntries);
-                emitAutoresearchStatus(broadcastEvent, activeExperiment, "completed", summary, reason);
+                finalizeAutoresearchRun(activeExperiment, "completed", { reason, generateReport: true });
                 spawnSync("tmux", ["send-keys", "-t", tmux, "C-c", ""], { stdio: "ignore" });
                 setTimeout(() => spawnSync("tmux", ["kill-session", "-t", tmux], { stdio: "ignore" }), 2000);
                 console.log(`[autoresearch] Experiment ${expId} completed (${runCount} runs, idle ${Math.round(idleMs / 1000)}s, reason: ${reason})`);
@@ -623,6 +684,21 @@ function stopPolling() {
         activeExperiment.pollInterval = null;
     }
 }
+function finalizeAutoresearchRun(exp, state, options = {}) {
+    const entries = existsSync(exp.jsonlPath) ? parseJsonlFile(exp.jsonlPath) : [];
+    const summary = entries.length > 0 ? buildExperimentSummary(entries) : buildActiveExperimentSummary(exp);
+    let reportPath = null;
+    let report = null;
+    if (options.generateReport !== false && existsSync(exp.jsonlPath)) {
+        const markdown = generateReport(exp.projectDir, exp.jsonlPath);
+        reportPath = join(exp.projectDir, `autoresearch-report-${exp.id}.md`);
+        writeFileSync(reportPath, markdown, "utf-8");
+        report = createReportRef(reportPath);
+        postReportAttachment(exp.chatJid, exp, report, state);
+    }
+    emitAutoresearchStatus(autoresearchWidgetBroadcast, exp, state, summary, options.reason ?? null, entries, report);
+    return { summary, reportPath, report };
+}
 async function stopAutoresearch(params) {
     if (!activeExperiment) {
         return buildResult("No experiment is currently running.", { active: false });
@@ -641,28 +717,27 @@ async function stopAutoresearch(params) {
         spawnSync("tmux", ["kill-session", "-t", exp.tmuxSession], { stdio: "ignore" });
     }
     const parts = [`Experiment ${exp.id} stopped.`];
-    // Generate report
-    const shouldReport = params.generate_report !== false;
-    let reportPath = null;
-    if (shouldReport && existsSync(exp.jsonlPath)) {
-        const report = generateReport(exp.projectDir, exp.jsonlPath);
-        reportPath = join(exp.projectDir, `autoresearch-report-${exp.id}.md`);
-        writeFileSync(reportPath, report, "utf-8");
+    const { summary, reportPath, report } = finalizeAutoresearchRun(exp, "stopped", {
+        reason: "user_stopped",
+        generateReport: params.generate_report !== false,
+    });
+    if (reportPath) {
         parts.push(`Report: ${reportPath}`);
+        if (report?.downloadUrl || report?.openUrl) {
+            parts.push(`Links: ${[report.openUrl ? `open ${report.openUrl}` : "", report.downloadUrl ? `download ${report.downloadUrl}` : ""].filter(Boolean).join(" • ")}`);
+        }
     }
-    // Final summary for the live status pane
-    const summary = existsSync(exp.jsonlPath)
-        ? buildExperimentSummary(parseJsonlFile(exp.jsonlPath))
-        : buildActiveExperimentSummary(exp);
     if (existsSync(exp.jsonlPath)) {
         parts.push("", `Results: ${summary.totalRuns} runs, ${summary.kept} kept, ${summary.discarded} discarded`, summary.bestMetric !== null ? `Best ${summary.metricName}: ${summary.bestMetric}${summary.metricUnit}` : "", summary.confidence !== null ? `Confidence: ${summary.confidence.toFixed(1)}×` : "");
     }
-    emitAutoresearchStatus(autoresearchWidgetBroadcast, exp, "stopped", summary, "user_stopped");
     activeExperiment = null;
     return buildResult(parts.filter(Boolean).join("\n"), {
         experiment_id: exp.id,
         stopped: true,
         report_path: reportPath,
+        report_media_id: report?.mediaId ?? null,
+        report_open_url: report?.openUrl ?? null,
+        report_download_url: report?.downloadUrl ?? null,
     });
 }
 export async function stopAutoresearchFromWeb(params = {}) {
@@ -676,12 +751,18 @@ async function autoresearchStatus() {
     const alive = tmuxSessionExists(exp.tmuxSession);
     if (!alive) {
         stopPolling();
-        const summary = existsSync(exp.jsonlPath)
-            ? buildExperimentSummary(parseJsonlFile(exp.jsonlPath))
-            : null;
+        const { summary, reportPath, report } = finalizeAutoresearchRun(exp, existsSync(exp.jsonlPath) && parseJsonlFile(exp.jsonlPath).filter((entry) => entry.type !== "config").length > 0 ? "completed" : "failed", { reason: "process_exited", generateReport: true });
         activeExperiment = null;
         return buildResult(`Experiment ${exp.id} is no longer running (tmux session gone).` +
-            (summary ? `\nLast state: ${summary.totalRuns} runs, ${summary.kept} kept.` : ""), { active: false, experiment_id: exp.id });
+            `\nLast state: ${summary.totalRuns} runs, ${summary.kept} kept.` +
+            (reportPath ? `\nReport: ${reportPath}` : ""), {
+            active: false,
+            experiment_id: exp.id,
+            report_path: reportPath,
+            report_media_id: report?.mediaId ?? null,
+            report_open_url: report?.openUrl ?? null,
+            report_download_url: report?.downloadUrl ?? null,
+        });
     }
     const summary = existsSync(exp.jsonlPath)
         ? buildExperimentSummary(parseJsonlFile(exp.jsonlPath))
