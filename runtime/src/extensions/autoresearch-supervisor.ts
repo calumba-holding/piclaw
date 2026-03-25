@@ -575,25 +575,35 @@ async function startAutoresearch(
     );
 
     if (entries.length === 0) {
-      // Idle detection: if max_iterations reached and no new entries for 60s, experiment is done
-      const IDLE_TIMEOUT_MS = 60_000;
-      if (activeExperiment.maxIterations !== null) {
-        const allEntries = parseJsonlFile(activeExperiment.jsonlPath);
-        const runCount = allEntries.filter((e) => e.type !== "config").length;
-        if (runCount >= activeExperiment.maxIterations && Date.now() - activeExperiment.lastActivityAt > IDLE_TIMEOUT_MS) {
-          const expId = activeExperiment.id;
-          const tmux = activeExperiment.tmuxSession;
-          stopPolling();
-          const summary = buildExperimentSummary(allEntries);
-          postStatusCard(expId, summary, "completed", resolvedChatJid);
-          // Kill the idle tmux session
-          spawnSync("tmux", ["send-keys", "-t", tmux, "C-c", ""], { stdio: "ignore" });
-          setTimeout(() => spawnSync("tmux", ["kill-session", "-t", tmux], { stdio: "ignore" }), 2000);
-          broadcastEvent("autoresearch_stopped", { experiment_id: expId, reason: "max_iterations_idle" });
-          console.log(`[autoresearch] Experiment ${expId} completed (${runCount} runs, idle ${IDLE_TIMEOUT_MS / 1000}s after max iterations)`);
-          activeExperiment = null;
-          return;
-        }
+      const idleMs = Date.now() - activeExperiment.lastActivityAt;
+
+      // Idle detection: two tiers
+      // 1) max_iterations reached + 2 min idle → completed
+      // 2) general idle for 30 minutes (agent stopped, context limit, crash) → completed
+      //    30 min allows for long-running experiments (ML training, large builds)
+      const MAX_ITER_IDLE_MS = 2 * 60_000;
+      const GENERAL_IDLE_MS = 30 * 60_000;
+
+      const allEntries = parseJsonlFile(activeExperiment.jsonlPath);
+      const runCount = allEntries.filter((e) => e.type !== "config").length;
+
+      const maxReached = activeExperiment.maxIterations !== null && runCount >= activeExperiment.maxIterations;
+      const shouldStop = (maxReached && idleMs > MAX_ITER_IDLE_MS) || (idleMs > GENERAL_IDLE_MS);
+
+      if (shouldStop) {
+        const expId = activeExperiment.id;
+        const tmux = activeExperiment.tmuxSession;
+        const chatJidForCard = activeExperiment.chatJid;
+        const reason = maxReached ? "max_iterations_idle" : "general_idle";
+        stopPolling();
+        const summary = buildExperimentSummary(allEntries);
+        postStatusCard(expId, summary, "completed", chatJidForCard);
+        spawnSync("tmux", ["send-keys", "-t", tmux, "C-c", ""], { stdio: "ignore" });
+        setTimeout(() => spawnSync("tmux", ["kill-session", "-t", tmux], { stdio: "ignore" }), 2000);
+        broadcastEvent("autoresearch_stopped", { experiment_id: expId, reason });
+        console.log(`[autoresearch] Experiment ${expId} completed (${runCount} runs, idle ${Math.round(idleMs / 1000)}s, reason: ${reason})`);
+        activeExperiment = null;
+        return;
       }
       return;
     }
