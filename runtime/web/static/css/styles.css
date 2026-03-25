@@ -5403,6 +5403,13 @@ body {
     grid-template-columns: 1fr;
 }
 
+.agent-thinking-autoresearch-meta-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
 .agent-thinking-autoresearch-detail {
     margin: 0;
 }
@@ -5484,8 +5491,35 @@ body {
 }
 
 .agent-series-chart-command-copy {
-    padding: 3px 8px;
-    font-size: 11px;
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: color var(--ui-transition-fast), border-color var(--ui-transition-fast), background-color var(--ui-transition-fast), transform var(--ui-transition-fast);
+}
+
+.agent-series-chart-command-copy svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.agent-series-chart-command-copy:hover,
+.agent-series-chart-command-copy:focus-visible {
+    color: var(--text-primary);
+    border-color: var(--accent-color);
+    outline: none;
 }
 
 .agent-series-chart-command-code {

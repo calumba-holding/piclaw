@@ -5,6 +5,13 @@ import { renderThinkingMarkdown } from '../markdown.js';
 import { getTurnColor } from '../ui/agent-utils.js';
 import { getStatusElapsedLabel, isCompactionStatus, resolveStatusPanelTitle } from '../ui/status-duration.js';
 
+const COPY_ICON_SVG = html`
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <rect x="9" y="9" width="10" height="10" rx="2"></rect>
+        <path d="M7 15H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1"></path>
+    </svg>
+`;
+
 /** Preact component: agent status bar with draft/thought/plan panels. */
 export function AgentStatus({ status, draft, plan, thought, pendingRequest, intent, extensionPanels = [], pendingPanelActions = new Set(), onExtensionPanelAction, turnId, steerQueued, onPanelToggle, showCorePanels = true, showExtensionPanels = true }) {
     const THOUGHT_MAX_LINES = 8;
@@ -361,7 +368,8 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
         const series = Array.isArray(panel?.series) ? panel.series : [];
         const actions = Array.isArray(panel?.actions) ? panel.actions : [];
 
-        const isExpandable = Boolean(detailText || series.length > 0);
+        const hasDetailColumn = Boolean(detailText || tmuxCommand);
+        const isExpandable = Boolean(detailText || series.length > 0 || tmuxCommand);
         const collapsedTooltip = [titleText, collapsedText].filter(Boolean).join(' — ');
 
         return html`
@@ -432,33 +440,39 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
                     </button>
                 `}
                 ${isExpanded && html`
-                    <div class=${`agent-thinking-autoresearch-layout${detailText ? '' : ' chart-only'}`}>
-                        ${detailText && html`
-                            <div
-                                class="agent-thinking-body agent-thinking-autoresearch-detail"
-                                dangerouslySetInnerHTML=${{ __html: renderThinkingMarkdown(detailText) }}
-                            />
+                    <div class=${`agent-thinking-autoresearch-layout${hasDetailColumn ? '' : ' chart-only'}`}>
+                        ${hasDetailColumn && html`
+                            <div class="agent-thinking-autoresearch-meta-stack">
+                                ${detailText && html`
+                                    <div
+                                        class="agent-thinking-body agent-thinking-autoresearch-detail"
+                                        dangerouslySetInnerHTML=${{ __html: renderThinkingMarkdown(detailText) }}
+                                    />
+                                `}
+                                ${tmuxCommand && html`
+                                    <div class="agent-series-chart-command">
+                                        <div class="agent-series-chart-command-header">
+                                            <span>Attach to session</span>
+                                            <button
+                                                type="button"
+                                                class="agent-series-chart-command-copy"
+                                                aria-label="Copy tmux command"
+                                                title="Copy tmux command"
+                                                onClick=${() => onExtensionPanelAction?.(panel, { key: 'copy_tmux', action_type: 'autoresearch.copy_tmux', label: 'Copy tmux' })}
+                                            >
+                                                ${COPY_ICON_SVG}
+                                            </button>
+                                        </div>
+                                        <pre class="agent-series-chart-command-code">${tmuxCommand}</pre>
+                                    </div>
+                                `}
+                            </div>
                         `}
                         ${series.length > 0
                             ? html`
                                 <div class="agent-series-chart-stack">
                                     ${renderCombinedSeriesChart(series, panelKey)}
                                     ${lastRunText && html`<div class="agent-series-chart-note">${lastRunText}</div>`}
-                                    ${tmuxCommand && html`
-                                        <div class="agent-series-chart-command">
-                                            <div class="agent-series-chart-command-header">
-                                                <span>Attach to session</span>
-                                                <button
-                                                    type="button"
-                                                    class="agent-thinking-action-btn agent-series-chart-command-copy"
-                                                    onClick=${() => onExtensionPanelAction?.(panel, { key: 'copy_tmux', action_type: 'autoresearch.copy_tmux', label: 'Copy tmux' })}
-                                                >
-                                                    Copy tmux
-                                                </button>
-                                            </div>
-                                            <pre class="agent-series-chart-command-code">${tmuxCommand}</pre>
-                                        </div>
-                                    `}
                                 </div>
                             `
                             : html`<div class="agent-thinking-body agent-thinking-autoresearch-summary">Variable history will appear after the first completed run.</div>`}
