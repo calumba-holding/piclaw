@@ -281,6 +281,15 @@ export async function stopAutoresearch(chatJid = null, options = {}) {
     });
 }
 
+export async function dismissAutoresearch(chatJid = null) {
+    return request('/agent/autoresearch/dismiss', {
+        method: 'POST',
+        body: JSON.stringify({
+            chat_jid: chatJid || undefined,
+        }),
+    });
+}
+
 /**
  * Get queued follow-up state for the default web chat (count + pending items).
  */

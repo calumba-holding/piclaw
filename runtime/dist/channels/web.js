@@ -680,6 +680,30 @@ export class WebChannel {
             return this.json({ error: message || "Failed to stop autoresearch experiment." }, 500);
         }
     }
+    /** POST /agent/autoresearch/dismiss — dismiss the final autoresearch status panel for this chat. */
+    async handleAutoresearchDismiss(req) {
+        let payload = {};
+        try {
+            payload = await req.json();
+        }
+        catch {
+            payload = {};
+        }
+        const chatJid = typeof payload.chat_jid === "string" && payload.chat_jid.trim()
+            ? payload.chat_jid.trim()
+            : DEFAULT_CHAT_JID;
+        try {
+            const { dismissAutoresearchWidget } = await import("../extensions/autoresearch-supervisor.js");
+            return this.json({
+                status: dismissAutoresearchWidget(chatJid) ? "ok" : "noop",
+                chat_jid: chatJid,
+            });
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            return this.json({ error: message || "Failed to dismiss autoresearch panel." }, 500);
+        }
+    }
     /** GET /agent/queue-state — return queued follow-up placeholder count and pending content. */
     async handleAgentQueueState(req) {
         const url = new URL(req.url);

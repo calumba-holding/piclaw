@@ -223,6 +223,8 @@ export interface ExtensionStatusPanelPayload {
   title: string;
   collapsed_text: string;
   detail_markdown?: string;
+  last_run_text?: string;
+  tmux_command?: string;
   state?: string;
   series?: AutoresearchSeries[];
   actions?: ExtensionStatusPanelAction[];
@@ -347,24 +349,27 @@ function buildAutoresearchPanel(
         options.report.downloadUrl ? `[Download report](${options.report.downloadUrl})` : "",
       ].filter(Boolean).join(" · ")
     : "";
-  const detailLines = [
-    `- State: **${stateLabel}**`,
-    `- Runs: **${summary.totalRuns}** (${summary.kept} kept, ${summary.discarded} discarded${summary.crashed ? `, ${summary.crashed} crashed` : ""})`,
-    summary.bestMetric !== null ? `- Best ${summary.metricName}: **${summary.bestMetric}${summary.metricUnit}**` : "",
-    summary.confidence !== null ? `- Confidence: **${summary.confidence.toFixed(1)}×**` : "",
-    exp.model ? `- Model: \`${exp.model}\`` : "",
-    exp.maxIterations ? `- Max runs: **${exp.maxIterations}**` : "",
-    exp.projectDir ? `- Project: \`${exp.projectDir}\`` : "",
-    exp.tmuxSession ? `- tmux session: \`${exp.tmuxSession}\`` : "",
-    summary.lastDescription ? `- Last run: ${summary.lastDescription}` : "",
-    options.reason ? `- Reason: ${options.reason}` : "",
-    reportLinks ? `- Report: ${reportLinks}` : "",
-    tmuxAttachCommand ? "\n**Attach to session**\n```bash\n" + tmuxAttachCommand + "\n```" : "",
+  const detailSections = [
+    [
+      "| Field | Value |",
+      "|---|---|",
+      `| State | **${stateLabel}** |`,
+      `| Runs | **${summary.totalRuns}** (${summary.kept} kept, ${summary.discarded} discarded${summary.crashed ? `, ${summary.crashed} crashed` : ""}) |`,
+      summary.bestMetric !== null ? `| Best ${summary.metricName} | **${summary.bestMetric}${summary.metricUnit}** |` : "",
+      summary.confidence !== null ? `| Confidence | **${summary.confidence.toFixed(1)}×** |` : "",
+      exp.model ? `| Model | \`${exp.model}\` |` : "",
+      exp.maxIterations ? `| Max runs | **${exp.maxIterations}** |` : "",
+      exp.projectDir ? `| Project | \`${exp.projectDir}\` |` : "",
+      options.reason ? `| Reason | ${String(options.reason).replace(/\|/g, "\\|")} |` : "",
+      reportLinks ? `| Report | ${reportLinks} |` : "",
+    ].filter(Boolean).join("\n"),
   ].filter(Boolean);
 
   const actions: ExtensionStatusPanelAction[] = [];
   if (state === "running") {
     actions.push({ key: "stop", label: "Cancel", action_type: "autoresearch.stop", tone: "danger" });
+  } else {
+    actions.push({ key: "dismiss", label: "Dismiss", action_type: "autoresearch.dismiss" });
   }
 
   return {
@@ -372,7 +377,9 @@ function buildAutoresearchPanel(
     kind: "chart_status",
     title: summary.name || exp.displayName || "Autoresearch",
     collapsed_text: runLabel,
-    detail_markdown: detailLines.join("\n"),
+    detail_markdown: detailSections.join("\n\n"),
+    ...(summary.lastDescription ? { last_run_text: `Last run: ${summary.lastDescription}` } : {}),
+    ...(tmuxAttachCommand ? { tmux_command: tmuxAttachCommand } : {}),
     state,
     series,
     ...(actions.length ? { actions } : {}),
@@ -439,6 +446,22 @@ export function getAutoresearchWidgetPayload(chatJid?: string | null): Extension
   }
   if (!normalizedChatJid) return null;
   return autoresearchWidgetsByChat.get(normalizedChatJid) ?? null;
+}
+
+export function dismissAutoresearchWidget(chatJid?: string | null): boolean {
+  const normalizedChatJid = typeof chatJid === "string" && chatJid.trim() ? chatJid.trim() : null;
+  if (!normalizedChatJid) return false;
+  if (activeExperiment?.chatJid === normalizedChatJid) return false;
+  const existed = autoresearchWidgetsByChat.delete(normalizedChatJid);
+  if (existed) {
+    autoresearchWidgetBroadcast("extension_ui_widget", {
+      chat_jid: normalizedChatJid,
+      key: "autoresearch",
+      content: [],
+      options: { surface: "status-panel", remove: true },
+    });
+  }
+  return existed;
 }
 
 let autoresearchWidgetBroadcast: (type: string, data: unknown) => void = () => {};

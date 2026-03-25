@@ -62,6 +62,7 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
     if ((!showCorePanels || !hasCorePanels) && (!showExtensionPanels || !hasExtensionPanels)) return null;
 
     const [expandedPanels, setExpandedPanels] = useState(new Set());
+    const [hoveredSeriesPoint, setHoveredSeriesPoint] = useState(null);
     const [nowMs, setNowMs] = useState(() => Date.now());
     const toggleExpand = (key) =>
         setExpandedPanels(prev => {
@@ -75,7 +76,10 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
         });
 
     // Collapse all panels when a new turn begins
-    useEffect(() => { setExpandedPanels(new Set()); }, [turnId]);
+    useEffect(() => {
+        setExpandedPanels(new Set());
+        setHoveredSeriesPoint(null);
+    }, [turnId]);
 
     const statusIsCompaction = isCompactionStatus(status);
     useEffect(() => {
@@ -234,7 +238,7 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
         'color-mix(in srgb, var(--success-color) 46%, var(--text-primary))',
     ];
 
-    const renderCombinedSeriesChart = (seriesList) => {
+    const renderCombinedSeriesChart = (seriesList, panelKey = 'autoresearch') => {
         const normalized = Array.isArray(seriesList)
             ? seriesList
                 .map((series, index) => ({
@@ -264,39 +268,69 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
                     <span class="agent-series-chart-title">Tracked variables</span>
                     <span class="agent-series-chart-value">${normalized.length} series</span>
                 </div>
-                <svg class="agent-series-chart-svg" viewBox=${`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
-                    ${normalized.map((series) => html`
-                        <g key=${series?.key || series?.label}>
-                            <path
-                                class="agent-series-chart-line"
-                                d=${buildLinePath(series.points, width, height, minValue, maxValue, minRun, maxRun)}
-                                style=${`--agent-series-color: ${series.color};`}
-                            ></path>
-                            ${series.points.map((point, pointIndex) => {
+                <div class="agent-series-chart-plot">
+                    <svg class="agent-series-chart-svg" viewBox=${`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
+                        ${normalized.map((series) => html`
+                            <g key=${series?.key || series?.label}>
+                                <path
+                                    class="agent-series-chart-line"
+                                    d=${buildLinePath(series.points, width, height, minValue, maxValue, minRun, maxRun)}
+                                    style=${`--agent-series-color: ${series.color};`}
+                                ></path>
+                            </g>
+                        `)}
+                    </svg>
+                    <div class="agent-series-chart-points-layer">
+                        ${normalized.flatMap((series) => {
+                            const unit = typeof series?.unit === 'string' ? series.unit : '';
+                            const seriesKey = series?.key || series?.label || 'series';
+                            return series.points.map((point, pointIndex) => {
                                 const projected = projectSeriesPoint(point, width, height, minValue, maxValue, minRun, maxRun);
-                                const unit = typeof series?.unit === 'string' ? series.unit : '';
-                                const tooltip = `${series?.label || 'Series'}: ${formatMetricValue(point.value, unit)} · run ${point.run}`;
                                 return html`
-                                    <g key=${`${series?.key || series?.label}-point-${pointIndex}`} class="agent-series-chart-point-group" style=${`--agent-series-color: ${series.color};`}>
-                                        <circle class="agent-series-chart-point-hit" cx=${projected.x} cy=${projected.y} r="8">
-                                            <title>${tooltip}</title>
-                                        </circle>
-                                        <circle class="agent-series-chart-point" cx=${projected.x} cy=${projected.y} r="3.25"></circle>
-                                    </g>
+                                    <button
+                                        key=${`${seriesKey}-point-${pointIndex}`}
+                                        type="button"
+                                        class="agent-series-chart-point-hit"
+                                        style=${`--agent-series-color: ${series.color}; left:${(projected.x / width) * 100}%; top:${(projected.y / height) * 100}%;`}
+                                        onMouseEnter=${() => setHoveredSeriesPoint({
+                                            panelKey,
+                                            seriesKey,
+                                            run: point.run,
+                                            value: point.value,
+                                            unit,
+                                        })}
+                                        onMouseLeave=${() => setHoveredSeriesPoint((prev) => prev?.panelKey === panelKey ? null : prev)}
+                                        onFocus=${() => setHoveredSeriesPoint({
+                                            panelKey,
+                                            seriesKey,
+                                            run: point.run,
+                                            value: point.value,
+                                            unit,
+                                        })}
+                                        onBlur=${() => setHoveredSeriesPoint((prev) => prev?.panelKey === panelKey ? null : prev)}
+                                        aria-label=${`${series?.label || 'Series'} ${formatMetricValue(point.value, unit)} at run ${point.run}`}
+                                    >
+                                        <span class="agent-series-chart-point"></span>
+                                    </button>
                                 `;
-                            })}
-                        </g>
-                    `)}
-                </svg>
+                            });
+                        })}
+                    </div>
+                </div>
                 <div class="agent-series-legend">
                     ${normalized.map((series) => {
                         const latest = series.points[series.points.length - 1]?.value;
                         const unit = typeof series?.unit === 'string' ? series.unit : '';
+                        const seriesKey = series?.key || series?.label || 'series';
+                        const hovered = hoveredSeriesPoint?.panelKey === panelKey && hoveredSeriesPoint?.seriesKey === seriesKey
+                            ? hoveredSeriesPoint
+                            : null;
                         return html`
-                            <div key=${`${series?.key || series?.label}-legend`} class="agent-series-legend-item">
+                            <div key=${`${seriesKey}-legend`} class=${`agent-series-legend-item${hovered ? ' is-hovered' : ''}`}>
                                 <span class="agent-series-legend-swatch" style=${`--agent-series-color: ${series.color};`}></span>
                                 <span class="agent-series-legend-label">${series?.label || 'Series'}</span>
-                                <span class="agent-series-legend-value">${formatMetricValue(latest, unit)}</span>
+                                ${hovered && html`<span class="agent-series-legend-run">run ${hovered.run}</span>`}
+                                <span class="agent-series-legend-value">${formatMetricValue(hovered ? hovered.value : latest, hovered?.unit || unit)}</span>
                             </div>
                         `;
                     })}
@@ -322,10 +356,13 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
                         : 'info'
         );
         const detailText = typeof panel?.detail_markdown === 'string' ? panel.detail_markdown.trim() : '';
+        const lastRunText = typeof panel?.last_run_text === 'string' ? panel.last_run_text.trim() : '';
+        const tmuxCommand = typeof panel?.tmux_command === 'string' ? panel.tmux_command.trim() : '';
         const series = Array.isArray(panel?.series) ? panel.series : [];
         const actions = Array.isArray(panel?.actions) ? panel.actions : [];
 
         const isExpandable = Boolean(detailText || series.length > 0);
+        const collapsedTooltip = [titleText, collapsedText].filter(Boolean).join(' — ');
 
         return html`
             <div
@@ -333,7 +370,7 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
                 aria-live="polite"
                 data-expanded=${isExpanded ? 'true' : 'false'}
                 style=${color ? `--turn-color: ${color};` : ''}
-                title=${detailText || titleText}
+                title=${!isExpanded ? (collapsedTooltip || titleText) : ''}
             >
                 <div class="agent-thinking-header agent-thinking-header-inline">
                     <button
@@ -345,37 +382,52 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
                         <span class="agent-thinking-title-text">${titleText}</span>
                         ${collapsedText && html`<span class="agent-thinking-title-meta">${collapsedText}</span>`}
                     </button>
-                    ${actions.length > 0 && html`
-                        <div class="agent-thinking-actions agent-thinking-actions-inline">
-                            ${actions.map((action) => {
-                                const pendingKey = `${panelKey}:${action?.key || ''}`;
-                                const pending = pendingPanelActions?.has?.(pendingKey);
-                                return html`
-                                    <button
-                                        key=${pendingKey}
-                                        class=${`agent-thinking-action-btn${action?.tone === 'danger' ? ' danger' : ''}`}
-                                        onClick=${() => onExtensionPanelAction?.(panel, action)}
-                                        disabled=${Boolean(pending)}
-                                    >
-                                        ${pending ? 'Working…' : (action?.label || 'Run')}
-                                    </button>
-                                `;
-                            })}
+                    ${(actions.length > 0 || (isExpandable && !isExpanded)) && html`
+                        <div class="agent-thinking-tools-inline">
+                            ${actions.length > 0 && html`
+                                <div class="agent-thinking-actions agent-thinking-actions-inline">
+                                    ${actions.map((action) => {
+                                        const pendingKey = `${panelKey}:${action?.key || ''}`;
+                                        const pending = pendingPanelActions?.has?.(pendingKey);
+                                        return html`
+                                            <button
+                                                key=${pendingKey}
+                                                class=${`agent-thinking-action-btn${action?.tone === 'danger' ? ' danger' : ''}`}
+                                                onClick=${() => onExtensionPanelAction?.(panel, action)}
+                                                disabled=${Boolean(pending)}
+                                            >
+                                                ${pending ? 'Working…' : (action?.label || 'Run')}
+                                            </button>
+                                        `;
+                                    })}
+                                </div>
+                            `}
+                            ${isExpandable && !isExpanded && html`
+                                <button
+                                    class="agent-thinking-corner-toggle agent-thinking-corner-toggle-inline"
+                                    type="button"
+                                    aria-label=${`Expand ${titleText}`}
+                                    title="Expand details"
+                                    onClick=${() => toggleExpand(panelKey)}
+                                >
+                                    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <polyline points="4 10 8 6 12 10"></polyline>
+                                    </svg>
+                                </button>
+                            `}
                         </div>
                     `}
                 </div>
-                ${isExpandable && html`
+                ${isExpandable && isExpanded && html`
                     <button
                         class="agent-thinking-corner-toggle"
                         type="button"
-                        aria-label=${isExpanded ? `Collapse ${titleText}` : `Expand ${titleText}`}
-                        title=${isExpanded ? 'Collapse details' : 'Expand details'}
+                        aria-label=${`Collapse ${titleText}`}
+                        title="Collapse details"
                         onClick=${() => toggleExpand(panelKey)}
                     >
                         <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            ${isExpanded
-                                ? html`<polyline points="4 10 8 6 12 10"></polyline>`
-                                : html`<polyline points="4 6 8 10 12 6"></polyline>`}
+                            <polyline points="4 6 8 10 12 6"></polyline>
                         </svg>
                     </button>
                 `}
@@ -388,7 +440,27 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
                             />
                         `}
                         ${series.length > 0
-                            ? renderCombinedSeriesChart(series)
+                            ? html`
+                                <div class="agent-series-chart-stack">
+                                    ${renderCombinedSeriesChart(series, panelKey)}
+                                    ${lastRunText && html`<div class="agent-series-chart-note">${lastRunText}</div>`}
+                                    ${tmuxCommand && html`
+                                        <div class="agent-series-chart-command">
+                                            <div class="agent-series-chart-command-header">
+                                                <span>Attach to session</span>
+                                                <button
+                                                    type="button"
+                                                    class="agent-thinking-action-btn agent-series-chart-command-copy"
+                                                    onClick=${() => onExtensionPanelAction?.(panel, { key: 'copy_tmux', action_type: 'autoresearch.copy_tmux', label: 'Copy tmux' })}
+                                                >
+                                                    Copy tmux
+                                                </button>
+                                            </div>
+                                            <pre class="agent-series-chart-command-code">${tmuxCommand}</pre>
+                                        </div>
+                                    `}
+                                </div>
+                            `
                             : html`<div class="agent-thinking-body agent-thinking-autoresearch-summary">Variable history will appear after the first completed run.</div>`}
                     </div>
                 `}

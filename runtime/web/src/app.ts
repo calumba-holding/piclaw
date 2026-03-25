@@ -137,6 +137,7 @@ const getAgentStatus = api.getAgentStatus;
 const getAgentContext = resolveOptionalApi(api, 'getAgentContext', null);
 const getAutoresearchStatus = resolveOptionalApi(api, 'getAutoresearchStatus', null);
 const stopAutoresearch = resolveOptionalApi(api, 'stopAutoresearch', { status: 'ok' });
+const dismissAutoresearch = resolveOptionalApi(api, 'dismissAutoresearch', { status: 'ok' });
 const getAgentModels = resolveOptionalApi(api, 'getAgentModels', { current: null, models: [] });
 const getActiveChatAgents = resolveOptionalApi(api, 'getActiveChatAgents', { chats: [] });
 const getChatBranches = resolveOptionalApi(api, 'getChatBranches', { chats: [] });
@@ -1817,6 +1818,18 @@ function MainApp({ locationParams, navigate }) {
             if (action?.action_type === 'autoresearch.stop') {
                 await stopAutoresearch(currentChatJid, { generateReport: true });
                 void refreshAutoresearchStatus();
+                return;
+            }
+            if (action?.action_type === 'autoresearch.dismiss') {
+                await dismissAutoresearch(currentChatJid);
+                void refreshAutoresearchStatus();
+                return;
+            }
+            if (action?.action_type === 'autoresearch.copy_tmux') {
+                const tmuxCommand = typeof panel?.tmux_command === 'string' ? panel.tmux_command.trim() : '';
+                if (!tmuxCommand) throw new Error('No tmux command available.');
+                await navigator.clipboard.writeText(tmuxCommand);
+                showIntentToast('Copied', 'tmux command copied to clipboard.', 'success');
                 return;
             }
             throw new Error(`Unsupported panel action: ${action?.action_type || actionKey}`);
