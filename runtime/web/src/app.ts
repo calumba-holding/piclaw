@@ -16,7 +16,7 @@
  */
 import { html, render, useState, useEffect, useCallback, useRef, useMemo } from './vendor/preact-htm.js';
 import * as api from './api.js';
-import { ComposeBox } from './components/compose-box.js';
+import { ComposeBox, QueuedFollowupStack } from './components/compose-box.js';
 import { BtwPanel } from './components/btw-panel.js';
 import { FloatingWidgetPane } from './components/floating-widget-pane.js';
 import { AgentRequestModal, AgentStatus } from './components/status.js';
@@ -454,6 +454,33 @@ function MainApp({ locationParams, navigate }) {
             }
         };
     }, [tabStripActiveId, activePaneOverrideId, closeEditor]);
+
+    const refreshActiveEditorFromWorkspace = useCallback(async (updates) => {
+        const activePath = typeof tabStripActiveId === 'string' ? tabStripActiveId.trim() : '';
+        const instance = editorInstanceRef.current;
+        if (!activePath || !instance?.setContent) return;
+        if (typeof instance.isDirty === 'function' && instance.isDirty()) return;
+
+        const relevant = Array.isArray(updates) && updates.length > 0
+            ? updates.some((update) => {
+                const relPath = typeof update?.path === 'string' ? update.path.trim() : '';
+                if (!relPath || relPath === '.') return true;
+                return activePath === relPath || activePath.startsWith(`${relPath}/`);
+            })
+            : true;
+        if (!relevant) return;
+
+        try {
+            const payload = await api.getWorkspaceFile(activePath, 1_000_000, 'edit');
+            const nextText = typeof payload?.text === 'string' ? payload.text : '';
+            const nextMtime = typeof payload?.mtime === 'string' && payload.mtime.trim()
+                ? payload.mtime.trim()
+                : new Date().toISOString();
+            instance.setContent(nextText, nextMtime);
+        } catch (error) {
+            console.warn('[workspace_update] Failed to refresh active pane:', error);
+        }
+    }, [tabStripActiveId]);
 
     useEffect(() => {
         const container = dockContainerRef.current;
@@ -2600,6 +2627,7 @@ function MainApp({ locationParams, navigate }) {
             if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('workspace-update', { detail: data }));
             }
+            void refreshActiveEditorFromWorkspace(data?.updates);
             return;
         }
 
@@ -3675,7 +3703,7 @@ function MainApp({ locationParams, navigate }) {
                     searchQuery=${searchQuery}
                 />
                 <${AgentStatus}
-                    status=${agentStatus}
+                    status=${isCompactionStatus(agentStatus) ? null : agentStatus}
                     draft=${agentDraft}
                     plan=${agentPlan}
                     thought=${agentThought}
@@ -3705,6 +3733,12 @@ function MainApp({ locationParams, navigate }) {
                     steerQueued=${steerQueued}
                     onPanelToggle=${handlePanelToggle}
                     showCorePanels=${false}
+                />
+                <${QueuedFollowupStack}
+                    items=${searchOpen ? [] : followupQueueItems}
+                    onInjectQueuedFollowup=${handleInjectQueuedFollowup}
+                    onRemoveQueuedFollowup=${handleRemoveQueuedFollowup}
+                    onOpenFilePill=${openFileFromPill}
                 />
                 <${ComposeBox}
                     onPost=${() => {
@@ -3737,6 +3771,7 @@ function MainApp({ locationParams, navigate }) {
                     onOpenFilePill=${openFileFromPill}
                     followupQueueCount=${followupQueueCount}
                     followupQueueItems=${followupQueueItems}
+                    showQueueStack=${false}
                     onInjectQueuedFollowup=${handleInjectQueuedFollowup}
                     onRemoveQueuedFollowup=${handleRemoveQueuedFollowup}
                     onSubmitIntercept=${handleBtwIntercept}
@@ -3757,6 +3792,7 @@ function MainApp({ locationParams, navigate }) {
                     onToggleNotifications=${handleToggleNotifications}
                     onModelChange=${setActiveModel}
                     onModelStateChange=${applyModelState}
+                    statusNotice=${isCompactionStatus(agentStatus) ? agentStatus : null}
                 />
                 <${AgentRequestModal}
                     request=${pendingRequest}

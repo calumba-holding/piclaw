@@ -82,6 +82,7 @@ const NODE_HEIGHT = 32;
 const NODE_IMAGE_SIZE = 24;
 const BASE_SIBLING_SPACING = 20; // Base gap between siblings
 const LEVEL_SPACING = 180;
+const VERTICAL_TREE_LEVEL_SPACING = 56;
 
 // Cache for calculated node dimensions
 const nodeDimensionsCache: Map<string, { width: number; height: number }> = new Map();
@@ -842,7 +843,7 @@ function applyVerticalTreeLayout(root: any) {
   });
   
   const treeLayout = d3.tree()
-    .nodeSize([NODE_MIN_WIDTH, NODE_HEIGHT])
+    .nodeSize([NODE_MIN_WIDTH, VERTICAL_TREE_LEVEL_SPACING])
     .separation((a: any, b: any) => {
       // Get widths of both nodes (in vertical layout, width affects horizontal spacing)
       const aWidth = calculateNodeDimensions(a.data).width;

@@ -6,6 +6,7 @@ import { getLocalStorageItem, setLocalStorageItem } from '../utils/storage.js';
 import { buildMentionValue, filterMentionAgents, parseMentionAutocompleteQuery } from '../ui/agent-mentions.js';
 import { shouldOpenSessionSwitcherFromBlankCompose } from '../ui/compose-session-switcher.js';
 import { formatBranchPickerLabel, formatCurrentBranchLabel } from '../ui/branch-lifecycle.js';
+import { getStatusElapsedLabel, isCompactionStatus, resolveStatusPanelTitle } from '../ui/status-duration.js';
 import { FilePill } from './file-pill.js';
 
 /**
@@ -119,6 +120,156 @@ function formatK(n) {
     return String(n);
 }
 
+function extractQueuedFileRefs(value) {
+    if (!value) return { content: value, fileRefs: [] };
+    const normalized = value.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = normalized.split('\n');
+    let start = -1;
+    for (let i = 0; i < lines.length; i += 1) {
+        if (lines[i].trim() === 'Files:' && lines[i + 1] && /^\s*-\s+/.test(lines[i + 1])) {
+            start = i;
+            break;
+        }
+    }
+    if (start === -1) return { content: value, fileRefs: [] };
+    const refs = [];
+    let end = start + 1;
+    for (; end < lines.length; end += 1) {
+        const line = lines[end];
+        if (/^\s*-\s+/.test(line)) {
+            refs.push(line.replace(/^\s*-\s+/, '').trim());
+        } else if (!line.trim()) {
+            break;
+        } else {
+            break;
+        }
+    }
+    if (refs.length === 0) return { content: value, fileRefs: [] };
+    const before = lines.slice(0, start);
+    const after = lines.slice(end);
+    const cleaned = [...before, ...after].join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    return { content: cleaned, fileRefs: refs };
+}
+
+function extractQueuedMessageRefs(value) {
+    if (!value) return { content: value, messageRefs: [] };
+    const normalized = value.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = normalized.split('\n');
+    let start = -1;
+    for (let i = 0; i < lines.length; i += 1) {
+        if (lines[i].trim() === 'Referenced messages:' && lines[i + 1] && /^\s*-\s+/.test(lines[i + 1])) {
+            start = i;
+            break;
+        }
+    }
+    if (start === -1) return { content: value, messageRefs: [] };
+    const refs = [];
+    let end = start + 1;
+    for (; end < lines.length; end += 1) {
+        const line = lines[end];
+        if (/^\s*-\s+/.test(line)) {
+            const match = line.replace(/^\s*-\s+/, '').trim().match(/^message:(\S+)$/i);
+            if (match) refs.push(match[1]);
+        } else if (!line.trim()) {
+            break;
+        } else {
+            break;
+        }
+    }
+    if (refs.length === 0) return { content: value, messageRefs: [] };
+    const before = lines.slice(0, start);
+    const after = lines.slice(end);
+    const cleaned = [...before, ...after].join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    return { content: cleaned, messageRefs: refs };
+}
+
+function parseQueuedContent(value) {
+    const withFiles = extractQueuedFileRefs(value || '');
+    const withMessages = extractQueuedMessageRefs(withFiles.content || '');
+    return {
+        text: withMessages.content || '',
+        fileRefs: withFiles.fileRefs,
+        messageRefs: withMessages.messageRefs,
+    };
+}
+
+export function QueuedFollowupStack({
+    items = [],
+    onInjectQueuedFollowup,
+    onRemoveQueuedFollowup,
+    onOpenFilePill,
+}) {
+    if (!Array.isArray(items) || items.length === 0) return null;
+    return html`
+        <div class="compose-queue-stack">
+            ${items.map((item) => {
+                const rowText = typeof item?.content === 'string' ? item.content : '';
+                const parsed = parseQueuedContent(rowText);
+                if (!parsed.text.trim() && parsed.fileRefs.length === 0 && parsed.messageRefs.length === 0) return null;
+                return html`
+                    <div class="compose-queue-stack-item" role="listitem">
+                        <div class="compose-queue-stack-content" title=${rowText}>
+                            ${parsed.text.trim() && html`<div class="compose-queue-stack-text">${parsed.text}</div>`}
+                            ${(parsed.messageRefs.length > 0 || parsed.fileRefs.length > 0) && html`
+                                <div class="compose-queue-stack-refs">
+                                    ${parsed.messageRefs.map((id) => html`
+                                        <${FilePill}
+                                            key=${'queue-msg-' + id}
+                                            prefix="compose"
+                                            label=${'msg:' + id}
+                                            title=${'Message reference: ' + id}
+                                            icon="message"
+                                        />
+                                    `)}
+                                    ${parsed.fileRefs.map((path) => {
+                                        const label = path.split('/').pop() || path;
+                                        return html`
+                                            <${FilePill}
+                                                key=${'queue-file-' + path}
+                                                prefix="compose"
+                                                label=${label}
+                                                title=${path}
+                                                onClick=${() => onOpenFilePill?.(path)}
+                                            />
+                                        `;
+                                    })}
+                                </div>
+                            `}
+                        </div>
+                        <div class="compose-queue-stack-actions" role="group" aria-label="Queued follow-up controls">
+                            <button
+                                class="compose-queue-stack-steer-btn"
+                                type="button"
+                                title="Inject queued follow-up as steer"
+                                aria-label="Inject queued follow-up as steer"
+                                onClick=${() => onInjectQueuedFollowup?.(item)}
+                            >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M4 20h12a2 2 0 0 0 2-2V8" />
+                                    <polyline points="14 12 18 8 22 12" />
+                                </svg>
+                                <span>Steer</span>
+                            </button>
+                            <button
+                                class="compose-queue-stack-close-btn"
+                                type="button"
+                                title="Cancel queued message"
+                                aria-label="Cancel queued message"
+                                onClick=${() => onRemoveQueuedFollowup?.(item)}
+                            >
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            })}
+        </div>
+    `;
+}
+
 /**
  * Compose box component
  */
@@ -170,6 +321,8 @@ export function ComposeBox({
     onCreateSession,
     onDeleteSession,
     onRestoreSession,
+    showQueueStack = true,
+    statusNotice = null,
 }) {
     const [content, setContent] = useState('');
     const [searchText, setSearchText] = useState('');
@@ -190,6 +343,7 @@ export function ComposeBox({
     const [loadingModels, setLoadingModels] = useState(false);
     const [footerWidth, setFooterWidth] = useState(0);
     const [submitError, setSubmitError] = useState(null);
+    const [statusNoticeNowMs, setStatusNoticeNowMs] = useState(() => Date.now());
     const textareaRef = useRef(null);
     const slashRef = useRef(null);
     const mentionRef = useRef(null);
@@ -241,6 +395,14 @@ export function ComposeBox({
     const notificationDenied = notificationPermission === 'denied';
     const notificationsAvailable = notificationsSupported && notificationsSecure && !notificationDenied;
     const notificationActive = notificationPermission === 'granted' && notificationsEnabled;
+    const statusNoticeIsCompaction = isCompactionStatus(statusNotice);
+    const statusNoticeTitle = resolveStatusPanelTitle(statusNotice);
+    const statusNoticeDetail = typeof statusNotice?.detail === 'string' && statusNotice.detail.trim()
+        ? statusNotice.detail.trim()
+        : '';
+    const statusNoticeElapsedLabel = statusNoticeIsCompaction
+        ? getStatusElapsedLabel(statusNotice, statusNoticeNowMs)
+        : null;
     const notificationTitle = notificationActive ? 'Disable notifications' : 'Enable notifications';
     const hasAttachments = mediaFiles.length > 0 || fileRefs.length > 0 || messageRefs.length > 0;
     const connectionStatusLabel = connectionStatus === 'disconnected'
@@ -328,80 +490,6 @@ export function ComposeBox({
         textarea.style.height = `${textarea.scrollHeight}px`;
         textarea.style.overflowY = 'hidden';
     };
-
-    const extractQueueFileRefs = (value) => {
-        if (!value) return { content: value, fileRefs: [] };
-        const normalized = value.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        const lines = normalized.split('\n');
-        let start = -1;
-        for (let i = 0; i < lines.length; i += 1) {
-            if (lines[i].trim() === 'Files:' && lines[i + 1] && /^\s*-\s+/.test(lines[i + 1])) {
-                start = i;
-                break;
-            }
-        }
-        if (start === -1) return { content: value, fileRefs: [] };
-        const refs = [];
-        let end = start + 1;
-        for (; end < lines.length; end += 1) {
-            const line = lines[end];
-            if (/^\s*-\s+/.test(line)) {
-                refs.push(line.replace(/^\s*-\s+/, '').trim());
-            } else if (!line.trim()) {
-                break;
-            } else {
-                break;
-            }
-        }
-        if (refs.length === 0) return { content: value, fileRefs: [] };
-        const before = lines.slice(0, start);
-        const after = lines.slice(end);
-        const cleaned = [...before, ...after].join('\n').replace(/\n{3,}/g, '\n\n').trim();
-        return { content: cleaned, fileRefs: refs };
-    };
-
-    const extractQueueMessageRefs = (value) => {
-        if (!value) return { content: value, messageRefs: [] };
-        const normalized = value.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        const lines = normalized.split('\n');
-        let start = -1;
-        for (let i = 0; i < lines.length; i += 1) {
-            if (lines[i].trim() === 'Referenced messages:' && lines[i + 1] && /^\s*-\s+/.test(lines[i + 1])) {
-                start = i;
-                break;
-            }
-        }
-        if (start === -1) return { content: value, messageRefs: [] };
-        const refs = [];
-        let end = start + 1;
-        for (; end < lines.length; end += 1) {
-            const line = lines[end];
-            if (/^\s*-\s+/.test(line)) {
-                const match = line.replace(/^\s*-\s+/, '').trim().match(/^message:(\S+)$/i);
-                if (match) refs.push(match[1]);
-            } else if (!line.trim()) {
-                break;
-            } else {
-                break;
-            }
-        }
-        if (refs.length === 0) return { content: value, messageRefs: [] };
-        const before = lines.slice(0, start);
-        const after = lines.slice(end);
-        const cleaned = [...before, ...after].join('\n').replace(/\n{3,}/g, '\n\n').trim();
-        return { content: cleaned, messageRefs: refs };
-    };
-
-    const parseQueueContent = (value) => {
-        const withFiles = extractQueueFileRefs(value || '');
-        const withMessages = extractQueueMessageRefs(withFiles.content || '');
-        return {
-            text: withMessages.content || '',
-            fileRefs: withFiles.fileRefs,
-            messageRefs: withMessages.messageRefs,
-        };
-    };
-
 
     /** Update slash autocomplete matches based on current input. */
     const updateSlashAutocomplete = (value) => {
@@ -1371,81 +1459,44 @@ export function ComposeBox({
     }, [content, searchText, searchMode]);
 
     useEffect(() => {
+        if (!statusNoticeIsCompaction) return;
+        setStatusNoticeNowMs(Date.now());
+        const timer = setInterval(() => setStatusNoticeNowMs(Date.now()), 1000);
+        return () => clearInterval(timer);
+    }, [statusNoticeIsCompaction, statusNotice?.started_at, statusNotice?.startedAt]);
+
+    useEffect(() => {
         if (searchMode) return;
         updateMentionAutocomplete(content);
     }, [mentionAgents, currentChatJid, content, searchMode]);
 
     return html`
         <div class="compose-box">
-            ${!searchMode && followupQueueItems.length > 0 && html`
-                <div class="compose-queue-stack">
-                    ${followupQueueItems.map((item) => {
-                        const rowText = typeof item?.content === 'string' ? item.content : '';
-                        const parsed = parseQueueContent(rowText);
-                        if (!parsed.text.trim() && parsed.fileRefs.length === 0 && parsed.messageRefs.length === 0) return null;
-                        return html`
-                            <div class="compose-queue-stack-item" role="listitem">
-                                <div class="compose-queue-stack-content" title=${rowText}>
-                                    ${parsed.text.trim() && html`
-                                        <div class="compose-queue-stack-text">${parsed.text}</div>
-                                    `}
-                                    ${(parsed.messageRefs.length > 0 || parsed.fileRefs.length > 0) && html`
-                                        <div class="compose-queue-stack-refs">
-                                            ${parsed.messageRefs.map((id) => html`
-                                                <${FilePill}
-                                                    key=${'queue-msg-' + id}
-                                                    prefix="compose"
-                                                    label=${'msg:' + id}
-                                                    title=${'Message reference: ' + id}
-                                                    icon="message"
-                                                />
-                                            `)}
-                                            ${parsed.fileRefs.map((path) => {
-                                                const label = path.split('/').pop() || path;
-                                                return html`
-                                                    <${FilePill}
-                                                        key=${'queue-file-' + path}
-                                                        prefix="compose"
-                                                        label=${label}
-                                                        title=${path}
-                                                        onClick=${() => onOpenFilePill?.(path)}
-                                                    />
-                                                `;
-                                            })}
-                                        </div>
-                                    `}
-                                </div>
-                                <div class="compose-queue-stack-actions" role="group" aria-label="Queued follow-up controls">
-                                    <button
-                                        class="compose-queue-stack-steer-btn"
-                                        type="button"
-                                        title="Inject queued follow-up as steer"
-                                        aria-label="Inject queued follow-up as steer"
-                                        onClick=${() => handleInjectQueuedFollowup(item)}
-                                    >
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M4 20h12a2 2 0 0 0 2-2V8" />
-                                            <polyline points="14 12 18 8 22 12" />
-                                        </svg>
-                                        <span>Steer</span>
-                                    </button>
-                                    <button
-                                        class="compose-queue-stack-close-btn"
-                                        type="button"
-                                        title="Cancel queued message"
-                                        aria-label="Cancel queued message"
-                                        onClick=${() => onRemoveQueuedFollowup?.(item)}
-                                    >
-                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                            <line x1="18" y1="6" x2="6" y2="18" />
-                                            <line x1="6" y1="6" x2="18" y2="18" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                    })}
+            ${showQueueStack && !searchMode && html`
+                <${QueuedFollowupStack}
+                    items=${followupQueueItems}
+                    onInjectQueuedFollowup=${handleInjectQueuedFollowup}
+                    onRemoveQueuedFollowup=${onRemoveQueuedFollowup}
+                    onOpenFilePill=${onOpenFilePill}
+                />
+            `}
+            ${statusNotice && html`
+                <div
+                    class=${`compose-inline-status${statusNoticeIsCompaction ? ' compaction' : ''}`}
+                    role="status"
+                    aria-live="polite"
+                    title=${statusNoticeDetail || ''}
+                >
+                    <div class="compose-inline-status-row">
+                        <span class="compose-inline-status-dot" aria-hidden="true"></span>
+                        <span class="compose-inline-status-title">${statusNoticeTitle}</span>
+                        ${statusNoticeElapsedLabel && html`<span class="compose-inline-status-elapsed">${statusNoticeElapsedLabel}</span>`}
+                    </div>
+                    ${statusNoticeDetail && html`<div class="compose-inline-status-detail">${statusNoticeDetail}</div>`}
                 </div>
+            `}
+            ${submitError && html`
+                <div class="compose-submit-error compose-submit-error-top" role="status" aria-live="polite">${submitError}</div>
             `}
             <div
                 class=${`compose-input-wrapper${isDragActive ? ' drag-active' : ''}`}
@@ -1455,14 +1506,8 @@ export function ComposeBox({
                 onDrop=${handleDrop}
             >
                 <div class="compose-input-main">
-                    ${submitError && !hasAttachments && html`
-                        <div class="compose-submit-error compose-submit-error-top" role="status" aria-live="polite">${submitError}</div>
-                    `}
                     ${hasAttachments && html`
                         <div class="compose-file-refs">
-                            ${submitError && html`
-                                <div class="compose-submit-error" role="status" aria-live="polite">${submitError}</div>
-                            `}
                             ${messageRefs.map((id) => {
                                 return html`
                                     <${FilePill}
