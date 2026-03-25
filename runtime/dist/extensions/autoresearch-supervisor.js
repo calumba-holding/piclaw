@@ -286,24 +286,13 @@ const StopSchema = Type.Object({
 });
 const StatusSchema = Type.Object({});
 let pendingLaunch = null;
-/** Resolve the chat JID to use for status cards — prefer explicit, then env, then DB, then fallback. */
+/** Resolve the chat JID to use for status cards — prefer explicit, then env, then fallback. */
 function resolveStatusChatJid(explicitChatJid) {
     if (explicitChatJid?.trim())
         return explicitChatJid.trim();
     if (process.env.PICLAW_CHAT_JID?.trim())
         return process.env.PICLAW_CHAT_JID.trim();
-    return inferLatestWebChatJid() || "web:default";
-}
-/** Infer the latest web chat JID from the most recent user message. */
-function inferLatestWebChatJid() {
-    try {
-        const db = getDb();
-        const row = db.prepare("SELECT chat_jid FROM messages WHERE sender = 'web-user' ORDER BY rowid DESC LIMIT 1").get();
-        return row?.chat_jid || null;
-    }
-    catch {
-        return null;
-    }
+    return "web:default";
 }
 export function getPendingLaunch() {
     return pendingLaunch;
