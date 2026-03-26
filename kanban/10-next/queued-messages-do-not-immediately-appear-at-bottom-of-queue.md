@@ -1,10 +1,10 @@
 ---
 id: queued-messages-do-not-immediately-appear-at-bottom-of-queue
 title: Queued messages do not immediately appear at the bottom of the queue
-status: review
+status: next
 priority: medium
 created: 2026-03-17
-updated: 2026-03-18
+updated: 2026-03-26
 estimate: M
 risk: medium
 tags:
@@ -41,6 +41,12 @@ bug.
 - A regression test exists for the observed append/visibility case.
 
 ## Updates
+
+### 2026-03-26
+- Lane change: `40-review` → `10-next`.
+- Board review outcome: this still reads as an unresolved bug ticket, not a completed fix awaiting final verification.
+- Kept in `next` rather than `doing` because there is no current implementation evidence recorded on the ticket.
+- Quality: ★★★☆☆ 6/10 (problem: 2, scope: 1, test: 1, deps: 1, risk: 1)
 
 ### 2026-03-17
 - Ticket created from a fresh user report: queued messages sometimes do not

@@ -1,10 +1,10 @@
 ---
 id: keychain-workflow-helper
 title: Keychain workflow helper — streamlined credential management
-status: review
+status: inbox
 priority: low
 created: 2026-03-11
-updated: 2026-03-18
+updated: 2026-03-26
 tags:
   - work-item
   - kanban
@@ -51,6 +51,12 @@ Pros: Visual, discoverable.
 Cons: Security risk of exposing secrets in UI; significant effort.
 
 ## Updates
+
+### 2026-03-26
+- Lane change: `40-review` → `00-inbox`.
+- Board review outcome: this is still a design/refinement ticket rather than a completed implementation awaiting verification.
+- Kept in inbox until the workflow scope is narrowed and the likely first implementation slice is chosen.
+- Quality: ★★★☆☆ 6/10 (problem: 2, scope: 1, test: 1, deps: 1, risk: 1)
 
 ### 2026-03-12
 - Board quality review: added rough acceptance criteria so this clears the inbox gate more cleanly.
