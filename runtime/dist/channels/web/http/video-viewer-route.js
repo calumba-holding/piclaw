@@ -143,7 +143,7 @@ function generateVideoViewerPage() {
     if (!video) return;
     if (event.key === ' ' || event.key.toLowerCase() === 'k') {
       event.preventDefault();
-      if (video.paused) video.play().catch(function () {});
+      if (video.paused) video.play().catch(function () { /* expected: autoplay can be blocked by browser media policies. */ });
       else video.pause();
       return;
     }

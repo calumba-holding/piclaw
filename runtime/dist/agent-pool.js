@@ -471,13 +471,17 @@ export class AgentPool {
             }
         });
         const abortHandler = () => {
-            void sideSession.abort().catch(() => { });
+            void sideSession.abort().catch(() => {
+                /* expected: side session may already be aborting when the outer signal fires. */
+            });
         };
         options.signal?.addEventListener("abort", abortHandler, { once: true });
         if (timeoutMs > 0) {
             timeoutId = setTimeout(() => {
                 timedOut = true;
-                void sideSession.abort().catch(() => { });
+                void sideSession.abort().catch(() => {
+                    /* expected: side session may already be aborting when the timeout fires. */
+                });
             }, timeoutMs);
         }
         try {
@@ -643,7 +647,8 @@ export class AgentPool {
             storeChatMetadata(chatJid, new Date().toISOString(), created.agent_name || chatJid);
             return created;
         }
-        catch {
+        catch (err) {
+            console.warn(`[agent-pool] Falling back to volatile branch record for ${chatJid}:`, err);
             return createVolatileBranchRecord(chatJid, session);
         }
     }
@@ -659,7 +664,9 @@ export class AgentPool {
             try {
                 session.setSessionName(renamed.agent_name);
             }
-            catch { }
+            catch (err) {
+                console.warn(`[agent-pool] Failed to sync renamed branch session name for ${chatJid}:`, err);
+            }
         }
         return renamed;
     }
@@ -678,7 +685,9 @@ export class AgentPool {
             try {
                 mainEntry.session.dispose();
             }
-            catch { }
+            catch (err) {
+                console.warn(`[agent-pool] Failed to dispose pruned session ${chatJid}:`, err);
+            }
             this.pool.delete(chatJid);
         }
         const sideEntry = this.sidePool.get(chatJid);
@@ -686,7 +695,9 @@ export class AgentPool {
             try {
                 sideEntry.session.dispose();
             }
-            catch { }
+            catch (err) {
+                console.warn(`[agent-pool] Failed to dispose pruned side session ${chatJid}:`, err);
+            }
             this.sidePool.delete(chatJid);
         }
         this.activeForkBaseLeafByChat.delete(chatJid);
@@ -701,8 +712,9 @@ export class AgentPool {
         try {
             await this.getOrCreate(chatJid);
         }
-        catch {
+        catch (err) {
             // Keep restore resilient even if session warmup fails.
+            console.warn(`[agent-pool] Restored branch ${chatJid} but failed to warm its session:`, err);
         }
         return restored;
     }
@@ -760,16 +772,22 @@ export class AgentPool {
             try {
                 await targetSession.setModel(sourceSession.model);
             }
-            catch { }
+            catch (err) {
+                console.warn(`[agent-pool] Failed to copy model to forked branch ${nextChatJid}:`, err);
+            }
         }
         try {
             targetSession.setThinkingLevel((stableSeed?.thinkingLevel || sourceContext.thinkingLevel || sourceSession.thinkingLevel));
         }
-        catch { }
+        catch (err) {
+            console.warn(`[agent-pool] Failed to copy thinking level to forked branch ${nextChatJid}:`, err);
+        }
         try {
             targetSession.setSessionName(setupName);
         }
-        catch { }
+        catch (err) {
+            console.warn(`[agent-pool] Failed to copy session name to forked branch ${nextChatJid}:`, err);
+        }
         forcePersistSessionFile(targetSession);
         return ensureChatBranch({
             chat_jid: nextChatJid,
@@ -839,7 +857,8 @@ export class AgentPool {
                 return a.chat_jid.localeCompare(b.chat_jid);
             });
         }
-        catch {
+        catch (err) {
+            console.warn(`[agent-pool] Failed to list known chats${rootChatJid ? ` for ${rootChatJid}` : ""}; falling back to active sessions only:`, err);
             return activeChats;
         }
     }
@@ -858,7 +877,9 @@ export class AgentPool {
             if (branch)
                 return { chat_jid: branch.chat_jid, agent_name: branch.agent_name };
         }
-        catch { }
+        catch (err) {
+            console.warn(`[agent-pool] Failed to look up agent handle @${normalized}; falling back to active sessions:`, err);
+        }
         const active = this.listActiveChats().find((chat) => chat.agent_name === normalized) ?? null;
         return active ? { chat_jid: active.chat_jid, agent_name: active.agent_name } : null;
     }
@@ -866,7 +887,8 @@ export class AgentPool {
         try {
             return getChatBranchByChatJid(chatJid)?.agent_name ?? deriveAgentHandle(chatJid);
         }
-        catch {
+        catch (err) {
+            console.warn(`[agent-pool] Failed to read stored handle for ${chatJid}; deriving one from chat id instead:`, err);
             return deriveAgentHandle(chatJid);
         }
     }
@@ -1042,11 +1064,15 @@ export class AgentPool {
         try {
             sideSession.setThinkingLevel(mainSession.thinkingLevel);
         }
-        catch { }
+        catch (err) {
+            console.warn(`[agent-pool] Failed to sync side-session thinking level:`, err);
+        }
         try {
             sideSession.setActiveToolsByName(mainSession.getActiveToolNames());
         }
-        catch { }
+        catch (err) {
+            console.warn(`[agent-pool] Failed to sync side-session tool selection:`, err);
+        }
     }
     async applyDefaultModel(session) {
         const provider = this.settingsManager.getDefaultProvider();
@@ -1196,7 +1222,9 @@ export class AgentPool {
                 try {
                     session.dispose();
                 }
-                catch { }
+                catch (err) {
+                    console.warn(`[agent-pool] Failed to dispose evicted session ${jid}:`, err);
+                }
                 this.pool.delete(jid);
             }
         }
@@ -1211,7 +1239,9 @@ export class AgentPool {
                 try {
                     session.dispose();
                 }
-                catch { }
+                catch (err) {
+                    console.warn(`[agent-pool] Failed to dispose evicted side session ${jid}:`, err);
+                }
                 this.sidePool.delete(jid);
             }
         }

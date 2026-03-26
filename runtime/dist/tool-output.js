@@ -113,7 +113,7 @@ export function pruneToolOutputs(maxAgeDays = 30) {
             try {
                 unlinkSync(row.path);
             }
-            catch { }
+            catch { /* expected: cleanup can race with manual deletion or prior pruning. */ }
         }
     }
     return rows.length;

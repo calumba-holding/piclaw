@@ -198,7 +198,9 @@ export class WorkspaceFileService {
                 try {
                     unlinkSync(destPath);
                 }
-                catch { }
+                catch (err) {
+                    console.warn(`[workspace] Failed to remove oversized upload ${destPath}:`, err);
+                }
                 return { status: 400, body: { error: "File too large to upload" } };
             }
             const relPath = toRelativePath(destPath);

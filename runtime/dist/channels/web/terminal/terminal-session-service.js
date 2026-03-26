@@ -36,6 +36,7 @@ function getLibc() {
         };
     }
     catch {
+        /* expected: PTY resizing is optional when libc FFI is unavailable. */
         _libc = null;
     }
     return _libc;
@@ -59,6 +60,7 @@ function resizePty(ptsPath, cols, rows) {
         return libc.ioctl(fd, TIOCSWINSZ, winsize) === 0;
     }
     catch {
+        /* expected: PTY path can disappear during resize races. */
         return false;
     }
     finally {
@@ -66,7 +68,7 @@ function resizePty(ptsPath, cols, rows) {
             try {
                 closeSync(fd);
             }
-            catch { }
+            catch { /* expected: fd may already be closed during PTY teardown. */ }
         }
     }
 }
@@ -87,12 +89,14 @@ function getChildPids(parentPid) {
                 return match && parseInt(match[1], 10) === parentPid ? parseInt(entry, 10) : 0;
             }
             catch {
+                /* expected: /proc entries may vanish while scanning child processes. */
                 return 0;
             }
         })
             .filter((pid) => pid > 0);
     }
     catch {
+        /* expected: /proc traversal is unavailable or racing on non-Linux/teardown paths. */
         return [];
     }
 }
@@ -113,7 +117,9 @@ function findChildPts(parentPid) {
                 return { ptsPath: target, childPids };
             }
         }
-        catch { }
+        catch {
+            /* expected: child may exit before /proc/<pid>/fd/0 can be inspected. */
+        }
     }
     return null;
 }
@@ -213,6 +219,7 @@ export class TerminalSessionService {
             return JSON.parse(messageText);
         }
         catch {
+            /* expected: plain text input frames are not JSON control messages. */
             return { type: "input", data: messageText };
         }
     }
@@ -221,7 +228,9 @@ export class TerminalSessionService {
             try {
                 session.process.kill("SIGHUP");
             }
-            catch { }
+            catch {
+                /* expected: terminal process may already be gone during shutdown. */
+            }
         }
         this.sessions.clear();
     }
@@ -250,7 +259,7 @@ export class TerminalSessionService {
                 try {
                     process.kill(cpid, "SIGWINCH");
                 }
-                catch { }
+                catch { /* expected: child may exit between pid scan and signal delivery. */ }
             }
         }
     }
@@ -293,7 +302,7 @@ export class TerminalSessionService {
                         try {
                             process.kill(cpid, "SIGWINCH");
                         }
-                        catch { }
+                        catch { /* expected: child may exit before the delayed resize signal lands. */ }
                     }
                 }
             }, 300);
@@ -311,6 +320,8 @@ export class TerminalSessionService {
         try {
             ws.send(preEncoded ? payload : JSON.stringify(payload));
         }
-        catch { }
+        catch {
+            /* expected: browser websocket may close between broadcast iteration and send. */
+        }
     }
 }

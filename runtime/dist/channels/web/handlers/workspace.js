@@ -91,7 +91,7 @@ export function handleWorkspaceRaw(req) {
                 try {
                     closeSync(fd);
                 }
-                catch { }
+                catch { /* expected: fd may already be closed on range-read failure paths. */ }
             }
         }
     };

@@ -150,13 +150,13 @@ export class VncSessionService {
                 try {
                     ws.send(JSON.stringify({ type: "vnc.connected", target: { id: target.id, label: target.label } }));
                 }
-                catch { }
+                catch { /* expected: browser websocket may close before connect ack is delivered. */ }
             },
             onError: (ws, _target, error) => {
                 try {
                     ws.send(JSON.stringify({ type: "vnc.error", error: error.message || String(error) }));
                 }
-                catch { }
+                catch { /* expected: browser websocket may already be closed while surfacing upstream errors. */ }
             },
             handleControlMessage: (ws, message) => {
                 try {
@@ -165,12 +165,12 @@ export class VncSessionService {
                         try {
                             ws.send(JSON.stringify({ type: "pong" }));
                         }
-                        catch { }
+                        catch { /* expected: ping/pong races with socket teardown. */ }
                         return true;
                     }
                 }
                 catch {
-                    // ignore non-JSON string control frames
+                    /* expected: non-JSON string frames are forwarded to the upstream socket. */
                 }
                 return false;
             },
@@ -183,16 +183,13 @@ export class VncSessionService {
             if (cleared)
                 return;
             cleared = true;
-            try {
-                clearTimeout(timer);
-            }
-            catch { }
+            clearTimeout(timer);
         };
         const timer = setTimeout(() => {
             try {
                 socket.destroy(new Error(`Timed out connecting to VNC target ${target.label || target.id}.`));
             }
-            catch { }
+            catch { /* expected: socket may already be closed when the timeout fires. */ }
         }, this.connectTimeoutMs);
         socket.once("data", clear);
         socket.once("error", clear);
@@ -263,7 +260,7 @@ export class VncSessionService {
             try {
                 ws.close(1008, "Unknown VNC target.");
             }
-            catch { }
+            catch { /* expected: websocket may already be gone while rejecting an unknown target. */ }
             return;
         }
         this.bridge.attachClient(ws, target);

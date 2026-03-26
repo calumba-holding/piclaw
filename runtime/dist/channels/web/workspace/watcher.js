@@ -88,7 +88,7 @@ export function startWorkspaceWatcher(onUpdate, includeHidden) {
                     updates.push({ path: relPath, root, truncated: state.truncated });
                 }
                 catch {
-                    // ignore
+                    /* expected: watched paths may disappear while a refresh is being assembled. */
                 }
             }
             throttler.schedule(updates);
@@ -100,7 +100,7 @@ export function startWorkspaceWatcher(onUpdate, includeHidden) {
                 try {
                     watcher.close();
                 }
-                catch { }
+                catch { /* expected: fs.watch handle may already be closed during watcher churn. */ }
                 watchers.delete(key);
             }
         }
@@ -168,7 +168,7 @@ export function startWorkspaceWatcher(onUpdate, includeHidden) {
                 try {
                     watcher.close();
                 }
-                catch { }
+                catch { /* expected: watcher may already be closed during shutdown. */ }
             }
             watchers.clear();
         },

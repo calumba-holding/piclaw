@@ -142,7 +142,9 @@ export class WebChannel {
         try {
             initTheme();
         }
-        catch { }
+        catch (err) {
+            console.warn("[web] Failed to initialize theme cache:", err);
+        }
         const tls = await this.loadTlsOptions();
         // On Windows, the previous process may linger after a restart (no
         // SIGKILL), leaving the port in TIME_WAIT.  Retry a few times with
@@ -1406,7 +1408,9 @@ export class WebChannel {
                     try {
                         controller.close();
                     }
-                    catch { }
+                    catch {
+                        /* expected: ReadableStream controller may already be closed/cancelled. */
+                    }
                 };
                 const send = (eventType, data) => {
                     if (closed)
@@ -1443,7 +1447,9 @@ export class WebChannel {
                 try {
                     req.signal.throwIfAborted();
                 }
-                catch { }
+                catch {
+                    /* expected: cancellation frequently arrives from an already-aborted request signal. */
+                }
             },
         });
         return new Response(stream, {

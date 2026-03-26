@@ -121,7 +121,9 @@ export class WhatsAppChannel {
                 this.connected = true;
                 this.reconnectAttempts = 0; // reset on successful connection
                 console.log("[whatsapp] Connected");
-                this.sock.sendPresenceUpdate("available").catch(() => { });
+                this.sock.sendPresenceUpdate("available").catch((err) => {
+                    console.warn("[whatsapp] Failed to publish availability presence:", err);
+                });
                 this.flushOutgoingQueue().catch(console.error);
                 if (onFirstOpen) {
                     onFirstOpen();
@@ -192,7 +194,7 @@ export class WhatsAppChannel {
         try {
             await this.sock.sendPresenceUpdate(isTyping ? "composing" : "paused", jid);
         }
-        catch { }
+        catch { /* expected: transient presence failures should not block message delivery. */ }
     }
     async flushOutgoingQueue() {
         if (this.flushing || this.outgoingQueue.length === 0)

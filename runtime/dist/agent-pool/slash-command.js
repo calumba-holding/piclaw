@@ -108,7 +108,7 @@ export async function executeSlashCommand(session, chatJid, rawText) {
                 }
             }
             catch {
-                // ignore
+                /* expected: slash-command event snapshots can be incomplete while streaming. */
             }
         };
         const unsub = session.subscribe(onEvent);
@@ -121,7 +121,9 @@ export async function executeSlashCommand(session, chatJid, rawText) {
                 try {
                     await session.abort();
                 }
-                catch { }
+                catch {
+                    /* expected: timed-out slash command session may already be aborting. */
+                }
             }, AGENT_TIMEOUT);
         }
         const channel = detectChannel(chatJid);

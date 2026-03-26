@@ -30,7 +30,7 @@ export class WebSocketTcpBridge {
             try {
                 ws.send(chunk);
             }
-            catch { }
+            catch { /* expected: browser websocket may disappear while the upstream socket is still draining. */ }
         });
         socket.on("error", (error) => {
             const normalized = error instanceof Error ? error : new Error(String(error || "Unknown upstream error"));
@@ -38,7 +38,7 @@ export class WebSocketTcpBridge {
             try {
                 ws.close(1011, "Remote display upstream error");
             }
-            catch { }
+            catch { /* expected: websocket may already be closed when surfacing upstream failures. */ }
             this.closeClient(ws);
         });
         socket.on("close", () => {
@@ -46,7 +46,7 @@ export class WebSocketTcpBridge {
             try {
                 ws.close(1000, "Remote display upstream closed");
             }
-            catch { }
+            catch { /* expected: websocket may already be closed when the upstream ends first. */ }
             this.closeClient(ws, false);
         });
     }
@@ -88,7 +88,7 @@ export class WebSocketTcpBridge {
             try {
                 record.socket.destroy();
             }
-            catch { }
+            catch { /* expected: upstream socket may already be fully torn down. */ }
         }
     }
 }
