@@ -1988,7 +1988,8 @@ export default function autoresearchExtension(pi: ExtensionAPI) {
 
       // Build response text
       const segmentCount = currentResults(state.results, state.currentSegment).length;
-      let text = `Logged #${state.results.length}: ${experiment.status} — ${experiment.description}`;
+      const totalExperimentCount = state.results.length;
+      let text = `Logged #${totalExperimentCount}: ${experiment.status} — ${experiment.description}`;
 
       if (state.bestMetric !== null) {
         text += `\nBaseline ${state.metricName}: ${formatNum(state.bestMetric, state.metricUnit)}`;
@@ -2044,7 +2045,10 @@ export default function autoresearchExtension(pi: ExtensionAPI) {
         }
       }
 
-      text += `\n(${segmentCount} experiments`;
+      text += `\n(${totalExperimentCount} total experiments`;
+      if (segmentCount !== totalExperimentCount) {
+        text += `, ${segmentCount} in current segment`;
+      }
       if (state.maxExperiments !== null) {
         text += ` / ${state.maxExperiments} max`;
       }
@@ -2129,8 +2133,10 @@ export default function autoresearchExtension(pi: ExtensionAPI) {
       runtime.lastRunDuration = null;
 
 
-      // Check if max experiments limit reached
-      const limitReached = state.maxExperiments !== null && segmentCount >= state.maxExperiments;
+      // Check if max experiments limit reached across the full session.
+      // Re-initialising the experiment creates a new segment, but it should not
+      // reset the global max-iterations guard for the overall run.
+      const limitReached = state.maxExperiments !== null && totalExperimentCount >= state.maxExperiments;
       if (limitReached) {
         text += `\n\n🛑 Maximum experiments reached (${state.maxExperiments}). STOP the experiment loop now.`;
         runtime.autoresearchMode = false;
