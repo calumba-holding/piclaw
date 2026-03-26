@@ -26,5 +26,8 @@ jobs:
       - name: Check for silent swallow regressions
         run: bun run check:silent-swallows
 
+      - name: Check structured logging guardrails
+        run: bun run check:structured-logging
+
       - name: Build web bundles and run web regression tests
         run: make build-web

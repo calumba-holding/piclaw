@@ -1,10 +1,11 @@
 ---
 id: adopt-pino-structured-logging
 title: "Adopt structured logging and explicit error-handling guards"
-status: doing
+status: done
 priority: high
 created: 2026-03-23
 updated: 2026-03-26
+completed: 2026-03-26
 tags:
   - quality
   - observability
@@ -51,12 +52,12 @@ The silent-catch audit removed empty `catch {}` and empty `.catch(() => {})` pat
 
 ## Acceptance criteria
 
-- [ ] A shared structured logger path exists and is used by critical runtime/server modules
-- [ ] Critical-path warning/error sites include module/operation context, not bare strings
-- [ ] Expected race/teardown guards are documented consistently (`/* expected: ... */` or equivalent helper)
-- [ ] New ad-hoc raw `console.log/warn/error` usage is prevented or explicitly allowlisted
-- [ ] Error-handling guidance is written down clearly enough that future audits can distinguish guard/warn/error cases quickly
-- [ ] The silent-catch follow-up sites migrated in this ticket no longer rely on inconsistent one-off logging patterns
+- [x] A shared structured logger path exists and is used by critical runtime/server modules
+- [x] Critical-path warning/error sites include module/operation context, not bare strings
+- [x] Expected race/teardown guards are documented consistently (`/* expected: ... */` or equivalent helper)
+- [x] New ad-hoc raw `console.log/warn/error` usage is prevented or explicitly allowlisted
+- [x] Error-handling guidance is written down clearly enough that future audits can distinguish guard/warn/error cases quickly
+- [x] The silent-catch follow-up sites migrated in this ticket no longer rely on inconsistent one-off logging patterns
 
 ## Notes
 
@@ -70,6 +71,9 @@ The silent-catch audit removed empty `catch {}` and empty `.catch(() => {})` pat
 - Expanded the old pino-only ticket into a broader error-handling follow-up covering explicit guard/warn/error policy, structured logging, and migration of the post-audit warning sites.
 - Promoted from `10-next` to `20-doing` after reviewing the silent-catch cleanup results and identifying the remaining inconsistency around ad-hoc `console.*` logging.
 - Immediate focus is the critical-path set: `runtime/src/agent-pool.ts`, `runtime/src/channels/web.ts`, `runtime/src/channels/whatsapp.ts`, `runtime/src/channels/web/workspace/file-service.ts`, `runtime/src/db/connection.ts`, and `runtime/src/runtime/*`.
+- Confirmed the remaining follow-up items were already landed: `PICLAW_LOG_LEVEL`/`LOG_LEVEL` threshold parsing now flows through `runtime/src/utils/log-level.ts` and `runtime/src/utils/logger.ts`, while `runtime/src/core/config.ts` and `runtime/src/agent-pool/orphan-tool-results.ts` both use the structured logger.
+- Added a dedicated `check:structured-logging` gate to `package.json` and wired it into both `bun run quality` and `.github/workflows/ci.yml` so scoped raw `console.*` regressions fail the normal local and CI paths.
+- Verified `bun run check:structured-logging` passes with zero non-allowlisted raw console calls across the enforced runtime/server scopes.
 
 ## Links
 
