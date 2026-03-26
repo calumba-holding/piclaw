@@ -1418,6 +1418,65 @@ test("web channel atomically converts a queued item into steering when active", 
   expect(steerMessage?.data?.thread_id).toBe(rootRowId);
 });
 
+test("web channel emits queue removal before steer enqueue when converting a queued item while active", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats; DELETE FROM chat_cursors;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+
+  const rootMessageId = `msg-${Math.random()}`;
+  const rootTimestamp = new Date().toISOString();
+  const rootRowId = db.storeMessage({
+    id: rootMessageId,
+    chat_jid: "web:default",
+    sender: "web-user",
+    sender_name: "You",
+    content: "root turn",
+    timestamp: rootTimestamp,
+    is_from_me: false,
+    is_bot_message: false,
+  });
+  db.getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(rootRowId, rootRowId);
+  db.beginChatRun("web:default", rootTimestamp, {
+    prevTs: "",
+    messageId: rootMessageId,
+    startedAt: new Date().toISOString(),
+  });
+
+  const events: Array<{ type: string; data: any }> = [];
+  const webMod = await import("../../../src/channels/web.js");
+  const web = new (webMod.WebChannel as any)({
+    queue: { enqueue: () => {} },
+    agentPool: {
+      isStreaming: () => true,
+      setSessionBinder: () => {},
+      queueStreamingMessage: async () => ({ queued: true }),
+      getContextUsageForChat: async () => null,
+    },
+  });
+  web.broadcastEvent = (type: string, data: unknown) => {
+    events.push({ type, data });
+  };
+
+  const rowId = web.enqueueQueuedFollowupItem("web:default", 0, "queued ordering check");
+
+  const res = await (web as any).handleRequest(new Request("http://test/agent/queue-steer", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ row_id: rowId }),
+  }));
+
+  expect(res.status).toBe(201);
+  const orderedTypes = events
+    .map((event) => event.type)
+    .filter((type) => ["agent_followup_removed", "new_post", "agent_steer_queued"].includes(type));
+  expect(orderedTypes).toEqual(["agent_followup_removed", "new_post", "agent_steer_queued"]);
+});
+
 test("web channel atomically converts a queued item into an immediate send when inactive", async () => {
   const ws = createTempWorkspace("piclaw-web-channel-");
   cleanupWorkspace = ws.cleanup;

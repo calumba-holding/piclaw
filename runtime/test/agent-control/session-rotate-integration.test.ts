@@ -135,3 +135,31 @@ test("session rotation archives the old file and continueRecent resumes the rota
     )
   ).toBe(true);
 });
+
+test("session rotation rejects queued follow-ups and leaves the active file untouched", async () => {
+  tempWorkspace = createTempWorkspace("piclaw-session-rotate-pending-");
+  restoreEnv = setEnv({
+    PICLAW_WORKSPACE: tempWorkspace.workspace,
+    PICLAW_STORE: tempWorkspace.store,
+    PICLAW_DATA: tempWorkspace.data,
+  });
+
+  const { ensureSessionDir } = await importFresh<typeof import("../src/agent-pool/session.js")>("../src/agent-pool/session.js");
+  const { handleSessionRotate } = await importFresh<typeof import("../src/agent-control/handlers/session.js")>("../src/agent-control/handlers/session.js");
+
+  const sessionDir = ensureSessionDir("web:default");
+  const session = new IntegrationSession(tempWorkspace.workspace, sessionDir);
+  const previousSessionFile = session.sessionFile;
+  session.pendingMessageCount = 2;
+
+  const result = await handleSessionRotate(session as any, {
+    type: "session_rotate",
+    raw: "/session-rotate",
+  });
+
+  expect(result.status).toBe("error");
+  expect(result.message).toContain("queued steering or follow-up messages are pending");
+  expect(session.sessionFile).toBe(previousSessionFile);
+  expect(previousSessionFile && existsSync(previousSessionFile)).toBe(true);
+  expect(existsSync(join(sessionDir, "archive", basename(previousSessionFile!)))).toBe(false);
+});

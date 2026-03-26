@@ -1,17 +1,28 @@
-import { afterEach, expect, test } from "bun:test";
-import { chromium, type Browser, type Page } from "playwright";
+import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
+import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import { startDedicatedWebTestInstance, type DedicatedWebTestInstance } from "./helpers/dedicated-instance.js";
 
 const optionalBrowserTest = process.env.PICLAW_RUN_OPTIONAL_BROWSER_TESTS === "1" ? test : test.skip;
 
 let instance: DedicatedWebTestInstance | null = null;
 let browser: Browser | null = null;
+let context: BrowserContext | null = null;
+
+beforeAll(async () => {
+  if (process.env.PICLAW_RUN_OPTIONAL_BROWSER_TESTS !== "1") return;
+  browser = await chromium.launch({ headless: true });
+});
 
 afterEach(async () => {
-  await browser?.close();
-  browser = null;
+  await context?.close();
+  context = null;
   await instance?.close();
   instance = null;
+});
+
+afterAll(async () => {
+  await browser?.close();
+  browser = null;
 });
 
 function seedBranchFamily(db: any) {
@@ -195,22 +206,25 @@ async function getBodyText(page: Page): Promise<string> {
   return (await page.locator("body").textContent()) || "";
 }
 
-optionalBrowserTest("optional browser isolation: chat windows do not leak live messages, thought, draft, or replies across branches", async () => {
+optionalBrowserTest("optional browser isolation: windows stay isolated across live turns, rename, and prune flows", async () => {
   const dedicated = await launchDedicatedInstance();
-  browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
+  context = await browser!.newContext();
   const pageA = await context.newPage();
   const pageB = await context.newPage();
 
-  await openChatWindow(pageA, chatOnlyUrl(dedicated.baseUrl, "web:branch-a"));
-  await openChatWindow(pageB, chatOnlyUrl(dedicated.baseUrl, "web:branch-b"));
+  await Promise.all([
+    openChatWindow(pageA, chatOnlyUrl(dedicated.baseUrl, "web:branch-a")),
+    openChatWindow(pageB, chatOnlyUrl(dedicated.baseUrl, "web:branch-b")),
+  ]);
 
   await pageA.locator("textarea").fill("USER_A_ISOLATION_TOKEN");
   await pageA.locator("button.send-btn").click();
 
-  await waitForBodyText(pageA, "USER_A_ISOLATION_TOKEN");
-  await waitForBodyText(pageA, "THOUGHT_A_ISOLATION_TOKEN");
   await waitForBodyText(pageA, "DRAFT_A_ISOLATION_TOKEN");
+  const branchATextAfterDraft = await getBodyText(pageA);
+  expect(branchATextAfterDraft).toContain("USER_A_ISOLATION_TOKEN");
+  expect(branchATextAfterDraft).toContain("THOUGHT_A_ISOLATION_TOKEN");
+  expect(branchATextAfterDraft).toContain("DRAFT_A_ISOLATION_TOKEN");
 
   const branchBDuringA = await getBodyText(pageB);
   expect(branchBDuringA).not.toContain("USER_A_ISOLATION_TOKEN");
@@ -224,9 +238,11 @@ optionalBrowserTest("optional browser isolation: chat windows do not leak live m
   await pageB.locator("textarea").fill("USER_B_ISOLATION_TOKEN");
   await pageB.locator("button.send-btn").click();
 
-  await waitForBodyText(pageB, "USER_B_ISOLATION_TOKEN");
-  await waitForBodyText(pageB, "THOUGHT_B_ISOLATION_TOKEN");
   await waitForBodyText(pageB, "DRAFT_B_ISOLATION_TOKEN");
+  const branchBTextAfterDraft = await getBodyText(pageB);
+  expect(branchBTextAfterDraft).toContain("USER_B_ISOLATION_TOKEN");
+  expect(branchBTextAfterDraft).toContain("THOUGHT_B_ISOLATION_TOKEN");
+  expect(branchBTextAfterDraft).toContain("DRAFT_B_ISOLATION_TOKEN");
   await waitForBodyText(pageB, "REPLY_B_ISOLATION_TOKEN");
 
   const branchAFinal = await getBodyText(pageA);
@@ -234,17 +250,6 @@ optionalBrowserTest("optional browser isolation: chat windows do not leak live m
   expect(branchAFinal).not.toContain("THOUGHT_B_ISOLATION_TOKEN");
   expect(branchAFinal).not.toContain("DRAFT_B_ISOLATION_TOKEN");
   expect(branchAFinal).not.toContain("REPLY_B_ISOLATION_TOKEN");
-});
-
-optionalBrowserTest("optional browser isolation: rename and prune stay scoped to the intended branch window", async () => {
-  const dedicated = await launchDedicatedInstance();
-  browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
-  const pageA = await context.newPage();
-  const pageB = await context.newPage();
-
-  await openChatWindow(pageA, chatOnlyUrl(dedicated.baseUrl, "web:branch-a"));
-  await openChatWindow(pageB, chatOnlyUrl(dedicated.baseUrl, "web:branch-b"));
 
   const renameResponse = await fetch(`${dedicated.baseUrl}/agent/branch-rename`, {
     method: "POST",

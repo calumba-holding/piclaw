@@ -166,6 +166,77 @@ describe("web agent message handler", () => {
     expect(broadcasts.some((entry) => entry.event === "new_post")).toBe(true);
   });
 
+  test("surfaces a successful /session-rotate result immediately when the chat is idle", async () => {
+    initDatabase();
+
+    const queuedFollowups: Array<{ chatJid: string; content: string }> = [];
+    const sentMessages: Array<{ chatJid: string; content: string; threadId: number | null }> = [];
+    const broadcasts: Array<{ event: string; payload: unknown }> = [];
+    let applyCalls = 0;
+
+    const channel = {
+      agentPool: {
+        isStreaming: () => false,
+        isActive: () => false,
+        applyControlCommand: async (_chatJid: string, command: { type: string; raw: string }) => {
+          applyCalls += 1;
+          expect(command.type).toBe("session_rotate");
+          return {
+            status: "success",
+            message: [
+              "Session rotated.",
+              "Archived previous session: /tmp/archive/session.jsonl",
+              "New session: /tmp/session.jsonl",
+            ].join("\n"),
+          };
+        },
+      },
+      json: (payload: unknown, status = 200) =>
+        new Response(JSON.stringify(payload), {
+          status,
+          headers: { "Content-Type": "application/json" },
+        }),
+      enqueueQueuedFollowupItem: (chatJid: string, _rowId: number, content: string) => {
+        queuedFollowups.push({ chatJid, content });
+        return 222;
+      },
+      getQueuedFollowupCount: () => 0,
+      broadcastEvent: (event: string, payload: unknown) => {
+        broadcasts.push({ event, payload });
+      },
+      updateAgentStatus: () => {},
+      skipFailedOnModelSwitch: () => {},
+      storeMessage: (_chatJid: string, content: string) => ({
+        id: 654,
+        timestamp: "2026-03-14T21:20:00.000Z",
+        data: { thread_id: null },
+        content,
+      }),
+      sendMessage: async (chatJid: string, content: string, threadId: number | null) => {
+        sentMessages.push({ chatJid, content, threadId });
+      },
+    } as any;
+
+    const req = new Request("https://example.com/agent/default/message", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "/session-rotate keep active context" }),
+    });
+
+    const response = await handleAgentMessage(channel, req, "/agent/default/message", "web:default", "default");
+    expect(response.status).toBe(201);
+
+    const body = await response.json();
+    expect(body.queued).toBeUndefined();
+    expect(body.command?.status).toBe("success");
+    expect(body.command?.message).toContain("Session rotated.");
+    expect(applyCalls).toBe(1);
+    expect(queuedFollowups).toHaveLength(0);
+    expect(sentMessages).toHaveLength(1);
+    expect(sentMessages[0]?.content).toContain("Archived previous session:");
+    expect(broadcasts.some((entry) => entry.event === "new_post")).toBe(true);
+  });
+
   test("defers a normal user turn while the chat is still active even if streaming already settled", async () => {
     const queuedFollowups: Array<{ chatJid: string; content: string }> = [];
     let storeMessageCalls = 0;
