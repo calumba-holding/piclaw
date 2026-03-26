@@ -1,25 +1,29 @@
 # Autoresearch: audit silent catch blocks
 
 ## Objective
-Adopt the silent-swallow guard in CI so regressions are blocked even outside local/autoresearch quality runs. The governing ticket is `kanban/10-next/audit-silent-catch-blocks.md`.
+Close the governing kanban ticket cleanly now that the audit, tests, quality hooks, and CI guard are all in place. The governing ticket started as `kanban/10-next/audit-silent-catch-blocks.md` and should now reflect completed/review-ready status with acceptance criteria checked off.
 
-The repo-wide cleanup, quality-hook wiring, and focused scanner tests are complete. The resumed loop is now focused on CI assurance.
+The implementation work is complete. The resumed loop is now focused on durable project hygiene: updating the ticket/lane/status/evidence so future agents do not rediscover or reopen this audit unnecessarily.
 
-Success means GitHub CI explicitly runs `bun run check:silent-swallows` (or an equivalent flow that guarantees the same guard) in the normal validation path.
+Success means the ticket has:
+- completed acceptance checkboxes,
+- an updated status/frontmatter consistent with its lane,
+- recorded evidence that the guard exists in quality/autoresearch/CI.
 
-We are optimizing for durable audit coverage while keeping builds/tests passing.
+We are optimizing for durable closure while keeping the repo state coherent.
 
 ## Metrics
-- **Primary**: `silent_swallow_ci_gaps` (count, lower is better) — missing CI integration for the silent-swallow guard
+- **Primary**: `ticket_closure_gaps` (count, lower is better) — outstanding ticket/lane/acceptance gaps for the silent-catch audit ticket
 - **Secondary**:
   - `repo_silent_catch_blocks` — repo-wide empty `catch {}` count (should stay 0)
   - `repo_silent_promise_catches` — repo-wide empty `.catch(() => {})` count (should stay 0)
-  - `guard_check_present` — 1 when the scanner still has its package/quality guard wiring, else 0
+  - `guard_check_present` — 1 when package/quality guard wiring still exists, else 0
 
 ## How to Run
 `./autoresearch.sh` — emits structured `METRIC name=value` lines.
 
 ## Files in Scope
+- `kanban/10-next/audit-silent-catch-blocks.md` or its moved successor lane path — governing ticket to update/move
 - `.github/workflows/ci.yml` — CI adoption point for the silent-swallow guard
 - `runtime/scripts/silent-swallow-metrics.ts` — reusable scanner/metrics script for empty swallow detection
 - `runtime/test/scripts/silent-swallow-metrics.test.ts` — focused regression coverage for the scanner
@@ -55,3 +59,4 @@ We are optimizing for durable audit coverage while keeping builds/tests passing.
 - Focused tests exposed and then fixed an underlying bug in the scanner: it originally ignored comments but still counted `catch {}` patterns inside strings/template text. The scanner now masks all non-code spans and the dedicated script test covers comment-only false positives, real detections, and `--check` failure behavior.
 - New target: wire `check:silent-swallows` into CI so the audit guard is enforced outside local/autoresearch workflows too.
 - `.github/workflows/ci.yml` now runs `bun run check:silent-swallows` before the web build, closing the last obvious enforcement gap.
+- New target: update the governing kanban ticket so its lane/status/acceptance criteria reflect the completed audit and new regression guards.
