@@ -1,10 +1,11 @@
 ---
 id: baseline-quality-and-deterministic-test-sweep
 title: Baseline quality and deterministic test sweep
-status: doing
+status: done
 priority: high
 created: 2026-03-26
 updated: 2026-03-26
+completed: 2026-03-26
 target_release: next
 estimate: M
 risk: medium
@@ -79,6 +80,7 @@ This is the first split follow-up from the older XL umbrella ticket
   - no flaky groups after the default retry policy
   - no follow-up tickets needed from the baseline run
 - Broad validation stayed green on `main` via `bun run quality`, and the autoresearch sandbox also held the stronger soak workloads clean through repeat counts 2, 3, 5, 10, and 20 without surfacing hidden instability.
+- Closed on the board after the deterministic sweep stayed green on `main` and no follow-up tickets were generated from the canonical baseline evidence path.
 
 ## Links
 

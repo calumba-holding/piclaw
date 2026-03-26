@@ -1,10 +1,11 @@
 ---
 id: fuzz-web-control-plane-and-extension-hooks
 title: Fuzz web control-plane payloads and extension hook behavior
-status: doing
+status: done
 priority: medium
 created: 2026-03-26
 updated: 2026-03-26
+completed: 2026-03-26
 target_release: next
 estimate: M
 risk: medium
@@ -40,23 +41,23 @@ Primary targets:
 
 ## Acceptance Criteria
 
-- [ ] Malformed `/agent/*` payloads are covered by focused tests.
-- [ ] Extension hook order and side effects remain deterministic under test.
-- [ ] Fuzzed/invalid control-plane inputs do not produce unhandled exceptions.
-- [ ] Any newly discovered integration failures are fixed or split into follow-ups.
+- [x] Malformed `/agent/*` payloads are covered by focused tests.
+- [x] Extension hook order and side effects remain deterministic under test.
+- [x] Fuzzed/invalid control-plane inputs do not produce unhandled exceptions.
+- [x] Any newly discovered integration failures are fixed or split into follow-ups.
 
 ## Test Plan
 
-- [ ] Extend `runtime/test/channels/web/http-dispatch-agent.test.ts`
-- [ ] Extend `runtime/test/channels/web/agent-message-handler.test.ts`
-- [ ] Add or extend targeted extension integration tests under `runtime/test/extensions/` or equivalent
-- [ ] Record the payload classes/seed strategy used during the pass
+- [x] Extend `runtime/test/channels/web/http-dispatch-agent.test.ts`
+- [x] Extend `runtime/test/channels/web/agent-message-handler.test.ts`
+- [x] Add or extend targeted extension integration tests under `runtime/test/extensions/` or equivalent
+- [x] Record the payload classes/seed strategy used during the pass
 
 ## Definition of Done
 
-- [ ] Web control-plane robustness coverage exists for malformed payloads.
-- [ ] Extension hook determinism is validated in tests.
-- [ ] Evidence is recorded in `## Updates`.
+- [x] Web control-plane robustness coverage exists for malformed payloads.
+- [x] Extension hook determinism is validated in tests.
+- [x] Evidence is recorded in `## Updates`.
 
 ## Updates
 
@@ -76,6 +77,7 @@ Primary targets:
 - Expanded extension determinism coverage to `context` hook side effects and fixed a real nested-sanitization bug in `file-attachments`: invalid image blocks inside later-message `tool_result` content are now sanitized deterministically instead of being skipped once an earlier message had already toggled the shared modified flag.
 - Added an audit invariant that checks the normal seeded multi-case run actually samples the full expected `/agent/*` route family set, preventing silent drift between the scheduler modulo logic and the intended control-plane coverage surface.
 - Expanded adaptive-card malformed payload coverage to include invalid `post_id` shapes and unsupported `action.type` values, so malformed JSON-adjacent action structures now produce explicit stable typed failures instead of relying only on missing-field checks.
+- Closed on `main` after merging the canonical harness/tests in commit `7afd5d8` (`Add web control-plane fuzz audit`) and validating the recorded canonical artifact at `artifacts/web-control-plane-fuzz/summary-seed-424242-iter-96.json` with `web_fuzz_gap_count=0`, `payload_classes_run=96`, `replayable_failures=0`, `extension_hook_order_failures=0`, `unhandled_exceptions=0`, and `typed_failure_gaps=0`.
 
 ## Links
 

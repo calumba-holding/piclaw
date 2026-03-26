@@ -1,10 +1,11 @@
 ---
 id: fuzz-agent-control-and-command-routing
 title: Fuzz agent-control parsing and command-routing invariants
-status: doing
+status: done
 priority: high
 created: 2026-03-26
 updated: 2026-03-26
+completed: 2026-03-26
 target_release: next
 estimate: M
 risk: medium
@@ -74,6 +75,7 @@ Primary targets:
 - Current canonical replay example: `PICLAW_DB_IN_MEMORY=1 PICLAW_FUZZ_SEED=424242 PICLAW_FUZZ_ITERATIONS=64 bun run runtime/scripts/agent-control-fuzz-audit.ts`.
 - Evidence: canonical benchmark and checks now hold at `fuzz_gap_count=0` for the default seed, and wider stress runs (`PICLAW_FUZZ_SEED=424243`, `PICLAW_FUZZ_ITERATIONS=256`; `PICLAW_FUZZ_SEED=424300`, `PICLAW_FUZZ_ITERATIONS=1024`; `PICLAW_FUZZ_SEED=425000`, `PICLAW_FUZZ_ITERATIONS=2048`) also stayed at zero gaps with passing lint/typecheck/targeted tests.
 - Shared test scaffolding was extracted to `runtime/test/agent-control/session-fixture.ts` to keep the deterministic handler tests and the fuzz harness aligned.
+- Closed on the board after confirming the recorded canonical artifact `artifacts/agent-control-fuzz/summary-seed-424242-iter-128.json` remains green with `fuzz_gap_count=0`, `replayable_failures=0`, `typed_failure_mismatches=0`, `routing_invariant_failures=0`, and `unhandled_exceptions=0`.
 
 ## Links
 

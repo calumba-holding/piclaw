@@ -1,10 +1,11 @@
 ---
 id: validate-queue-session-threading-invariants-and-db-replay
 title: Validate queue/session/threading invariants and DB replay checks
-status: doing
+status: done
 priority: high
 created: 2026-03-26
 updated: 2026-03-26
+completed: 2026-03-26
 target_release: next
 estimate: L
 risk: medium
@@ -27,9 +28,9 @@ Run the logic-validation and replay-oriented part of the former XL test audit,
 focused on queue/session/threading invariants, DB evidence, and branch/session
 isolation.
 
-This work should coordinate with the active ticket:
+This work should coordinate with the landed ticket:
 
-- `kanban/20-doing/audit-session-turn-management-regression-checklist.md`
+- `kanban/50-done/audit-session-turn-management-regression-checklist.md`
 
 so effort is complementary rather than duplicated.
 
@@ -95,11 +96,12 @@ so effort is complementary rather than duplicated.
   - `./autoresearch.checks.sh`
   - `bash scripts/audit-queue-session-threading-replay.sh`
 - Result: additive replay/DB evidence is green with no follow-up ticket required; overlap with the broader session-turn audit is now an explicit filtered reuse path instead of duplicated free-form notes.
+- Closed on the board after confirming the recorded additive replay evidence remains the canonical proof path and no extra follow-up ticket was needed.
 
 ## Links
 
 - `kanban/50-done/test-suite-audit-with-fuzzing-logic-validation.md`
-- `kanban/20-doing/audit-session-turn-management-regression-checklist.md`
+- `kanban/50-done/audit-session-turn-management-regression-checklist.md`
 - `runtime/src/channels/web/threading.ts`
 - `runtime/src/channels/web/chat-run-control.ts`
 - `runtime/src/agent-pool/session.ts`
