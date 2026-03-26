@@ -8,11 +8,11 @@ CHECKLIST_PATH="$ROOT_DIR/kanban/20-doing/audit-session-turn-management-regressi
 LOG_DIR="${PICLAW_AUDIT_LOG_DIR:-/workspace/logs}"
 TIMESTAMP="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
 LOG_FILE="$LOG_DIR/audit-session-turn-management-regression-${TIMESTAMP}.log"
+FILTER_RAW="${PICLAW_AUDIT_ONLY:-}"
 
 mkdir -p "$LOG_DIR"
 : > "$LOG_FILE"
 
-# tee output to both stdout and log
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 echo "# session-turn-management regression audit"
@@ -20,6 +20,9 @@ echo "# timestamp: $TIMESTAMP"
 echo "# project: $PROJECT_DIR"
 echo "# checklist: $CHECKLIST_PATH"
 echo "# log: $LOG_FILE"
+if [[ -n "$FILTER_RAW" ]]; then
+  echo "# category_filter: $FILTER_RAW"
+fi
 
 declare -a CHECKS=(
   "queue_and_threading|queue decisioning, reparenting, queue lifecycle|bun test test/channels/web/web-channel.test.ts"
@@ -36,8 +39,28 @@ declare -a CHECKS=(
   "web_queue_state|branch-aware queue UI state helpers|bun test test/web/queue-state.test.ts test/channels/web/agent-message-handler.test.ts"
 )
 
+declare -A REQUESTED_CATEGORY=()
+if [[ -n "$FILTER_RAW" ]]; then
+  IFS=',' read -r -a FILTER_ITEMS <<< "$FILTER_RAW"
+  for item in "${FILTER_ITEMS[@]}"; do
+    trimmed="${item//[[:space:]]/}"
+    if [[ -n "$trimmed" ]]; then
+      REQUESTED_CATEGORY["$trimmed"]=1
+    fi
+  done
+fi
+
+should_run_category() {
+  local category="$1"
+  if (( ${#REQUESTED_CATEGORY[@]} == 0 )); then
+    return 0
+  fi
+  [[ -n "${REQUESTED_CATEGORY[$category]:-}" ]]
+}
+
 PASS=0
 FAIL=0
+SELECTED=0
 
 declare -A CATEGORY_PASS=()
 declare -A CATEGORY_FAIL=()
@@ -46,6 +69,11 @@ declare -a CATEGORY_ORDER=()
 
 for entry in "${CHECKS[@]}"; do
   IFS='|' read -r category label cmd <<< "$entry"
+  if ! should_run_category "$category"; then
+    continue
+  fi
+
+  SELECTED=$((SELECTED + 1))
   if [[ -z "${CATEGORY_LABEL[$category]:-}" ]]; then
     CATEGORY_LABEL[$category]="$label"
     CATEGORY_ORDER+=("$category")
@@ -65,6 +93,13 @@ for entry in "${CHECKS[@]}"; do
   fi
 done
 
+if (( ${#REQUESTED_CATEGORY[@]} > 0 )) && (( SELECTED == 0 )); then
+  echo
+  echo "[AUDIT RESULT] FAILED"
+  echo "No audit categories matched PICLAW_AUDIT_ONLY=$FILTER_RAW" >&2
+  exit 2
+fi
+
 MANUAL_REMAINDER_COUNT="unknown"
 if [[ -f "$CHECKLIST_PATH" ]]; then
   MANUAL_REMAINDER_COUNT="$(bun -e '
@@ -77,6 +112,7 @@ fi
 
 echo
 echo "===================================================="
+echo "[SUMMARY] Selected: $SELECTED"
 echo "[SUMMARY] Passed: $PASS"
 echo "[SUMMARY] Failed: $FAIL"
 echo "[SUMMARY] Log: $LOG_FILE"

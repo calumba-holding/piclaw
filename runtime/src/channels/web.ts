@@ -429,6 +429,7 @@ export class WebChannel implements WebChannelLike {
       mediaIds: item.mediaIds ? [...item.mediaIds] : undefined,
       contentBlocks: Array.isArray(item.contentBlocks) ? [...item.contentBlocks] : undefined,
       linkPreviews: Array.isArray(item.linkPreviews) ? [...item.linkPreviews] : undefined,
+      materializeRetries: item.materializeRetries ?? 0,
     }));
   }
 
@@ -441,6 +442,7 @@ export class WebChannel implements WebChannelLike {
       mediaIds: item.mediaIds ? [...item.mediaIds] : undefined,
       contentBlocks: Array.isArray(item.contentBlocks) ? [...item.contentBlocks] : undefined,
       linkPreviews: Array.isArray(item.linkPreviews) ? [...item.linkPreviews] : undefined,
+      materializeRetries: item.materializeRetries ?? 0,
     }));
     setDeferredQueuedFollowups(chatJid, persisted);
   }

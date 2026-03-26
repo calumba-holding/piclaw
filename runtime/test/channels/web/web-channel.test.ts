@@ -2579,6 +2579,95 @@ test("processChat preserves a deferred queued follow-up if materialization fails
   expect(contents).not.toContain("queued idle item");
 });
 
+test("deferred queued follow-up materialize retry count survives a new WebChannel instance", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats; DELETE FROM chat_cursors; DELETE FROM chat_cursors;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+
+  const webMod = await import("../../../src/channels/web.js");
+  const createWeb = () => new (webMod.WebChannel as any)({
+    queue: { enqueue: async (fn: () => Promise<void>) => fn() },
+    agentPool: {
+      setSessionBinder: () => {},
+      runAgent: async () => ({ status: "success", result: "should not run", attachments: [] }),
+      getContextUsageForChat: async () => null,
+    },
+  });
+
+  const first = createWeb();
+  first.enqueueQueuedFollowupItem("web:default", 0, "queued idle item");
+  const firstStoreMessage = first.storeMessage.bind(first);
+  first.storeMessage = (chatJid: string, content: string, isBot: boolean, mediaIds: number[], options?: any) => {
+    if (!isBot) return null;
+    return firstStoreMessage(chatJid, content, isBot, mediaIds, options);
+  };
+
+  await first.processChat("web:default", "default");
+  expect(db.getDeferredQueuedFollowups("web:default")[0]?.materializeRetries).toBe(1);
+
+  const second = createWeb();
+  const secondStoreMessage = second.storeMessage.bind(second);
+  second.storeMessage = (chatJid: string, content: string, isBot: boolean, mediaIds: number[], options?: any) => {
+    if (!isBot) return null;
+    return secondStoreMessage(chatJid, content, isBot, mediaIds, options);
+  };
+
+  await second.processChat("web:default", "default");
+  expect(db.getDeferredQueuedFollowups("web:default")[0]?.materializeRetries).toBe(2);
+});
+
+test("processChat drops a deferred queued follow-up after repeated materialize failures", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats; DELETE FROM chat_cursors; DELETE FROM chat_cursors;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+  db.setDeferredQueuedFollowups("web:default", [
+    {
+      rowId: -1,
+      queuedContent: "drop after repeated failures",
+      threadId: null,
+      queuedAt: new Date().toISOString(),
+      materializeRetries: 5,
+    },
+  ]);
+
+  const broadcasts: Array<{ event: string; payload: any }> = [];
+  const webMod = await import("../../../src/channels/web.js");
+  const web = new (webMod.WebChannel as any)({
+    queue: { enqueue: async (fn: () => Promise<void>) => fn() },
+    agentPool: {
+      setSessionBinder: () => {},
+      runAgent: async () => ({ status: "success", result: "should not run", attachments: [] }),
+      getContextUsageForChat: async () => null,
+    },
+  });
+  const originalBroadcast = web.broadcastEvent.bind(web);
+  web.broadcastEvent = (event: string, payload: any) => {
+    broadcasts.push({ event, payload });
+    return originalBroadcast(event, payload);
+  };
+  const originalStoreMessage = web.storeMessage.bind(web);
+  web.storeMessage = (chatJid: string, content: string, isBot: boolean, mediaIds: number[], options?: any) => {
+    if (!isBot) return null;
+    return originalStoreMessage(chatJid, content, isBot, mediaIds, options);
+  };
+
+  await web.processChat("web:default", "default");
+
+  expect(web.getQueuedFollowupCount("web:default")).toBe(0);
+  expect(db.getDeferredQueuedFollowups("web:default")).toEqual([]);
+  expect(broadcasts.some((entry) => entry.event === "agent_followup_consumed" && entry.payload?.row_id === -1)).toBe(true);
+});
+
 test("processChat handles persisted user messages one at a time", async () => {
   const ws = createTempWorkspace("piclaw-web-channel-");
   cleanupWorkspace = ws.cleanup;

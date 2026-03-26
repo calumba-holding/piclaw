@@ -204,6 +204,46 @@ describe("web recovery helpers", () => {
     expect(enqueued.map((item) => item.key)).toEqual(["resume:web:new"]);
   });
 
+  test("resumePendingChats isolates an explicit chat branch from sibling pending chats", async () => {
+    const enqueued: Array<{ key: string; task: () => Promise<void> }> = [];
+    const calls: Array<{ chatJid: string; since: string }> = [];
+
+    const ctx: WebRecoveryContext = {
+      assistantName: "Pi",
+      defaultAgentId: "default",
+      enqueue: (task, key) => {
+        enqueued.push({ key, task });
+      },
+      processChat: async () => {},
+    };
+
+    const store: WebRecoveryStore = {
+      getInflightRuns: () => [],
+      transaction: (run) => run(),
+      getAgentReplyStateAfter: () => "none",
+      clearInflightMarker: () => {},
+      rollbackInflightRun: () => {},
+      getAllChatCursors: () => ({
+        "web:default": "t-root",
+        "web:default:branch:research": "t-branch",
+      }),
+      getKnownChatJids: () => ["web:default", "web:default:branch:research"],
+      getDeferredQueuedFollowups: (chatJid) =>
+        chatJid === "web:default:branch:research"
+          ? [{ rowId: -1, queuedContent: "branch queued", threadId: null, queuedAt: "2026-01-01T00:00:00.000Z" }]
+          : [{ rowId: -2, queuedContent: "root queued", threadId: null, queuedAt: "2026-01-01T00:00:01.000Z" }],
+      getMessagesSince: (chatJid, since) => {
+        calls.push({ chatJid, since });
+        return chatJid === "web:default:branch:research" ? [{ id: "branch-msg" }] : [{ id: "root-msg" }];
+      },
+    };
+
+    resumePendingChats(ctx, "web:default:branch:research", store);
+
+    expect(calls).toEqual([{ chatJid: "web:default:branch:research", since: "t-branch" }]);
+    expect(enqueued.map((item) => item.key)).toEqual(["resume:web:default:branch:research"]);
+  });
+
   test("resumePendingChats enqueues deferred-only queued followups", async () => {
     const enqueued: Array<{ key: string; task: () => Promise<void> }> = [];
 
