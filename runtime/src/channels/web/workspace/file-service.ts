@@ -105,7 +105,7 @@ export class WorkspaceFileService {
         try {
           text = JSON.stringify(JSON.parse(text), null, 2);
         } catch {
-          // keep raw
+          /* expected: invalid JSON files should still open as raw text. */
         }
       }
 
@@ -545,6 +545,11 @@ export class WorkspaceFileService {
           await addDir(targetDir, zipRoot);
           zip.end();
         } catch (error) {
+          log.warn("Failed to stream workspace zip archive", {
+            operation: "download_zip.stream",
+            targetDir,
+            err: error,
+          });
           controller.error(error);
         }
       },

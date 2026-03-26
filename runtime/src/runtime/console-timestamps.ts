@@ -17,6 +17,7 @@ export function patchConsoleTimestamps(): void {
         const ts = new Date().toISOString();
         origFn.call(console, `[${ts}]`, ...args);
       } catch {
+        /* expected: timestamp prefixing should fail open to the original console output. */
         origFn.apply(console, args);
       }
     };

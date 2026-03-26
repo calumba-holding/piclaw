@@ -1542,6 +1542,11 @@ export class WebChannel implements WebChannelLike {
         await this.sendMessage(chatJid, result, { threadId });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
+        log.warn("Failed to launch autoresearch experiment from adaptive card", {
+          operation: "handle_adaptive_card_action.autoresearch_launch",
+          chatJid,
+          err,
+        });
         await this.sendMessage(chatJid, `Failed to launch experiment: ${msg}`, { threadId });
       }
 
@@ -1572,6 +1577,11 @@ export class WebChannel implements WebChannelLike {
         await this.sendMessage(chatJid, result, { threadId });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
+        log.warn("Failed to stop autoresearch experiment from adaptive card", {
+          operation: "handle_adaptive_card_action.autoresearch_stop",
+          chatJid,
+          err,
+        });
         await this.sendMessage(chatJid, `Failed to stop experiment: ${msg}`, { threadId });
       }
 
@@ -1790,6 +1800,7 @@ export class WebChannel implements WebChannelLike {
           try {
             controller.enqueue(encoder.encode(formatSseEvent(eventType, data)));
           } catch {
+            /* expected: enqueue may race a controller that was already closed via abort/cancel. */
             close();
           }
         };

@@ -598,6 +598,7 @@ export function initDatabase(): void {
       db.prepare("SELECT 1;").get();
       reuse = true;
     } catch {
+      /* expected: a stale sqlite handle should trigger a clean reopen path. */
       reuse = false;
     }
   }
