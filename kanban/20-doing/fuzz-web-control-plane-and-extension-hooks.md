@@ -1,7 +1,7 @@
 ---
 id: fuzz-web-control-plane-and-extension-hooks
 title: Fuzz web control-plane payloads and extension hook behavior
-status: next
+status: doing
 priority: medium
 created: 2026-03-26
 updated: 2026-03-26
@@ -63,6 +63,9 @@ Primary targets:
 ### 2026-03-26
 - Created by splitting the XL umbrella ticket `test-suite-audit-with-fuzzing-logic-validation` into smaller execution units.
 - This ticket owns the web control-plane / extension-hook fuzzing slice.
+- Pulled into `20-doing` for an autoresearch-assisted pass focused on deterministic, seed-replayable malformed-payload coverage for `/agent/*` web control-plane routes and extension hook ordering/integration behavior.
+- Experiment framing: build a canonical fuzz/robustness harness and replay artifact path first, then widen payload classes and hook-order assertions while keeping the touched web/extension tests green.
+- Same loop lint/test/fix criteria apply: sandboxed run, iterative repair on lint/typecheck/test failures before speculative widening, explicit seed/iteration controls, and replayable artifacts for any failing payload class.
 
 ## Links
 
