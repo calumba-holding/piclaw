@@ -1,10 +1,11 @@
 ---
 id: audit-session-turn-management-regression-checklist
 title: Audit session/turn-management regressions across recent queue/session/branch tickets
-status: doing
+status: done
 priority: high
 created: 2026-03-19
 updated: 2026-03-26
+completed: 2026-03-26
 target_release: next
 estimate: L
 risk: medium
@@ -242,6 +243,14 @@ This ticket can move to `done` when:
 - Expanded the repeatable audit from 9 to 10 targeted command groups by including `test/agent-control/session-rotate-integration.test.ts`.
 - Expanded it further to cover branch UI helpers and Playwright-backed multi-window branch isolation, with `scripts/ensure-playwright-browser-isolation.sh` provisioning browser dependencies on demand.
 - The script now prints category summaries and a manual-remainder count so the log itself shows what is covered automatically versus what still requires hands-on verification.
+- Landed the audit hardening on `main` in commit `9e62d7e` (`Harden session-turn regression audit`).
+- Re-ran the hardened audit on `main`:
+  - `bash scripts/audit-session-turn-management-regression.sh`
+  - result: **12 passed / 0 failed**
+  - manual remainder: **0**
+  - log: `/workspace/logs/audit-session-turn-management-regression-2026-03-26T15-39-42Z.log`
+- Ticket criteria satisfied: one-command audit is green, the remaining manual-only surface is reduced to failure-triage guidance only, and the evidence now covers queue decisioning, threading, recovery, rotation, and branch isolation.
+- Lane change: `20-doing` → `50-done`.
 
 ## Links
 
