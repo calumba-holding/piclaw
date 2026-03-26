@@ -277,4 +277,74 @@ describe("web agent message handler", () => {
     expect(queuedFollowups).toEqual([{ chatJid: "web:default", content: "follow up while compacting" }]);
     expect(storeMessageCalls).toBe(0);
   });
+
+  test("returns typed 400s for malformed agent message payload classes", async () => {
+    const channel = {
+      json: (payload: unknown, status = 200) =>
+        new Response(JSON.stringify(payload), {
+          status,
+          headers: { "Content-Type": "application/json" },
+        }),
+    } as any;
+
+    const cases = [
+      {
+        name: "invalid json",
+        body: "{",
+        expectedError: "Invalid JSON",
+      },
+      {
+        name: "non-object body",
+        body: JSON.stringify(["bad"]),
+        expectedError: "JSON body must be an object",
+      },
+      {
+        name: "content wrong type",
+        body: JSON.stringify({ content: 42 }),
+        expectedError: "'content' must be a string",
+      },
+      {
+        name: "mode wrong type",
+        body: JSON.stringify({ content: "hello", mode: "sideways" }),
+        expectedError: "'mode' must be one of: auto, queue, steer",
+      },
+      {
+        name: "thread id wrong type",
+        body: JSON.stringify({ content: "hello", thread_id: "nan" }),
+        expectedError: "'thread_id' must be a positive integer or null",
+      },
+      {
+        name: "content blocks wrong shape",
+        body: JSON.stringify({ content: "hello", content_blocks: { type: "text" } }),
+        expectedError: "'content_blocks' must be an array",
+      },
+      {
+        name: "media ids wrong shape",
+        body: JSON.stringify({ content: "hello", media_ids: { id: 1 } }),
+        expectedError: "'media_ids' must be an array",
+      },
+      {
+        name: "link previews wrong shape",
+        body: JSON.stringify({ content: "hello", link_previews: "https://example.com" }),
+        expectedError: "'link_previews' must be an array",
+      },
+      {
+        name: "content too large",
+        body: JSON.stringify({ content: "x".repeat(100 * 1024 + 1) }),
+        expectedError: "Content too large (max 100 KB)",
+      },
+    ];
+
+    for (const testCase of cases) {
+      const req = new Request("https://example.com/agent/default/message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: testCase.body,
+      });
+
+      const response = await handleAgentMessage(channel, req, "/agent/default/message", "web:default", "default");
+      expect(response.status, testCase.name).toBe(400);
+      expect((await response.json()).error, testCase.name).toBe(testCase.expectedError);
+    }
+  });
 });

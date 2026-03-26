@@ -58,11 +58,31 @@ describe("web ui endpoint helpers", () => {
     expect(call).toEqual({ turnId: "turn-1", panel: "draft", expanded: true });
   });
 
+  test("thought visibility endpoint rejects malformed object shapes", async () => {
+    const badReq = new Request("https://example.com/agent/thought/visibility", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(null),
+    });
+    const badRes = await handleThoughtVisibilityRequest(badReq, createContext());
+    expect(badRes.status).toBe(400);
+    expect(await badRes.json()).toEqual({ error: "JSON body must be an object" });
+  });
+
   test("agent respond endpoint validates request_id and delegates response", async () => {
     const badReq = jsonRequest("https://example.com/agent/respond", {});
     const badRes = await handleAgentRespondRequest(badReq, createContext());
     expect(badRes.status).toBe(400);
     expect(await badRes.json()).toEqual({ error: "Missing or invalid request_id" });
+
+    const malformedReq = new Request("https://example.com/agent/respond", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(null),
+    });
+    const malformedRes = await handleAgentRespondRequest(malformedReq, createContext());
+    expect(malformedRes.status).toBe(400);
+    expect(await malformedRes.json()).toEqual({ error: "JSON body must be an object" });
 
     const req = jsonRequest("https://example.com/agent/respond", {
       request_id: "ui-1",

@@ -66,6 +66,16 @@ Primary targets:
 - Pulled into `20-doing` for an autoresearch-assisted pass focused on deterministic, seed-replayable malformed-payload coverage for `/agent/*` web control-plane routes and extension hook ordering/integration behavior.
 - Experiment framing: build a canonical fuzz/robustness harness and replay artifact path first, then widen payload classes and hook-order assertions while keeping the touched web/extension tests green.
 - Same loop lint/test/fix criteria apply: sandboxed run, iterative repair on lint/typecheck/test failures before speculative widening, explicit seed/iteration controls, and replayable artifacts for any failing payload class.
+- Added canonical harness entrypoint `bun run audit:web-control-plane-fuzz` / `runtime/scripts/web-control-plane-fuzz-audit.ts` with env controls `PICLAW_FUZZ_SEED`, `PICLAW_FUZZ_ITERATIONS`, `PICLAW_FUZZ_REPLAY_CASE`, and `PICLAW_FUZZ_ARTIFACT_DIR`.
+- Current artifact path: `artifacts/web-control-plane-fuzz/` (`latest.json`, per-run summary JSON, and per-failure replay artifacts when gaps are found).
+- Current seed strategy: deterministic corpus uses `PICLAW_FUZZ_SEED + caseId`; route families cycle by `caseId % 15` and each family chooses malformed payload classes from a seeded PRNG so failures are replayable by case id.
+- Hardened shared malformed-JSON handling for web control-plane object bodies and added targeted tests for `/agent/default/message`, `/agent/thought/visibility`, `/agent/respond`, queue remove/steer, branch fork/rename/prune/restore, peer-message, adaptive-card action, side-prompt, side-prompt stream, autoresearch stop/dismiss, and built-in extension `before_agent_start` ordering determinism.
+- Tightened the audit CLI lifecycle so the canonical fuzz entrypoint exits cleanly after writing metrics/artifacts; this removed the earlier autoresearch benchmark timeout without changing the fuzz corpus semantics.
+- Added direct helper-level malformed-body coverage for `handleThoughtVisibilityRequest()` and `handleAgentRespondRequest()` so `null`/non-object payloads now fail with typed 400s instead of risking handler exceptions.
+- Added a corpus-manifest coverage invariant in the audit path so replay metadata and route-family coverage cannot silently drift apart from the expected concrete `/agent/*` POST control-plane surface.
+- Expanded extension determinism coverage to `context` hook side effects and fixed a real nested-sanitization bug in `file-attachments`: invalid image blocks inside later-message `tool_result` content are now sanitized deterministically instead of being skipped once an earlier message had already toggled the shared modified flag.
+- Added an audit invariant that checks the normal seeded multi-case run actually samples the full expected `/agent/*` route family set, preventing silent drift between the scheduler modulo logic and the intended control-plane coverage surface.
+- Expanded adaptive-card malformed payload coverage to include invalid `post_id` shapes and unsupported `action.type` values, so malformed JSON-adjacent action structures now produce explicit stable typed failures instead of relying only on missing-field checks.
 
 ## Links
 

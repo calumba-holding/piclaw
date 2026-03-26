@@ -143,6 +143,7 @@ import { VncSessionService, type VncSocketData } from "./web/vnc/vnc-session-ser
 import { RemoteInteropService } from "../remote/service.js";
 import { createLogger } from "../utils/logger.js";
 import { randomSessionToken, verifyTotp } from "./web/auth.js";
+import { parseJsonObjectRequest } from "./web/json-body.js";
 import { hashTotpSecret, parseTotpCardToken } from "./web/totp-card.js";
 
 const log = createLogger("web");
@@ -898,7 +899,10 @@ export class WebChannel implements WebChannelLike {
 
   /** POST /agent/autoresearch/stop — stop the running autoresearch experiment for this chat. */
   async handleAutoresearchStop(req: Request): Promise<Response> {
-    const payload: { chat_jid?: string; generate_report?: boolean } = await req.json().catch(() => ({}));
+    const parsed = await parseJsonObjectRequest(req);
+    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
+
+    const payload = parsed.payload as { chat_jid?: string; generate_report?: boolean };
     const chatJid = typeof payload.chat_jid === "string" && payload.chat_jid.trim()
       ? payload.chat_jid.trim()
       : DEFAULT_CHAT_JID;
@@ -921,7 +925,10 @@ export class WebChannel implements WebChannelLike {
 
   /** POST /agent/autoresearch/dismiss — dismiss the final autoresearch status panel for this chat. */
   async handleAutoresearchDismiss(req: Request): Promise<Response> {
-    const payload: { chat_jid?: string } = await req.json().catch(() => ({}));
+    const parsed = await parseJsonObjectRequest(req);
+    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
+
+    const payload = parsed.payload as { chat_jid?: string };
     const chatJid = typeof payload.chat_jid === "string" && payload.chat_jid.trim()
       ? payload.chat_jid.trim()
       : DEFAULT_CHAT_JID;
@@ -990,10 +997,15 @@ export class WebChannel implements WebChannelLike {
 
   /** POST /agent/queue-remove — remove a queued follow-up row from UI + session queue. */
   async handleAgentQueueRemove(req: Request): Promise<Response> {
+    const parsed = await parseJsonObjectRequest(req);
+    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
+
     try {
-      const payload = (await req.json()) as { chat_jid?: string; row_id?: number | string };
-      const chatJid = payload?.chat_jid ?? DEFAULT_CHAT_JID;
-      const rawRowId = payload?.row_id;
+      const payload = parsed.payload as { chat_jid?: string; row_id?: number | string };
+      const chatJid = typeof payload.chat_jid === "string" && payload.chat_jid.trim()
+        ? payload.chat_jid.trim()
+        : DEFAULT_CHAT_JID;
+      const rawRowId = payload.row_id;
       const rowId = typeof rawRowId === "string" ? Number(rawRowId) : rawRowId;
       if (!Number.isFinite(rowId)) {
         return this.json({ error: "Missing or invalid row_id" }, 400);
@@ -1024,10 +1036,15 @@ export class WebChannel implements WebChannelLike {
 
   /** POST /agent/queue-steer — atomically convert one queued follow-up into steering or an immediate send. */
   async handleAgentQueueSteer(req: Request): Promise<Response> {
+    const parsed = await parseJsonObjectRequest(req);
+    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
+
     try {
-      const payload = (await req.json()) as { chat_jid?: string; row_id?: number | string };
-      const chatJid = payload?.chat_jid ?? DEFAULT_CHAT_JID;
-      const rawRowId = payload?.row_id;
+      const payload = parsed.payload as { chat_jid?: string; row_id?: number | string };
+      const chatJid = typeof payload.chat_jid === "string" && payload.chat_jid.trim()
+        ? payload.chat_jid.trim()
+        : DEFAULT_CHAT_JID;
+      const rawRowId = payload.row_id;
       const rowId = typeof rawRowId === "string" ? Number(rawRowId) : rawRowId;
       if (!Number.isFinite(rowId)) {
         return this.json({ error: "Missing or invalid row_id" }, 400);
@@ -1154,17 +1171,14 @@ export class WebChannel implements WebChannelLike {
 
   /** POST /agent/branch-fork — create a first-class forked branch with its own session identity. */
   async handleAgentBranchFork(req: Request): Promise<Response> {
-    let payload: { source_chat_jid?: string; agent_name?: string };
-    try {
-      payload = await req.json();
-    } catch {
-      return this.json({ error: "Invalid JSON" }, 400);
-    }
+    const parsed = await parseJsonObjectRequest(req);
+    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
 
-    const sourceChatJid = typeof payload?.source_chat_jid === "string" && payload.source_chat_jid.trim()
+    const payload = parsed.payload as { source_chat_jid?: string; agent_name?: string };
+    const sourceChatJid = typeof payload.source_chat_jid === "string" && payload.source_chat_jid.trim()
       ? payload.source_chat_jid.trim()
       : DEFAULT_CHAT_JID;
-    const agentName = typeof payload?.agent_name === "string" ? payload.agent_name.trim() : "";
+    const agentName = typeof payload.agent_name === "string" ? payload.agent_name.trim() : "";
 
     try {
       const branch = await (this.agentPool as AgentPool & {
@@ -1184,17 +1198,14 @@ export class WebChannel implements WebChannelLike {
 
   /** POST /agent/branch-rename — rename a registry-backed branch agent/display identity. */
   async handleAgentBranchRename(req: Request): Promise<Response> {
-    let payload: { chat_jid?: string; agent_name?: string };
-    try {
-      payload = await req.json();
-    } catch {
-      return this.json({ error: "Invalid JSON" }, 400);
-    }
+    const parsed = await parseJsonObjectRequest(req);
+    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
 
-    const chatJid = typeof payload?.chat_jid === "string" && payload.chat_jid.trim()
+    const payload = parsed.payload as { chat_jid?: string; agent_name?: string };
+    const chatJid = typeof payload.chat_jid === "string" && payload.chat_jid.trim()
       ? payload.chat_jid.trim()
       : DEFAULT_CHAT_JID;
-    const hasAgentName = typeof payload?.agent_name === "string";
+    const hasAgentName = typeof payload.agent_name === "string";
     if (!hasAgentName) {
       return this.json({ error: "Missing agent_name" }, 400);
     }
@@ -1217,14 +1228,11 @@ export class WebChannel implements WebChannelLike {
 
   /** POST /agent/branch-prune — archive a registry-backed branch agent and remove it from active discovery. */
   async handleAgentBranchPrune(req: Request): Promise<Response> {
-    let payload: { chat_jid?: string };
-    try {
-      payload = await req.json();
-    } catch {
-      return this.json({ error: "Invalid JSON" }, 400);
-    }
+    const parsed = await parseJsonObjectRequest(req);
+    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
 
-    const chatJid = typeof payload?.chat_jid === "string" && payload.chat_jid.trim()
+    const payload = parsed.payload as { chat_jid?: string };
+    const chatJid = typeof payload.chat_jid === "string" && payload.chat_jid.trim()
       ? payload.chat_jid.trim()
       : "";
     if (!chatJid) {
@@ -1247,14 +1255,11 @@ export class WebChannel implements WebChannelLike {
 
   /** POST /agent/branch-restore — restore an archived branch agent back into active discovery. */
   async handleAgentBranchRestore(req: Request): Promise<Response> {
-    let payload: { chat_jid?: string; agent_name?: string };
-    try {
-      payload = await req.json();
-    } catch {
-      return this.json({ error: "Invalid JSON" }, 400);
-    }
+    const parsed = await parseJsonObjectRequest(req);
+    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
 
-    const chatJid = typeof payload?.chat_jid === "string" && payload.chat_jid.trim()
+    const payload = parsed.payload as { chat_jid?: string; agent_name?: string };
+    const chatJid = typeof payload.chat_jid === "string" && payload.chat_jid.trim()
       ? payload.chat_jid.trim()
       : "";
     if (!chatJid) {
@@ -1265,7 +1270,7 @@ export class WebChannel implements WebChannelLike {
       const branch = await (this.agentPool as AgentPool & {
         restoreChatBranch?: (chatJid: string, options?: { agentName?: string | null }) => Promise<unknown>;
       }).restoreChatBranch?.(chatJid, {
-        ...(typeof payload?.agent_name === "string" ? { agentName: payload.agent_name } : {}),
+        ...(typeof payload.agent_name === "string" ? { agentName: payload.agent_name } : {}),
       });
       if (!branch) {
         return this.json({ error: "Branch restore is not available." }, 501);
@@ -1282,7 +1287,10 @@ export class WebChannel implements WebChannelLike {
    * Reuses the normal agent message path in the target chat so queue/defer semantics stay consistent.
    */
   async handleAgentPeerMessage(req: Request): Promise<Response> {
-    let payload: {
+    const parsed = await parseJsonObjectRequest(req);
+    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
+
+    const payload = parsed.payload as {
       source_chat_jid?: string;
       source_agent_name?: string;
       target_chat_jid?: string;
@@ -1290,18 +1298,13 @@ export class WebChannel implements WebChannelLike {
       content?: string;
       mode?: "auto" | "queue" | "steer";
     };
-    try {
-      payload = await req.json();
-    } catch {
-      return this.json({ error: "Invalid JSON" }, 400);
-    }
 
-    const sourceChatJid = typeof payload?.source_chat_jid === "string" ? payload.source_chat_jid.trim() : "";
-    const sourceAgentName = typeof payload?.source_agent_name === "string" ? payload.source_agent_name.trim() : "";
-    const requestedTargetChatJid = typeof payload?.target_chat_jid === "string" ? payload.target_chat_jid.trim() : "";
-    const requestedTargetAgentName = typeof payload?.target_agent_name === "string" ? payload.target_agent_name.trim() : "";
-    const content = typeof payload?.content === "string" ? payload.content.trim() : "";
-    const mode = payload?.mode === "queue" || payload?.mode === "steer" || payload?.mode === "auto"
+    const sourceChatJid = typeof payload.source_chat_jid === "string" ? payload.source_chat_jid.trim() : "";
+    const sourceAgentName = typeof payload.source_agent_name === "string" ? payload.source_agent_name.trim() : "";
+    const requestedTargetChatJid = typeof payload.target_chat_jid === "string" ? payload.target_chat_jid.trim() : "";
+    const requestedTargetAgentName = typeof payload.target_agent_name === "string" ? payload.target_agent_name.trim() : "";
+    const content = typeof payload.content === "string" ? payload.content.trim() : "";
+    const mode = payload.mode === "queue" || payload.mode === "steer" || payload.mode === "auto"
       ? payload.mode
       : "auto";
 
@@ -1361,18 +1364,16 @@ export class WebChannel implements WebChannelLike {
   }
 
   async handleAdaptiveCardAction(req: Request): Promise<Response> {
-    let payload: {
+    const parsed = await parseJsonObjectRequest(req);
+    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
+
+    const payload = parsed.payload as {
       post_id?: number | string;
       thread_id?: number | string | null;
       card_id?: string;
       chat_jid?: string;
       action?: { type?: string; title?: string; data?: unknown; url?: string };
     };
-    try {
-      payload = await req.json();
-    } catch {
-      return this.json({ error: "Invalid JSON" }, 400);
-    }
 
     const normalized = sanitizeAdaptiveCardActionPayload(payload);
     const chatJid = normalized.chatJid ?? DEFAULT_CHAT_JID;
@@ -1748,13 +1749,10 @@ export class WebChannel implements WebChannelLike {
   }
 
   async handleAgentSidePrompt(req: Request): Promise<Response> {
-    let payload: { prompt?: string; system_prompt?: string; chat_jid?: string };
-    try {
-      payload = await req.json();
-    } catch {
-      return this.json({ error: "Invalid JSON" }, 400);
-    }
+    const parsed = await parseJsonObjectRequest(req);
+    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
 
+    const payload = parsed.payload as { prompt?: string; system_prompt?: string; chat_jid?: string };
     const { prompt, systemPrompt, chatJid } = parseSidePromptPayload(payload);
     if (!prompt) {
       return this.json({ error: "Missing or invalid prompt" }, 400);
@@ -1772,13 +1770,10 @@ export class WebChannel implements WebChannelLike {
   }
 
   async handleAgentSidePromptStream(req: Request): Promise<Response> {
-    let payload: { prompt?: string; system_prompt?: string; chat_jid?: string };
-    try {
-      payload = await req.json();
-    } catch {
-      return this.json({ error: "Invalid JSON" }, 400);
-    }
+    const parsed = await parseJsonObjectRequest(req);
+    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
 
+    const payload = parsed.payload as { prompt?: string; system_prompt?: string; chat_jid?: string };
     const { prompt, systemPrompt, chatJid } = parseSidePromptPayload(payload);
     if (!prompt) {
       return this.json({ error: "Missing or invalid prompt" }, 400);

@@ -9,6 +9,7 @@
 
 import type { WebChannelLike } from "./web-channel-contracts.js";
 import type { InteractionRow } from "../../db.js";
+import { parseJsonObjectRequest } from "./json-body.js";
 import { normalizeMediaIds } from "./posts-service.js";
 
 /** AgentMessagePayload type definition. */
@@ -36,16 +37,35 @@ export async function parseAgentMessageRequest(req: Request): Promise<{
   payload?: AgentMessagePayload;
   error?: string;
 }> {
-  try {
-    const data = (await req.json()) as AgentMessagePayload;
-    // Content length check — must match the limit used by parsePostPayload()
-    if (typeof data.content === "string" && data.content.length > MAX_AGENT_MESSAGE_CONTENT_LENGTH) {
-      return { error: `Content too large (max ${MAX_AGENT_MESSAGE_CONTENT_LENGTH / 1024} KB)` };
-    }
-    return { payload: data };
-  } catch {
-    return { error: "Invalid JSON" };
+  const parsed = await parseJsonObjectRequest(req);
+  if (!parsed.ok) return { error: parsed.error };
+
+  const data = parsed.payload as AgentMessagePayload & Record<string, unknown>;
+  if (data.content !== undefined && typeof data.content !== "string") {
+    return { error: "'content' must be a string" };
   }
+  if (data.thread_id !== undefined && data.thread_id !== null && (!Number.isInteger(data.thread_id) || data.thread_id <= 0)) {
+    return { error: "'thread_id' must be a positive integer or null" };
+  }
+  if (data.media_ids !== undefined && !Array.isArray(data.media_ids)) {
+    return { error: "'media_ids' must be an array" };
+  }
+  if (data.content_blocks !== undefined && !Array.isArray(data.content_blocks)) {
+    return { error: "'content_blocks' must be an array" };
+  }
+  if (data.link_previews !== undefined && !Array.isArray(data.link_previews)) {
+    return { error: "'link_previews' must be an array" };
+  }
+  if (data.mode !== undefined && data.mode !== "auto" && data.mode !== "queue" && data.mode !== "steer") {
+    return { error: "'mode' must be one of: auto, queue, steer" };
+  }
+
+  // Content length check — must match the limit used by parsePostPayload()
+  if (typeof data.content === "string" && data.content.length > MAX_AGENT_MESSAGE_CONTENT_LENGTH) {
+    return { error: `Content too large (max ${MAX_AGENT_MESSAGE_CONTENT_LENGTH / 1024} KB)` };
+  }
+
+  return { payload: data };
 }
 
 /** Normalize an agent message payload for storage (trim, defaults). */

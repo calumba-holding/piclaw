@@ -215,6 +215,7 @@ const groupDefinitions: GroupDefinition[] = [
         "ui-endpoints.test.ts",
         "ui-theme-commands.test.ts",
         "web-build.test.ts",
+        "web-control-plane-payloads.test.ts",
         "web-utils.test.ts",
       ]),
   },

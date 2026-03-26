@@ -270,28 +270,34 @@ export const fileAttachments: ExtensionFactory = (pi: ExtensionAPI) => {
   // poisoned sessions automatically without manual JSONL editing.
   pi.on("context", async (event) => {
     let modified = false;
-    const sanitizeBlocks = (blocks: unknown[]): unknown[] => {
-      return blocks.map((block: any) => {
+    const sanitizeBlocks = (blocks: unknown[]): { blocks: unknown[]; modified: boolean } => {
+      let blockModified = false;
+      const cleaned = blocks.map((block: any) => {
         if (block?.type === "image") {
           const mime = block.mimeType || block.source?.media_type || "";
           if (typeof mime === "string" && mime && !VALID_IMAGE_MIMES.has(mime)) {
-            modified = true;
+            blockModified = true;
             return { type: "text", text: `[Invalid image block removed: ${mime}]` };
           }
         }
         if (block?.type === "tool_result" && Array.isArray(block.content)) {
-          const cleaned = sanitizeBlocks(block.content);
-          if (modified) return { ...block, content: cleaned };
+          const nested = sanitizeBlocks(block.content);
+          if (nested.modified) {
+            blockModified = true;
+            return { ...block, content: nested.blocks };
+          }
         }
         return block;
       });
+      return { blocks: cleaned, modified: blockModified };
     };
 
     const messages = event.messages.map((msg: any) => {
       if (!Array.isArray(msg?.content)) return msg;
-      const prevModified = modified;
       const cleaned = sanitizeBlocks(msg.content);
-      return modified !== prevModified ? { ...msg, content: cleaned } : msg;
+      if (!cleaned.modified) return msg;
+      modified = true;
+      return { ...msg, content: cleaned.blocks };
     });
     if (modified) {
       log.warn("Stripped invalid image blocks from session context to prevent API errors");

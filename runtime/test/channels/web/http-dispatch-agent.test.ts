@@ -26,6 +26,9 @@ describe("web http agent dispatch", () => {
       handleAgents: async () => new Response("roster"),
       handleAgentStatus: () => new Response("status"),
       handleAgentContext: async () => new Response("context"),
+      handleAutoresearchStatus: async () => new Response("autoresearch-status"),
+      handleAutoresearchStop: async () => new Response("autoresearch-stop", { status: 213 }),
+      handleAutoresearchDismiss: async () => new Response("autoresearch-dismiss", { status: 214 }),
       handleAgentQueueState: async () => new Response("queue-state"),
       handleAgentQueueRemove: async () => new Response("queue-remove", { status: 203 }),
       handleAgentQueueSteer: async () => new Response("queue-steer", { status: 204 }),
@@ -58,6 +61,15 @@ describe("web http agent dispatch", () => {
 
     const contextReq = new Request("https://example.com/agent/context", { method: "GET" });
     expect(await (await handleAgentRoutes(channel, contextReq, "/agent/context", new URL(contextReq.url)))?.text()).toBe("context");
+
+    const autoresearchStatusReq = new Request("https://example.com/agent/autoresearch/status", { method: "GET" });
+    expect(await (await handleAgentRoutes(channel, autoresearchStatusReq, "/agent/autoresearch/status", new URL(autoresearchStatusReq.url)))?.text()).toBe("autoresearch-status");
+
+    const autoresearchStopReq = new Request("https://example.com/agent/autoresearch/stop", { method: "POST" });
+    expect((await handleAgentRoutes(channel, autoresearchStopReq, "/agent/autoresearch/stop", new URL(autoresearchStopReq.url)))?.status).toBe(213);
+
+    const autoresearchDismissReq = new Request("https://example.com/agent/autoresearch/dismiss", { method: "POST" });
+    expect((await handleAgentRoutes(channel, autoresearchDismissReq, "/agent/autoresearch/dismiss", new URL(autoresearchDismissReq.url)))?.status).toBe(214);
 
     const queueStateReq = new Request("https://example.com/agent/queue-state", { method: "GET" });
     expect(await (await handleAgentRoutes(channel, queueStateReq, "/agent/queue-state", new URL(queueStateReq.url)))?.text()).toBe("queue-state");
