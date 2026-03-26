@@ -55,3 +55,4 @@ We are optimizing for durable audit coverage while keeping builds/tests passing.
 - New target: convert the scanner into a durable regression guard by wiring it into package scripts, `quality`, and autoresearch checks.
 - Added `runtime/scripts/silent-swallow-metrics.ts --check`, a `check:silent-swallows` package script, `quality` integration, and an autoresearch backpressure check so regressions now fail fast.
 - New target: add focused tests for the scanner itself so comment handling and `--check` semantics stay reliable.
+- Focused tests exposed and then fixed an underlying bug in the scanner: it originally ignored comments but still counted `catch {}` patterns inside strings/template text. The scanner now masks all non-code spans and the dedicated script test covers comment-only false positives, real detections, and `--check` failure behavior.
