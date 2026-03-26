@@ -64,7 +64,7 @@ These are desirable but not required to close this ticket:
 
 | Priority | Ticket | Item |
 |---|---|---|
-| P2 | `adopt-pino-structured-logging` | Replace 127 console.* calls with pino |
+| P2 | `adopt-pino-structured-logging` | Adopt structured logging and explicit error-handling guards |
 | P2 | `group-web-channel-flat-files` | Group 54 flat files into sub-directories |
 | P2 | `extract-typed-config-objects` | Extract 45 constants into typed config objects |
 | P3 | — | Split `web/src/app.ts` (3,571 lines) |
