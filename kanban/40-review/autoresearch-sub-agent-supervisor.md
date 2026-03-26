@@ -1,10 +1,10 @@
 ---
 id: autoresearch-sub-agent-supervisor
 title: Autoresearch sub-agent supervisor — run pi-autoresearch as a headless sub-agent from piclaw
-status: doing
+status: review
 priority: medium
 created: 2026-03-24
-updated: 2026-03-24
+updated: 2026-03-26
 target_release: next
 estimate: L
 risk: medium
@@ -58,12 +58,12 @@ launch time. A markdown experiment report is generated on stop/completion.
 ## Acceptance Criteria
 
 - [x] Vendored extension + skill files committed (no modifications to upstream)
-- [ ] Model picker Adaptive Card shown at launch (defaults to current model)
+- [x] Model picker Adaptive Card shown at launch (defaults to current model)
 - [x] pi sub-agent launches in a named tmux session with autoresearch loaded
 - [x] Git repo auto-initialized if none exists in target directory
 - [x] autoresearch.jsonl tailed every 2s with results broadcast via SSE
 - [x] Timeline Adaptive Card shows: run count, best metric, confidence, status
-- [ ] Stop button on card sends SIGINT to tmux session
+- [x] Stop button on card sends SIGINT to tmux session
 - [x] Markdown experiment report generated on stop/completion
 - [x] Running tmux session re-detected on piclaw restart (resume tailing)
 - [ ] Manual end-to-end test passes
@@ -113,16 +113,28 @@ launch time. A markdown experiment report is generated on stop/completion.
 
 ## Definition of Done
 
-- [ ] Vendored files committed
-- [ ] Launch + stop tools working
-- [ ] JSONL tail → SSE → timeline card working
-- [ ] Model picker at launch
-- [ ] Experiment report on stop
-- [ ] Git init safety net
-- [ ] Restart resilience (tmux re-detection)
+- [x] Vendored files committed
+- [x] Launch + stop tools working
+- [x] JSONL tail → SSE → timeline card working
+- [x] Model picker at launch
+- [x] Experiment report on stop
+- [x] Git init safety net
+- [x] Restart resilience (tmux re-detection)
 - [ ] Manual e2e test passes
 
 ## Updates
+
+### 2026-03-26
+- Moved from `20-doing` → `40-review` after confirming the implementation is present in the runtime and web channel integration.
+- Verified shipped implementation paths:
+  - `runtime/src/extensions/autoresearch-supervisor.ts`
+  - `runtime/src/channels/web/handlers/autoresearch-card-action.ts`
+  - launch/stop integration in `runtime/src/channels/web.ts`
+  - web status/action handling in `runtime/web/src/app.ts`
+  - web API helpers in `runtime/web/src/api.ts`
+- Confirmed the previously unchecked model-picker and stop-card criteria are implemented in code.
+- Remaining gap before `50-done`: record a manual end-to-end validation pass.
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 1, deps: 2, risk: 1)
 
 ### 2026-03-24
 - Board review decision: keep this as the **primary near-term autoresearch implementation path**.
@@ -142,6 +154,11 @@ launch time. A markdown experiment report is generated on stop/completion.
 
 - `https://github.com/davebcn87/pi-autoresearch`
 - `/workspace/tmp/pi-autoresearch/`
+- `runtime/src/extensions/autoresearch-supervisor.ts`
+- `runtime/src/channels/web/handlers/autoresearch-card-action.ts`
+- `runtime/src/channels/web.ts`
+- `runtime/web/src/app.ts`
+- `runtime/web/src/api.ts`
 - `kanban/50-done/investigate-pi-autoresearch.md`
 - `kanban/00-inbox/piclaw-native-autoresearch-lite-experiment-runner.md`
 - `docs/autoresearch-lite-design.md`

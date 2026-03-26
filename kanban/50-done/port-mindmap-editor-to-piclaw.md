@@ -1,10 +1,11 @@
 ---
 id: port-mindmap-editor-to-piclaw
 title: Port mindmap editor from VS Code extension to piclaw web pane
-status: doing
+status: done
 priority: medium
 created: 2026-03-24
-updated: 2026-03-24
+updated: 2026-03-26
+completed: 2026-03-26
 target_release: next
 estimate: M
 risk: medium
@@ -95,6 +96,19 @@ Steps:
 
 ## Updates
 
+### 2026-03-26
+- Corrected status after confirming the implementation already exists in the runtime web app.
+- Lane change: `20-doing` → `50-done`.
+- Evidence found in Piclaw runtime:
+  - `runtime/web/src/panes/mindmap-pane.ts`
+  - `runtime/web/src/vendor/mindmap-editor-source.ts`
+  - `runtime/web/src/vendor/d3-mindmap-entry.ts`
+  - `runtime/web/static/css/mindmap.css`
+  - `runtime/web/static/js/vendor/mindmap-editor.js`
+  - registration in `runtime/web/src/app.ts`
+- Outcome: the mindmap editor port is treated as shipped/landed rather than deferred.
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 1, deps: 1, risk: 2)
+
 ### 2026-03-24
 - Created from analysis of `/workspace/projects/mindmap-editor-vscode/`.
 - Moved directly to doing.
@@ -103,3 +117,10 @@ Steps:
 
 - `/workspace/projects/mindmap-editor-vscode/`
 - `docs/web-pane-extensions.md`
+- `runtime/web/src/panes/mindmap-pane.ts`
+- `runtime/web/src/vendor/mindmap-editor-source.ts`
+- `runtime/web/src/vendor/d3-mindmap-entry.ts`
+- `runtime/web/static/css/mindmap.css`
+- `runtime/web/static/js/vendor/mindmap-editor.js`
+- `runtime/web/src/app.ts`
+- `kanban/50-done/port-kanban-board-editor-to-piclaw.md`

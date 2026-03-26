@@ -1,10 +1,11 @@
 ---
 id: port-kanban-board-editor-to-piclaw
 title: Port kanban board editor from VS Code extension to piclaw web pane
-status: doing
+status: done
 priority: medium
 created: 2026-03-24
-updated: 2026-03-24
+updated: 2026-03-26
+completed: 2026-03-26
 target_release: later
 estimate: M
 risk: low
@@ -75,6 +76,19 @@ Steps:
 
 ## Updates
 
+### 2026-03-26
+- Corrected status after confirming the implementation already exists in the runtime web app.
+- Lane change: `20-doing` → `50-done`.
+- Evidence found in Piclaw runtime:
+  - `runtime/web/src/panes/kanban-pane.ts`
+  - `runtime/web/src/vendor/kanban-editor-source.ts`
+  - `runtime/web/src/vendor/kanban-parser.ts`
+  - `runtime/web/static/css/kanban.css`
+  - `runtime/web/static/js/vendor/kanban-editor.js`
+  - registration in `runtime/web/src/app.ts`
+- Outcome: the kanban editor port is treated as shipped/landed rather than deferred.
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 1, deps: 1, risk: 2)
+
 ### 2026-03-24
 - Created from analysis of `/workspace/projects/kanban-vscode/`.
 - Placed in next — mindmap editor has priority.
@@ -83,3 +97,10 @@ Steps:
 
 - `/workspace/projects/kanban-vscode/`
 - `docs/web-pane-extensions.md`
+- `runtime/web/src/panes/kanban-pane.ts`
+- `runtime/web/src/vendor/kanban-editor-source.ts`
+- `runtime/web/src/vendor/kanban-parser.ts`
+- `runtime/web/static/css/kanban.css`
+- `runtime/web/static/js/vendor/kanban-editor.js`
+- `runtime/web/src/app.ts`
+- `kanban/50-done/port-mindmap-editor-to-piclaw.md`
