@@ -1,10 +1,11 @@
 ---
 id: audit-ci-smoke-tests-reliability
 title: Audit CI smoke tests for reliability and usefulness
-status: review
+status: done
 priority: high
 created: 2026-03-25
 updated: 2026-03-26
+completed: 2026-03-26
 target_release: next
 estimate: S
 risk: medium
@@ -129,13 +130,10 @@ and report results without blocking the publish pipeline.
 ## Updates
 
 ### 2026-03-26
-- Board review selection: this is the **next best audit to pull** once current active WIP has room.
-- Chosen over the larger audit tickets because it is:
-  - small (`S`),
-  - high-priority,
-  - likely to produce immediate delivery/build reliability gains,
-  - and bounded enough to complete without opening a broader architecture/testing campaign.
-- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
+- Closed from `40-review` → `50-done` after review sign-off.
+- Review outcome: the audit findings were accepted and the implementation/update work is already present in the repo.
+- Remaining optional validation (future green publish observations) can happen outside this ticket without keeping the audit open.
+- Quality: ★★★★★ 9/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 2)
 
 ### 2026-03-26 — implemented
 - Added `scripts/docker/publish-smoke-test.sh` so publish smoke tests run through one bounded, reusable path instead of large inline YAML blocks.

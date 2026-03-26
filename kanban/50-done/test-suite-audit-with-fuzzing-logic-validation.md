@@ -1,10 +1,11 @@
 ---
 id: test-suite-audit-with-fuzzing-logic-validation
 title: Test suite audit: pass-based fuzzing + logic validation
-status: next
+status: done
 priority: high
 created: 2026-03-19
-updated: 2026-03-19
+updated: 2026-03-26
+completed: 2026-03-26
 target_release: next
 estimate: XL
 risk: medium
@@ -21,6 +22,19 @@ owner: pi
 # Test suite audit: pass-based fuzzing and logic validation
 
 ## Summary
+
+This original XL umbrella ticket has been **retired in favor of smaller follow-up tickets**.
+
+It previously proposed a structured, repeatable multi-pass audit of the Piclaw test suite covering deterministic correctness, fuzzing, and invariant validation. That scope was too large to function well as a single `Next` ticket.
+
+The work is now split into:
+
+- `kanban/10-next/baseline-quality-and-deterministic-test-sweep.md`
+- `kanban/10-next/fuzz-agent-control-and-command-routing.md`
+- `kanban/10-next/fuzz-web-control-plane-and-extension-hooks.md`
+- `kanban/10-next/validate-queue-session-threading-invariants-and-db-replay.md`
+
+The original content is retained below as historical context for how the split was derived.
 
 Create a structured, repeatable **multi-pass audit** of the Piclaw test suite that validates both:
 
@@ -178,10 +192,22 @@ Execution commands:
 
 ## Definition of Done
 
-- [ ] All passes (1–5) complete.
-- [ ] Every code-section checklist item above is checked.
-- [ ] No critical/failing invariants remain open.
-- [ ] A final audit report is attached to this ticket and posted to timeline if relevant.
+- [x] Original XL umbrella scope reviewed.
+- [x] Scope split into smaller executable follow-up tickets.
+- [x] Original ticket retired so active work can proceed through the smaller children.
+
+## Updates
+
+### 2026-03-26
+- Closed as an umbrella/splitting ticket rather than as a single executable work item.
+- Lane change: `10-next` → `50-done`.
+- Split into the following smaller tickets:
+  - `kanban/10-next/baseline-quality-and-deterministic-test-sweep.md`
+  - `kanban/10-next/fuzz-agent-control-and-command-routing.md`
+  - `kanban/10-next/fuzz-web-control-plane-and-extension-hooks.md`
+  - `kanban/10-next/validate-queue-session-threading-invariants-and-db-replay.md`
+- Rationale: the original ticket mixed baseline gates, deterministic suites, fuzzing, invariant validation, DB replay checks, and integration evidence into one XL item, which made prioritization and execution too coarse.
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 1, deps: 2, risk: 1)
 
 ## Links
 

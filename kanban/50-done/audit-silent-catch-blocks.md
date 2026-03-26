@@ -1,10 +1,11 @@
 ---
 id: audit-silent-catch-blocks
 title: "Audit 188 silent catch {} blocks for error visibility"
-status: review
+status: done
 priority: high
 created: 2026-03-23
 updated: 2026-03-26
+completed: 2026-03-26
 tags:
   - quality
   - error-handling
@@ -55,6 +56,17 @@ Audit every `catch {}` block across `src/`:
 - Outcome: repo-wide empty `catch {}` and empty `.catch(() => {})` patterns in first-party code were audited to zero, with explicit `/* expected: ... */` justifications for intentional swallows and warnings where silence was unsafe.
 - Guarding: `runtime/scripts/silent-swallow-metrics.ts` now backs `check:silent-swallows`, is wired into `bun run quality`, autoresearch backpressure checks, focused script tests, and GitHub CI.
 - Evidence: autoresearch branch `autoresearch/exp-mn74ptxb-o4lp`, commits `f77cef0`, `97f71f7`, `e3e6ed7`, `36d7526`, `782a462`, and `3780cb9`.
+
+## Updates
+
+### 2026-03-26
+- Closed from `40-review` → `50-done` after review sign-off.
+- Review outcome: the audit guard is in place and passing, and the repo now reports zero first-party silent empty `catch {}` / silent promise swallow patterns under the check script.
+- Validation evidence retained in repo state:
+  - `runtime/scripts/silent-swallow-metrics.ts`
+  - `package.json` (`check:silent-swallows`, wired into `quality`)
+  - `.github/workflows/ci.yml`
+- Quality: ★★★★★ 9/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 2)
 
 ## Links
 
