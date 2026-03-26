@@ -1,7 +1,7 @@
 ---
 id: validate-queue-session-threading-invariants-and-db-replay
 title: Validate queue/session/threading invariants and DB replay checks
-status: next
+status: doing
 priority: high
 created: 2026-03-26
 updated: 2026-03-26
@@ -63,7 +63,9 @@ so effort is complementary rather than duplicated.
 ### 2026-03-26
 - Created by splitting the XL umbrella ticket `test-suite-audit-with-fuzzing-logic-validation` into smaller execution units.
 - This ticket owns the logic-validation / DB replay part of the old Pass 4 and some of Pass 5.
-- Expected to coordinate closely with `audit-session-turn-management-regression-checklist`.
+- Pulled into `20-doing` for an autoresearch-assisted pass focused on invariant evidence and replay checks.
+- Coordination note: the broader session-turn-management audit has already landed and closed, so this pass should reuse its evidence paths and targeted coverage where possible rather than duplicate them.
+- Usual autoresearch guardrails apply: sandboxed run, iterative lint/typecheck/test repair passes before speculative changes, and explicit evidence artifacts/log paths for any invariant or DB replay findings.
 
 ## Links
 
