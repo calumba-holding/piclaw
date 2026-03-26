@@ -7,6 +7,7 @@
  */
 
 import type { AgentSession } from "@mariozechner/pi-coding-agent";
+import { createLogger } from "../utils/logger.js";
 
 interface AgentContentBlock {
   type?: unknown;
@@ -27,6 +28,8 @@ interface SessionWithInternalAgent {
     replaceMessages?: (messages: AgentMessageRecord[]) => void;
   };
 }
+
+const log = createLogger("agent-pool.orphan-tool-results");
 
 /** Remove toolResult entries that no longer correspond to assistant tool calls. */
 export function pruneOrphanToolResults(session: AgentSession, chatJid: string): void {
@@ -55,11 +58,12 @@ export function pruneOrphanToolResults(session: AgentSession, chatJid: string): 
   const pruned = messages.filter(shouldKeepToolResult);
 
   if (pruned.length !== messages.length) {
+    const prunedCount = messages.length - pruned.length;
     try {
       internalSession.agent?.replaceMessages?.(pruned);
-      console.warn(`[agent-pool] Pruned ${messages.length - pruned.length} orphan tool result(s) for ${chatJid}`);
+      log.warn("Pruned orphan tool results before agent run", { chatJid, prunedCount });
     } catch (err) {
-      console.warn(`[agent-pool] Failed to prune orphan tool results for ${chatJid}:`, err);
+      log.warn("Failed to prune orphan tool results before agent run", { chatJid, prunedCount, err });
     }
   }
 }

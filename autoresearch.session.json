@@ -1,8 +1,8 @@
 {
   "chat_jid": "web:default",
-  "display_name": "Resume the structured-logging / explicit-error-handling autoresearch from the cu",
+  "display_name": "Resume the existing structured-logging / explicit-error-handling autoresearch fr",
   "model": "openai-codex/gpt-5.4",
-  "max_iterations": 20,
+  "max_iterations": 25,
   "variables": [
     "console_calls_remaining",
     "guard_passes"

@@ -24,6 +24,7 @@ import { resolve } from "path";
 import { existsSync } from "fs";
 import { readEnvFile } from "./env.js";
 import { readJsonConfig, writeJsonConfig } from "./config-store.js";
+import { createLogger } from "../utils/logger.js";
 
 // ---------------------------------------------------------------------------
 // .env file – loaded once at module init and merged with process.env below.
@@ -255,12 +256,14 @@ const configTrustProxy = pickBoolean(webConfig, [
 // Deprecation warnings for renamed environment variables.
 // ---------------------------------------------------------------------------
 
-/** Emit a console warning if only the old env var name is set. */
+const log = createLogger("core.config");
+
+/** Emit a structured warning if only the old env var name is set. */
 function warnDeprecatedEnv(oldName: string, newName: string): void {
   const oldValue = process.env[oldName] ?? envConfig[oldName];
   const newValue = process.env[newName] ?? envConfig[newName];
   if (oldValue && !newValue) {
-    console.warn(`[config] ${oldName} is deprecated; use ${newName}.`);
+    log.warn("Deprecated environment variable is set", { oldName, newName });
   }
 }
 
