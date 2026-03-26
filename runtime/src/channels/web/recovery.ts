@@ -15,6 +15,9 @@ import {
   type DeferredQueuedFollowupRecord,
   type InflightRun,
 } from "../../db.js";
+import { createLogger } from "../../utils/logger.js";
+
+const log = createLogger("web.recovery");
 
 /** Runtime callbacks required for inflight recovery/pending resume orchestration. */
 export interface WebRecoveryContext {
@@ -98,44 +101,51 @@ export function recoverInflightRuns(
         // publishing visible timeline content. In both cases, clearing the
         // inflight marker without rollback avoids replaying the same user turn.
         if (replyState === "terminal") {
-          console.log(
-            `[web] Inflight run for ${inflight.chatJid} (started ${inflight.startedAt}) ` +
-              "already has a terminal agent reply — clearing marker without rollback"
-          );
+          log.info("Inflight run already has a terminal reply; clearing marker", {
+            operation: "recover_inflight_runs.clear_terminal",
+            chatJid: inflight.chatJid,
+            startedAt: inflight.startedAt,
+          });
           store.clearInflightMarker(inflight.chatJid);
           continue;
         }
 
         if (replyState === "partial") {
-          console.log(
-            `[web] Inflight run for ${inflight.chatJid} (started ${inflight.startedAt}) ` +
-              "already has persisted partial agent output — clearing marker without rollback"
-          );
+          log.info("Inflight run already has partial output; clearing marker", {
+            operation: "recover_inflight_runs.clear_partial",
+            chatJid: inflight.chatJid,
+            startedAt: inflight.startedAt,
+          });
           store.clearInflightMarker(inflight.chatJid);
           continue;
         }
 
         const inflightAge = now - new Date(inflight.startedAt).getTime();
         if (inflightAge > MAX_INFLIGHT_AGE_MS) {
-          console.warn(
-            `[web] Inflight run for ${inflight.chatJid} is stale ` +
-              `(${Math.round(inflightAge / 1000)}s old, started ${inflight.startedAt}) — ` +
-              "rolling back and replaying to preserve the pending user turn"
-          );
+          log.warn("Inflight run is stale; rolling back and replaying", {
+            operation: "recover_inflight_runs.rollback_stale",
+            chatJid: inflight.chatJid,
+            startedAt: inflight.startedAt,
+            inflightAgeSeconds: Math.round(inflightAge / 1000),
+          });
           store.rollbackInflightRun(inflight.chatJid, inflight.prevTs);
           continue;
         }
 
-        console.log(
-          `[web] Inflight run for ${inflight.chatJid} (started ${inflight.startedAt}) ` +
-            `has no agent output yet (${Math.round(inflightAge / 1000)}s old) — ` +
-            "rolling back and replaying to preserve the pending user turn"
-        );
+        log.info("Inflight run has no agent output yet; rolling back and replaying", {
+          operation: "recover_inflight_runs.rollback_pending",
+          chatJid: inflight.chatJid,
+          startedAt: inflight.startedAt,
+          inflightAgeSeconds: Math.round(inflightAge / 1000),
+        });
         store.rollbackInflightRun(inflight.chatJid, inflight.prevTs);
       }
     });
   } catch (err) {
-    console.error("[web] Failed to roll back inflight runs; will retry on next startup:", err);
+    log.error("Failed to roll back inflight runs; will retry on next startup", {
+      operation: "recover_inflight_runs",
+      err,
+    });
     return;
   }
 
@@ -150,7 +160,11 @@ export function recoverInflightRuns(
 
   for (const { inflight, replyState } of decisions) {
     if (replyState === "none" && rolledBack.has(inflight.chatJid)) {
-      console.log(`[web] Recovering interrupted run for ${inflight.chatJid} (started ${inflight.startedAt})`);
+      log.info("Recovering interrupted run", {
+        operation: "recover_inflight_runs.enqueue_recovery",
+        chatJid: inflight.chatJid,
+        startedAt: inflight.startedAt,
+      });
       // Reuse the same stable resume key used by resume_pending IPC so
       // immediate startup recovery and later IPC-driven recovery collapse to a
       // single queued task for the chat instead of racing duplicate replays.
@@ -181,7 +195,10 @@ export function resumePendingChats(
     // Use a stable per-chat key so repeated resume_pending triggers (for
     // example, reload IPC plus startup self-queued IPC) collapse to one queued
     // recovery task instead of duplicating the same chat turn.
-    console.log(`[web] Queuing resume for ${jid}`);
+    log.info("Queuing resume for pending chat", {
+      operation: "resume_pending_chats.enqueue",
+      chatJid: jid,
+    });
     ctx.enqueue(async () => {
       await ctx.processChat(jid, ctx.defaultAgentId);
     }, `resume:${jid}`, `chat:${jid}`);
