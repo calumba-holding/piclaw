@@ -60,3 +60,4 @@ We are optimizing for durable closure while keeping the repo state coherent.
 - New target: wire `check:silent-swallows` into CI so the audit guard is enforced outside local/autoresearch workflows too.
 - `.github/workflows/ci.yml` now runs `bun run check:silent-swallows` before the web build, closing the last obvious enforcement gap.
 - New target: update the governing kanban ticket so its lane/status/acceptance criteria reflect the completed audit and new regression guards.
+- The governing ticket has been moved to `kanban/40-review/`, its status/frontmatter were updated, acceptance criteria were checked off, and evidence notes now mention the quality/autoresearch/CI guard layers.
