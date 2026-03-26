@@ -31,3 +31,5 @@ autoresearch.config.json
 autoresearch.session.json
 artifacts/baseline-quality-deterministic/
 artifacts/queue-session-threading-replay/
+artifacts/agent-control-fuzz/
+runtime/artifacts/agent-control-fuzz/

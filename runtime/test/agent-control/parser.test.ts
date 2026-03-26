@@ -337,6 +337,37 @@ describe("parseControlCommand", () => {
     });
   });
 
+  test("normalizes underscore aliases and mixed case command names", () => {
+    expect(parseControlCommand("/queue_all queued once")).toEqual({
+      type: "queue_all",
+      message: "queued once",
+      raw: "/queue_all queued once",
+    });
+    expect(parseControlCommand("/CTX")).toEqual({
+      type: "context",
+      raw: "/CTX",
+    });
+  });
+
+  test("preserves unicode-heavy arguments after trigger stripping", () => {
+    const trigger = /(?:^|\s)@PiClaw\b/i;
+    expect(parseControlCommand("@PiClaw /search --scope notes café 你好 👩🏽‍💻", trigger)).toEqual({
+      type: "search_workspace",
+      query: "café 你好 👩🏽‍💻",
+      scope: "notes",
+      limit: undefined,
+      offset: undefined,
+      refresh: undefined,
+      max_kb: undefined,
+      raw: "/search --scope notes café 你好 👩🏽‍💻",
+    });
+    expect(parseControlCommand("  @PiClaw\n/queue مرحبا بالعالم", trigger)).toEqual({
+      type: "queue",
+      message: "مرحبا بالعالم",
+      raw: "/queue مرحبا بالعالم",
+    });
+  });
+
   // Unknown commands return null
   test("unknown command returns null", () => {
     expect(parseControlCommand("/unknowncommand")).toBeNull();
