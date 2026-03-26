@@ -9,7 +9,7 @@ import { expect, test } from "bun:test";
 import { getTestWorkspace, setEnv } from "../helpers.js";
 import { initDatabase } from "../../src/db.js";
 import { deleteKeychainEntry, setKeychainEntry } from "../../src/secure/keychain.js";
-import { createTrackedBashOperations } from "../../src/tools/tracked-bash.js";
+import { createTrackedBashOperations, resolveShellCandidates } from "../../src/tools/tracked-bash.js";
 
 test("tracked bash executes commands and captures output", async () => {
   const ws = getTestWorkspace();
@@ -25,6 +25,37 @@ test("tracked bash executes commands and captures output", async () => {
 
   expect(result.exitCode).toBe(0);
   expect(output).toContain("hello");
+});
+
+test("resolveShellCandidates prefers a configured POSIX shell before bash fallback", () => {
+  const candidates = resolveShellCandidates({
+    platform: "linux",
+    env: { SHELL: "/custom/zsh" } as NodeJS.ProcessEnv,
+    pathExists: (path) => path === "/custom/zsh" || path === "/bin/bash",
+  });
+
+  expect(candidates[0]).toEqual({ shell: "/custom/zsh", args: ["-c"], family: "posix" });
+  expect(candidates.some((entry) => entry.shell === "/bin/bash")).toBe(true);
+  expect(candidates.some((entry) => entry.shell === "bash")).toBe(true);
+});
+
+test("resolveShellCandidates uses Windows fallback chain without requiring WSL bash", () => {
+  const candidates = resolveShellCandidates({
+    platform: "win32",
+    env: { ComSpec: "C:\\Windows\\System32\\cmd.exe" } as NodeJS.ProcessEnv,
+    pathExists: (path) => path === "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+  });
+
+  expect(candidates[0]).toEqual({
+    shell: "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+    args: ["-NoProfile", "-Command"],
+    family: "powershell",
+  });
+  expect(candidates.some((entry) => entry.shell === "pwsh.exe")).toBe(true);
+  expect(candidates.some((entry) => entry.shell === "powershell.exe")).toBe(true);
+  expect(candidates.some((entry) => entry.shell === "C:\\Windows\\System32\\cmd.exe")).toBe(true);
+  expect(candidates.some((entry) => entry.shell === "cmd.exe")).toBe(true);
+  expect(candidates.some((entry) => entry.shell.toLowerCase().includes("bash.exe"))).toBe(false);
 });
 
 test("tracked bash rejects missing working directory", async () => {

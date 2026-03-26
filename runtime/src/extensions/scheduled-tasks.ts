@@ -107,7 +107,7 @@ const ScheduleTaskSchema = Type.Object({
     Type.Literal("agent"),
     Type.Literal("shell"),
   ], { description: "Task kind: agent or shell." })),
-  command: Type.Optional(Type.String({ description: "Shell command to execute (task_kind=shell)." })),
+  command: Type.Optional(Type.String({ description: "Shell command to execute using the host shell (bash/sh on POSIX, PowerShell/cmd on Windows)." })),
   cwd: Type.Optional(Type.String({ description: "Working directory for shell tasks (relative to workspace)." })),
   timeout_sec: Type.Optional(Type.Integer({ description: "Shell timeout in seconds.", minimum: 1, maximum: 3600 })),
 });
@@ -157,7 +157,7 @@ export const scheduledTasks: ExtensionFactory = (pi: ExtensionAPI) => {
   pi.registerTool({
     name: "schedule_task",
     label: "schedule_task",
-    description: "Schedule an agent prompt or shell command to run later or on a recurring basis.",
+    description: "Schedule an agent prompt or host-shell command to run later or on a recurring basis. Shell tasks use bash/sh on POSIX and PowerShell/cmd on Windows.",
     promptSnippet: "schedule_task: create one-time, interval, or cron agent/shell tasks.",
     parameters: ScheduleTaskSchema,
     async execute(_toolCallId, params) {
