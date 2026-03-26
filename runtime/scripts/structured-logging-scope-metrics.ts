@@ -17,6 +17,7 @@ const LOGGER_IMPORT_PATTERN = /utils\/logger\.js/;
 const ALLOWLIST = new Set<string>([
   "runtime/src/runtime/console-timestamps.ts",
 ]);
+const QUIET_CATCH_SIGNAL_PATTERN = /\breturn\b|\bthrow\b|\b(?:log|logger)\.(?:debug|info|warn|error)\b|\bconsole\.(?:log|warn|error|info|debug)\b/g;
 
 function toRepoPath(filePath: string): string {
   return filePath.split(path.sep).join("/");
@@ -48,12 +49,53 @@ function countMatches(source: string, pattern: RegExp): number {
   return total;
 }
 
+function findMatchingBrace(source: string, nonCodeMask: Uint8Array, openIndex: number): number {
+  let depth = 0;
+  for (let i = openIndex; i < source.length; i++) {
+    if (nonCodeMask[i]) continue;
+    const ch = source[i];
+    if (ch === "{") {
+      depth += 1;
+      continue;
+    }
+    if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+function countUndocumentedQuietCatches(source: string): number {
+  const nonCodeMask = buildNonCodeMask(source);
+  const catchPattern = /catch\s*(\([^)]*\))?\s*\{/g;
+  let total = 0;
+  let match: RegExpExecArray | null;
+  while ((match = catchPattern.exec(source)) !== null) {
+    if (nonCodeMask[match.index]) continue;
+    const openBraceIndex = source.indexOf("{", match.index);
+    if (openBraceIndex < 0) continue;
+    const closeBraceIndex = findMatchingBrace(source, nonCodeMask, openBraceIndex);
+    if (closeBraceIndex < 0) continue;
+    const body = source.slice(openBraceIndex + 1, closeBraceIndex);
+    if (/expected:/.test(body)) continue;
+    if (QUIET_CATCH_SIGNAL_PATTERN.test(body)) {
+      QUIET_CATCH_SIGNAL_PATTERN.lastIndex = 0;
+      continue;
+    }
+    QUIET_CATCH_SIGNAL_PATTERN.lastIndex = 0;
+    total += 1;
+  }
+  return total;
+}
+
 const files = expandScope(SCOPE_PATHS);
 let rawConsoleCalls = 0;
 let filesWithRawConsole = 0;
 let allowlistedConsoleCalls = 0;
 let filesUsingStructuredLogger = 0;
 let expectedGuardMarkers = 0;
+let undocumentedQuietCatches = 0;
 
 for (const filePath of files) {
   const source = readFileSync(filePath, "utf8");
@@ -66,6 +108,7 @@ for (const filePath of files) {
   }
   if (LOGGER_IMPORT_PATTERN.test(source)) filesUsingStructuredLogger++;
   expectedGuardMarkers += (source.match(EXPECTED_GUARD_PATTERN) || []).length;
+  undocumentedQuietCatches += countUndocumentedQuietCatches(source);
 }
 
 console.log(`METRIC scope_raw_console_calls=${rawConsoleCalls}`);
@@ -73,6 +116,7 @@ console.log(`METRIC scope_files_with_raw_console=${filesWithRawConsole}`);
 console.log(`METRIC scope_allowlisted_console_calls=${allowlistedConsoleCalls}`);
 console.log(`METRIC scope_files_using_structured_logger=${filesUsingStructuredLogger}`);
 console.log(`METRIC scope_expected_guard_markers=${expectedGuardMarkers}`);
+console.log(`METRIC scope_undocumented_quiet_catches=${undocumentedQuietCatches}`);
 
 if (process.argv.includes("--check") && rawConsoleCalls > 0) {
   console.error(`[structured-logging-scope] Found ${rawConsoleCalls} non-allowlisted raw console call(s) across ${filesWithRawConsole} scope file(s).`);
