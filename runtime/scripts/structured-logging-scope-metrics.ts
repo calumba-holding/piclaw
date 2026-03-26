@@ -2,6 +2,15 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { buildNonCodeMask, collectFiles } from "./silent-swallow-metrics.ts";
 
+interface LoggingScopeDefinition {
+  name: string;
+  paths: string[];
+  rawConsoleMetric: string;
+  filesWithRawConsoleMetric: string;
+  filesUsingStructuredLoggerMetric: string;
+  enforceInCheck: boolean;
+}
+
 const PRIMARY_SCOPE_PATHS = [
   "runtime/src/agent-pool.ts",
   "runtime/src/channels/web.ts",
@@ -43,6 +52,41 @@ const BACKEND_SERVICE_SCOPE_PATHS = [
 const REMAINING_OPERATIONAL_SCOPE_PATHS = [
   "runtime/src/core/config.ts",
   "runtime/src/agent-pool/orphan-tool-results.ts",
+];
+
+const LOGGING_SCOPES: LoggingScopeDefinition[] = [
+  {
+    name: "structured-logging-scope",
+    paths: PRIMARY_SCOPE_PATHS,
+    rawConsoleMetric: "scope_raw_console_calls",
+    filesWithRawConsoleMetric: "scope_files_with_raw_console",
+    filesUsingStructuredLoggerMetric: "scope_files_using_structured_logger",
+    enforceInCheck: true,
+  },
+  {
+    name: "adjacent-runtime",
+    paths: ADJACENT_SCOPE_PATHS,
+    rawConsoleMetric: "adjacent_runtime_raw_console_calls",
+    filesWithRawConsoleMetric: "adjacent_runtime_files_with_raw_console",
+    filesUsingStructuredLoggerMetric: "adjacent_runtime_files_using_structured_logger",
+    enforceInCheck: false,
+  },
+  {
+    name: "backend-service",
+    paths: BACKEND_SERVICE_SCOPE_PATHS,
+    rawConsoleMetric: "backend_service_raw_console_calls",
+    filesWithRawConsoleMetric: "backend_service_files_with_raw_console",
+    filesUsingStructuredLoggerMetric: "backend_service_files_using_structured_logger",
+    enforceInCheck: false,
+  },
+  {
+    name: "remaining-operational",
+    paths: REMAINING_OPERATIONAL_SCOPE_PATHS,
+    rawConsoleMetric: "remaining_operational_raw_console_calls",
+    filesWithRawConsoleMetric: "remaining_operational_files_with_raw_console",
+    filesUsingStructuredLoggerMetric: "remaining_operational_files_using_structured_logger",
+    enforceInCheck: false,
+  },
 ];
 
 const RAW_CONSOLE_PATTERN = /\bconsole\.(log|warn|error|info|debug)\b/g;
@@ -162,10 +206,14 @@ function collectScopeMetrics(files: string[]): {
   };
 }
 
-const primaryScopeMetrics = collectScopeMetrics(expandScope(PRIMARY_SCOPE_PATHS));
-const adjacentScopeMetrics = collectScopeMetrics(expandScope(ADJACENT_SCOPE_PATHS));
-const backendServiceScopeMetrics = collectScopeMetrics(expandScope(BACKEND_SERVICE_SCOPE_PATHS));
-const remainingOperationalScopeMetrics = collectScopeMetrics(expandScope(REMAINING_OPERATIONAL_SCOPE_PATHS));
+const scopeMetrics = new Map(
+  LOGGING_SCOPES.map((scope) => [scope.name, collectScopeMetrics(expandScope(scope.paths))]),
+);
+const primaryScopeMetrics = scopeMetrics.get("structured-logging-scope");
+
+if (!primaryScopeMetrics) {
+  throw new Error("Missing primary structured logging scope metrics.");
+}
 
 console.log(`METRIC scope_raw_console_calls=${primaryScopeMetrics.rawConsoleCalls}`);
 console.log(`METRIC scope_files_with_raw_console=${primaryScopeMetrics.filesWithRawConsole}`);
@@ -173,17 +221,32 @@ console.log(`METRIC scope_allowlisted_console_calls=${primaryScopeMetrics.allowl
 console.log(`METRIC scope_files_using_structured_logger=${primaryScopeMetrics.filesUsingStructuredLogger}`);
 console.log(`METRIC scope_expected_guard_markers=${primaryScopeMetrics.expectedGuardMarkers}`);
 console.log(`METRIC scope_undocumented_quiet_catches=${primaryScopeMetrics.undocumentedQuietCatches}`);
-console.log(`METRIC adjacent_runtime_raw_console_calls=${adjacentScopeMetrics.rawConsoleCalls}`);
-console.log(`METRIC adjacent_runtime_files_with_raw_console=${adjacentScopeMetrics.filesWithRawConsole}`);
-console.log(`METRIC adjacent_runtime_files_using_structured_logger=${adjacentScopeMetrics.filesUsingStructuredLogger}`);
-console.log(`METRIC backend_service_raw_console_calls=${backendServiceScopeMetrics.rawConsoleCalls}`);
-console.log(`METRIC backend_service_files_with_raw_console=${backendServiceScopeMetrics.filesWithRawConsole}`);
-console.log(`METRIC backend_service_files_using_structured_logger=${backendServiceScopeMetrics.filesUsingStructuredLogger}`);
-console.log(`METRIC remaining_operational_raw_console_calls=${remainingOperationalScopeMetrics.rawConsoleCalls}`);
-console.log(`METRIC remaining_operational_files_with_raw_console=${remainingOperationalScopeMetrics.filesWithRawConsole}`);
-console.log(`METRIC remaining_operational_files_using_structured_logger=${remainingOperationalScopeMetrics.filesUsingStructuredLogger}`);
 
-if (process.argv.includes("--check") && primaryScopeMetrics.rawConsoleCalls > 0) {
-  console.error(`[structured-logging-scope] Found ${primaryScopeMetrics.rawConsoleCalls} non-allowlisted raw console call(s) across ${primaryScopeMetrics.filesWithRawConsole} scope file(s).`);
-  process.exit(1);
+for (const scope of LOGGING_SCOPES) {
+  if (scope.name === "structured-logging-scope") continue;
+  const metrics = scopeMetrics.get(scope.name);
+  if (!metrics) continue;
+  console.log(`METRIC ${scope.rawConsoleMetric}=${metrics.rawConsoleCalls}`);
+  console.log(`METRIC ${scope.filesWithRawConsoleMetric}=${metrics.filesWithRawConsole}`);
+  console.log(`METRIC ${scope.filesUsingStructuredLoggerMetric}=${metrics.filesUsingStructuredLogger}`);
+}
+
+console.log(`METRIC structured_logging_guarded_scopes=${LOGGING_SCOPES.filter((scope) => scope.enforceInCheck).length}`);
+
+if (process.argv.includes("--check")) {
+  const failures = LOGGING_SCOPES.flatMap((scope) => {
+    if (!scope.enforceInCheck) return [];
+    const metrics = scopeMetrics.get(scope.name);
+    if (!metrics || metrics.rawConsoleCalls === 0) return [];
+    return [
+      `[${scope.name}] Found ${metrics.rawConsoleCalls} non-allowlisted raw console call(s) across ${metrics.filesWithRawConsole} scope file(s).`,
+    ];
+  });
+
+  if (failures.length > 0) {
+    for (const failure of failures) {
+      console.error(failure);
+    }
+    process.exit(1);
+  }
 }

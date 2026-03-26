@@ -3,11 +3,12 @@
 ## Objective
 Reduce unstructured `console.*` usage in the critical-path runtime/server files from kanban ticket `kanban/20-doing/adopt-pino-structured-logging.md`, replace it with a shared structured logger, and make teardown/race/degraded/error paths explicit enough that resumed agents can tell whether a site should guard quietly, warn with context, or fail loudly.
 
-This session is an audit + migration loop, not a runtime speed optimization. Phase 1 eliminated non-allowlisted raw console usage in the ticket-critical scope; Phase 2 increased structured-logger coverage across the remaining critical-path files; Phase 3 tightened explicit error-handling by shrinking undocumented quiet catches to zero; Phase 4 expanded to adjacent runtime modules that sit directly on the same operational path (IPC, queueing, scheduler, slash-command handling, and web recovery/agent handlers); Phase 5 cleared backend service modules on the operator-visible auth/extension/attachment/watchdog/shutdown path; Phase 6 now targets the last remaining operational runtime modules that still surface raw console warnings on configuration and session cleanup paths.
+This session is an audit + migration loop, not a runtime speed optimization. Phase 1 eliminated non-allowlisted raw console usage in the ticket-critical scope; Phase 2 increased structured-logger coverage across the remaining critical-path files; Phase 3 tightened explicit error-handling by shrinking undocumented quiet catches to zero; Phase 4 expanded to adjacent runtime modules that sit directly on the same operational path (IPC, queueing, scheduler, slash-command handling, and web recovery/agent handlers); Phase 5 cleared backend service modules on the operator-visible auth/extension/attachment/watchdog/shutdown path; Phase 6 cleared the last remaining operational runtime modules that surfaced raw console warnings on configuration and session cleanup paths; Phase 7 now hardens regression-guard coverage so completed structured-logging scopes are enforced in checks, not merely measured.
 
 ## Metrics
-- **Primary**: `remaining_operational_raw_console_calls` (unitless, lower is better) — count of raw `console.*` references in the remaining small operational runtime modules still adjacent to the same request/session lifecycle path after Phases 1–5.
+- **Primary**: `structured_logging_guarded_scopes` (unitless, higher is better) — number of completed structured-logging audit scopes whose zero-raw-console state is actively enforced by `runtime/scripts/structured-logging-scope-metrics.ts --check` during `autoresearch.checks.sh`.
 - **Secondary**:
+  - `remaining_operational_raw_console_calls`
   - `remaining_operational_files_with_raw_console`
   - `remaining_operational_files_using_structured_logger`
   - `backend_service_raw_console_calls`
