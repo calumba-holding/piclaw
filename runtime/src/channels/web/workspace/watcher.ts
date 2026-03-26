@@ -20,7 +20,13 @@ import { isHiddenPath, resolveWorkspacePath, shouldIgnorePath, toRelativePath } 
 const log = createLogger("web.workspace-watcher");
 
 /** Describes a detected workspace file change for SSE broadcast. */
-export type WorkspaceUpdate = { path: string; root: unknown; truncated: boolean };
+export type WorkspaceUpdate = {
+  path: string;
+  root: unknown;
+  truncated: boolean;
+  /** Concrete workspace-relative paths that triggered this subtree refresh. */
+  changed_paths?: string[];
+};
 
 /** Create a throttled callback for workspace change events. */
 export function createWorkspaceUpdateThrottle(
@@ -46,6 +52,18 @@ export function createWorkspaceUpdateThrottle(
     }
     if (!pendingUpdates) pendingUpdates = new Map();
     for (const update of updates) {
+      const existing = pendingUpdates.get(update.path);
+      if (existing) {
+        const changedPaths = new Set<string>([
+          ...(Array.isArray(existing.changed_paths) ? existing.changed_paths : []),
+          ...(Array.isArray(update.changed_paths) ? update.changed_paths : []),
+        ]);
+        pendingUpdates.set(update.path, {
+          ...update,
+          changed_paths: Array.from(changedPaths),
+        });
+        continue;
+      }
       pendingUpdates.set(update.path, update);
     }
     if (throttleTimer) return;
@@ -73,7 +91,7 @@ export function startWorkspaceWatcher(
   onUpdate: (updates: WorkspaceUpdate[]) => void,
   includeHidden: () => boolean
 ): { close: () => Promise<void> } {
-  const pending = new Set<string>();
+  const pending = new Map<string, Set<string>>();
   let flushTimer: ReturnType<typeof setTimeout> | null = null;
   const throttler = createWorkspaceUpdateThrottle(onUpdate, 1000);
   const watchers = new Map<string, FSWatcher>();
@@ -84,12 +102,15 @@ export function startWorkspaceWatcher(
     if (!includeHidden() && isHiddenPath(absPath)) return;
     const rel = toRelativePath(absPath);
     const target = rel === "." ? "." : toRelativePath(path.dirname(absPath));
-    pending.add(target);
+    const changedPaths = pending.get(target) ?? new Set<string>();
+    changedPaths.add(rel);
+    pending.set(target, changedPaths);
     if (flushTimer) return;
     flushTimer = setTimeout(() => {
       flushTimer = null;
-      const targets = compressPaths(Array.from(pending));
+      const pendingEntries = Array.from(pending.entries());
       pending.clear();
+      const targets = compressPaths(pendingEntries.map(([target]) => target));
       if (!targets.length) return;
       const updates: WorkspaceUpdate[] = [];
       for (const relPath of targets) {
@@ -99,7 +120,18 @@ export function startWorkspaceWatcher(
           const state = { count: 0, truncated: false };
           const depth = relPath === "." ? 4 : 3;
           const root = buildTree(abs, depth, state, { includeHidden: includeHidden() });
-          updates.push({ path: relPath, root, truncated: state.truncated });
+          const changedPathSet = new Set<string>();
+          for (const [pendingTarget, relPaths] of pendingEntries) {
+            if (relPath === "." || pendingTarget === relPath || pendingTarget.startsWith(`${relPath}/`)) {
+              for (const changedPath of relPaths) changedPathSet.add(changedPath);
+            }
+          }
+          updates.push({
+            path: relPath,
+            root,
+            truncated: state.truncated,
+            changed_paths: Array.from(changedPathSet),
+          });
         } catch {
           /* expected: watched paths may disappear while a refresh is being assembled. */
         }

@@ -463,9 +463,16 @@ function MainApp({ locationParams, navigate }) {
 
         const relevant = Array.isArray(updates) && updates.length > 0
             ? updates.some((update) => {
+                const changedPaths = Array.isArray(update?.changed_paths)
+                    ? update.changed_paths
+                        .map((value) => typeof value === 'string' ? value.trim() : '')
+                        .filter(Boolean)
+                    : [];
+                if (changedPaths.length > 0) {
+                    return changedPaths.some((changedPath) => changedPath === '.' || changedPath === activePath);
+                }
                 const relPath = typeof update?.path === 'string' ? update.path.trim() : '';
-                if (!relPath || relPath === '.') return true;
-                return activePath === relPath || activePath.startsWith(`${relPath}/`);
+                return !relPath || relPath === '.' || relPath === activePath;
             })
             : true;
         if (!relevant) return;

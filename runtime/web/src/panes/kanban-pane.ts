@@ -120,6 +120,7 @@ class KanbanEditorInstance implements PaneInstance {
     private disposed = false;
     private boardEl: HTMLElement | null = null;
     private pendingContent: string | null = null;
+    private lastContent = '';
     private readonly themeListener = () => {
         (window as any).__kanbanEditor?.setTheme?.(isDarkThemeActive());
     };
@@ -145,6 +146,7 @@ class KanbanEditorInstance implements PaneInstance {
     private async init(initialContentMaybe?: string) {
         const initialContent = await this.resolveInitialContent(initialContentMaybe);
         if (this.disposed) return;
+        this.lastContent = initialContent;
         ensureStylesheet('/static/css/kanban.css');
 
         this.boardEl = document.createElement('div');
@@ -166,6 +168,7 @@ class KanbanEditorInstance implements PaneInstance {
                 content: initialContent,
                 isDark,
                 onEdit: (md: string) => {
+                    this.lastContent = md;
                     this.dirty = true;
                     this.dirtyCallback?.(true);
                     this.saveToWorkspace(md);
@@ -173,6 +176,7 @@ class KanbanEditorInstance implements PaneInstance {
             });
             if (this.pendingContent !== null) {
                 api.update(this.pendingContent);
+                this.lastContent = this.pendingContent;
                 this.pendingContent = null;
             }
             window.addEventListener('piclaw-theme-change', this.themeListener as EventListener);
@@ -204,9 +208,11 @@ class KanbanEditorInstance implements PaneInstance {
     isDirty(): boolean { return this.dirty; }
 
     setContent(content: string, _mtime: string): void {
+        if (content === this.lastContent) return;
         const api = (window as any).__kanbanEditor;
         if (api?.update) api.update(content);
         else this.pendingContent = content;
+        this.lastContent = content;
         this.dirty = false;
         this.dirtyCallback?.(false);
     }

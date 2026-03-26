@@ -139,6 +139,7 @@ class MindmapEditorInstance implements PaneInstance {
     private disposed = false;
     private mindmapEl: HTMLElement | null = null;
     private pendingContent: string | null = null;
+    private lastContent = '';
     private readonly themeListener = () => {
         (window as any).__mindmapEditor?.setTheme?.(isDarkThemeActive());
     };
@@ -164,6 +165,7 @@ class MindmapEditorInstance implements PaneInstance {
     private async init(initialContentMaybe?: string) {
         const initialContent = await this.resolveInitialContent(initialContentMaybe);
         if (this.disposed) return;
+        this.lastContent = initialContent;
         ensureStylesheet('/static/css/mindmap.css');
 
         // Load vendor deps
@@ -196,6 +198,7 @@ class MindmapEditorInstance implements PaneInstance {
                 content: initialContent,
                 isDark,
                 onEdit: (yaml: string) => {
+                    this.lastContent = yaml;
                     this.dirty = true;
                     this.dirtyCallback?.(true);
                     this.saveToWorkspace(yaml);
@@ -207,6 +210,7 @@ class MindmapEditorInstance implements PaneInstance {
             });
             if (this.pendingContent !== null) {
                 api.update(this.pendingContent);
+                this.lastContent = this.pendingContent;
                 this.pendingContent = null;
             }
             window.addEventListener('piclaw-theme-change', this.themeListener as EventListener);
@@ -238,9 +242,11 @@ class MindmapEditorInstance implements PaneInstance {
     isDirty(): boolean { return this.dirty; }
 
     setContent(content: string, _mtime: string): void {
+        if (content === this.lastContent) return;
         const api = (window as any).__mindmapEditor;
         if (api?.update) api.update(content);
         else this.pendingContent = content;
+        this.lastContent = content;
         this.dirty = false;
         this.dirtyCallback?.(false);
     }

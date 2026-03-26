@@ -1010,6 +1010,9 @@ ${W}
                                     <div class="agent-series-chart-command">
                                         <div class="agent-series-chart-command-header">
                                             <span>Attach to session</span>
+                                        </div>
+                                        <div class="agent-series-chart-command-shell">
+                                            <pre class="agent-series-chart-command-code">${d0}</pre>
                                             <button
                                                 type="button"
                                                 class="agent-series-chart-command-copy"
@@ -1020,7 +1023,6 @@ ${W}
                                                 ${vY}
                                             </button>
                                         </div>
-                                        <pre class="agent-series-chart-command-code">${d0}</pre>
                                     </div>
                                 `}
                             </div>
@@ -2654,5 +2656,5 @@ This archives the branch agent and removes it from the branch picker. Chat histo
         </div>
     `}function ZG(){let[_,$]=u(()=>typeof window>"u"?"http://localhost/":window.location.href);h(()=>{if(typeof window>"u")return;let Y=()=>$(window.location.href);return window.addEventListener("popstate",Y),()=>window.removeEventListener("popstate",Y)},[]);let j=y((Y,Q={})=>{if(typeof window>"u")return;let{replace:K=!1}=Q||{},q=new URL(String(Y||""),window.location.href).toString();if(K)window.history.replaceState(null,"",q);else window.history.pushState(null,"",q);$(window.location.href)},[]),Z=k0(()=>new URL(_).searchParams,[_]);return L`<${jG} locationParams=${Z} navigate=${j} />`}z8(L`<${ZG} />`,document.getElementById("app"));
 
-//# debugId=5914113A6637EF1F64756E2164756E21
+//# debugId=6247A24C6D5AEA4264756E2164756E21
 //# sourceMappingURL=app.bundle.js.map
