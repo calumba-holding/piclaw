@@ -69,7 +69,7 @@ const LOGGING_SCOPES: LoggingScopeDefinition[] = [
     rawConsoleMetric: "adjacent_runtime_raw_console_calls",
     filesWithRawConsoleMetric: "adjacent_runtime_files_with_raw_console",
     filesUsingStructuredLoggerMetric: "adjacent_runtime_files_using_structured_logger",
-    enforceInCheck: false,
+    enforceInCheck: true,
   },
   {
     name: "backend-service",
@@ -77,7 +77,7 @@ const LOGGING_SCOPES: LoggingScopeDefinition[] = [
     rawConsoleMetric: "backend_service_raw_console_calls",
     filesWithRawConsoleMetric: "backend_service_files_with_raw_console",
     filesUsingStructuredLoggerMetric: "backend_service_files_using_structured_logger",
-    enforceInCheck: false,
+    enforceInCheck: true,
   },
   {
     name: "remaining-operational",
@@ -85,7 +85,7 @@ const LOGGING_SCOPES: LoggingScopeDefinition[] = [
     rawConsoleMetric: "remaining_operational_raw_console_calls",
     filesWithRawConsoleMetric: "remaining_operational_files_with_raw_console",
     filesUsingStructuredLoggerMetric: "remaining_operational_files_using_structured_logger",
-    enforceInCheck: false,
+    enforceInCheck: true,
   },
 ];
 

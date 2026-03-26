@@ -81,5 +81,6 @@ This session is an audit + migration loop, not a runtime speed optimization. Pha
 - Phase 3 drove `scope_undocumented_quiet_catches` from `7` to `0` by either documenting expected fallbacks or surfacing them with warnings.
 - Phase 4 targeted `adjacent_runtime_raw_console_calls` in the next ring of runtime/server modules around the original ticket scope and drove it to zero.
 - Phase 5 targeted `backend_service_raw_console_calls` in backend service modules that still surfaced operator-visible auth, extension, attachment, watchdog, and shutdown events via raw console, and reduced that scope to zero.
-- Phase 6 now targets `remaining_operational_raw_console_calls` in the last small operational runtime modules outside the prior scopes (`core/config` deprecation warnings and `agent-pool/orphan-tool-results` cleanup visibility).
+- Phase 6 cleared `remaining_operational_raw_console_calls` to zero in the last small operational runtime modules outside the prior scopes (`core/config` deprecation warnings and `agent-pool/orphan-tool-results` cleanup visibility).
+- Phase 7 baseline refactored the scope metric script around explicit scope definitions and exposed `structured_logging_guarded_scopes=1`, showing that only the original critical-path scope was enforced in `--check` while the later cleaned scopes were still metric-only.
 - Initial hypothesis confirmed: a small repo-local structured logger plus a scope metric/check script lets us migrate critical runtime modules incrementally without waiting for a repo-wide logging rewrite.
