@@ -27,6 +27,8 @@ The architecture is broadly well-structured with clear module boundaries, excell
 | **Type safety** | A- | Only 91 `any` usages and 22 `as any` casts in 35K server lines |
 | **Error handling** | C | 188 silent `catch {}` blocks vs 96 named `catch(e)` — 2:1 swallow ratio |
 | **Documentation** | A | 97% of files have JSDoc headers; 1,294 doc blocks total |
+
+> Historical update (2026-03-26): the silent-catch audit described below has since been completed. First-party repo code is now at zero empty `catch {}` / empty `.catch(() => {})` patterns, with regression guards wired into `check:silent-swallows`, `bun run quality`, autoresearch checks, focused tests, and GitHub CI.
 | **Logging** | C- | 127 raw `console.*` calls, no structured logger; `pino` imported but unused |
 | **Naming consistency** | B+ | kebab-case files, clear service suffixes, predictable patterns |
 | **Circular dependencies** | A- | No cycles detected; `ipc.ts → MediaService` is the only odd cross-cut |

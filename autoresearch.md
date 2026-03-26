@@ -57,3 +57,4 @@ We are optimizing for durable closure while keeping the repo state coherent.
 - New target: sync the master `codebase-quality-cleanup-2026` tracker so it no longer reports the silent-catch audit as `next`.
 - The master tracker row for `audit-silent-catch-blocks` now matches reality (`review`), so the portfolio view is no longer stale.
 - New target: add completion notes / past-tense wording where historical docs still read like the silent-catch audit is currently unresolved.
+- Historical docs are now explicit: the 2026-03-23 quality assessment carries a dated completion note, and the governing ticket summary now describes the 188-catch finding in past tense.

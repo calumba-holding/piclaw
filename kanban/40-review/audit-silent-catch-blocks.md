@@ -18,7 +18,7 @@ blocked-by: []
 
 ## Summary
 
-The codebase has 188 `catch {}` (silent) blocks vs 96 `catch(e)` (named) blocks — a 2:1 swallow ratio. This means most errors are completely invisible, making debugging and incident response harder than it needs to be.
+At the time of the original assessment, the codebase had 188 `catch {}` (silent) blocks vs 96 `catch(e)` (named) blocks — a 2:1 swallow ratio. That made most errors completely invisible and materially harder to debug.
 
 ## Scope
 
