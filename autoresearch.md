@@ -49,3 +49,4 @@ We are optimizing for full audited coverage while keeping builds/tests passing.
 - Follow-up sweep also removed promise-style silent swallows such as `.catch(() => {})`, again preferring explicit justification comments for expected best-effort UI/background work.
 - Core runtime/web scope is now at zero silent catches and zero silent promise swallows.
 - Resume target: remaining repo-wide code outside the core runtime/web path still has a small tail of empty cleanup catches in scripts/extensions/tests/skel; finish that tail without regressing the cleaned core scope.
+- Benchmark instrumentation was tightened to ignore comment-only false positives while still counting real empty catch blocks in code.
