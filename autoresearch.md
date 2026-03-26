@@ -1,14 +1,14 @@
 # Autoresearch: audit silent catch blocks
 
 ## Objective
-Sync the higher-level master quality-cleanup ticket now that the silent-catch audit ticket itself is review-ready. The implementation work is complete; this final pass is about preventing stale portfolio metadata.
+Clean up the remaining stale documentation language now that the silent-catch audit is complete. The implementation, tests, quality hooks, CI guard, governing ticket, and master tracker are all aligned; this pass is about historical clarity.
 
-Success means the master ticket that tracks blocking quality items reflects that `audit-silent-catch-blocks` is no longer `next`.
+Success means historical docs/tickets no longer read as if the audit is still pending in the present tense, while still preserving the original assessment snapshot.
 
 We are optimizing for durable closure while keeping the repo state coherent.
 
 ## Metrics
-- **Primary**: `master_ticket_sync_gaps` (count, lower is better) — stale master-ticket references that still show the silent-catch audit as incomplete
+- **Primary**: `stale_audit_reference_gaps` (count, lower is better) — outdated docs/ticket references that still describe the silent-catch problem as currently unresolved without noting completion
 - **Secondary**:
   - `repo_silent_catch_blocks` — repo-wide empty `catch {}` count (should stay 0)
   - `repo_silent_promise_catches` — repo-wide empty `.catch(() => {})` count (should stay 0)
@@ -18,8 +18,8 @@ We are optimizing for durable closure while keeping the repo state coherent.
 `./autoresearch.sh` — emits structured `METRIC name=value` lines.
 
 ## Files in Scope
-- `kanban/40-review/audit-silent-catch-blocks.md` — governing ticket, already review-ready
-- `kanban/30-blocked/codebase-quality-cleanup-2026.md` — master ticket whose sub-ticket status needs syncing
+- `docs/quality-assessment-2026-03-23.md` — historical assessment that should note the audit is now complete
+- `kanban/40-review/audit-silent-catch-blocks.md` — governing ticket whose summary wording should be historically accurate
 - `.github/workflows/ci.yml`, `runtime/scripts/silent-swallow-metrics.ts`, `runtime/test/scripts/silent-swallow-metrics.test.ts`, `autoresearch.checks.sh`, `package.json` — guard infrastructure that must remain intact
 - `runtime/src/**`, `runtime/web/src/**`, `runtime/scripts/**`, `runtime/extensions/**`, `runtime/test/**`, `skel/scripts/**` — monitored repo code that must remain at zero silent swallows
 
@@ -56,3 +56,4 @@ We are optimizing for durable closure while keeping the repo state coherent.
 - The governing ticket has been moved to `kanban/40-review/`, its status/frontmatter were updated, acceptance criteria were checked off, and evidence notes now mention the quality/autoresearch/CI guard layers.
 - New target: sync the master `codebase-quality-cleanup-2026` tracker so it no longer reports the silent-catch audit as `next`.
 - The master tracker row for `audit-silent-catch-blocks` now matches reality (`review`), so the portfolio view is no longer stale.
+- New target: add completion notes / past-tense wording where historical docs still read like the silent-catch audit is currently unresolved.
