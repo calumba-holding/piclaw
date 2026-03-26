@@ -63,6 +63,9 @@ import {
   type ChatBranchRecord,
 } from "./db.js";
 import { createUuid } from "./utils/ids.js";
+import { createLogger } from "./utils/logger.js";
+
+const log = createLogger("agent-pool");
 
 /** Output from an agent run: response text, status, and token usage. */
 export interface AgentOutput {
@@ -355,7 +358,11 @@ export class AgentPool {
       try {
         void binder(entry.session, jid);
       } catch (err) {
-        console.error(`[agent-pool] Failed to bind session ${jid}:`, err);
+        log.error("Failed to bind session", {
+          operation: "set_session_binder.bind_existing_session",
+          chatJid: jid,
+          err,
+        });
       }
     }
   }
@@ -376,13 +383,20 @@ export class AgentPool {
 
     const result = await rotateSession(session, { reason: "automatic" });
     if (result.status === "success") {
-      console.log(
-        `[agent-pool] Auto-rotated oversized session ${chatJid}: ${result.previousSize ?? sessionFileSize} -> ${result.nextSize ?? "unknown"}`
-      );
+      log.info("Auto-rotated oversized session", {
+        operation: "maybe_auto_rotate_session",
+        chatJid,
+        previousSize: result.previousSize ?? sessionFileSize,
+        nextSize: result.nextSize ?? "unknown",
+      });
       return;
     }
 
-    console.warn(`[agent-pool] Auto-rotation skipped for ${chatJid}: ${result.message}`);
+    log.warn("Auto-rotation skipped", {
+      operation: "maybe_auto_rotate_session",
+      chatJid,
+      reason: result.message,
+    });
   }
 
   /** Run a prompt against the persistent session for `chatJid`. */
@@ -398,7 +412,11 @@ export class AgentPool {
         ? session.sessionManager.getLeafId()
         : null;
       this.activeForkBaseLeafByChat.set(chatJid, forkBaseLeafId ?? null);
-      console.log(`[agent-pool] Prompting session ${chatJid} (${prompt.length} chars)`);
+      log.info("Prompting session", {
+        operation: "run_agent.prompt",
+        chatJid,
+        promptLength: prompt.length,
+      });
 
       const tracker = this.createTurnTracker(chatJid, options.onTurnComplete);
       const unsub = this.subscribeToSession(session, chatJid, tracker, options.onEvent);
@@ -449,9 +467,13 @@ export class AgentPool {
           return { status: "error", result: null, error: `Timed out after ${formatTimeoutDuration(timeoutMs)}` };
         }
 
-        console.log(
-          `[agent-pool] Done in ${duration}ms (${finalText.length} chars, ${tracker.getTurnCount() + 1} turns, session ${chatJid})`
-        );
+        log.info("Agent run completed", {
+          operation: "run_agent.complete",
+          chatJid,
+          durationMs: duration,
+          outputChars: finalText.length,
+          turns: tracker.getTurnCount() + 1,
+        });
         return {
           status: "success",
           result: finalText || null,
@@ -463,7 +485,13 @@ export class AgentPool {
       const duration = Date.now() - startTime;
       const errorMsg = err instanceof Error ? err.message : String(err);
       writeAgentLog(this.logsDir, chatJid, duration, false, null, errorMsg);
-      console.error(`[agent-pool] Error for ${chatJid}:`, errorMsg);
+      log.error("Agent run failed", {
+        operation: "run_agent",
+        chatJid,
+        durationMs: duration,
+        errorMessage: errorMsg,
+        err,
+      });
       return { status: "error", result: null, error: errorMsg };
     } finally {
       this.activeForkBaseLeafByChat.delete(chatJid);
@@ -552,7 +580,11 @@ export class AgentPool {
       try {
         recordMessageUsage(chatJid, finalMessage);
       } catch (err) {
-        console.warn(`[agent-pool] Failed to persist side-prompt usage for ${chatJid}:`, err);
+        log.warn("Failed to persist side-prompt usage", {
+          operation: "run_side_prompt.persist_usage_stream",
+          chatJid,
+          err,
+        });
       }
 
       if (finalMessage.stopReason === "error" || finalMessage.stopReason === "aborted") {
@@ -618,7 +650,11 @@ export class AgentPool {
           try {
             recordMessageUsage(chatJid, message);
           } catch (err) {
-            console.warn(`[agent-pool] Failed to persist side-prompt usage for ${chatJid}:`, err);
+            log.warn("Failed to persist side-prompt usage", {
+              operation: "run_side_prompt.persist_usage_session",
+              chatJid,
+              err,
+            });
           }
         }
       }
@@ -780,7 +816,12 @@ export class AgentPool {
     try {
       await session.navigateTree(leafId);
     } catch (err) {
-      console.error(`[agent-pool] Failed to restore session position for ${chatJid}:`, err);
+      log.error("Failed to restore session position", {
+        operation: "restore_session_position",
+        chatJid,
+        leafId,
+        err,
+      });
     }
   }
 
@@ -820,7 +861,11 @@ export class AgentPool {
       storeChatMetadata(chatJid, new Date().toISOString(), created.agent_name || chatJid);
       return created;
     } catch (err) {
-      console.warn(`[agent-pool] Falling back to volatile branch record for ${chatJid}:`, err);
+      log.warn("Falling back to volatile branch record", {
+        operation: "ensure_branch_registration",
+        chatJid,
+        err,
+      });
       return createVolatileBranchRecord(chatJid, session);
     }
   }
@@ -841,7 +886,11 @@ export class AgentPool {
       try {
         session.setSessionName(renamed.agent_name);
       } catch (err) {
-        console.warn(`[agent-pool] Failed to sync renamed branch session name for ${chatJid}:`, err);
+        log.warn("Failed to sync renamed branch session name", {
+          operation: "rename_chat_branch.sync_session_name",
+          chatJid,
+          err,
+        });
       }
     }
 
@@ -864,7 +913,11 @@ export class AgentPool {
       try {
         mainEntry.session.dispose();
       } catch (err) {
-        console.warn(`[agent-pool] Failed to dispose pruned session ${chatJid}:`, err);
+        log.warn("Failed to dispose pruned session", {
+          operation: "prune_chat_branch.dispose_main",
+          chatJid,
+          err,
+        });
       }
       this.pool.delete(chatJid);
     }
@@ -873,7 +926,11 @@ export class AgentPool {
       try {
         sideEntry.session.dispose();
       } catch (err) {
-        console.warn(`[agent-pool] Failed to dispose pruned side session ${chatJid}:`, err);
+        log.warn("Failed to dispose pruned side session", {
+          operation: "prune_chat_branch.dispose_side",
+          chatJid,
+          err,
+        });
       }
       this.sidePool.delete(chatJid);
     }
@@ -896,7 +953,11 @@ export class AgentPool {
       await this.getOrCreate(chatJid);
     } catch (err) {
       // Keep restore resilient even if session warmup fails.
-      console.warn(`[agent-pool] Restored branch ${chatJid} but failed to warm its session:`, err);
+      log.warn("Restored branch but failed to warm its session", {
+        operation: "restore_chat_branch.warm_session",
+        chatJid,
+        err,
+      });
     }
 
     return restored;
@@ -965,18 +1026,30 @@ export class AgentPool {
       try {
         await targetSession.setModel(sourceSession.model);
       } catch (err) {
-        console.warn(`[agent-pool] Failed to copy model to forked branch ${nextChatJid}:`, err);
+        log.warn("Failed to copy model to forked branch", {
+          operation: "create_forked_chat_branch.copy_model",
+          chatJid: nextChatJid,
+          err,
+        });
       }
     }
     try {
       targetSession.setThinkingLevel((stableSeed?.thinkingLevel || sourceContext.thinkingLevel || sourceSession.thinkingLevel) as any);
     } catch (err) {
-      console.warn(`[agent-pool] Failed to copy thinking level to forked branch ${nextChatJid}:`, err);
+      log.warn("Failed to copy thinking level to forked branch", {
+        operation: "create_forked_chat_branch.copy_thinking_level",
+        chatJid: nextChatJid,
+        err,
+      });
     }
     try {
       targetSession.setSessionName(setupName);
     } catch (err) {
-      console.warn(`[agent-pool] Failed to copy session name to forked branch ${nextChatJid}:`, err);
+      log.warn("Failed to copy session name to forked branch", {
+        operation: "create_forked_chat_branch.copy_session_name",
+        chatJid: nextChatJid,
+        err,
+      });
     }
     forcePersistSessionFile(targetSession);
 
@@ -1049,7 +1122,11 @@ export class AgentPool {
           return a.chat_jid.localeCompare(b.chat_jid);
         });
     } catch (err) {
-      console.warn(`[agent-pool] Failed to list known chats${rootChatJid ? ` for ${rootChatJid}` : ""}; falling back to active sessions only:`, err);
+      log.warn("Failed to list known chats; falling back to active sessions only", {
+        operation: "list_known_chats",
+        rootChatJid: rootChatJid || null,
+        err,
+      });
       return activeChats;
     }
   }
@@ -1067,7 +1144,11 @@ export class AgentPool {
       const branch = getChatBranchByAgentName(normalized);
       if (branch) return { chat_jid: branch.chat_jid, agent_name: branch.agent_name };
     } catch (err) {
-      console.warn(`[agent-pool] Failed to look up agent handle @${normalized}; falling back to active sessions:`, err);
+      log.warn("Failed to look up agent handle; falling back to active sessions", {
+        operation: "find_chat_by_agent_name",
+        agentHandle: normalized,
+        err,
+      });
     }
     const active = this.listActiveChats().find((chat) => chat.agent_name === normalized) ?? null;
     return active ? { chat_jid: active.chat_jid, agent_name: active.agent_name } : null;
@@ -1077,7 +1158,11 @@ export class AgentPool {
     try {
       return getChatBranchByChatJid(chatJid)?.agent_name ?? deriveAgentHandle(chatJid);
     } catch (err) {
-      console.warn(`[agent-pool] Failed to read stored handle for ${chatJid}; deriving one from chat id instead:`, err);
+      log.warn("Failed to read stored handle; deriving one from chat id instead", {
+        operation: "get_agent_handle_for_chat",
+        chatJid,
+        err,
+      });
       return deriveAgentHandle(chatJid);
     }
   }
@@ -1134,7 +1219,11 @@ export class AgentPool {
         return true;
       });
     } catch (error) {
-      console.warn(`[agent-pool] Failed to remove queued follow-up for ${chatJid}:`, error);
+      log.warn("Failed to remove queued follow-up", {
+        operation: "remove_queued_follow_up",
+        chatJid,
+        err: error,
+      });
       return false;
     }
   }
@@ -1158,17 +1247,31 @@ export class AgentPool {
     for (const [jid, entry] of this.pool) {
       try {
         entry.session.dispose();
-        console.log(`[agent-pool] Disposed session ${jid}`);
+        log.info("Disposed session", {
+          operation: "shutdown.dispose_main_session",
+          chatJid: jid,
+        });
       } catch (err) {
-        console.error(`[agent-pool] Error disposing ${jid}:`, err);
+        log.error("Failed to dispose session during shutdown", {
+          operation: "shutdown.dispose_main_session",
+          chatJid: jid,
+          err,
+        });
       }
     }
     for (const [jid, entry] of this.sidePool) {
       try {
         entry.session.dispose();
-        console.log(`[agent-pool] Disposed side session ${jid}`);
+        log.info("Disposed side session", {
+          operation: "shutdown.dispose_side_session",
+          chatJid: jid,
+        });
       } catch (err) {
-        console.error(`[agent-pool] Error disposing side session ${jid}:`, err);
+        log.error("Failed to dispose side session during shutdown", {
+          operation: "shutdown.dispose_side_session",
+          chatJid: jid,
+          err,
+        });
       }
     }
     this.pool.clear();
@@ -1193,7 +1296,10 @@ export class AgentPool {
       return existing.session;
     }
 
-    console.log(`[agent-pool] Creating new session for ${chatJid}`);
+    log.info("Creating new session", {
+      operation: "get_or_create.create_main_session",
+      chatJid,
+    });
 
     const chatSessionDir = ensureSessionDir(chatJid);
 
@@ -1203,7 +1309,11 @@ export class AgentPool {
       await this.applyDefaultModel(session);
       await this.bindSession(session, chatJid);
       this.ensureBranchRegistration(chatJid, session);
-      console.log(`[agent-pool] Session ready for ${chatJid} (pool size: ${this.pool.size})`);
+      log.info("Session ready", {
+        operation: "get_or_create.create_main_session",
+        chatJid,
+        poolSize: this.pool.size,
+      });
       return session;
     }
 
@@ -1218,7 +1328,11 @@ export class AgentPool {
     await this.applyDefaultModel(session);
     await this.bindSession(session, chatJid);
     this.ensureBranchRegistration(chatJid, session);
-    console.log(`[agent-pool] Session ready for ${chatJid} (pool size: ${this.pool.size})`);
+    log.info("Session ready", {
+      operation: "get_or_create.create_default_session",
+      chatJid,
+      poolSize: this.pool.size,
+    });
     return session;
   }
 
@@ -1229,7 +1343,10 @@ export class AgentPool {
       return existing.session;
     }
 
-    console.log(`[agent-pool] Creating new side session for ${chatJid}`);
+    log.info("Creating new side session", {
+      operation: "get_or_create_side.create_session",
+      chatJid,
+    });
     const sideSessionDir = ensureNamedSessionDir(chatJid, "btw-side");
 
     const session = this.createSideSession
@@ -1257,7 +1374,10 @@ export class AgentPool {
         },
       });
     } catch (err) {
-      console.warn(`[agent-pool] Failed to reseed side session from main context:`, err);
+      log.warn("Failed to reseed side session from main context", {
+        operation: "sync_side_session_from_main.reseed",
+        err,
+      });
     }
 
     const mainModel = mainSession.model;
@@ -1266,20 +1386,30 @@ export class AgentPool {
       try {
         await sideSession.setModel(mainModel);
       } catch (err) {
-        console.warn(`[agent-pool] Failed to sync side-session model ${mainModel.provider}/${mainModel.id}:`, err);
+        log.warn("Failed to sync side-session model", {
+          operation: "sync_side_session_from_main.model",
+          model: `${mainModel.provider}/${mainModel.id}`,
+          err,
+        });
       }
     }
 
     try {
       sideSession.setThinkingLevel(mainSession.thinkingLevel);
     } catch (err) {
-      console.warn(`[agent-pool] Failed to sync side-session thinking level:`, err);
+      log.warn("Failed to sync side-session thinking level", {
+        operation: "sync_side_session_from_main.thinking_level",
+        err,
+      });
     }
 
     try {
       sideSession.setActiveToolsByName(mainSession.getActiveToolNames());
     } catch (err) {
-      console.warn(`[agent-pool] Failed to sync side-session tool selection:`, err);
+      log.warn("Failed to sync side-session tool selection", {
+        operation: "sync_side_session_from_main.tools",
+        err,
+      });
     }
   }
 
@@ -1303,7 +1433,11 @@ export class AgentPool {
     try {
       await setModel.call(session, resolved);
     } catch (err) {
-      console.warn(`[agent-pool] Failed to restore model ${provider}/${modelId}:`, err);
+      log.warn("Failed to restore model", {
+        operation: "apply_default_model",
+        model: `${provider}/${modelId}`,
+        err,
+      });
     }
   }
 
@@ -1395,7 +1529,11 @@ export class AgentPool {
         try {
           onEvent(event);
         } catch (err) {
-          console.warn("[agent-pool] Event handler error:", err);
+          log.warn("Event handler error", {
+            operation: "subscribe_to_session.on_event",
+            chatJid,
+            err,
+          });
         }
       }
 
@@ -1418,7 +1556,11 @@ export class AgentPool {
     }
     const timeoutId = setTimeout(async () => {
       timedOutRef.value = true;
-      console.error(`[agent-pool] Timeout after ${timeoutMs}ms for ${chatJid}`);
+      log.error("Prompt timed out; aborting session", {
+        operation: "start_prompt_timeout",
+        chatJid,
+        timeoutMs,
+      });
       await session.abort();
     }, timeoutMs);
     return { timeoutId, timedOutRef };
@@ -1429,7 +1571,11 @@ export class AgentPool {
     try {
       await this.sessionBinder(session, chatJid);
     } catch (err) {
-      console.error(`[agent-pool] Failed to bind session ${chatJid}:`, err);
+      log.error("Failed to bind session", {
+        operation: "bind_session",
+        chatJid,
+        err,
+      });
     }
   }
 
@@ -1442,11 +1588,18 @@ export class AgentPool {
         continue;
       }
       if (now - entry.lastUsed > IDLE_TTL) {
-        console.log(`[agent-pool] Evicting idle session ${jid}`);
+        log.info("Evicting idle session", {
+          operation: "evict_idle.main_session",
+          chatJid: jid,
+        });
         try {
           session.dispose();
         } catch (err) {
-          console.warn(`[agent-pool] Failed to dispose evicted session ${jid}:`, err);
+          log.warn("Failed to dispose evicted session", {
+            operation: "evict_idle.main_session",
+            chatJid: jid,
+            err,
+          });
         }
         this.pool.delete(jid);
       }
@@ -1458,11 +1611,18 @@ export class AgentPool {
         continue;
       }
       if (now - entry.lastUsed > IDLE_TTL) {
-        console.log(`[agent-pool] Evicting idle side session ${jid}`);
+        log.info("Evicting idle side session", {
+          operation: "evict_idle.side_session",
+          chatJid: jid,
+        });
         try {
           session.dispose();
         } catch (err) {
-          console.warn(`[agent-pool] Failed to dispose evicted side session ${jid}:`, err);
+          log.warn("Failed to dispose evicted side session", {
+            operation: "evict_idle.side_session",
+            chatJid: jid,
+            err,
+          });
         }
         this.sidePool.delete(jid);
       }

@@ -12,6 +12,10 @@
  * from finalizeSuccessfulRun() after the response is committed.
  */
 
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("runtime.shutdown-registry");
+
 type ShutdownFn = (signal: string) => Promise<void>;
 
 let registeredShutdown: ShutdownFn | null = null;
@@ -39,12 +43,16 @@ export function requestGracefulShutdown(reason: string, delayMs = 800): void {
   }
 
   if (registeredShutdown) {
-    console.log(`[shutdown] Graceful shutdown requested: ${reason}`);
+    log.info("Graceful shutdown requested", { operation: "request", reason });
     void registeredShutdown(`exit_process: ${reason}`);
     return;
   }
 
-  console.log(`[shutdown] No runtime handler registered; scheduling process.exit in ${delayMs}ms — ${reason}`);
+  log.info("No runtime handler registered; scheduling process exit", {
+    operation: "request_fallback",
+    reason,
+    delayMs,
+  });
   setTimeout(() => process.exit(0), delayMs);
 }
 
@@ -54,7 +62,7 @@ export function requestGracefulShutdown(reason: string, delayMs = 800): void {
  */
 export function markPendingShutdown(reason: string): void {
   pendingShutdownReason = reason;
-  console.log(`[shutdown] Pending shutdown marked — will execute after turn completes: ${reason}`);
+  log.info("Pending shutdown marked", { operation: "mark_pending", reason });
 }
 
 /**
@@ -70,4 +78,3 @@ export function checkPendingShutdown(): void {
     requestGracefulShutdown(reason);
   }, 500);
 }
-

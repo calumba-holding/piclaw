@@ -141,9 +141,11 @@ import { WebAuthGateway } from "./web/auth-gateway.js";
 import { TerminalSessionService, type TerminalSocketData } from "./web/terminal/terminal-session-service.js";
 import { VncSessionService, type VncSocketData } from "./web/vnc/vnc-session-service.js";
 import { RemoteInteropService } from "../remote/service.js";
+import { createLogger } from "../utils/logger.js";
 import { randomSessionToken, verifyTotp } from "./web/auth.js";
 import { hashTotpSecret, parseTotpCardToken } from "./web/totp-card.js";
 
+const log = createLogger("web");
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
 const STATE_KEY = "last_agent_timestamp_web";
@@ -253,7 +255,14 @@ export class WebChannel implements WebChannelLike {
 
   async start(): Promise<void> {
     this.loadState();
-    try { initTheme(); } catch (err) { console.warn("[web] Failed to initialize theme cache:", err); }
+    try {
+      initTheme();
+    } catch (err) {
+      log.warn("Failed to initialize theme cache", {
+        operation: "start.init_theme",
+        err,
+      });
+    }
     const tls = await this.loadTlsOptions();
 
     // On Windows, the previous process may linger after a restart (no
@@ -307,7 +316,13 @@ export class WebChannel implements WebChannelLike {
       } catch (err: any) {
         lastBindError = err;
         if (err?.code === "EADDRINUSE" && attempt < MAX_BIND_ATTEMPTS) {
-          console.warn(`[web] Port ${WEB_PORT} busy (attempt ${attempt}/${MAX_BIND_ATTEMPTS}), retrying in ${BIND_RETRY_MS}ms…`);
+          log.warn("Port busy; retrying web bind", {
+            operation: "start.bind_retry",
+            port: WEB_PORT,
+            attempt,
+            maxAttempts: MAX_BIND_ATTEMPTS,
+            retryMs: BIND_RETRY_MS,
+          });
           await new Promise((r) => setTimeout(r, BIND_RETRY_MS));
           continue;
         }
@@ -321,13 +336,22 @@ export class WebChannel implements WebChannelLike {
     const purgeNow = () => {
       const result = purgeExpiredLinkPreviewImageCache(new Date().toISOString(), 256);
       if (result.purgedEntries > 0) {
-        console.log(`[web] Purged ${result.purgedEntries} expired link-preview cache entr${result.purgedEntries === 1 ? "y" : "ies"} (${result.purgedMedia} media blobs)`);
+        log.info("Purged expired link-preview cache entries", {
+          operation: "start.purge_link_preview_cache",
+          purgedEntries: result.purgedEntries,
+          purgedMedia: result.purgedMedia,
+        });
       }
     };
     purgeNow();
     this.linkPreviewCachePurgeTimer = setInterval(purgeNow, LINK_PREVIEW_CACHE_PURGE_INTERVAL_MS);
     const scheme = tls ? "https" : "http";
-    console.log(`[web] UI listening on ${scheme}://${WEB_HOST}:${WEB_PORT}`);
+    log.info("Web UI listening", {
+      operation: "start.listen",
+      scheme,
+      host: WEB_HOST,
+      port: WEB_PORT,
+    });
   }
 
   async stop(): Promise<void> {
@@ -639,7 +663,10 @@ export class WebChannel implements WebChannelLike {
       ]);
       return { cert, key };
     } catch (error) {
-      console.error("[web] Failed to load TLS cert/key:", error);
+      log.error("Failed to load TLS cert/key", {
+        operation: "load_tls_options",
+        err: error,
+      });
       return null;
     }
   }
@@ -859,7 +886,10 @@ export class WebChannel implements WebChannelLike {
       const { getAutoresearchWidgetPayload } = await import("../extensions/autoresearch-supervisor.js");
       return this.json(getAutoresearchWidgetPayload(chatJid));
     } catch (error) {
-      console.warn("[web] Failed to read autoresearch status:", error);
+      log.warn("Failed to read autoresearch status", {
+        operation: "handle_autoresearch_status",
+        err: error,
+      });
       return this.json(null);
     }
   }

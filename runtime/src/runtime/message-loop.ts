@@ -17,12 +17,15 @@
  */
 
 import type { AgentPool } from "../agent-pool.js";
-import type { AgentQueue } from "../queue.js";
 import type { WhatsAppChannel } from "../channels/whatsapp.js";
-import { getMessagesSince, getNewMessages } from "../db.js";
 import { parseControlCommand, type AgentControlCommand } from "../agent-control/index.js";
+import { getMessagesSince, getNewMessages } from "../db.js";
+import type { AgentQueue } from "../queue.js";
 import { detectChannel, formatMessages, formatOutbound } from "../router.js";
+import { createLogger } from "../utils/logger.js";
 import type { RuntimeState } from "./state.js";
+
+const log = createLogger("runtime.message-loop");
 
 /**
  * Dependencies injected into the message-processing functions.
@@ -84,7 +87,10 @@ export async function processMessages(chatJid: string, deps: MessageProcessingDe
   const lastPrompt = promptMessages[promptMessages.length - 1];
   const cleaned = lastPrompt ? stripTrigger(lastPrompt.content) : "";
   if (promptMessages.length === 1 && cleaned.startsWith("/")) {
-    console.log(`[piclaw] Executing slash command from ${chatJid}`);
+    log.info("Executing slash command", {
+      operation: "process_messages.slash_command",
+      chatJid,
+    });
     await deps.whatsapp.setTyping(chatJid, true);
     const result = await deps.agentPool.applySlashCommand(chatJid, cleaned);
     await deps.whatsapp.setTyping(chatJid, false);
@@ -95,7 +101,11 @@ export async function processMessages(chatJid: string, deps: MessageProcessingDe
     }
 
     if (result.status === "error") {
-      console.error(`[piclaw] Agent error: ${result.message}`);
+      log.error("Slash command failed", {
+        operation: "process_messages.slash_command",
+        chatJid,
+        errorMessage: result.message,
+      });
     }
 
     return true;
@@ -103,7 +113,11 @@ export async function processMessages(chatJid: string, deps: MessageProcessingDe
 
   const prompt = formatMessages(promptMessages, channel);
 
-  console.log(`[piclaw] Processing ${promptMessages.length} messages from ${chatJid}`);
+  log.info("Processing queued prompt messages", {
+    operation: "process_messages.prompt",
+    chatJid,
+    promptMessageCount: promptMessages.length,
+  });
 
   await deps.whatsapp.setTyping(chatJid, true);
 
@@ -119,7 +133,11 @@ export async function processMessages(chatJid: string, deps: MessageProcessingDe
   await deps.whatsapp.setTyping(chatJid, false);
 
   if (output.status === "error") {
-    console.error(`[piclaw] Agent error: ${output.error}`);
+    log.error("Agent run failed", {
+      operation: "process_messages.prompt",
+      chatJid,
+      errorMessage: output.error,
+    });
     return true;
   }
 
@@ -142,7 +160,10 @@ export interface MessageLoopDeps {
 
 /** Start the polling loop that checks for new messages across all chats. */
 export async function runMessageLoop(deps: MessageLoopDeps): Promise<void> {
-  console.log(`[piclaw] Running (trigger: @${deps.assistantName})`);
+  log.info("Starting runtime message loop", {
+    operation: "run_message_loop.start",
+    assistantName: deps.assistantName,
+  });
   while (true) {
     try {
       const jids = [...deps.state.chatJids];
@@ -161,7 +182,10 @@ export async function runMessageLoop(deps: MessageLoopDeps): Promise<void> {
         }
       }
     } catch (err) {
-      console.error("[piclaw] Message loop error:", err);
+      log.error("Message loop iteration failed", {
+        operation: "run_message_loop.iteration",
+        err,
+      });
     }
     await Bun.sleep(deps.pollIntervalMs);
   }

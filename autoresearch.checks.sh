@@ -38,6 +38,7 @@ run_check import-boundaries bun run check:import-boundaries
 run_check unused-exports bun run check:unused-exports
 run_check hook-tdz bun run check:hook-tdz
 run_check silent-swallows bun run check:silent-swallows
+run_check structured-logging-scope bun run runtime/scripts/structured-logging-scope-metrics.ts --check
 
 if needs_web_bundle_validation; then
   run_check build-web bun run build:web

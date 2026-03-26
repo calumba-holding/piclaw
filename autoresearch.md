@@ -54,5 +54,8 @@ This session is an audit + migration loop, not a runtime speed optimization. The
 - **Allowlist**: raw console use is only acceptable in deliberately low-level plumbing that cannot sensibly route through the structured logger (currently expected to be tiny and explicit).
 
 ## What's Been Tried
-- Baseline not yet recorded in this session.
-- Initial hypothesis: a small repo-local structured logger plus a scope metric/check script will let us migrate the runtime modules incrementally without waiting for a repo-wide logging rewrite.
+- Baseline: `scope_raw_console_calls=77` with full guards passing.
+- Added `runtime/src/utils/logger.ts` and `runtime/scripts/structured-logging-scope-metrics.ts` so the loop can measure ticket-scope raw console usage directly and later enforce it with `--check`.
+- Migrated `runtime/src/runtime/*`, `runtime/src/channels/whatsapp.ts`, `runtime/src/channels/web.ts`, and `runtime/src/channels/web/workspace/file-service.ts` onto the structured logger path while preserving explicit quiet guards for expected teardown/transient cases.
+- Remaining high-noise holdout after the first migration pass was `runtime/src/agent-pool.ts`; current pass is focused on converting that file so the scope guard can flip from metric-only to enforced.
+- Initial hypothesis confirmed: a small repo-local structured logger plus a scope metric/check script lets us migrate critical runtime modules incrementally without waiting for a repo-wide logging rewrite.

@@ -24,10 +24,13 @@ import {
 } from "../core/config.js";
 import { initDatabase, storeChatMetadata, storeMessage } from "../db.js";
 import type { AgentQueue } from "../queue.js";
-import type { RuntimeState } from "./state.js";
 import { startToolOutputCleanup } from "../tool-output.js";
 import { createUuid } from "../utils/ids.js";
+import { createLogger } from "../utils/logger.js";
 import { patchConsoleTimestamps } from "./console-timestamps.js";
+import type { RuntimeState } from "./state.js";
+
+const log = createLogger("runtime.startup");
 
 /** Initialize directories, database, and persisted runtime state. */
 export function initializeRuntimeEnvironment(state: RuntimeState): void {
@@ -81,9 +84,15 @@ export function queueStartupResumePendingIpc(): void {
     };
     const filePath = join(tasksDir, `resume_pending_${createUuid("startup")}.json`);
     writeFileSync(filePath, JSON.stringify(payload));
-    console.log(`[startup] Queued startup resume_pending IPC: ${filePath}`);
+    log.info("Queued startup resume_pending IPC", {
+      operation: "queue_resume_pending_ipc",
+      filePath,
+    });
   } catch (err) {
-    console.error("[startup] Failed to queue resume_pending IPC:", err);
+    log.error("Failed to queue resume_pending IPC", {
+      operation: "queue_resume_pending_ipc",
+      err,
+    });
   }
 }
 
@@ -133,7 +142,10 @@ export function createWhatsAppChannel(state: RuntimeState): WhatsAppChannel {
         const filePath = join(ipcDir, `${createUuid("pairing")}.json`);
         writeFileSync(filePath, JSON.stringify(payload));
       } catch (err) {
-        console.error("[whatsapp] Failed to write pairing code IPC message:", err);
+        log.error("Failed to write pairing code IPC message", {
+          operation: "pairing_code_ipc",
+          err,
+        });
       }
     },
     onMessage: (chatJid, msg) => {

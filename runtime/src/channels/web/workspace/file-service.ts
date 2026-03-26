@@ -14,9 +14,12 @@ import path from "path";
 import { Zip, ZipDeflate, ZipPassThrough } from "fflate";
 
 import { createMedia } from "../../../db.js";
+import { createLogger } from "../../../utils/logger.js";
 import { MAX_ATTACH_BYTES, MAX_EDIT_BYTES, MAX_PREVIEW_BYTES, MAX_UPLOAD_BYTES } from "./constants.js";
 import { contentTypeForPath, detectBinary, formatMtime, isImageFile, isTextFile } from "./file-utils.js";
 import { isHiddenPath, resolveWorkspacePath, shouldIgnorePath, toRelativePath } from "./paths.js";
+
+const log = createLogger("web.workspace.file-service");
 
 function normalizeEntryName(raw: string | null | undefined): string | null {
   const name = (raw || "").trim();
@@ -215,7 +218,11 @@ export class WorkspaceFileService {
       const updated = statSync(destPath);
       if (updated.size > MAX_UPLOAD_BYTES) {
         try { unlinkSync(destPath); } catch (err) {
-          console.warn(`[workspace] Failed to remove oversized upload ${destPath}:`, err);
+          log.warn("Failed to remove oversized upload", {
+            operation: "upload.cleanup_oversized_file",
+            destPath,
+            err,
+          });
         }
         return { status: 400, body: { error: "File too large to upload" } };
       }

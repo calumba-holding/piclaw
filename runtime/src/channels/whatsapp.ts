@@ -32,6 +32,9 @@ import qrcode from "qrcode-terminal";
 import { ASSISTANT_NAME, STORE_DIR, WHATSAPP_PHONE } from "../core/config.js";
 import type { OnChatMetadata, OnInboundMessage } from "../types.js";
 import { createUuid } from "../utils/ids.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("whatsapp");
 
 interface BaileysLogger {
   level: string;
@@ -44,7 +47,8 @@ interface BaileysLogger {
   fatal: (_obj: unknown, _msg?: string) => void;
 }
 
-// Minimal pino-compatible logger for baileys (it requires one)
+// Minimal Baileys-compatible logger. We keep the library itself quiet and emit
+// our own structured lifecycle logs at higher-value boundaries.
 const silentLogger: BaileysLogger = {
   level: "silent",
   child: () => silentLogger,
@@ -116,14 +120,19 @@ export class WhatsAppChannel {
 
       if (connection === "open" && this.opts.phoneNumber && !state.creds.registered) {
         this.requestPairingCode().catch((err) =>
-          console.error("[whatsapp] Failed to request pairing code:", err)
+          log.error("Failed to request pairing code", {
+            operation: "connection.update.request_pairing_code",
+            err,
+          })
         );
       }
 
       if (qr && !this.opts.phoneNumber) {
         qrcode.generate(qr, { small: true }, (code: string) => {
-          console.log("\n" + code);
-          console.log("[whatsapp] Scan the QR code above to authenticate\n");
+          process.stdout.write("\n" + code + "\n");
+          log.info("Scan the QR code above to authenticate", {
+            operation: "connection.update.qr",
+          });
         });
       }
 
@@ -135,36 +144,55 @@ export class WhatsAppChannel {
         if (shouldReconnect) {
           this.reconnectAttempts++;
           if (this.reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
-            console.error(
-              `[whatsapp] Failed to reconnect after ${MAX_RECONNECT_ATTEMPTS} attempts, giving up.`
-            );
+            log.error("Reconnect attempts exhausted", {
+              operation: "connection.update.close",
+              reason,
+              reconnectAttempts: this.reconnectAttempts,
+              maxReconnectAttempts: MAX_RECONNECT_ATTEMPTS,
+            });
             if (onFirstOpen) { onFirstOpen(); onFirstOpen = undefined; }
             return;
           }
           const delay = BASE_RECONNECT_DELAY_MS * Math.pow(2, this.reconnectAttempts - 1);
-          console.log(
-            `[whatsapp] Disconnected (reason=${reason}), reconnecting in ${(delay / 1000).toFixed(1)}s ` +
-            `(attempt ${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`
-          );
+          log.warn("Disconnected; scheduling reconnect", {
+            operation: "connection.update.close",
+            reason,
+            delayMs: delay,
+            reconnectAttempts: this.reconnectAttempts,
+            maxReconnectAttempts: MAX_RECONNECT_ATTEMPTS,
+          });
           const pending = onFirstOpen; onFirstOpen = undefined;
           this.reconnectTimer = setTimeout(() => {
             this.reconnectTimer = null;
             this.connectInternal(pending).catch((err) => {
-              console.error("[whatsapp] Reconnect failed:", err);
+              log.error("Reconnect attempt failed", {
+                operation: "connection.update.reconnect",
+                err,
+              });
             });
           }, delay);
         } else {
-          console.log("[whatsapp] Logged out. Re-authenticate to continue.");
+          log.info("Logged out; re-authentication required", {
+            operation: "connection.update.logged_out",
+          });
           process.exit(0);
         }
       } else if (connection === "open") {
         this.connected = true;
-        this.reconnectAttempts = 0; // reset on successful connection
-        console.log("[whatsapp] Connected");
+        this.reconnectAttempts = 0;
+        log.info("Connected", { operation: "connection.update.open" });
         this.sock.sendPresenceUpdate("available").catch((err) => {
-          console.warn("[whatsapp] Failed to publish availability presence:", err);
+          log.warn("Failed to publish availability presence", {
+            operation: "connection.update.publish_presence",
+            err,
+          });
         });
-        this.flushOutgoingQueue().catch(console.error);
+        this.flushOutgoingQueue().catch((err) => {
+          log.error("Failed to flush queued outbound messages", {
+            operation: "connection.update.flush_queue",
+            err,
+          });
+        });
         if (onFirstOpen) { onFirstOpen(); onFirstOpen = undefined; }
       }
     });
@@ -216,7 +244,12 @@ export class WhatsAppChannel {
     }
     try {
       await this.sock.sendMessage(jid, { text: prefixed });
-    } catch {
+    } catch (err) {
+      log.warn("Send failed; re-queued outbound message", {
+        operation: "send_message",
+        jid,
+        err,
+      });
       this.outgoingQueue.push({ jid, text: prefixed });
     }
   }
@@ -234,7 +267,11 @@ export class WhatsAppChannel {
   }
 
   async setTyping(jid: string, isTyping: boolean): Promise<void> {
-    try { await this.sock.sendPresenceUpdate(isTyping ? "composing" : "paused", jid); } catch { /* expected: transient presence failures should not block message delivery. */ }
+    try {
+      await this.sock.sendPresenceUpdate(isTyping ? "composing" : "paused", jid);
+    } catch {
+      /* expected: transient presence failures should not block message delivery. */
+    }
   }
 
   private async flushOutgoingQueue(): Promise<void> {
@@ -245,7 +282,9 @@ export class WhatsAppChannel {
         const item = this.outgoingQueue.shift()!;
         await this.sock.sendMessage(item.jid, { text: item.text });
       }
-    } finally { this.flushing = false; }
+    } finally {
+      this.flushing = false;
+    }
   }
 
   private async requestPairingCode(): Promise<void> {
@@ -253,7 +292,7 @@ export class WhatsAppChannel {
     this.pairingRequested = true;
     try {
       const code = await this.sock.requestPairingCode(this.opts.phoneNumber);
-      console.log("[whatsapp] Pairing code requested");
+      log.info("Pairing code requested", { operation: "request_pairing_code" });
       if (code) this.opts.onPairingCode?.(code);
     } catch (err) {
       this.pairingRequested = false;

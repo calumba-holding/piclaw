@@ -2,6 +2,10 @@
  * runtime/shutdown.ts – Graceful shutdown orchestration helpers.
  */
 
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("runtime.shutdown");
+
 /** Runtime resources required to perform graceful shutdown. */
 export type ShutdownDeps = {
   queue: { shutdown: (timeoutMs?: number) => Promise<unknown> };
@@ -17,7 +21,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   const timeout = new Promise<null>((resolve) => {
     timeoutId = setTimeout(() => {
-      console.warn(`[piclaw] ${label} timed out after ${ms}ms`);
+      log.warn("Shutdown step timed out", { operation: "with_timeout", label, timeoutMs: ms });
       resolve(null);
     }, ms);
   });
@@ -29,7 +33,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
     }
     return null;
   } catch (err) {
-    console.error(`[piclaw] ${label} failed:`, err);
+    log.error("Shutdown step failed", { operation: "with_timeout", label, timeoutMs: ms, err });
     return null;
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
@@ -46,9 +50,9 @@ export function createShutdownHandler(deps: ShutdownDeps): (signal: string) => P
     if (shuttingDown) return;
     shuttingDown = true;
 
-    console.log(`[piclaw] ${signal} received, shutting down...`);
+    log.info("Shutdown signal received", { operation: "handle_signal", signal });
     const forceExit = setTimeout(() => {
-      console.warn("[piclaw] Forcing shutdown after 15000ms");
+      log.warn("Forcing shutdown after timeout", { operation: "force_exit", timeoutMs: 15000 });
       process.exit(0);
     }, 15000);
 

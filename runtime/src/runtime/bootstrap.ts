@@ -10,6 +10,7 @@ import {
 import { stopIpcWatcher } from "../ipc.js";
 import type { SchedulerDeps } from "../task-scheduler.js";
 import { stopSchedulerLoop } from "../task-scheduler.js";
+import { createLogger } from "../utils/logger.js";
 import type { RuntimeSignalRegistrar } from "./composition.js";
 import { registerRuntimeShutdownSignals } from "./composition.js";
 import { startRuntimeLoop, type StartRuntimeLoopDeps } from "./coordinator.js";
@@ -32,6 +33,8 @@ import {
   type RuntimeWebWorkerChannel,
   type RuntimeWhatsAppWorkerChannel,
 } from "./wiring.js";
+
+const log = createLogger("runtime.bootstrap");
 
 /** Queue contract required by runtime bootstrap orchestration. */
 export type RuntimeBootstrapQueue =
@@ -132,7 +135,7 @@ export function createDefaultRuntimeBootstrapDeps(core: RuntimeBootstrapDefaultC
     startRuntimeWorkers,
     queueStartupResumePendingIpc,
     startRuntimeLoop,
-    log: (message) => console.log(message),
+    log: (message) => log.info(message, { operation: "bootstrap.banner" }),
     stopIpcWatcher,
     stopSchedulerLoop,
   };

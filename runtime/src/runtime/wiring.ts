@@ -4,6 +4,9 @@
 
 import { startIpcWatcher, type IpcDeps } from "../ipc.js";
 import { startSchedulerLoop, type SchedulerDeps } from "../task-scheduler.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("runtime.wiring");
 
 /** Minimal sender contract exposed to runtime worker wiring. */
 export type RuntimeSenders = Pick<IpcDeps, "sendMessage" | "sendNudge">;
@@ -50,7 +53,10 @@ export function createRuntimeSenders(
   const sendNudge = pushover
     ? async (text: string) => {
         await pushover.sendMessage("", text).catch((err) =>
-          console.error("[pushover] Failed to send nudge:", err)
+          log.error("Failed to send pushover nudge", {
+            operation: "send_nudge",
+            err,
+          })
         );
       }
     : undefined;
