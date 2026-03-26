@@ -6,8 +6,11 @@ Reduce unstructured `console.*` usage in the critical-path runtime/server files 
 This session is an audit + migration loop, not a runtime speed optimization. Phase 1 eliminated non-allowlisted raw console usage in the ticket-critical scope; Phase 2 increased structured-logger coverage across the remaining critical-path files; Phase 3 tightened explicit error-handling by shrinking undocumented quiet catches to zero; Phase 4 expands to adjacent runtime modules that sit directly on the same operational path (IPC, queueing, scheduler, slash-command handling, and web recovery/agent handlers).
 
 ## Metrics
-- **Primary**: `adjacent_runtime_raw_console_calls` (unitless, lower is better) — count of raw `console.*` references in adjacent runtime modules immediately surrounding the ticket-critical path.
+- **Primary**: `backend_service_raw_console_calls` (unitless, lower is better) — count of raw `console.*` references in backend service/runtime modules that still sit on the operator-visible request, auth, extension, attachment, and shutdown paths adjacent to the original ticket scope.
 - **Secondary**:
+  - `backend_service_files_with_raw_console`
+  - `backend_service_files_using_structured_logger`
+  - `adjacent_runtime_raw_console_calls`
   - `adjacent_runtime_files_with_raw_console`
   - `adjacent_runtime_files_using_structured_logger`
   - `scope_undocumented_quiet_catches`
@@ -38,6 +41,7 @@ This session is an audit + migration loop, not a runtime speed optimization. Pha
 - `runtime/src/agent-pool/slash-command.ts` — slash-command execution path adjacent to main agent runs.
 - `runtime/src/channels/web/recovery.ts` — interrupted-run recovery and resume queuing.
 - `runtime/src/channels/web/handlers/agent.ts` — web agent message/control processing path.
+- `runtime/src/index.ts`, `runtime/src/channels/pushover.ts`, `runtime/src/channels/web/{sse,auth-gateway,manifest,webauthn-auth,avatar-service,link-previews,ui-bridge}.ts`, `runtime/src/channels/web/http/{extension-routes,request-guards}.ts`, `runtime/src/channels/web/workspace/watcher.ts`, `runtime/src/agent-control/handlers/{control,login}.ts`, `runtime/src/extensions/{autoresearch-supervisor,exit-process,file-attachments}.ts` — Phase-5 backend service modules immediately downstream of the same request/auth/extension/shutdown path.
 - `runtime/src/utils/logger.ts` — shared structured logger path created for this ticket.
 - `runtime/scripts/structured-logging-scope-metrics.ts` — scope metric and future regression guard basis.
 - `autoresearch.sh`, `autoresearch.checks.sh`, `autoresearch.md` — session control files.
@@ -70,5 +74,6 @@ This session is an audit + migration loop, not a runtime speed optimization. Pha
 - Converted `runtime/src/agent-pool.ts`, flipped the scope guard from metric-only to enforced, and drove `scope_raw_console_calls` to `0` while keeping full validation green.
 - Phase 2 optimized `scope_files_using_structured_logger` from `10` to `15`; only the intentional low-level allowlist file `runtime/src/runtime/console-timestamps.ts` now remains outside the logger-import set.
 - Phase 3 drove `scope_undocumented_quiet_catches` from `7` to `0` by either documenting expected fallbacks or surfacing them with warnings.
-- Phase 4 now targets `adjacent_runtime_raw_console_calls` in the next ring of runtime/server modules around the original ticket scope.
+- Phase 4 targeted `adjacent_runtime_raw_console_calls` in the next ring of runtime/server modules around the original ticket scope and drove it to zero.
+- Phase 5 now targets `backend_service_raw_console_calls` in backend service modules that still surface operator-visible auth, extension, attachment, watchdog, and shutdown events via raw console.
 - Initial hypothesis confirmed: a small repo-local structured logger plus a scope metric/check script lets us migrate critical runtime modules incrementally without waiting for a repo-wide logging rewrite.

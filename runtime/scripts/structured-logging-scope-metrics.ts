@@ -20,6 +20,26 @@ const ADJACENT_SCOPE_PATHS = [
   "runtime/src/channels/web/handlers/agent.ts",
 ];
 
+const BACKEND_SERVICE_SCOPE_PATHS = [
+  "runtime/src/index.ts",
+  "runtime/src/channels/pushover.ts",
+  "runtime/src/channels/web/sse.ts",
+  "runtime/src/channels/web/auth-gateway.ts",
+  "runtime/src/channels/web/manifest.ts",
+  "runtime/src/channels/web/webauthn-auth.ts",
+  "runtime/src/channels/web/avatar-service.ts",
+  "runtime/src/channels/web/http/extension-routes.ts",
+  "runtime/src/channels/web/http/request-guards.ts",
+  "runtime/src/channels/web/ui-bridge.ts",
+  "runtime/src/channels/web/workspace/watcher.ts",
+  "runtime/src/channels/web/link-previews.ts",
+  "runtime/src/agent-control/handlers/control.ts",
+  "runtime/src/agent-control/handlers/login.ts",
+  "runtime/src/extensions/autoresearch-supervisor.ts",
+  "runtime/src/extensions/exit-process.ts",
+  "runtime/src/extensions/file-attachments.ts",
+];
+
 const RAW_CONSOLE_PATTERN = /\bconsole\.(log|warn|error|info|debug)\b/g;
 const EXPECTED_GUARD_PATTERN = /expected:/g;
 const LOGGER_IMPORT_PATTERN = /utils\/logger\.js/;
@@ -139,6 +159,7 @@ function collectScopeMetrics(files: string[]): {
 
 const primaryScopeMetrics = collectScopeMetrics(expandScope(PRIMARY_SCOPE_PATHS));
 const adjacentScopeMetrics = collectScopeMetrics(expandScope(ADJACENT_SCOPE_PATHS));
+const backendServiceScopeMetrics = collectScopeMetrics(expandScope(BACKEND_SERVICE_SCOPE_PATHS));
 
 console.log(`METRIC scope_raw_console_calls=${primaryScopeMetrics.rawConsoleCalls}`);
 console.log(`METRIC scope_files_with_raw_console=${primaryScopeMetrics.filesWithRawConsole}`);
@@ -149,6 +170,9 @@ console.log(`METRIC scope_undocumented_quiet_catches=${primaryScopeMetrics.undoc
 console.log(`METRIC adjacent_runtime_raw_console_calls=${adjacentScopeMetrics.rawConsoleCalls}`);
 console.log(`METRIC adjacent_runtime_files_with_raw_console=${adjacentScopeMetrics.filesWithRawConsole}`);
 console.log(`METRIC adjacent_runtime_files_using_structured_logger=${adjacentScopeMetrics.filesUsingStructuredLogger}`);
+console.log(`METRIC backend_service_raw_console_calls=${backendServiceScopeMetrics.rawConsoleCalls}`);
+console.log(`METRIC backend_service_files_with_raw_console=${backendServiceScopeMetrics.filesWithRawConsole}`);
+console.log(`METRIC backend_service_files_using_structured_logger=${backendServiceScopeMetrics.filesUsingStructuredLogger}`);
 
 if (process.argv.includes("--check") && primaryScopeMetrics.rawConsoleCalls > 0) {
   console.error(`[structured-logging-scope] Found ${primaryScopeMetrics.rawConsoleCalls} non-allowlisted raw console call(s) across ${primaryScopeMetrics.filesWithRawConsole} scope file(s).`);
