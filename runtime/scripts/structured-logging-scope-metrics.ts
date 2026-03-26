@@ -40,6 +40,11 @@ const BACKEND_SERVICE_SCOPE_PATHS = [
   "runtime/src/extensions/file-attachments.ts",
 ];
 
+const REMAINING_OPERATIONAL_SCOPE_PATHS = [
+  "runtime/src/core/config.ts",
+  "runtime/src/agent-pool/orphan-tool-results.ts",
+];
+
 const RAW_CONSOLE_PATTERN = /\bconsole\.(log|warn|error|info|debug)\b/g;
 const EXPECTED_GUARD_PATTERN = /expected:/g;
 const LOGGER_IMPORT_PATTERN = /utils\/logger\.js/;
@@ -160,6 +165,7 @@ function collectScopeMetrics(files: string[]): {
 const primaryScopeMetrics = collectScopeMetrics(expandScope(PRIMARY_SCOPE_PATHS));
 const adjacentScopeMetrics = collectScopeMetrics(expandScope(ADJACENT_SCOPE_PATHS));
 const backendServiceScopeMetrics = collectScopeMetrics(expandScope(BACKEND_SERVICE_SCOPE_PATHS));
+const remainingOperationalScopeMetrics = collectScopeMetrics(expandScope(REMAINING_OPERATIONAL_SCOPE_PATHS));
 
 console.log(`METRIC scope_raw_console_calls=${primaryScopeMetrics.rawConsoleCalls}`);
 console.log(`METRIC scope_files_with_raw_console=${primaryScopeMetrics.filesWithRawConsole}`);
@@ -173,6 +179,9 @@ console.log(`METRIC adjacent_runtime_files_using_structured_logger=${adjacentSco
 console.log(`METRIC backend_service_raw_console_calls=${backendServiceScopeMetrics.rawConsoleCalls}`);
 console.log(`METRIC backend_service_files_with_raw_console=${backendServiceScopeMetrics.filesWithRawConsole}`);
 console.log(`METRIC backend_service_files_using_structured_logger=${backendServiceScopeMetrics.filesUsingStructuredLogger}`);
+console.log(`METRIC remaining_operational_raw_console_calls=${remainingOperationalScopeMetrics.rawConsoleCalls}`);
+console.log(`METRIC remaining_operational_files_with_raw_console=${remainingOperationalScopeMetrics.filesWithRawConsole}`);
+console.log(`METRIC remaining_operational_files_using_structured_logger=${remainingOperationalScopeMetrics.filesUsingStructuredLogger}`);
 
 if (process.argv.includes("--check") && primaryScopeMetrics.rawConsoleCalls > 0) {
   console.error(`[structured-logging-scope] Found ${primaryScopeMetrics.rawConsoleCalls} non-allowlisted raw console call(s) across ${primaryScopeMetrics.filesWithRawConsole} scope file(s).`);
