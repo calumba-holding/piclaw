@@ -229,9 +229,9 @@ class VncPaneInstance implements PaneInstance {
 
     private resetLiveSession() {
         this.protocol = null;
-        try { this.socketBoundary?.dispose?.(); } catch {}
+        try { this.socketBoundary?.dispose?.(); } catch { /* expected: socket boundary may already be torn down during session resets. */ }
         this.socketBoundary = null;
-        try { this.resizeObserver?.disconnect?.(); } catch {}
+        try { this.resizeObserver?.disconnect?.(); } catch { /* expected: resize observer may already be disconnected during session resets. */ }
         this.resizeObserver = null;
         this.canvas = null;
         this.canvasCtx = null;
@@ -458,7 +458,7 @@ class VncPaneInstance implements PaneInstance {
 
     private attachDisplayResizeObserver() {
         if (!this.displayStageEl || typeof ResizeObserver === 'undefined') return;
-        try { this.resizeObserver?.disconnect?.(); } catch {}
+        try { this.resizeObserver?.disconnect?.(); } catch { /* expected: prior resize observer may already be disconnected before re-attachment. */ }
         this.resizeObserver = new ResizeObserver(() => {
             this.updateCanvasScale();
         });
@@ -512,7 +512,7 @@ class VncPaneInstance implements PaneInstance {
             if (!point) return;
             event.preventDefault();
             this.canvas?.focus?.();
-            try { this.canvas?.setPointerCapture?.(event.pointerId); } catch {}
+            try { this.canvas?.setPointerCapture?.(event.pointerId); } catch { /* expected: pointer capture can fail when the canvas loses the pointer stream mid-gesture. */ }
             this.pointerButtonMask |= vncButtonMaskForPointerButton(event.button);
             this.sendPointerEvent(this.pointerButtonMask, point.x, point.y);
         });
@@ -522,13 +522,13 @@ class VncPaneInstance implements PaneInstance {
             event.preventDefault();
             this.pointerButtonMask &= ~vncButtonMaskForPointerButton(event.button);
             this.sendPointerEvent(this.pointerButtonMask, point.x, point.y);
-            try { this.canvas?.releasePointerCapture?.(event.pointerId); } catch {}
+            try { this.canvas?.releasePointerCapture?.(event.pointerId); } catch { /* expected: pointer capture may already be gone when the gesture ends. */ }
         });
         this.canvas.addEventListener('pointercancel', (event) => {
             const point = this.getFramebufferPointFromEvent(event) || { x: 0, y: 0 };
             this.pointerButtonMask = 0;
             this.sendPointerEvent(0, point.x, point.y);
-            try { this.canvas?.releasePointerCapture?.(event.pointerId); } catch {}
+            try { this.canvas?.releasePointerCapture?.(event.pointerId); } catch { /* expected: pointer capture may already be gone on cancellation. */ }
         });
         this.canvas.addEventListener('wheel', (event) => {
             const point = this.getFramebufferPointFromEvent(event);
@@ -769,7 +769,7 @@ class VncPaneInstance implements PaneInstance {
             this.protocolRecovering = false;
         }
 
-        try { this.socketBoundary?.dispose?.(); } catch {}
+        try { this.socketBoundary?.dispose?.(); } catch { /* expected: previous socket boundary may already be torn down before reconnect. */ }
 
         if (preferredEncodings == null) {
             this.rawFallbackAttempted = false;

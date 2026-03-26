@@ -153,7 +153,7 @@ export function pruneToolOutputs(maxAgeDays = 30): number {
   const rows = deleteToolOutputsBefore(cutoff);
   for (const row of rows) {
     if (row.path && existsSync(row.path)) {
-      try { unlinkSync(row.path); } catch {}
+      try { unlinkSync(row.path); } catch { /* expected: cleanup can race with manual deletion or prior pruning. */ }
     }
   }
   return rows.length;

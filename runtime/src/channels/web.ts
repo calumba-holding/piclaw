@@ -253,7 +253,7 @@ export class WebChannel implements WebChannelLike {
 
   async start(): Promise<void> {
     this.loadState();
-    try { initTheme(); } catch {}
+    try { initTheme(); } catch (err) { console.warn("[web] Failed to initialize theme cache:", err); }
     const tls = await this.loadTlsOptions();
 
     // On Windows, the previous process may linger after a restart (no
@@ -1761,7 +1761,9 @@ export class WebChannel implements WebChannelLike {
           closed = true;
           try {
             controller.close();
-          } catch {}
+          } catch {
+            /* expected: ReadableStream controller may already be closed/cancelled. */
+          }
         };
         const send = (eventType: string, data: unknown) => {
           if (closed) return;
@@ -1797,7 +1799,9 @@ export class WebChannel implements WebChannelLike {
       cancel: () => {
         try {
           req.signal.throwIfAborted();
-        } catch {}
+        } catch {
+          /* expected: cancellation frequently arrives from an already-aborted request signal. */
+        }
       },
     });
 

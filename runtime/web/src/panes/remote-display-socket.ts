@@ -78,7 +78,7 @@ export class WebSocketRemoteDisplayBoundary {
 
     connect(): void {
         if (this.disposed) return;
-        try { this.socket?.close?.(); } catch {}
+        try { this.socket?.close?.(); } catch { /* expected: previous websocket may already be closing during reconnect. */ }
         const socket = new WebSocket(this.options.url);
         socket.binaryType = this.options.binaryType || 'arraybuffer';
         socket.addEventListener('open', () => {
@@ -141,7 +141,7 @@ export class WebSocketRemoteDisplayBoundary {
     dispose(): void {
         if (this.disposed) return;
         this.disposed = true;
-        try { this.socket?.close?.(); } catch {}
+        try { this.socket?.close?.(); } catch { /* expected: websocket may already be torn down during pane disposal. */ }
         this.socket = null;
     }
 

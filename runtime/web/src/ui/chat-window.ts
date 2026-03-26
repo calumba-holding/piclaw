@@ -21,6 +21,7 @@ export function isStandaloneWebAppMode(runtime = {}) {
         try {
             return Boolean(win.matchMedia(query)?.matches);
         } catch {
+            /* expected: older browsers or test doubles may reject matchMedia queries. */
             return false;
         }
     });
@@ -72,6 +73,7 @@ export function openProvisionalChatWindow(openOptions, runtime = {}) {
             ? win.open('about:blank', openOptions.target, openOptions.features)
             : win.open('about:blank', openOptions.target);
     } catch {
+        /* expected: popup blockers can reject provisional window creation. */
         return null;
     }
 }
@@ -88,7 +90,9 @@ export function primeProvisionalChatWindow(handle, options = {}) {
                 <p style="margin: 0; line-height: 1.5;">${message}</p>
             </div>
         `;
-    } catch {}
+    } catch {
+        /* expected: provisional window can disappear before its placeholder UI is primed. */
+    }
 }
 
 export function navigateProvisionalChatWindow(handle, url) {
@@ -99,14 +103,18 @@ export function navigateProvisionalChatWindow(handle, url) {
             return;
         }
         handle.location = String(url);
-    } catch {}
+    } catch {
+        /* expected: popup may be closed before navigation completes. */
+    }
 }
 
 export function closeProvisionalChatWindow(handle) {
     if (!handle || typeof handle.close !== 'function') return;
     try {
         handle.close();
-    } catch {}
+    } catch {
+        /* expected: browser may already have torn down the popup handle. */
+    }
 }
 
 export function buildChatWindowUrl(baseHref, chatJid, options = {}) {

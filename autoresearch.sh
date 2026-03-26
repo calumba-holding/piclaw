@@ -20,10 +20,10 @@ CRITICAL_FILES=(
   runtime/src/tool-output.ts
 )
 
-silent_catch_blocks=$(rg -nU "$EMPTY_CATCH_PATTERN" "${SRC_GLOBS[@]}" "${EXCLUDES[@]}" | wc -l | tr -d ' ')
-critical_silent_catches=$(rg -nU "$EMPTY_CATCH_PATTERN" "${CRITICAL_FILES[@]}" | wc -l | tr -d ' ')
-files_with_silent_catches=$(rg -lU "$EMPTY_CATCH_PATTERN" "${SRC_GLOBS[@]}" "${EXCLUDES[@]}" | wc -l | tr -d ' ')
-silent_promise_catches=$(rg -n "$PROMISE_SWALLOW_PATTERN" "${SRC_GLOBS[@]}" "${EXCLUDES[@]}" | wc -l | tr -d ' ')
+silent_catch_blocks=$(( $({ rg -nU "$EMPTY_CATCH_PATTERN" "${SRC_GLOBS[@]}" "${EXCLUDES[@]}" || true; } | wc -l | tr -d ' ') ))
+critical_silent_catches=$(( $({ rg -nU "$EMPTY_CATCH_PATTERN" "${CRITICAL_FILES[@]}" || true; } | wc -l | tr -d ' ') ))
+files_with_silent_catches=$(( $({ rg -lU "$EMPTY_CATCH_PATTERN" "${SRC_GLOBS[@]}" "${EXCLUDES[@]}" || true; } | wc -l | tr -d ' ') ))
+silent_promise_catches=$(( $({ rg -n "$PROMISE_SWALLOW_PATTERN" "${SRC_GLOBS[@]}" "${EXCLUDES[@]}" || true; } | wc -l | tr -d ' ') ))
 
 echo "METRIC silent_catch_blocks=${silent_catch_blocks}"
 echo "METRIC critical_silent_catches=${critical_silent_catches}"

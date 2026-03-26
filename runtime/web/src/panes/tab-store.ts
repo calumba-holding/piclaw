@@ -52,7 +52,7 @@ class TabStoreImpl {
         const tabs = this.getTabs();
         const activeId = this.activeId;
         for (const listener of this.listeners) {
-            try { listener(tabs, activeId); } catch {}
+            try { listener(tabs, activeId); } catch (err) { console.warn('[tab-store] Change listener failed:', err); }
         }
     }
 

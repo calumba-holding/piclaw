@@ -87,6 +87,7 @@ function getLibc(): typeof _libc {
       ioctl: (fd, request, buf) => lib.symbols.ioctl(fd, request, buf) as number,
     };
   } catch {
+    /* expected: PTY resizing is optional when libc FFI is unavailable. */
     _libc = null;
   }
   return _libc;
@@ -109,10 +110,11 @@ function resizePty(ptsPath: string, cols: number, rows: number): boolean {
     fd = openSync(ptsPath, 0); // O_RDONLY
     return libc.ioctl(fd, TIOCSWINSZ, winsize) === 0;
   } catch {
+    /* expected: PTY path can disappear during resize races. */
     return false;
   } finally {
     if (fd >= 0) {
-      try { closeSync(fd); } catch {}
+      try { closeSync(fd); } catch { /* expected: fd may already be closed during PTY teardown. */ }
     }
   }
 }
@@ -132,11 +134,13 @@ function getChildPids(parentPid: number): number[] {
           const match = stat.match(/^\d+\s+\(.*?\)\s+\S+\s+(\d+)/);
           return match && parseInt(match[1], 10) === parentPid ? parseInt(entry, 10) : 0;
         } catch {
+          /* expected: /proc entries may vanish while scanning child processes. */
           return 0;
         }
       })
       .filter((pid) => pid > 0);
   } catch {
+    /* expected: /proc traversal is unavailable or racing on non-Linux/teardown paths. */
     return [];
   }
 }
@@ -156,7 +160,9 @@ function findChildPts(parentPid: number): { ptsPath: string; childPids: number[]
       if (target.startsWith("/dev/pts/")) {
         return { ptsPath: target, childPids };
       }
-    } catch {}
+    } catch {
+      /* expected: child may exit before /proc/<pid>/fd/0 can be inspected. */
+    }
   }
   return null;
 }
@@ -265,6 +271,7 @@ export class TerminalSessionService {
     try {
       return JSON.parse(messageText) as TerminalClientMessage;
     } catch {
+      /* expected: plain text input frames are not JSON control messages. */
       return { type: "input", data: messageText };
     }
   }
@@ -273,7 +280,9 @@ export class TerminalSessionService {
     for (const session of this.sessions.values()) {
       try {
         session.process.kill("SIGHUP");
-      } catch {}
+      } catch {
+        /* expected: terminal process may already be gone during shutdown. */
+      }
     }
     this.sessions.clear();
   }
@@ -300,7 +309,7 @@ export class TerminalSessionService {
     if (resizePty(session.ptsPath, cols, rows)) {
       // Send SIGWINCH to child processes so they re-query the terminal size
       for (const cpid of getChildPids(pid)) {
-        try { process.kill(cpid, "SIGWINCH"); } catch {}
+        try { process.kill(cpid, "SIGWINCH"); } catch { /* expected: child may exit between pid scan and signal delivery. */ }
       }
     }
   }
@@ -342,7 +351,7 @@ export class TerminalSessionService {
           session.ptsPath = result.ptsPath;
           resizePty(result.ptsPath, session.cols, session.rows);
           for (const cpid of result.childPids) {
-            try { process.kill(cpid, "SIGWINCH"); } catch {}
+            try { process.kill(cpid, "SIGWINCH"); } catch { /* expected: child may exit before the delayed resize signal lands. */ }
           }
         }
       }, 300);
@@ -362,6 +371,8 @@ export class TerminalSessionService {
   private send(ws: ServerWebSocket<TerminalSocketData>, payload: string | Record<string, unknown>, preEncoded = false): void {
     try {
       ws.send(preEncoded ? (payload as string) : JSON.stringify(payload));
-    } catch {}
+    } catch {
+      /* expected: browser websocket may close between broadcast iteration and send. */
+    }
   }
 }

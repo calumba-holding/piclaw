@@ -351,44 +351,64 @@ class TerminalPaneInstance implements PaneInstance {
                 canvas.style.backgroundColor = theme.background;
                 canvas.style.color = theme.foreground;
             }
-        } catch {}
+        } catch {
+            /* expected: theme repaint can race with terminal DOM teardown. */
+        }
         try {
             if (this.terminal.options) {
                 this.terminal.options.theme = theme;
             }
-        } catch {}
+        } catch {
+            /* expected: terminal options can be transient while Ghostty is booting. */
+        }
         try {
             if (themeChanged && this.terminal.reset) {
                 this.terminal.reset();
             }
-        } catch {}
+        } catch {
+            /* expected: theme reset can fail briefly during terminal bootstrap/disposal. */
+        }
         try {
             this.terminal.renderer?.setTheme?.(theme);
             this.terminal.renderer?.clear?.();
-        } catch {}
+        } catch {
+            /* expected: renderer theme hooks are optional across Ghostty/xterm variants. */
+        }
         try {
             this.terminal.loadFonts?.();
-        } catch {}
+        } catch {
+            /* expected: font reloads are best-effort while the terminal runtime settles. */
+        }
         try {
             this.terminal.renderer?.remeasureFont?.();
-        } catch {}
+        } catch {
+            /* expected: renderer font metrics can be unavailable during theme churn. */
+        }
         try {
             if (this.terminal.wasmTerm && this.terminal.renderer?.render) {
                 this.terminal.renderer.render(this.terminal.wasmTerm, true, this.terminal.viewportY || 0, this.terminal);
                 this.terminal.renderer.render(this.terminal.wasmTerm, false, this.terminal.viewportY || 0, this.terminal);
             }
-        } catch {}
+        } catch {
+            /* expected: forcing a repaint can race with renderer disposal. */
+        }
         try {
             this.resize();
-        } catch {}
+        } catch {
+            /* expected: resize can race with late terminal bootstrap/teardown. */
+        }
         try {
             if (themeChanged && this.socket?.readyState === WebSocket.OPEN) {
                 this.socket.send(JSON.stringify({ type: 'input', data: '\f' }));
             }
-        } catch {}
+        } catch {
+            /* expected: backend websocket may disconnect during theme-driven refresh. */
+        }
         try {
             this.terminal.refresh?.();
-        } catch {}
+        } catch {
+            /* expected: refresh is best-effort while the renderer is settling. */
+        }
         this.lastAppliedThemeSignature = themeSignature;
     }
 
@@ -543,13 +563,19 @@ class TerminalPaneInstance implements PaneInstance {
         this.syncHostLayout();
         try {
             this.terminal?.renderer?.remeasureFont?.();
-        } catch {}
+        } catch {
+            /* expected: renderer font metrics may be unavailable during resize churn. */
+        }
         try {
             this.fitAddon?.fit?.();
-        } catch {}
+        } catch {
+            /* expected: fit addon is best-effort while the terminal host is mounting/unmounting. */
+        }
         try {
             this.terminal?.refresh?.();
-        } catch {}
+        } catch {
+            /* expected: refresh can race with renderer disposal. */
+        }
         this.syncHostLayout();
         this.sendResize();
     }
@@ -562,18 +588,24 @@ class TerminalPaneInstance implements PaneInstance {
                 cancelAnimationFrame(this.resizeFrame);
                 this.resizeFrame = 0;
             }
-        } catch {}
+        } catch {
+            /* expected: resize frame may already be cancelled during teardown. */
+        }
         try {
             if (this.themeChangeListener) {
                 window.removeEventListener('piclaw-theme-change', this.themeChangeListener);
             }
-        } catch {}
+        } catch {
+            /* expected: window listeners may already be detached during teardown. */
+        }
         try {
             if (this.mediaQuery && this.mediaQueryListener) {
                 if (this.mediaQuery.removeEventListener) this.mediaQuery.removeEventListener('change', this.mediaQueryListener);
                 else if (this.mediaQuery.removeListener) this.mediaQuery.removeListener(this.mediaQueryListener);
             }
-        } catch {}
+        } catch {
+            /* expected: media-query listeners differ across browser implementations. */
+        }
         try {
             if (this.dockResizeListener) {
                 window.removeEventListener('dock-resize', this.dockResizeListener);
@@ -581,22 +613,34 @@ class TerminalPaneInstance implements PaneInstance {
             if (this.windowResizeListener) {
                 window.removeEventListener('resize', this.windowResizeListener);
             }
-        } catch {}
+        } catch {
+            /* expected: resize listeners may already be detached during teardown. */
+        }
         try {
             this.themeObserver?.disconnect?.();
-        } catch {}
+        } catch {
+            /* expected: mutation observer may already be disconnected. */
+        }
         try {
             this.resizeObserver?.disconnect?.();
-        } catch {}
+        } catch {
+            /* expected: resize observer may already be disconnected. */
+        }
         try {
             this.socket?.close?.();
-        } catch {}
+        } catch {
+            /* expected: backend websocket may already be closed during teardown. */
+        }
         try {
             this.fitAddon?.dispose?.();
-        } catch {}
+        } catch {
+            /* expected: fit addon may already be disposed during teardown. */
+        }
         try {
             this.terminal?.dispose?.();
-        } catch {}
+        } catch {
+            /* expected: terminal runtime may already be disposed during teardown. */
+        }
         this.termEl?.remove();
     }
 }

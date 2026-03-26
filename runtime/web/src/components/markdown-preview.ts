@@ -90,7 +90,7 @@ export function MarkdownPreview({ getContent, path, onClose }) {
             splitter.classList.remove('dragging');
             document.body.style.cursor = '';
             document.body.style.userSelect = '';
-            try { localStorage.setItem(LS_KEY, String(Math.round(panelRef.current?.offsetHeight || height))); } catch {}
+            try { localStorage.setItem(LS_KEY, String(Math.round(panelRef.current?.offsetHeight || height))); } catch { /* expected: localStorage can be blocked in private mode or constrained embeds. */ }
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
         };
@@ -121,7 +121,7 @@ export function MarkdownPreview({ getContent, path, onClose }) {
         const onUp = () => {
             splitter.classList.remove('dragging');
             document.body.style.userSelect = '';
-            try { localStorage.setItem(LS_KEY, String(Math.round(panelRef.current?.offsetHeight || height))); } catch {}
+            try { localStorage.setItem(LS_KEY, String(Math.round(panelRef.current?.offsetHeight || height))); } catch { /* expected: localStorage can be blocked in private mode or constrained embeds. */ }
             document.removeEventListener('touchmove', onMove);
             document.removeEventListener('touchend', onUp);
             document.removeEventListener('touchcancel', onUp);

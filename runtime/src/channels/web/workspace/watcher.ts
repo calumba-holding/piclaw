@@ -98,7 +98,7 @@ export function startWorkspaceWatcher(
           const root = buildTree(abs, depth, state, { includeHidden: includeHidden() });
           updates.push({ path: relPath, root, truncated: state.truncated });
         } catch {
-          // ignore
+          /* expected: watched paths may disappear while a refresh is being assembled. */
         }
       }
       throttler.schedule(updates);
@@ -108,7 +108,7 @@ export function startWorkspaceWatcher(
   const removeWatcher = (dir: string) => {
     for (const [key, watcher] of Array.from(watchers.entries())) {
       if (key === dir || key.startsWith(`${dir}${path.sep}`)) {
-        try { watcher.close(); } catch {}
+        try { watcher.close(); } catch { /* expected: fs.watch handle may already be closed during watcher churn. */ }
         watchers.delete(key);
       }
     }
@@ -173,7 +173,7 @@ export function startWorkspaceWatcher(
       throttler.clear();
       pending.clear();
       for (const watcher of watchers.values()) {
-        try { watcher.close(); } catch {}
+        try { watcher.close(); } catch { /* expected: watcher may already be closed during shutdown. */ }
       }
       watchers.clear();
     },

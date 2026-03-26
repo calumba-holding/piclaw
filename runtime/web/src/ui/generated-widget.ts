@@ -257,7 +257,9 @@ function buildWidgetBootstrapScript(widget: any): string {
         turnId: meta.turnId || null,
         payload: payload || {}
       }, '*');
-    } catch {}
+    } catch {
+      /* expected: parent bridge may be unavailable while the iframe is unloading. */
+    }
   }
 
   const windowNamePrefix = ${escapeJsonForInlineScript(GENERATED_WIDGET_WINDOW_NAME_PREFIX)};
@@ -341,7 +343,9 @@ function buildWidgetBootstrapScript(widget: any): string {
         turnId: meta.turnId || null,
         payload,
       });
-    } catch {}
+    } catch {
+      /* expected: host window.name payload can be absent or mid-update while polling. */
+    }
   }
 
   window.piclawWidget = {

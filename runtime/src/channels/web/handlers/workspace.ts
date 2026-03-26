@@ -112,7 +112,7 @@ export function handleWorkspaceRaw(req: Request): Response {
       return null;
     } finally {
       if (fd !== null) {
-        try { closeSync(fd); } catch {}
+        try { closeSync(fd); } catch { /* expected: fd may already be closed on range-read failure paths. */ }
       }
     }
   };

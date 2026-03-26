@@ -140,7 +140,7 @@ export async function executeSlashCommand(
           customBuffers.push(text);
         }
       } catch {
-        // ignore
+        /* expected: slash-command event snapshots can be incomplete while streaming. */
       }
     };
 
@@ -154,7 +154,9 @@ export async function executeSlashCommand(
         console.error(`[agent-pool] Slash command timeout after ${AGENT_TIMEOUT}ms for ${chatJid}`);
         try {
           await session.abort();
-        } catch {}
+        } catch {
+          /* expected: timed-out slash command session may already be aborting. */
+        }
       }, AGENT_TIMEOUT);
     }
 

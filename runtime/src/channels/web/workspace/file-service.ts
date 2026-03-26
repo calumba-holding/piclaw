@@ -214,7 +214,9 @@ export class WorkspaceFileService {
       await Bun.write(destPath, file);
       const updated = statSync(destPath);
       if (updated.size > MAX_UPLOAD_BYTES) {
-        try { unlinkSync(destPath); } catch {}
+        try { unlinkSync(destPath); } catch (err) {
+          console.warn(`[workspace] Failed to remove oversized upload ${destPath}:`, err);
+        }
         return { status: 400, body: { error: "File too large to upload" } };
       }
       const relPath = toRelativePath(destPath);

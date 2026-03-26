@@ -743,7 +743,9 @@ export function ComposeBox({
             try {
                 const latest = await getAgentModels(currentChatJid);
                 if (latest) emitModelState(latest);
-            } catch {}
+            } catch {
+                /* expected: background model refresh should not block command completion. */
+            }
             onPost?.();
             return true;
         } catch (error) {
@@ -931,7 +933,9 @@ export function ComposeBox({
                     try {
                         const latest = await getAgentModels(currentChatJid);
                         if (latest) emitModelState(latest);
-                    } catch {}
+                    } catch {
+                        /* expected: background model refresh should not block message submission. */
+                    }
                 }
 
                 onPost?.();

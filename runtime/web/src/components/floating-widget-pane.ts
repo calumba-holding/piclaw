@@ -49,7 +49,9 @@ export function FloatingWidgetPane({ widget, onClose, onWidgetEvent }) {
 
             try {
                 iframe.name = hostName;
-            } catch {}
+            } catch {
+                /* expected: iframe may be detaching while host state sync runs. */
+            }
 
             try {
                 iframe.contentWindow?.postMessage({
@@ -60,7 +62,9 @@ export function FloatingWidgetPane({ widget, onClose, onWidgetEvent }) {
                     turnId: widget?.turnId || null,
                     payload,
                 }, '*');
-            } catch {}
+            } catch {
+                /* expected: iframe may be unloading before widget host messages are delivered. */
+            }
         };
 
         const syncHostState = () => {
@@ -96,7 +100,9 @@ export function FloatingWidgetPane({ widget, onClose, onWidgetEvent }) {
 
         try {
             iframe.name = hostName;
-        } catch {}
+        } catch {
+            /* expected: iframe may be detaching while host state sync runs. */
+        }
 
         try {
             iframe.contentWindow.postMessage({
@@ -107,7 +113,9 @@ export function FloatingWidgetPane({ widget, onClose, onWidgetEvent }) {
                 turnId: widget?.turnId || null,
                 payload,
             }, '*');
-        } catch {}
+        } catch {
+            /* expected: iframe may be unloading before widget host updates are delivered. */
+        }
         return undefined;
     }, [
         widget?.widgetId,

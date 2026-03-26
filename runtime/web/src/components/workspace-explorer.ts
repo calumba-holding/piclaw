@@ -774,7 +774,9 @@ export function WorkspaceExplorer({
             try {
                 input.focus();
                 input.select();
-            } catch {}
+            } catch {
+                /* expected: rename input can unmount before focus lands. */
+            }
         });
         return () => cancelAnimationFrame(timer);
     }, [renamingPath]);
@@ -1312,7 +1314,9 @@ export function WorkspaceExplorer({
         closeHeaderMenu();
         try {
             await fn?.();
-        } catch {}
+        } catch (err) {
+            console.warn('[workspace-explorer] Header menu action failed:', err);
+        }
     }, [closeHeaderMenu]);
 
 

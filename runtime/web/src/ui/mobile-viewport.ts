@@ -45,7 +45,9 @@ export function syncStandaloneMobileViewport(runtime = {}, options = {}) {
       if (typeof win.scrollTo === 'function') {
         win.scrollTo(0, 0);
       }
-    } catch {}
+    } catch {
+      /* expected: standalone mobile shells can reject forced scroll resets. */
+    }
 
     try {
       if (doc.scrollingElement) {
@@ -60,7 +62,9 @@ export function syncStandaloneMobileViewport(runtime = {}, options = {}) {
         doc.body.scrollTop = 0;
         doc.body.scrollLeft = 0;
       }
-    } catch {}
+    } catch {
+      /* expected: some mobile browsers expose partially writable scroll roots. */
+    }
   }
 
   return height;

@@ -1603,7 +1603,9 @@ function MainApp({ locationParams, navigate }) {
             const ctx = await getAgentContext(targetChatJid);
             if (activeChatJidRef.current !== targetChatJid) return;
             if (ctx) setContextUsage(ctx);
-        } catch {}
+        } catch {
+            /* expected: context widget refresh is best-effort during startup/chat switches. */
+        }
     }, [applyBranding, currentChatJid]);
 
     useEffect(() => {
@@ -3340,11 +3342,15 @@ function MainApp({ locationParams, navigate }) {
             try {
                 const active = await api.getActiveChatAgents();
                 setActiveChatAgents(Array.isArray(active?.chats) ? active.chats : []);
-            } catch {}
+            } catch {
+                /* expected: branch-window bootstrap can proceed even if active-agent refresh races. */
+            }
             try {
                 const branches = await getChatBranches(currentRootChatJid);
                 setCurrentChatBranches(Array.isArray(branches?.chats) ? branches.chats : []);
-            } catch {}
+            } catch {
+                /* expected: branch-window bootstrap can proceed even if branch-list refresh races. */
+            }
             const url = buildChatWindowUrl(window.location.href, nextChatJid, { chatOnly: true });
             navigateProvisionalChatWindow(provisionalWindow, url);
         } catch (error) {

@@ -468,7 +468,7 @@ class VncHarness {
         }
         this.fallbackEnabled = false;
         this.fallbackArmed = false;
-        try { this.socketBoundary?.dispose?.(); } catch {}
+        try { this.socketBoundary?.dispose?.(); } catch { /* expected: socket boundary may already be torn down during fallback reset. */ }
         this.socketBoundary = null;
     }
 

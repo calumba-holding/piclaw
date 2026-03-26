@@ -91,7 +91,7 @@ export async function loadRemoteDisplayWasmDecoder(): Promise<WasmDisplayPipelin
                     );
                 } finally {
                     ex.__unpin(ptr);
-                    try { ex.__collect(); } catch {}
+                    try { ex.__collect(); } catch { /* expected: AssemblyScript GC collection hook may be unavailable on some builds. */ }
                 }
             }
 
@@ -151,7 +151,7 @@ export async function loadRemoteDisplayWasmDecoder(): Promise<WasmDisplayPipelin
                         } finally { ex.__unpin(outputPtr); }
                     } finally {
                         ex.__unpin(inputPtr);
-                        try { ex.__collect?.(); } catch {}
+                        try { ex.__collect?.(); } catch { /* expected: AssemblyScript GC collection hook may be unavailable on some builds. */ }
                     }
                 },
             };

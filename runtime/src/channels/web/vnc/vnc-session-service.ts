@@ -174,20 +174,20 @@ export class VncSessionService {
     this.bridge = new WebSocketTcpBridge<VncSocketData, VncTargetRecord>({
       createSocket: (target) => this.createSocketWithHandshakeTimeout(target),
       onConnect: (ws, target) => {
-        try { ws.send(JSON.stringify({ type: "vnc.connected", target: { id: target.id, label: target.label } })); } catch {}
+        try { ws.send(JSON.stringify({ type: "vnc.connected", target: { id: target.id, label: target.label } })); } catch { /* expected: browser websocket may close before connect ack is delivered. */ }
       },
       onError: (ws, _target, error) => {
-        try { ws.send(JSON.stringify({ type: "vnc.error", error: error.message || String(error) })); } catch {}
+        try { ws.send(JSON.stringify({ type: "vnc.error", error: error.message || String(error) })); } catch { /* expected: browser websocket may already be closed while surfacing upstream errors. */ }
       },
       handleControlMessage: (ws, message) => {
         try {
           const payload = JSON.parse(message) as { type?: string };
           if (payload?.type === "ping") {
-            try { ws.send(JSON.stringify({ type: "pong" })); } catch {}
+            try { ws.send(JSON.stringify({ type: "pong" })); } catch { /* expected: ping/pong races with socket teardown. */ }
             return true;
           }
         } catch {
-          // ignore non-JSON string control frames
+          /* expected: non-JSON string frames are forwarded to the upstream socket. */
         }
         return false;
       },
@@ -200,10 +200,10 @@ export class VncSessionService {
     const clear = () => {
       if (cleared) return;
       cleared = true;
-      try { clearTimeout(timer); } catch {}
+      clearTimeout(timer);
     };
     const timer = setTimeout(() => {
-      try { socket.destroy(new Error(`Timed out connecting to VNC target ${target.label || target.id}.`)); } catch {}
+      try { socket.destroy(new Error(`Timed out connecting to VNC target ${target.label || target.id}.`)); } catch { /* expected: socket may already be closed when the timeout fires. */ }
     }, this.connectTimeoutMs);
     socket.once("data", clear);
     socket.once("error", clear);
@@ -276,7 +276,7 @@ export class VncSessionService {
   attachClient(ws: ServerWebSocket<VncSocketData>): void {
     const target = this.resolveTargetReference(ws.data.targetRef);
     if (!target) {
-      try { ws.close(1008, "Unknown VNC target."); } catch {}
+      try { ws.close(1008, "Unknown VNC target."); } catch { /* expected: websocket may already be gone while rejecting an unknown target. */ }
       return;
     }
     this.bridge.attachClient(ws, target);

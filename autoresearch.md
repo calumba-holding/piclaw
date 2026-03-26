@@ -51,6 +51,8 @@ We are optimizing for full audited coverage while keeping builds/tests passing.
 - Prefer comments for expected/racy cleanup paths; prefer warnings for unexpected failures in backend/critical paths
 
 ## What's Been Tried
-- Baseline pending.
-- Prioritize ticket top offenders and critical backend paths first: agent pool, web channel, terminal/VNC services, workspace file handling.
-- For browser-only cleanup paths, annotate expected platform teardown races instead of introducing noisy logs.
+- Baseline established at `silent_catch_blocks=97`, `critical_silent_catches=33`, `silent_promise_catches=17`.
+- Audited all empty `catch {}` blocks in `runtime/src` + `runtime/web/src` and removed the bare-empty form entirely.
+- Backend/critical-path changes now log when hidden failures would matter: agent-pool branch/session sync, web theme init fallback, oversized upload cleanup, workspace menu actions, tab listener failures, and WhatsApp availability publishing.
+- Intentional/racy cleanup paths now carry explicit `/* expected: ... */` justification comments instead of silent empties: PTY/procfs scans, websocket teardown, iframe/widget messaging, localStorage writes, pointer capture, resize observers, Ghostty/terminal teardown, and browser popup/mobile viewport quirks.
+- Remaining backlog after this sweep is promise-style silent swallows such as `.catch(() => {})`; these are secondary to the ticket’s explicit `catch {}` acceptance criteria but are worth auditing next.
