@@ -46,8 +46,11 @@ import { broadcastInteractionUpdated } from "../interaction-service.js";
 import { storeAgentTurn } from "../agent-message-store.js";
 import { resolveThreadId, resolveThreadRootId } from "../threading.js";
 import { createUuid } from "../../../utils/ids.js";
+import { createLogger } from "../../../utils/logger.js";
 import type { AttachmentInfo } from "../../../agent-pool/attachments.js";
 import { checkPendingShutdown } from "../../../runtime/shutdown-registry.js";
+
+const log = createLogger("web.handlers.agent");
 
 function parseLeadingAgentMention(content: string): { agentName: string; remainder: string } | null {
   const match = content.match(/^\s*@([a-zA-Z0-9][a-zA-Z0-9_-]{0,31})(?:\s+([\s\S]*))?$/);
@@ -209,11 +212,17 @@ export async function handleAgentMessage(
     return channel.json({ queued: "steer", thread_id: null }, 201);
   };
 
-  console.log(
-    `[web] handleAgentMessage ${chatJid}: mode=${requestMode}, isStreaming=${isStreaming}, isActive=${isActive}, hasQueuedBacklog=${hasQueuedBacklog}, ` +
-      `shouldDefer=false, hasCommand=${!!command}, ` +
-      `content=${content.slice(0, 60)}`
-  );
+  log.info("Handling agent message", {
+    operation: "handle_agent_message",
+    chatJid,
+    mode: requestMode,
+    isStreaming,
+    isActive,
+    hasQueuedBacklog,
+    shouldDefer: false,
+    hasCommand: Boolean(command),
+    contentPreview: content.slice(0, 60),
+  });
 
   if (!command && !themeCommand && isStreaming && requestMode === "steer") {
     const steerResponse = await queueDeferredSteer(content, "compose");
@@ -247,7 +256,11 @@ export async function handleAgentMessage(
         // timeline so users can see the theme list/output immediately.
         await channel.sendMessage(chatJid, formattedThemeMessage, { forceRoot: true });
       } catch (error) {
-        console.error("[web] Failed to send /theme response:", error);
+        log.error("Failed to send /theme response", {
+          operation: "handle_agent_message.theme_response",
+          chatJid,
+          err: error,
+        });
       }
     }
 
@@ -311,11 +324,17 @@ export async function handleAgentMessage(
     (requestMode === "queue" || requestMode === "auto");
 
   if (shouldDeferQueuedFollowup) {
-    console.log(
-      `[web] handleAgentMessage ${chatJid}: mode=${requestMode}, isStreaming=${isStreaming}, isActive=${isActive}, hasQueuedBacklog=${hasQueuedBacklog}, ` +
-        `shouldDefer=true, hasCommand=${!!command}, ` +
-        `content=${content.slice(0, 60)}`
-    );
+    log.info("Deferring agent message as queued follow-up", {
+      operation: "handle_agent_message.defer_followup",
+      chatJid,
+      mode: requestMode,
+      isStreaming,
+      isActive,
+      hasQueuedBacklog,
+      shouldDefer: true,
+      hasCommand: Boolean(command),
+      contentPreview: content.slice(0, 60),
+    });
 
     const response = queueDeferredFollowup(content, {
       mediaIds: normalized.mediaIds,
@@ -582,7 +601,11 @@ export async function handleAgentMessage(
       const formatted = formatOutbound(cmdResult.message || "", "web");
       if (formatted) await channel.sendMessage(chatJid, formatted, interaction.id);
     } catch (e) {
-      console.error('[web] Failed to send slash command response:', e);
+      log.error("Failed to send slash command response", {
+        operation: "handle_agent_message.slash_command_response",
+        chatJid,
+        err: e,
+      });
     }
 
     if (slashName === "/reload" && cmdResult.status === "success") {
@@ -628,10 +651,11 @@ export async function handleAgentMessage(
   // Normal (non-queued) message processing — broadcast to timeline now
   broadcastNewPost();
 
-  console.log(
-    `[web] handleAgentMessage ${chatJid}: normal path → enqueue processChat ` +
-      `(key=chat:${chatJid}:${interaction.id})`
-  );
+  log.info("Enqueuing processChat for normal agent message path", {
+    operation: "handle_agent_message.enqueue_process_chat",
+    chatJid,
+    queueKey: `chat:${chatJid}:${interaction.id}`,
+  });
 
   channel.queue.enqueue(async () => {
     await processChat(channel, chatJid, agentId, interaction.data?.thread_id ?? interaction.id);
@@ -671,10 +695,13 @@ export async function processChat(
     if (!queuedInteraction) {
       if (retries >= MAX_MATERIALIZE_RETRIES) {
         // Too many failures — drop the item to prevent infinite loops.
-        console.error(
-          `[web] Dropping queued followup for ${chatJid} after ${retries} failed materialize attempts ` +
-            `(rowId=${nextQueued.rowId}, content=${nextQueued.queuedContent?.slice(0, 80)})`
-        );
+        log.error("Dropping queued follow-up after repeated materialize failures", {
+          operation: "process_chat.materialize_followup_drop",
+          chatJid,
+          retries,
+          rowId: nextQueued.rowId,
+          contentPreview: nextQueued.queuedContent?.slice(0, 80) ?? "",
+        });
         channel.broadcastEvent("agent_followup_consumed", {
           chat_jid: chatJid,
           thread_id: nextQueued.threadId ?? null,
@@ -687,10 +714,13 @@ export async function processChat(
       // Preserve order and increment retry counter.
       const withRetry = { ...nextQueued, materializeRetries: retries + 1 };
       channel.prependQueuedFollowupItem(chatJid, withRetry);
-      console.warn(
-        `[web] Failed to materialize queued followup for ${chatJid} ` +
-          `(attempt ${retries + 1}/${MAX_MATERIALIZE_RETRIES}, rowId=${nextQueued.rowId})`
-      );
+      log.warn("Failed to materialize queued follow-up", {
+        operation: "process_chat.materialize_followup_retry",
+        chatJid,
+        attempt: retries + 1,
+        maxAttempts: MAX_MATERIALIZE_RETRIES,
+        rowId: nextQueued.rowId,
+      });
       return false;
     }
 
@@ -714,9 +744,12 @@ export async function processChat(
   const messages = getMessagesSince(chatJid, prevCursor, ASSISTANT_NAME);
 
   if (messages.length === 0) {
-    console.log(
-      `[web] processChat ${chatJid}: cursor=${prevCursor}, pendingMessages=0, threadRootId=${threadRootId ?? "none"}`
-    );
+    log.info("processChat found no pending messages", {
+      operation: "process_chat.no_pending_messages",
+      chatJid,
+      cursor: prevCursor,
+      threadRootId: threadRootId ?? null,
+    });
     materializeNextDeferredFollowup();
     return;
   }
@@ -735,14 +768,17 @@ export async function processChat(
   const messageThreadId = currentMessage.thread_id ?? undefined;
   const effectiveThreadRootId = messageThreadId ?? threadRootId;
 
-  console.log(
-    `[web] processChat ${chatJid}: cursor=${prevCursor}, ` +
-      `pendingMessages=${messages.length} [${messages.map(m => `${m.id}@${m.timestamp}`).join(", ")}], ` +
-      `threadRootId=${threadRootId ?? "none"}, ` +
-      `msgThread=${messageThreadId ?? "none"}, ` +
-      `effectiveThread=${effectiveThreadRootId ?? "none"}, ` +
-      `processing=${currentMessage.id}`
-  );
+  log.info("processChat selected next pending message", {
+    operation: "process_chat.select_message",
+    chatJid,
+    cursor: prevCursor,
+    pendingMessageCount: messages.length,
+    pendingMessages: messages.map(m => `${m.id}@${m.timestamp}`),
+    threadRootId: threadRootId ?? null,
+    messageThreadId: messageThreadId ?? null,
+    effectiveThreadRootId: effectiveThreadRootId ?? null,
+    processingMessageId: currentMessage.id,
+  });
 
   const channelName = detectChannel(chatJid);
   const prompt = formatMessages([currentMessage], channelName);
@@ -888,11 +924,15 @@ export async function processChat(
     const cursorNow = getChatCursor(chatJid);
     const remainingPersisted = getMessagesSince(chatJid, cursorNow, ASSISTANT_NAME);
 
-    console.log(
-      `[web] finalizeSuccessfulRun ${chatJid}: cursorAfterEnd=${cursorAfterEnd}, ` +
-        `cursorAfterSteer=${cursorAfterSteer}, cursorNow=${cursorNow}, ` +
-        `remaining=${remainingPersisted.length}${remainingPersisted.length > 0 ? ` [${remainingPersisted.map(m => `${m.id}@${m.timestamp}`).join(", ")}]` : ""}`
-    );
+    log.info("finalizeSuccessfulRun advanced cursor", {
+      operation: "process_chat.finalize_successful_run",
+      chatJid,
+      cursorAfterEnd,
+      cursorAfterSteer,
+      cursorNow,
+      remainingCount: remainingPersisted.length,
+      remainingMessages: remainingPersisted.map(m => `${m.id}@${m.timestamp}`),
+    });
 
     if (remainingPersisted.length > 0) {
       channel.resumeChat(chatJid);
@@ -930,10 +970,13 @@ export async function processChat(
         });
         if (!stored) {
           intermediatePersistFailed = true;
-          console.warn(
-            `[web] Failed to persist intermediate turn ${turnCount} for ${chatJid} ` +
-              `(${turn.text.length} chars, ${turn.attachments.length} attachments)`
-          );
+          log.warn("Failed to persist intermediate agent turn", {
+            operation: "process_chat.persist_intermediate_turn",
+            chatJid,
+            turnCount,
+            textLength: turn.text.length,
+            attachmentCount: turn.attachments.length,
+          });
         } else {
           persistedIntermediateOutput = true;
         }
@@ -1120,10 +1163,10 @@ export async function processChat(
     //
     // Post a system notice so the user can see their message was consumed
     // without a response and re-send if needed.
-    console.warn(
-      `[web] Agent completed for ${chatJid} without output — ` +
-        "finalizing as no-op to advance cursor"
-    );
+    log.warn("Agent completed without output; finalizing as no-op", {
+      operation: "process_chat.no_output_noop",
+      chatJid,
+    });
 
     const originalContent = currentMessage.content || "";
     const preview = originalContent.length > 120
