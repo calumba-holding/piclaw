@@ -1,19 +1,16 @@
 # Autoresearch: audit silent catch blocks
 
 ## Objective
-Add focused regression tests for the silent-swallow scanner so the new quality guard itself is verified, especially around comment false positives and `--check` failure behavior. The governing ticket is `kanban/10-next/audit-silent-catch-blocks.md`.
+Adopt the silent-swallow guard in CI so regressions are blocked even outside local/autoresearch quality runs. The governing ticket is `kanban/10-next/audit-silent-catch-blocks.md`.
 
-The repo-wide cleanup and quality-hook wiring are complete. The resumed loop is now focused on test assurance for `runtime/scripts/silent-swallow-metrics.ts`.
+The repo-wide cleanup, quality-hook wiring, and focused scanner tests are complete. The resumed loop is now focused on CI assurance.
 
-Success means the repo has a dedicated script test that verifies:
-- comment/doc strings do not count as silent swallows,
-- real empty catches/promise catches are detected, and
-- `--check` mode fails when detections are present.
+Success means GitHub CI explicitly runs `bun run check:silent-swallows` (or an equivalent flow that guarantees the same guard) in the normal validation path.
 
 We are optimizing for durable audit coverage while keeping builds/tests passing.
 
 ## Metrics
-- **Primary**: `silent_swallow_test_gaps` (count, lower is better) — missing focused regression tests or missing backpressure execution for the scanner test
+- **Primary**: `silent_swallow_ci_gaps` (count, lower is better) — missing CI integration for the silent-swallow guard
 - **Secondary**:
   - `repo_silent_catch_blocks` — repo-wide empty `catch {}` count (should stay 0)
   - `repo_silent_promise_catches` — repo-wide empty `.catch(() => {})` count (should stay 0)
@@ -23,10 +20,10 @@ We are optimizing for durable audit coverage while keeping builds/tests passing.
 `./autoresearch.sh` — emits structured `METRIC name=value` lines.
 
 ## Files in Scope
+- `.github/workflows/ci.yml` — CI adoption point for the silent-swallow guard
 - `runtime/scripts/silent-swallow-metrics.ts` — reusable scanner/metrics script for empty swallow detection
 - `runtime/test/scripts/silent-swallow-metrics.test.ts` — focused regression coverage for the scanner
-- `autoresearch.checks.sh` — backpressure correctness hook; should run the new test or a targeted suite containing it
-- `package.json` — existing guard wiring must stay intact
+- `autoresearch.checks.sh` and `package.json` — existing local/backpressure guard wiring must stay intact
 - `runtime/src/**`, `runtime/web/src/**`, `runtime/scripts/**`, `runtime/extensions/**`, `runtime/test/**`, `skel/scripts/**` — monitored repo code that must remain at zero silent swallows
 
 ## Off Limits
@@ -56,3 +53,4 @@ We are optimizing for durable audit coverage while keeping builds/tests passing.
 - Added `runtime/scripts/silent-swallow-metrics.ts --check`, a `check:silent-swallows` package script, `quality` integration, and an autoresearch backpressure check so regressions now fail fast.
 - New target: add focused tests for the scanner itself so comment handling and `--check` semantics stay reliable.
 - Focused tests exposed and then fixed an underlying bug in the scanner: it originally ignored comments but still counted `catch {}` patterns inside strings/template text. The scanner now masks all non-code spans and the dedicated script test covers comment-only false positives, real detections, and `--check` failure behavior.
+- New target: wire `check:silent-swallows` into CI so the audit guard is enforced outside local/autoresearch workflows too.
