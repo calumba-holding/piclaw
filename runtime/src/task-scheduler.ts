@@ -27,7 +27,10 @@ import { AgentQueue } from "./queue.js";
 import { detectChannel, formatOutbound } from "./router.js";
 import type { ScheduledTask } from "./types.js";
 import { createTrackedBashOperations } from "./tools/tracked-bash.js";
+import { createLogger } from "./utils/logger.js";
 import { validateShellCommand, validateShellCwd } from "./utils/task-validation.js";
+
+const log = createLogger("scheduler");
 
 /**
  * Dependency injection interface provided by runtime.ts.
@@ -132,7 +135,12 @@ async function restoreOriginalModel(
   if (!task.model || !savedModel || savedModel === task.model) return;
   const control = await applyModelLabel(deps.agentPool, task.chat_jid, savedModel);
   if (control.status === "error") {
-    console.error(`[scheduler] Failed to restore model ${savedModel}: ${control.message}`);
+    log.error("Failed to restore model after scheduled task", {
+      operation: "restore_original_model",
+      chatJid: task.chat_jid,
+      model: savedModel,
+      errorMessage: control.message,
+    });
   }
 }
 
@@ -279,7 +287,7 @@ let schedulerTimer: ReturnType<typeof setTimeout> | null = null;
 export function startSchedulerLoop(deps: SchedulerDeps): () => void {
   if (started) return stopSchedulerLoop;
   started = true;
-  console.log("[scheduler] Started");
+  log.info("Scheduler loop started", { operation: "start_scheduler_loop" });
   const loop = async () => {
     try {
       schedulerMetrics.polls += 1;
@@ -290,7 +298,12 @@ export function startSchedulerLoop(deps: SchedulerDeps): () => void {
         deps.queue.enqueueTask(cur.id, () => runScheduledTask(cur, deps), `chat:${cur.chat_jid}`);
         schedulerMetrics.tasksEnqueued += 1;
       }
-    } catch (e) { console.error("[scheduler]", e); }
+    } catch (e) {
+      log.error("Scheduler poll failed", {
+        operation: "start_scheduler_loop.poll",
+        err: e,
+      });
+    }
     if (!started) return;
     schedulerTimer = setTimeout(loop, SCHEDULER_POLL_INTERVAL);
   };

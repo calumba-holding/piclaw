@@ -16,7 +16,9 @@
  */
 
 import { DEFAULT_BASE_RETRY_MS, DEFAULT_MAX_RETRIES, getRetryDelay, shouldRetry } from "./queue/retry-policy.js";
+import { createLogger } from "./utils/logger.js";
 
+const log = createLogger("queue");
 const DEFAULT_LANE_KEY = "__default__";
 
 /** Internal representation of a queued work item. */
@@ -138,7 +140,12 @@ export class AgentQueue {
       this.metrics.succeeded += 1;
     } catch (err) {
       this.metrics.failed += 1;
-      console.error("[queue] Error:", err);
+      log.error("Queue item failed", {
+        operation: "execute_item",
+        laneKey: item.laneKey,
+        itemId: item.id ?? null,
+        err,
+      });
       this.scheduleRetry(item);
     } finally {
       lane.running = false;
@@ -159,9 +166,13 @@ export class AgentQueue {
     item.retries++;
     this.metrics.retriesScheduled += 1;
     const delay = getRetryDelay(item.retries, DEFAULT_BASE_RETRY_MS);
-    console.log(
-      `[queue] Retry ${item.retries}/${DEFAULT_MAX_RETRIES} in ${delay}ms${item.id ? ` (${item.id})` : ""}`
-    );
+    log.info("Scheduling queue retry", {
+      operation: "schedule_retry",
+      retries: item.retries,
+      maxRetries: DEFAULT_MAX_RETRIES,
+      delayMs: delay,
+      itemId: item.id ?? null,
+    });
     setTimeout(() => {
       if (this.shuttingDown) return;
       const lane = this.getLane(item.laneKey);

@@ -26,7 +26,10 @@ import { MediaService } from "./channels/web/media-service.js";
 import { createTask, deleteTask, getTaskById, updateTask } from "./db.js";
 import type { ScheduledTask } from "./types.js";
 import { createUuid } from "./utils/ids.js";
+import { createLogger } from "./utils/logger.js";
 import { validateShellCommand, validateShellCwd } from "./utils/task-validation.js";
+
+const log = createLogger("ipc");
 
 /**
  * Options bag accepted by the injected `sendMessage` callback.
@@ -195,11 +198,16 @@ async function processIpcDir(
       await handler(parsed);
       unlinkSync(fp);
     } catch (e) {
-      console.error(`[ipc] Error processing ${kind} ${file}:`, e);
+      log.error("Failed to process IPC payload", {
+        operation: "process_ipc_dir",
+        kind,
+        file,
+        err: e,
+      });
       try {
         renameSync(fp, join(ipcDir, `error-${file}`));
       } catch {
-        // ignore rename errors
+        /* expected: preserving the original file is acceptable when renaming the failed payload also fails. */
       }
     }
   }
@@ -251,14 +259,20 @@ export function startIpcWatcher(deps: IpcDeps): () => void {
     try {
       await processIpcDir(messagesDir, ipcDir, "message", (data) => processMessageCommand(data, deps));
     } catch (e) {
-      console.error("[ipc] Error reading messages dir:", e);
+      log.error("Failed to read IPC messages directory", {
+        operation: "start_ipc_watcher.poll_messages",
+        err: e,
+      });
     }
 
     // --- Process task command files ---
     try {
       await processIpcDir(tasksDir, ipcDir, "task", (data) => processTaskCommand(data, deps));
     } catch (e) {
-      console.error("[ipc] Error reading tasks dir:", e);
+      log.error("Failed to read IPC tasks directory", {
+        operation: "start_ipc_watcher.poll_tasks",
+        err: e,
+      });
     }
 
     if (!running) return;
@@ -266,7 +280,7 @@ export function startIpcWatcher(deps: IpcDeps): () => void {
   };
 
   poll();
-  console.log("[ipc] Watcher started");
+  log.info("IPC watcher started", { operation: "start_ipc_watcher" });
   return stopIpcWatcher;
 }
 
@@ -555,7 +569,10 @@ export async function processTaskCommand(data: JsonRecord, deps: IpcDeps): Promi
 
     // --- Resume any pending agent turns after restart ---
     case "resume_pending": {
-      console.log(`[ipc] Processing resume_pending for ${getStringField(data, "chatJid") || "all"}`);
+      log.info("Processing resume_pending IPC task", {
+        operation: "process_task_command.resume_pending",
+        chatJid: getStringField(data, "chatJid") || "all",
+      });
       if (deps.resumePending) {
         await deps.resumePending(data);
       }

@@ -237,10 +237,13 @@ test("runScheduledTask logs restore-model failures", async () => {
 
   const modelCalls: any[] = [];
   const errors: string[] = [];
-  const originalError = console.error;
-  console.error = (...args: any[]) => {
-    errors.push(args.map(String).join(" "));
-  };
+  const originalWrite = process.stderr.write.bind(process.stderr);
+  process.stderr.write = ((chunk: any, encodingOrCb?: any, cb?: any) => {
+    errors.push(String(chunk));
+    if (typeof encodingOrCb === "function") encodingOrCb();
+    else if (typeof cb === "function") cb();
+    return true;
+  }) as typeof process.stderr.write;
 
   const deps = {
     queue: { enqueueTask: (_id: string, fn: () => Promise<void>) => fn() } as any,
@@ -263,7 +266,7 @@ test("runScheduledTask logs restore-model failures", async () => {
   const task = db.getTaskById(taskId)!;
   await scheduler.runScheduledTask(task, deps as any);
 
-  console.error = originalError;
+  process.stderr.write = originalWrite;
 
   expect(modelCalls.length).toBe(2);
   expect(errors.some((line) => line.includes("Failed to restore model"))).toBe(true);

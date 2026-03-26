@@ -19,8 +19,11 @@ import type { AgentSession, AgentSessionEvent } from "@mariozechner/pi-coding-ag
 
 import type { AgentControlResult } from "../agent-control/agent-control-types.js";
 import { AGENT_TIMEOUT } from "../core/config.js";
-import { detectChannel } from "../router.js";
 import { withChatContext } from "../core/chat-context.js";
+import { detectChannel } from "../router.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("agent-pool.slash-command");
 
 interface TextContentBlock {
   type?: unknown;
@@ -66,7 +69,11 @@ export async function executeSlashCommand(
 ): Promise<AgentControlResult> {
   const startTime = Date.now();
   try {
-    console.log(`[agent-pool] Executing slash command for ${chatJid}: ${rawText}`);
+    log.info("Executing slash command", {
+      operation: "execute_slash_command",
+      chatJid,
+      rawText,
+    });
 
     const trimmed = rawText.trim();
     if (!trimmed.startsWith("/")) {
@@ -151,7 +158,11 @@ export async function executeSlashCommand(
     if (AGENT_TIMEOUT > 0) {
       timeoutId = setTimeout(async () => {
         timedOut = true;
-        console.error(`[agent-pool] Slash command timeout after ${AGENT_TIMEOUT}ms for ${chatJid}`);
+        log.error("Slash command timed out", {
+          operation: "execute_slash_command.timeout",
+          chatJid,
+          timeoutMs: AGENT_TIMEOUT,
+        });
         try {
           await session.abort();
         } catch {
@@ -179,11 +190,21 @@ export async function executeSlashCommand(
       : customBuffers.join("\n\n").trim();
     const message = finalText || capturedMessages.map((captured) => captured.text).join("\n\n").trim();
 
-    console.log(`[agent-pool] Slash command completed in ${Date.now() - startTime}ms (${message.length} chars)`);
+    log.info("Slash command completed", {
+      operation: "execute_slash_command.complete",
+      chatJid,
+      durationMs: Date.now() - startTime,
+      outputChars: message.length,
+    });
     return { status: "success", message, messages: capturedMessages };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[agent-pool] Slash command error for ${chatJid}:`, message);
+    log.error("Slash command failed", {
+      operation: "execute_slash_command",
+      chatJid,
+      errorMessage: message,
+      err,
+    });
     return { status: "error", message };
   }
 }
