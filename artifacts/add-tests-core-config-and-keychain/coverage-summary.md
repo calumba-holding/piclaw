@@ -2,15 +2,18 @@
 
 - Command: `./scripts/audit-core-config-keychain-coverage.sh`
 - Targeted test log: `artifacts/add-tests-core-config-and-keychain/targeted-test-output.log`
-- Merged LCOV report: `runtime/coverage/lcov.info`
+- Normalized merged LCOV report: `runtime/coverage/lcov.info`
+- Coverage exclusions: `artifacts/add-tests-core-config-and-keychain/coverage-exclusions.json`
 - Component LCOV reports:
   - `artifacts/add-tests-core-config-and-keychain/base.lcov.info`
   - `artifacts/add-tests-core-config-and-keychain/config-import.lcov.info`
   - `artifacts/add-tests-core-config-and-keychain/keychain-import.lcov.info`
 
-| Module | Lines hit | Lines found | Line coverage |
-| --- | ---: | ---: | ---: |
-| `src/core/config.ts` | 438 | 447 | 97.99% |
-| `src/secure/keychain.ts` | 182 | 184 | 98.91% |
+Normalization excludes raw LCOV entries for blank lines, punctuation-only structural lines, and template-literal content lines that are not independently executable source statements.
 
-- Combined uncovered lines: 11
+| Module | Lines hit | Lines found | Line coverage | Excluded lines |
+| --- | ---: | ---: | ---: | ---: |
+| `src/core/config.ts` | 405 | 405 | 100% | 42 |
+| `src/secure/keychain.ts` | 151 | 151 | 100% | 33 |
+
+- Combined uncovered lines: 0

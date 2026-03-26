@@ -1,0 +1,381 @@
+{
+  "src/core/config.ts": [
+    {
+      "line": 72,
+      "reason": "structural_only",
+      "source": "]);"
+    },
+    {
+      "line": 83,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 95,
+      "reason": "structural_only",
+      "source": "    }"
+    },
+    {
+      "line": 96,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 110,
+      "reason": "structural_only",
+      "source": "    }"
+    },
+    {
+      "line": 111,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 185,
+      "reason": "structural_only",
+      "source": "]);"
+    },
+    {
+      "line": 193,
+      "reason": "structural_only",
+      "source": "]);"
+    },
+    {
+      "line": 199,
+      "reason": "structural_only",
+      "source": "]);"
+    },
+    {
+      "line": 205,
+      "reason": "structural_only",
+      "source": "]);"
+    },
+    {
+      "line": 214,
+      "reason": "structural_only",
+      "source": "]);"
+    },
+    {
+      "line": 222,
+      "reason": "structural_only",
+      "source": "]);"
+    },
+    {
+      "line": 229,
+      "reason": "structural_only",
+      "source": "]);"
+    },
+    {
+      "line": 236,
+      "reason": "structural_only",
+      "source": "]);"
+    },
+    {
+      "line": 244,
+      "reason": "structural_only",
+      "source": "]);"
+    },
+    {
+      "line": 251,
+      "reason": "structural_only",
+      "source": "]);"
+    },
+    {
+      "line": 256,
+      "reason": "structural_only",
+      "source": "]);"
+    },
+    {
+      "line": 270,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 290,
+      "reason": "structural_only",
+      "source": ");"
+    },
+    {
+      "line": 353,
+      "reason": "structural_only",
+      "source": ");"
+    },
+    {
+      "line": 372,
+      "reason": "structural_only",
+      "source": "      }"
+    },
+    {
+      "line": 375,
+      "reason": "structural_only",
+      "source": "      }"
+    },
+    {
+      "line": 376,
+      "reason": "structural_only",
+      "source": "    }"
+    },
+    {
+      "line": 377,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 432,
+      "reason": "structural_only",
+      "source": ");"
+    },
+    {
+      "line": 439,
+      "reason": "structural_only",
+      "source": ");"
+    },
+    {
+      "line": 518,
+      "reason": "structural_only",
+      "source": "]);"
+    },
+    {
+      "line": 523,
+      "reason": "structural_only",
+      "source": "]);"
+    },
+    {
+      "line": 594,
+      "reason": "blank",
+      "source": ""
+    },
+    {
+      "line": 607,
+      "reason": "structural_only",
+      "source": "  ];"
+    },
+    {
+      "line": 608,
+      "reason": "blank",
+      "source": ""
+    },
+    {
+      "line": 611,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 612,
+      "reason": "blank",
+      "source": ""
+    },
+    {
+      "line": 615,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 616,
+      "reason": "blank",
+      "source": ""
+    },
+    {
+      "line": 621,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 622,
+      "reason": "blank",
+      "source": ""
+    },
+    {
+      "line": 624,
+      "reason": "blank",
+      "source": ""
+    },
+    {
+      "line": 630,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 631,
+      "reason": "blank",
+      "source": ""
+    },
+    {
+      "line": 645,
+      "reason": "structural_only",
+      "source": ");"
+    },
+    {
+      "line": 674,
+      "reason": "structural_only",
+      "source": ");"
+    }
+  ],
+  "src/secure/keychain.ts": [
+    {
+      "line": 80,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 83,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 89,
+      "reason": "structural_only",
+      "source": "};"
+    },
+    {
+      "line": 108,
+      "reason": "structural_only",
+      "source": "  );"
+    },
+    {
+      "line": 115,
+      "reason": "structural_only",
+      "source": "    },"
+    },
+    {
+      "line": 120,
+      "reason": "structural_only",
+      "source": "    },"
+    },
+    {
+      "line": 123,
+      "reason": "structural_only",
+      "source": "  );"
+    },
+    {
+      "line": 130,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 142,
+      "reason": "structural_only",
+      "source": "  );"
+    },
+    {
+      "line": 153,
+      "reason": "structural_only",
+      "source": "  );"
+    },
+    {
+      "line": 161,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 164,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 168,
+      "reason": "template_literal_content",
+      "source": "    `INSERT INTO keychain_entries ("
+    },
+    {
+      "line": 193,
+      "reason": "structural_only",
+      "source": "  );"
+    },
+    {
+      "line": 201,
+      "reason": "template_literal_content",
+      "source": "      `SELECT name, type, ciphertext, nonce, salt, kdf, kdf_iterations"
+    },
+    {
+      "line": 204,
+      "reason": "structural_only",
+      "source": "    )"
+    },
+    {
+      "line": 208,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 211,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 221,
+      "reason": "template_literal_content",
+      "source": "      `SELECT name, type, created_at as createdAt, updated_at as updatedAt"
+    },
+    {
+      "line": 222,
+      "reason": "template_literal_content",
+      "source": "       FROM keychain_entries"
+    },
+    {
+      "line": 223,
+      "reason": "template_literal_content",
+      "source": "       ORDER BY name`"
+    },
+    {
+      "line": 224,
+      "reason": "structural_only",
+      "source": "    )"
+    },
+    {
+      "line": 241,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 244,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 247,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 261,
+      "reason": "structural_only",
+      "source": "    }"
+    },
+    {
+      "line": 267,
+      "reason": "structural_only",
+      "source": "      }"
+    },
+    {
+      "line": 270,
+      "reason": "structural_only",
+      "source": "    }"
+    },
+    {
+      "line": 272,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 280,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 285,
+      "reason": "structural_only",
+      "source": "  }"
+    },
+    {
+      "line": 296,
+      "reason": "structural_only",
+      "source": "      }"
+    },
+    {
+      "line": 301,
+      "reason": "structural_only",
+      "source": "  }"
+    }
+  ]
+}

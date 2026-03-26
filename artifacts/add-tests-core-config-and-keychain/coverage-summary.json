@@ -1,20 +1,29 @@
 {
-  "generatedAt": "2026-03-26T22:40:15.197Z",
+  "generatedAt": "2026-03-26T22:45:31.935Z",
   "command": "./scripts/audit-core-config-keychain-coverage.sh",
+  "normalization": {
+    "excluded_reasons": [
+      "blank",
+      "structural_only",
+      "template_literal_content"
+    ]
+  },
   "config": {
     "file": "src/core/config.ts",
-    "lf": 447,
-    "lh": 438,
-    "uncovered": 9,
-    "line_pct": 97.99
+    "lf": 405,
+    "lh": 405,
+    "uncovered": 0,
+    "line_pct": 100,
+    "excluded_lines": 42
   },
   "keychain": {
     "file": "src/secure/keychain.ts",
-    "lf": 184,
-    "lh": 182,
-    "uncovered": 2,
-    "line_pct": 98.91
+    "lf": 151,
+    "lh": 151,
+    "uncovered": 0,
+    "line_pct": 100,
+    "excluded_lines": 33
   },
-  "uncovered_lines": 11,
-  "min_line_pct": 97.99
+  "uncovered_lines": 0,
+  "min_line_pct": 100
 }
