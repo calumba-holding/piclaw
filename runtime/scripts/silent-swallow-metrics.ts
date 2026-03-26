@@ -148,8 +148,16 @@ const runtimeCoreFiles = collectFiles(runtimeCoreDirs);
 const repoCatch = countMatches(repoFiles, emptyCatchPattern);
 const repoPromise = countMatches(repoFiles, emptyPromiseCatchPattern);
 const coreCatch = countMatches(runtimeCoreFiles, emptyCatchPattern);
+const checkMode = process.argv.includes("--check");
 
 console.log(`METRIC repo_silent_catch_blocks=${repoCatch.total}`);
 console.log(`METRIC repo_files_with_silent_catches=${repoCatch.filesWithMatches.size}`);
 console.log(`METRIC repo_silent_promise_catches=${repoPromise.total}`);
 console.log(`METRIC runtime_core_silent_catches=${coreCatch.total}`);
+
+if (checkMode && (repoCatch.total > 0 || repoPromise.total > 0)) {
+  console.error(
+    `[check:silent-swallows] Found ${repoCatch.total} empty catch block(s) and ${repoPromise.total} empty promise catch(es).`,
+  );
+  process.exit(1);
+}

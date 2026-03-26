@@ -53,3 +53,4 @@ We are optimizing for durable audit coverage while keeping builds/tests passing.
 - Benchmark instrumentation was tightened to ignore comment-only false positives while still counting real empty catch blocks in code.
 - Repo-wide code is now at zero silent catches and zero silent promise swallows.
 - New target: convert the scanner into a durable regression guard by wiring it into package scripts, `quality`, and autoresearch checks.
+- Added `runtime/scripts/silent-swallow-metrics.ts --check`, a `check:silent-swallows` package script, `quality` integration, and an autoresearch backpressure check so regressions now fail fast.
