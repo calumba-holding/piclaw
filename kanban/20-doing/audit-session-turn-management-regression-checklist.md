@@ -1,10 +1,10 @@
 ---
 id: audit-session-turn-management-regression-checklist
 title: Audit session/turn-management regressions across recent queue/session/branch tickets
-status: next
+status: doing
 priority: high
 created: 2026-03-19
-updated: 2026-03-19
+updated: 2026-03-26
 target_release: next
 estimate: L
 risk: medium
@@ -187,6 +187,22 @@ LIMIT 80;
 - [ ] No open regressions in queue, threading, rotation, or branch isolation.
 - [ ] Audit notes plus pass/fail evidence attached to ticket.
 - [ ] `status` moved to `done` and `completed` set once this audit is finished.
+
+## Updates
+
+### 2026-03-26
+- Moved from `10-next` to `20-doing` to run a focused autoresearch-assisted hardening pass.
+- Baseline automated audit is currently green on `main`:
+  - `bash scripts/audit-session-turn-management-regression.sh`
+  - result: **9 passed / 0 failed**
+  - log: `/workspace/logs/audit-session-turn-management-regression-2026-03-26T14-36-47Z.log`
+- Because the baseline is already green, the active experiment is aimed at reducing regression blind spots rather than chasing a single known failing test.
+- Launched autoresearch experiment `exp-mn7kunh6-jdlu` in a sandbox copy with max `20` iterations.
+- Experiment brief:
+  - automate more of the checklist,
+  - tighten regression coverage around queue/session/branch isolation,
+  - keep the targeted audit green,
+  - and use end-of-loop lint/typecheck/targeted-test fix passes before retaining wins.
 
 ## Links
 
