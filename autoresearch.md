@@ -1,32 +1,33 @@
 # Autoresearch: audit silent catch blocks
 
 ## Objective
-Audit and eliminate silent swallow patterns across the remaining repo code after the core `runtime/src` + `runtime/web/src` sweep. The governing ticket is `kanban/10-next/audit-silent-catch-blocks.md`.
+Lock in the silent-swallow audit with regression guards so future changes cannot reintroduce empty `catch {}` or empty `.catch(() => {})` patterns unnoticed. The governing ticket is `kanban/10-next/audit-silent-catch-blocks.md`.
 
-Core runtime/web coverage is already complete. The resumed loop is now finishing repo-wide cleanup in adjacent first-party code (`runtime/scripts`, `runtime/extensions`, `runtime/test` helpers, `skel/scripts`) without changing behavior.
+The repo-wide cleanup is complete. The resumed loop is now focused on code-quality assurance: wiring the new scanner into project checks so silent swallows fail fast in normal development and autoresearch backpressure checks.
 
-Success means every in-scope empty `catch {}` or empty `.catch(() => {})` in these code paths is either:
-- replaced with explicit logging/structured handling when silence is unsafe, or
-- annotated with an explicit `/* expected: ... */` justification when the swallow is intentional and safe.
+Success means the repo has:
+- a reusable scanner/check command for silent swallows,
+- a package script entry for it,
+- inclusion in the main `quality` command, and
+- inclusion in autoresearch backpressure checks.
 
-We are optimizing for full audited coverage while keeping builds/tests passing.
+We are optimizing for durable audit coverage while keeping builds/tests passing.
 
 ## Metrics
-- **Primary**: `repo_silent_catch_blocks` (count, lower is better) — unresolved empty `catch {}` blocks remaining across first-party repo code (`runtime/**`, `skel/scripts/**`, excluding vendored/static/minified assets)
+- **Primary**: `silent_swallow_guard_gaps` (count, lower is better) — missing regression-guard integrations for the silent-swallow scanner
 - **Secondary**:
-  - `repo_silent_promise_catches` — unresolved empty `.catch(() => {})` promise swallows across the same code scope
-  - `repo_files_with_silent_catches` — spread of remaining repo-wide audit work
-  - `runtime_core_silent_catches` — regression guard for the already-clean `runtime/src` + `runtime/web/src` scope
+  - `repo_silent_catch_blocks` — repo-wide empty `catch {}` count (should stay 0)
+  - `repo_silent_promise_catches` — repo-wide empty `.catch(() => {})` count (should stay 0)
+  - `quality_hook_present` — 1 when `package.json` wires the guard into `quality`, else 0
 
 ## How to Run
 `./autoresearch.sh` — emits structured `METRIC name=value` lines.
 
 ## Files in Scope
-- `runtime/src/**` and `runtime/web/src/**` — already-clean core runtime/web scope; keep at zero regressions
-- `runtime/scripts/**` — standalone harness/reporting scripts that still contain empty cleanup catches
-- `runtime/extensions/**` — browser/editor extension code with localStorage/view-state cleanup swallows
-- `runtime/test/**` — test helpers and fixtures that still hide cleanup failures without justification
-- `skel/scripts/**` — bundled template scripts with best-effort shell/reporting catches needing explicit rationale
+- `runtime/scripts/silent-swallow-metrics.ts` — reusable scanner/metrics script for empty swallow detection
+- `package.json` — project script wiring and `quality` integration
+- `autoresearch.checks.sh` — backpressure correctness hook for this autoresearch loop
+- `runtime/src/**`, `runtime/web/src/**`, `runtime/scripts/**`, `runtime/extensions/**`, `runtime/test/**`, `skel/scripts/**` — monitored repo code that must remain at zero silent swallows
 
 ## Off Limits
 - `runtime/web/static/**`
@@ -50,3 +51,5 @@ We are optimizing for full audited coverage while keeping builds/tests passing.
 - Core runtime/web scope is now at zero silent catches and zero silent promise swallows.
 - Resume target: remaining repo-wide code outside the core runtime/web path still has a small tail of empty cleanup catches in scripts/extensions/tests/skel; finish that tail without regressing the cleaned core scope.
 - Benchmark instrumentation was tightened to ignore comment-only false positives while still counting real empty catch blocks in code.
+- Repo-wide code is now at zero silent catches and zero silent promise swallows.
+- New target: convert the scanner into a durable regression guard by wiring it into package scripts, `quality`, and autoresearch checks.
