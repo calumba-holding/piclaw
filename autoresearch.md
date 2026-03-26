@@ -3,11 +3,12 @@
 ## Objective
 Reduce unstructured `console.*` usage in the critical-path runtime/server files from kanban ticket `kanban/20-doing/adopt-pino-structured-logging.md`, replace it with a shared structured logger, and make teardown/race/degraded/error paths explicit enough that resumed agents can tell whether a site should guard quietly, warn with context, or fail loudly.
 
-This session is an audit + migration loop, not a runtime speed optimization. Phase 1 eliminated non-allowlisted raw console usage in the ticket-critical scope; Phase 2 increased structured-logger coverage across the remaining critical-path files; Phase 3 tightened explicit error-handling by shrinking undocumented quiet catches to zero; Phase 4 expanded to adjacent runtime modules that sit directly on the same operational path (IPC, queueing, scheduler, slash-command handling, and web recovery/agent handlers); Phase 5 cleared backend service modules on the operator-visible auth/extension/attachment/watchdog/shutdown path; Phase 6 cleared the last remaining operational runtime modules that surfaced raw console warnings on configuration and session cleanup paths; Phase 7 now hardens regression-guard coverage so completed structured-logging scopes are enforced in checks, not merely measured.
+This session is an audit + migration loop, not a runtime speed optimization. Phase 1 eliminated non-allowlisted raw console usage in the ticket-critical scope; Phase 2 increased structured-logger coverage across the remaining critical-path files; Phase 3 tightened explicit error-handling by shrinking undocumented quiet catches to zero; Phase 4 expanded to adjacent runtime modules that sit directly on the same operational path (IPC, queueing, scheduler, slash-command handling, and web recovery/agent handlers); Phase 5 cleared backend service modules on the operator-visible auth/extension/attachment/watchdog/shutdown path; Phase 6 cleared the last remaining operational runtime modules that surfaced raw console warnings on configuration and session cleanup paths; Phase 7 hardened regression-guard coverage so completed structured-logging scopes are enforced in checks; Phase 8 now evaluates whether the last intentional allowlisted raw console plumbing in `runtime/src/runtime/console-timestamps.ts` can be reduced safely.
 
 ## Metrics
-- **Primary**: `structured_logging_guarded_scopes` (unitless, higher is better) — number of completed structured-logging audit scopes whose zero-raw-console state is actively enforced by `runtime/scripts/structured-logging-scope-metrics.ts --check` during `autoresearch.checks.sh`.
+- **Primary**: `scope_allowlisted_console_calls` (unitless, lower is better) — count of intentional low-level raw `console.*` references still allowlisted inside the primary runtime scope after all higher-level runtime/server modules were migrated to the shared structured logger.
 - **Secondary**:
+  - `structured_logging_guarded_scopes`
   - `remaining_operational_raw_console_calls`
   - `remaining_operational_files_with_raw_console`
   - `remaining_operational_files_using_structured_logger`
@@ -48,6 +49,7 @@ This session is an audit + migration loop, not a runtime speed optimization. Pha
 - `runtime/src/index.ts`, `runtime/src/channels/pushover.ts`, `runtime/src/channels/web/{sse,auth-gateway,manifest,webauthn-auth,avatar-service,link-previews,ui-bridge}.ts`, `runtime/src/channels/web/http/{extension-routes,request-guards}.ts`, `runtime/src/channels/web/workspace/watcher.ts`, `runtime/src/agent-control/handlers/{control,login}.ts`, `runtime/src/extensions/{autoresearch-supervisor,exit-process,file-attachments}.ts` — Phase-5 backend service modules immediately downstream of the same request/auth/extension/shutdown path.
 - `runtime/src/core/config.ts`, `runtime/src/agent-pool/orphan-tool-results.ts` — Phase-6 remaining operational runtime modules that still emit operator-visible raw console warnings on config/session-cleanup paths.
 - `runtime/src/utils/logger.ts` — shared structured logger path created for this ticket.
+- `runtime/src/runtime/console-timestamps.ts` — current low-level allowlisted console patch that may become the final cleanup target.
 - `runtime/scripts/structured-logging-scope-metrics.ts` — scope metric and future regression guard basis.
 - `autoresearch.sh`, `autoresearch.checks.sh`, `autoresearch.md` — session control files.
 
@@ -83,4 +85,5 @@ This session is an audit + migration loop, not a runtime speed optimization. Pha
 - Phase 5 targeted `backend_service_raw_console_calls` in backend service modules that still surfaced operator-visible auth, extension, attachment, watchdog, and shutdown events via raw console, and reduced that scope to zero.
 - Phase 6 cleared `remaining_operational_raw_console_calls` to zero in the last small operational runtime modules outside the prior scopes (`core/config` deprecation warnings and `agent-pool/orphan-tool-results` cleanup visibility).
 - Phase 7 baseline refactored the scope metric script around explicit scope definitions and exposed `structured_logging_guarded_scopes=1`, showing that only the original critical-path scope was enforced in `--check` while the later cleaned scopes were still metric-only.
+- Phase 7 then raised `structured_logging_guarded_scopes` from `1` to `4` by enforcing the adjacent-runtime, backend-service, and remaining-operational zero-raw-console scopes in `--check` as well.
 - Initial hypothesis confirmed: a small repo-local structured logger plus a scope metric/check script lets us migrate critical runtime modules incrementally without waiting for a repo-wide logging rewrite.
