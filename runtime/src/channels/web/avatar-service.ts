@@ -13,7 +13,10 @@ import { resolve, extname } from "path";
 import { fileURLToPath } from "url";
 
 import { WORKSPACE_DIR } from "../../core/config.js";
+import { createLogger } from "../../utils/logger.js";
 import { contentTypeForPath } from "./workspace/file-utils.js";
+
+const log = createLogger("web.avatar");
 
 /** AvatarKind type definition. */
 export type AvatarKind = "agent" | "user";
@@ -181,7 +184,11 @@ export async function ensureAvatarCache(kind: AvatarKind, source: string): Promi
   const loaded = await loadAvatarSource(sanitized);
   if (!loaded) {
     if (existing && existsSync(existing.file)) {
-      console.warn(`[avatar] Failed to refresh ${kind} avatar from ${sanitized}; keeping cached avatar from ${existing.source}`);
+      log.warn("Failed to refresh avatar; keeping cached copy", {
+        kind,
+        source: sanitized,
+        existingSource: existing.source,
+      });
       return existing;
     }
     return null;
@@ -189,10 +196,10 @@ export async function ensureAvatarCache(kind: AvatarKind, source: string): Promi
 
   const normalizedType = normalizeContentType(loaded.contentType);
   if (kind === "agent" && !isManifestIconType(normalizedType)) {
-    console.warn(
-      `[avatar] Agent avatar has content type "${normalizedType}" which is not valid for PWA manifest icons. ` +
-      `Use PNG, JPEG, WebP, or GIF for best compatibility.`
-    );
+    log.warn("Agent avatar content type is not valid for PWA manifest icons", {
+      contentType: normalizedType,
+      expectedTypes: ["image/png", "image/jpeg", "image/webp", "image/gif"],
+    });
   }
 
   const extension = guessExtension(loaded.contentType, sanitized);

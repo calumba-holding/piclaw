@@ -9,6 +9,9 @@
 
 import { handleCliOptions } from "./cli.js";
 import { main } from "./runtime.js";
+import { createLogger } from "./utils/logger.js";
+
+const log = createLogger("piclaw");
 
 const handled = await handleCliOptions();
 if (handled) {
@@ -16,6 +19,6 @@ if (handled) {
 }
 
 main().catch((err) => {
-  console.error("[piclaw] Fatal:", err);
+  log.error("Fatal runtime error", { err });
   process.exit(1);
 });

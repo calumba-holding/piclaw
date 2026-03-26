@@ -20,6 +20,9 @@ import { createMedia, getMediaById } from "../db.js";
 import { WORKSPACE_DIR } from "../core/config.js";
 import { getAttachmentRegistry } from "../agent-pool/attachments.js";
 import { getChatJid } from "../core/chat-context.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("extensions.file-attachments");
 
 // ── Schema ────────────────────────────────────────────────
 
@@ -291,7 +294,7 @@ export const fileAttachments: ExtensionFactory = (pi: ExtensionAPI) => {
       return modified !== prevModified ? { ...msg, content: cleaned } : msg;
     });
     if (modified) {
-      console.log("[file-attachments] Stripped invalid image blocks from session context to prevent API errors");
+      log.warn("Stripped invalid image blocks from session context to prevent API errors");
       return { messages };
     }
     return {};

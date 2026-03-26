@@ -15,6 +15,10 @@
  * against traversal attacks themselves.
  */
 
+import { createLogger } from "../../../utils/logger.js";
+
+const log = createLogger("web.extension-routes");
+
 export type ExtensionRouteHandler = (req: Request, pathname: string) => Response | Promise<Response> | null;
 
 interface RegisteredRoute {
@@ -62,7 +66,11 @@ export async function handleExtensionRoutes(
         const response = result instanceof Promise ? await result : result;
         if (response) return response;
       } catch (err) {
-        console.error(`[extension-routes] Error in route handler for ${route.prefix}:`, err);
+        log.error("Extension route handler failed", {
+          prefix: route.prefix,
+          extensionPath: route.extensionPath,
+          err,
+        });
         return new Response("Internal Server Error", { status: 500 });
       }
     }

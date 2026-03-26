@@ -15,7 +15,9 @@
  */
 
 import { ASSISTANT_NAME } from "../core/config.js";
+import { createLogger } from "../utils/logger.js";
 
+const log = createLogger("pushover");
 const PUSHOVER_API = "https://api.pushover.net/1/messages.json";
 
 /** Configuration for the Pushover notification channel. */
@@ -38,9 +40,10 @@ export class PushoverChannel {
   async start(): Promise<void> {
     // Validate credentials with a receipt-less message dry run isn't possible,
     // so just log that we're ready.
-    console.log(
-      `[pushover] Channel ready (device: ${this.opts.device || "all"}, priority: ${this.opts.priority ?? 0})`
-    );
+    log.info("Channel ready", {
+      device: this.opts.device || "all",
+      priority: this.opts.priority ?? 0,
+    });
   }
 
   async stop(): Promise<void> {
@@ -74,7 +77,10 @@ export class PushoverChannel {
 
     if (!response.ok) {
       const detail = await response.text().catch(() => "");
-      console.error(`[pushover] Send failed (${response.status}): ${detail}`);
+      log.error("Send failed", {
+        status: response.status,
+        detail,
+      });
       throw new Error(`Pushover API error: ${response.status}`);
     }
   }

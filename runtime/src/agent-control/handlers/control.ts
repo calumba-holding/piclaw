@@ -12,8 +12,11 @@ import type { AgentSession } from "@mariozechner/pi-coding-agent";
 import type { AgentControlCommand, AgentControlResult } from "../agent-control-types.js";
 import { formatCompactNumber } from "../agent-control-helpers.js";
 import { createMedia } from "../../db.js";
-import { killTrackedProcesses } from "../../utils/process-tracker.js";
 import { requestGracefulShutdown } from "../../runtime/shutdown-registry.js";
+import { createLogger } from "../../utils/logger.js";
+import { killTrackedProcesses } from "../../utils/process-tracker.js";
+
+const log = createLogger("agent-control.control");
 
 type RestartCommand = Extract<AgentControlCommand, { type: "restart" }>;
 type ExitCommand = Extract<AgentControlCommand, { type: "exit" }>;
@@ -74,7 +77,7 @@ function createCompactReportAttachment(
       }
     );
   } catch (error) {
-    console.warn("[agent-control] Failed to create /compact report attachment:", error);
+    log.warn("Failed to create /compact report attachment", { error });
     return null;
   }
 }

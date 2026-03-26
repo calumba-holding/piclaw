@@ -18,6 +18,9 @@ import type { AgentControlCommand, AgentControlResult } from "../agent-control-t
 import { writeFileSync, readFileSync, existsSync, copyFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
+import { createLogger } from "../../utils/logger.js";
+
+const log = createLogger("agent-control.login");
 
 type LoginCommand = Extract<AgentControlCommand, { type: "login" }>;
 type LogoutCommand = Extract<AgentControlCommand, { type: "logout" }>;
@@ -414,8 +417,16 @@ async function startOAuthBackground(
   });
 
   loginPromise
-    .then(() => { authStorage.reload(); console.log(`[login] OAuth completed for ${providerId}`); })
-    .catch((err) => { console.warn(`[login] OAuth failed for ${providerId}: ${err instanceof Error ? err.message : err}`); });
+    .then(() => {
+      authStorage.reload();
+      log.info("OAuth completed", { providerId });
+    })
+    .catch((err) => {
+      log.warn("OAuth failed", {
+        providerId,
+        err,
+      });
+    });
 
   const timeout = new Promise<void>((resolve) => setTimeout(resolve, 10_000));
   await Promise.race([authReady, timeout]);

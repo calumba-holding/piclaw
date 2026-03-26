@@ -15,8 +15,11 @@
 
 import { Type } from "@sinclair/typebox";
 import type { AgentToolResult, ExtensionAPI, ExtensionFactory } from "@mariozechner/pi-coding-agent";
-import { killTrackedProcesses } from "../utils/process-tracker.js";
 import { markPendingShutdown } from "../runtime/shutdown-registry.js";
+import { createLogger } from "../utils/logger.js";
+import { killTrackedProcesses } from "../utils/process-tracker.js";
+
+const log = createLogger("extensions.exit-process");
 
 const ExitProcessSchema = Type.Object({
   reason: Type.Optional(Type.String({ description: "Human-readable reason for the exit (logged, not required)." })),
@@ -47,7 +50,7 @@ export const exitProcess: ExtensionFactory = (pi: ExtensionAPI) => {
     async execute(_toolCallId, params: ExitProcessParams) {
       const reason = params.reason?.trim() || "Agent-initiated restart";
 
-      console.log(`[exit-process] Killing tracked subprocesses and marking pending shutdown — reason: ${reason}`);
+      log.info("Killing tracked subprocesses and marking pending shutdown", { reason });
       const killed = killTrackedProcesses();
 
       // Mark the shutdown as pending. The actual exit happens after

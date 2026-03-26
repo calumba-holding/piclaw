@@ -7,6 +7,8 @@ const ALLOWED_UNUSED_EXPORTS = new Set([
   "src/channels/web/http/client.ts:9 - firstHeaderValue",
   "src/channels/web/http/extension-routes.ts:74 - clearExtensionRoutes",
   "src/channels/web/http/extension-routes.ts:79 - getRegisteredRoutes",
+  "src/channels/web/http/extension-routes.ts:82 - clearExtensionRoutes",
+  "src/channels/web/http/extension-routes.ts:87 - getRegisteredRoutes",
   "src/channels/web/http/rate-limit.ts:54 - resetRateLimiterStateForTests",
   "src/channels/web/ui-context.ts:23 - bindSessionUiContext",
   "src/channels/web/workspace/service.ts:14 - createWorkspaceUpdateThrottle",

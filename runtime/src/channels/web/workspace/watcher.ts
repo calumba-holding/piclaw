@@ -13,8 +13,11 @@ import { readdirSync, statSync, watch } from "fs";
 import type { FSWatcher } from "fs";
 
 import { WORKSPACE_DIR } from "../../../core/config.js";
+import { createLogger } from "../../../utils/logger.js";
 import { buildTree, compressPaths } from "./tree.js";
 import { isHiddenPath, resolveWorkspacePath, shouldIgnorePath, toRelativePath } from "./paths.js";
+
+const log = createLogger("web.workspace-watcher");
 
 /** Describes a detected workspace file change for SSE broadcast. */
 export type WorkspaceUpdate = { path: string; root: unknown; truncated: boolean };
@@ -138,13 +141,19 @@ export function startWorkspaceWatcher(
       });
 
       watcher.on("error", (err) => {
-        console.warn("[workspace] fs.watch error:", err);
+        log.warn("Workspace watcher fs.watch error", {
+          dir,
+          err,
+        });
         removeWatcher(dir);
       });
 
       watchers.set(dir, watcher);
     } catch (err) {
-      console.warn("[workspace] Failed to watch directory:", dir, err);
+      log.warn("Failed to watch workspace directory", {
+        dir,
+        err,
+      });
       return;
     }
 
