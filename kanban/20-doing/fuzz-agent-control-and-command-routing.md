@@ -1,7 +1,7 @@
 ---
 id: fuzz-agent-control-and-command-routing
 title: Fuzz agent-control parsing and command-routing invariants
-status: next
+status: doing
 priority: high
 created: 2026-03-26
 updated: 2026-03-26
@@ -65,6 +65,9 @@ Primary targets:
 ### 2026-03-26
 - Created by splitting the XL umbrella ticket `test-suite-audit-with-fuzzing-logic-validation` into smaller execution units.
 - This ticket owns the command/control fuzzing portion of the original Pass 3.
+- Pulled into `20-doing` for an autoresearch-assisted pass focused on deterministic, seed-replayable fuzz/property coverage for parser normalization and command-routing invariants.
+- Experiment framing: build a canonical fuzz harness plus artifact/replay path first, then widen corpus/seed coverage while keeping malformed-command handling typed and repeatable.
+- Usual guardrails apply: sandboxed run, iterative lint/typecheck/test repair passes before speculative work, explicit seed/iteration controls, and replayable artifacts for any failing corpus.
 
 ## Links
 
