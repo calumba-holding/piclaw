@@ -49,7 +49,7 @@
  *   win_type  text="hello"
  *   win_type  vk=0x0D  (Enter)
  *   win_type  vk=0x43 ctrl=true  (Ctrl+C)
- *     Send text to the focused window (via SendKeys) or send a virtual
+ *     Send text to the focused window (via SendInput with KEYEVENTF_UNICODE)
  *     key code with optional Ctrl/Alt/Shift modifiers (via keybd_event).
  *
  *   win_tree  windowTitle="Edge" maxDepth=6
@@ -123,7 +123,6 @@
  * ── Limitations ──────────────────────────────────────────────────────
  *
  * - BMP output only (no PNG encoder in pure FFI; use external tool to convert)
- * - win_type text uses PowerShell SendKeys for Unicode support; VK path is pure FFI
  * - IAccessible tree may be shallower than UIA for some modern apps
  * - For web content inside Edge, prefer CDP (cdp_browser tool) which has
  *   full DOM access. IAccessible sees the accessibility layer, not the DOM.
@@ -188,6 +187,7 @@ function ensureInit() {
     keybd_event: { args: [F.u8, F.u8, F.i32, F.ptr], returns: F.void },
     GetSystemMetrics: { args: [F.i32], returns: F.i32 },
     SetForegroundWindow: { args: [F.ptr], returns: F.i32 },
+    SendInput: { args: [F.u32, F.ptr, F.i32], returns: F.u32 },
   });
   gdi32 = ffi.dlopen("gdi32.dll", {
     CreateCompatibleDC: { args: [F.ptr], returns: F.ptr },
@@ -573,7 +573,7 @@ export default function register(pi: ExtensionAPI) {
     label: "Type Text",
     description: "Send keystrokes to the focused window. Provide text for typing or a virtual key code for special keys.",
     parameters: Type.Object({
-      text: Type.Optional(Type.String({ description: "Text to type (uses SendKeys)" })),
+      text: Type.Optional(Type.String({ description: "Text to type (Unicode via SendInput)" })),
       vk: Type.Optional(Type.Number({ description: "Virtual key code (e.g. 0x0D=Enter, 0x09=Tab)" })),
       ctrl: Type.Optional(Type.Boolean({ description: "Hold Ctrl" })),
       alt: Type.Optional(Type.Boolean({ description: "Hold Alt" })),
@@ -593,9 +593,27 @@ export default function register(pi: ExtensionAPI) {
         return { content: [{ type: "text", text: `Sent VK 0x${params.vk.toString(16)}` }] };
       }
       if (params.text) {
-        const { execSync } = require("child_process");
-        const escaped = params.text.replace(/'/g, "''");
-        execSync(`powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${escaped}')"`, { timeout: 5000 });
+        // Type Unicode text via SendInput with KEYEVENTF_UNICODE (pure FFI, no PowerShell)
+        // Each INPUT struct is 40 bytes on x64: type(4) + padding(4) + KEYBDINPUT(24) + padding(8)
+        // KEYBDINPUT: wVk(2) + wScan(2) + dwFlags(4) + time(4) + dwExtraInfo(8)
+        const KEYEVENTF_UNICODE = 0x0004;
+        const INPUT_KEYBOARD = 1;
+        for (const char of params.text) {
+          const code = char.charCodeAt(0);
+          // Two INPUT structs per char: key down + key up
+          const buf = Buffer.alloc(80);
+          // Key down
+          buf.writeUInt32LE(INPUT_KEYBOARD, 0);    // type
+          buf.writeUInt16LE(0, 8);                  // wVk = 0
+          buf.writeUInt16LE(code, 10);              // wScan = Unicode char
+          buf.writeUInt32LE(KEYEVENTF_UNICODE, 12); // dwFlags
+          // Key up
+          buf.writeUInt32LE(INPUT_KEYBOARD, 40);
+          buf.writeUInt16LE(0, 48);
+          buf.writeUInt16LE(code, 50);
+          buf.writeUInt32LE(KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, 52);
+          user32.symbols.SendInput(2, _ptr(buf), 40);
+        }
         return { content: [{ type: "text", text: `Typed "${params.text.substring(0, 50)}"` }] };
       }
       return { content: [{ type: "text", text: "Provide text or vk" }] };
