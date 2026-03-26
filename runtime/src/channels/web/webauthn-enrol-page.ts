@@ -58,14 +58,14 @@ const WEBAUTHN_ENROL_PAGE_HTML = `<!doctype html>
           const data = await res.json();
           const message = data && (data.error || data.detail || data.message);
           if (message) return message;
-        } catch (err) {
-          // ignore
+        } catch {
+          /* expected: some error responses are plain text or empty, so JSON parsing is best-effort. */
         }
         try {
           const text = await res.text();
           if (text) return text;
-        } catch (err) {
-          // ignore
+        } catch {
+          /* expected: body streams can already be consumed/empty on failing enrol responses. */
         }
         return fallback || ('HTTP ' + res.status);
       };

@@ -137,7 +137,9 @@ if (UPDATE_NOTES) {
       `--db ${shellEscape(DB_PATH)}`,
     ].join(" ");
     execSync(cmd, { timeout: 30000 });
-  } catch {}
+  } catch {
+    /* expected: daily-notes generation is optional context enrichment for this situate report. */
+  }
 }
 
 // ── 1. Read daily notes and classify ────────────────────────────────────
@@ -361,7 +363,9 @@ let skills = "(could not list)";
 try {
   skills = execSync("ls /workspace/.pi/skills/", { timeout: 3000 })
     .toString().trim().split("\n").map(s => `\`${s}\``).join(", ");
-} catch {}
+} catch {
+  /* expected: skill directory may be absent in minimal installs or restricted environments. */
+}
 
 // ── 5. Build output ─────────────────────────────────────────────────────
 const now = new Date().toISOString().slice(0, 19) + "Z";

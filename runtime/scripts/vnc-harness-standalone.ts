@@ -303,22 +303,22 @@ async function main() {
                 upstream.on('connect', () => {
                     try {
                         ws.send(JSON.stringify({ type: 'vnc.connected', target: { id: parsedTarget.label, label: parsedTarget.label } }));
-                    } catch {}
+                    } catch { /* expected: harness websocket may close before the connect ack is delivered. */ }
                 });
 
                 upstream.on('data', (chunk) => {
                     ws.data.bytesIn = Number(ws.data.bytesIn || 0) + (typeof chunk === 'string' ? Buffer.byteLength(chunk) : chunk.byteLength);
-                    try { ws.send(chunk); } catch {}
+                    try { ws.send(chunk); } catch { /* expected: harness websocket may disappear while upstream bytes are draining. */ }
                 });
 
                 upstream.on('error', (error) => {
                     const message = error instanceof Error ? error.message : String(error || 'Unknown upstream error');
-                    try { ws.send(JSON.stringify({ type: 'vnc.error', error: message })); } catch {}
-                    try { ws.close(1011, 'upstream-error'); } catch {}
+                    try { ws.send(JSON.stringify({ type: 'vnc.error', error: message })); } catch { /* expected: harness websocket may already be gone while surfacing upstream errors. */ }
+                    try { ws.close(1011, 'upstream-error'); } catch { /* expected: websocket may already be closed when the upstream errors. */ }
                 });
 
                 upstream.on('close', () => {
-                    try { ws.close(1000, 'upstream-closed'); } catch {}
+                    try { ws.close(1000, 'upstream-closed'); } catch { /* expected: websocket may already be closed when the upstream ends first. */ }
                 });
             },
             message(ws, message) {
@@ -330,10 +330,10 @@ async function main() {
                         const payload = JSON.parse(message);
                         if (payload?.type === 'ping') {
                             handled = true;
-                            try { ws.send(JSON.stringify({ type: 'pong' })); } catch {}
+                            try { ws.send(JSON.stringify({ type: 'pong' })); } catch { /* expected: websocket may already be closed while answering a ping. */ }
                         }
                     } catch {
-                        // ignore malformed control payloads
+                        /* expected: malformed control payloads should fall through to raw upstream forwarding. */
                     }
                     if (handled) return;
                     ws.data.bytesOut = Number(ws.data.bytesOut || 0) + Buffer.byteLength(message);
@@ -346,7 +346,7 @@ async function main() {
                 ws.data.upstream.write(chunk);
             },
             close(ws) {
-                try { ws.data.upstream?.destroy?.(); } catch {}
+                try { ws.data.upstream?.destroy?.(); } catch { /* expected: upstream socket may already be torn down during websocket close. */ }
                 ws.data.upstream = null;
             },
         },

@@ -287,9 +287,9 @@ async function main() {
         console.log(`[report] json: ${jsonPath}`);
         console.log(`[report] screenshot: ${screenshotPath}`);
     } finally {
-        try { await browser?.close?.(); } catch {}
-        try { harnessProc.kill(); } catch {}
-        try { await harnessProc.exited; } catch {}
+        try { await browser?.close?.(); } catch { /* expected: browser may already be closed during report teardown. */ }
+        try { harnessProc.kill(); } catch { /* expected: harness process may already be gone during report teardown. */ }
+        try { await harnessProc.exited; } catch { /* expected: exited promise may reject if the harness is force-killed. */ }
 
         const procStdout = await procStdoutPromise.catch(() => '');
         const procStderr = await procStderrPromise.catch(() => '');

@@ -95,7 +95,7 @@ function buildPipeline() {
         finally { wasm.__unpin(outputPtr); }
       } finally {
         wasm.__unpin(inputPtr);
-        try { wasm.__collect?.(); } catch {}
+        try { wasm.__collect?.(); } catch { /* expected: AssemblyScript GC hook is optional in the test WASM build. */ }
       }
     },
   };

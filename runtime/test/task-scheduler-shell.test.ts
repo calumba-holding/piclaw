@@ -13,7 +13,7 @@ afterEach(() => {
   sentMessages.length = 0;
   restoreEnv?.();
   restoreEnv = null;
-  try { db?.getDb().close(); } catch {}
+  try { db?.getDb().close(); } catch { /* expected: test DB may already be closed during cleanup. */ }
   db = null;
   scheduler = null;
 });

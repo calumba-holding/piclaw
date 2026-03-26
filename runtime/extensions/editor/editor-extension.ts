@@ -88,12 +88,12 @@ function getLocalBool(key: string, fallback: boolean): boolean {
         const v = localStorage.getItem(key);
         if (v === 'true') return true;
         if (v === 'false') return false;
-    } catch {}
+    } catch { /* expected: localStorage can be unavailable in private mode or embedded contexts. */ }
     return fallback;
 }
 
 function setLocalBool(key: string, value: boolean): void {
-    try { localStorage.setItem(key, value ? 'true' : 'false'); } catch {}
+    try { localStorage.setItem(key, value ? 'true' : 'false'); } catch { /* expected: localStorage writes are best-effort in embedded/private contexts. */ }
 }
 
 /** Map file extension → CodeMirror language extension. */
@@ -826,7 +826,7 @@ export class StandaloneEditorInstance implements PaneInstance {
                     if (this.view?.scrollDOM) this.view.scrollDOM.scrollTop = scrollTop;
                 });
             }
-        } catch {}
+        } catch { /* expected: view-state restoration can race with editor disposal/reconfiguration. */ }
     }
 
     /** Get the file path this instance is editing. */

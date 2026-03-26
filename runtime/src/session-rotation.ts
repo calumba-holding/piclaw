@@ -262,7 +262,7 @@ export async function rotateSession(
       try {
         rmSync(archivePath, { force: true });
       } catch {
-        // best effort cleanup only
+        /* expected: failed rotation cleanup is best-effort because the archive path may already be gone. */
       }
     }
     const message = err instanceof Error ? err.message : String(err);

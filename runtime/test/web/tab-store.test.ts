@@ -38,7 +38,7 @@ class TabStoreImpl {
         const tabs = this.getTabs();
         const activeId = this.activeId;
         for (const listener of this.listeners) {
-            try { listener(tabs, activeId); } catch {}
+            try { listener(tabs, activeId); } catch { /* expected: this test helper intentionally mirrors listener isolation semantics. */ }
         }
     }
 

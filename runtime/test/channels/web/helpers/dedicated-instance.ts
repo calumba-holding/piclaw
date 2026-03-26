@@ -104,11 +104,15 @@ export async function startDedicatedWebTestInstance(options: {
         ready = true;
         break;
       }
-    } catch {}
+    } catch {
+      /* expected: instance startup polling races with the server not listening yet. */
+    }
     await Bun.sleep(50);
   }
   if (!ready) {
-    await web.stop().catch(() => {});
+    await web.stop().catch(() => {
+      /* expected: failed startup cleanup should stay best-effort in test helpers. */
+    });
     restoreEnv();
     workspace.cleanup();
     throw new Error(`Dedicated web test instance did not become ready at ${baseUrl}.`);
