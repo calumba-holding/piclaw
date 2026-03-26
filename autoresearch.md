@@ -55,3 +55,4 @@ We are optimizing for durable closure while keeping the repo state coherent.
 - New target: update the governing kanban ticket so its lane/status/acceptance criteria reflect the completed audit and new regression guards.
 - The governing ticket has been moved to `kanban/40-review/`, its status/frontmatter were updated, acceptance criteria were checked off, and evidence notes now mention the quality/autoresearch/CI guard layers.
 - New target: sync the master `codebase-quality-cleanup-2026` tracker so it no longer reports the silent-catch audit as `next`.
+- The master tracker row for `audit-silent-catch-blocks` now matches reality (`review`), so the portfolio view is no longer stale.

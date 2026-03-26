@@ -55,7 +55,7 @@ All must be completed before this ticket can close.
 | Ticket | Status | Description |
 |---|---|---|
 | `fix-failing-tests-stale-assertions` | next | Fix 3 failing tests (extension count + terminal mocks) |
-| `audit-silent-catch-blocks` | next | Audit 188 silent catch {} blocks |
+| `audit-silent-catch-blocks` | review | Audit 188 silent catch {} blocks |
 | `add-tests-core-config-and-keychain` | next | Add tests for 0-3% coverage modules |
 
 ## Follow-up work (P2/P3 — not blocking)
