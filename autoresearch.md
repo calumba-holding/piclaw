@@ -1,32 +1,32 @@
 # Autoresearch: audit silent catch blocks
 
 ## Objective
-Lock in the silent-swallow audit with regression guards so future changes cannot reintroduce empty `catch {}` or empty `.catch(() => {})` patterns unnoticed. The governing ticket is `kanban/10-next/audit-silent-catch-blocks.md`.
+Add focused regression tests for the silent-swallow scanner so the new quality guard itself is verified, especially around comment false positives and `--check` failure behavior. The governing ticket is `kanban/10-next/audit-silent-catch-blocks.md`.
 
-The repo-wide cleanup is complete. The resumed loop is now focused on code-quality assurance: wiring the new scanner into project checks so silent swallows fail fast in normal development and autoresearch backpressure checks.
+The repo-wide cleanup and quality-hook wiring are complete. The resumed loop is now focused on test assurance for `runtime/scripts/silent-swallow-metrics.ts`.
 
-Success means the repo has:
-- a reusable scanner/check command for silent swallows,
-- a package script entry for it,
-- inclusion in the main `quality` command, and
-- inclusion in autoresearch backpressure checks.
+Success means the repo has a dedicated script test that verifies:
+- comment/doc strings do not count as silent swallows,
+- real empty catches/promise catches are detected, and
+- `--check` mode fails when detections are present.
 
 We are optimizing for durable audit coverage while keeping builds/tests passing.
 
 ## Metrics
-- **Primary**: `silent_swallow_guard_gaps` (count, lower is better) — missing regression-guard integrations for the silent-swallow scanner
+- **Primary**: `silent_swallow_test_gaps` (count, lower is better) — missing focused regression tests or missing backpressure execution for the scanner test
 - **Secondary**:
   - `repo_silent_catch_blocks` — repo-wide empty `catch {}` count (should stay 0)
   - `repo_silent_promise_catches` — repo-wide empty `.catch(() => {})` count (should stay 0)
-  - `quality_hook_present` — 1 when `package.json` wires the guard into `quality`, else 0
+  - `guard_check_present` — 1 when the scanner still has its package/quality guard wiring, else 0
 
 ## How to Run
 `./autoresearch.sh` — emits structured `METRIC name=value` lines.
 
 ## Files in Scope
 - `runtime/scripts/silent-swallow-metrics.ts` — reusable scanner/metrics script for empty swallow detection
-- `package.json` — project script wiring and `quality` integration
-- `autoresearch.checks.sh` — backpressure correctness hook for this autoresearch loop
+- `runtime/test/scripts/silent-swallow-metrics.test.ts` — focused regression coverage for the scanner
+- `autoresearch.checks.sh` — backpressure correctness hook; should run the new test or a targeted suite containing it
+- `package.json` — existing guard wiring must stay intact
 - `runtime/src/**`, `runtime/web/src/**`, `runtime/scripts/**`, `runtime/extensions/**`, `runtime/test/**`, `skel/scripts/**` — monitored repo code that must remain at zero silent swallows
 
 ## Off Limits
@@ -54,3 +54,4 @@ We are optimizing for durable audit coverage while keeping builds/tests passing.
 - Repo-wide code is now at zero silent catches and zero silent promise swallows.
 - New target: convert the scanner into a durable regression guard by wiring it into package scripts, `quality`, and autoresearch checks.
 - Added `runtime/scripts/silent-swallow-metrics.ts --check`, a `check:silent-swallows` package script, `quality` integration, and an autoresearch backpressure check so regressions now fail fast.
+- New target: add focused tests for the scanner itself so comment handling and `--check` semantics stay reliable.
