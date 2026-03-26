@@ -3,11 +3,14 @@
 ## Objective
 Reduce unstructured `console.*` usage in the critical-path runtime/server files from kanban ticket `kanban/20-doing/adopt-pino-structured-logging.md`, replace it with a shared structured logger, and make teardown/race/degraded/error paths explicit enough that resumed agents can tell whether a site should guard quietly, warn with context, or fail loudly.
 
-This session is an audit + migration loop, not a runtime speed optimization. Phase 1 eliminated non-allowlisted raw console usage in scope; Phase 2 increased structured-logger coverage across the remaining critical-path files; Phase 3 now tightens explicit error-handling by shrinking undocumented quiet catches while keeping the raw-console guard locked at zero.
+This session is an audit + migration loop, not a runtime speed optimization. Phase 1 eliminated non-allowlisted raw console usage in the ticket-critical scope; Phase 2 increased structured-logger coverage across the remaining critical-path files; Phase 3 tightened explicit error-handling by shrinking undocumented quiet catches to zero; Phase 4 expands to adjacent runtime modules that sit directly on the same operational path (IPC, queueing, scheduler, slash-command handling, and web recovery/agent handlers).
 
 ## Metrics
-- **Primary**: `scope_undocumented_quiet_catches` (unitless, lower is better) — count of in-scope `catch` blocks that neither document an expected guard nor visibly return/throw/log.
+- **Primary**: `adjacent_runtime_raw_console_calls` (unitless, lower is better) — count of raw `console.*` references in adjacent runtime modules immediately surrounding the ticket-critical path.
 - **Secondary**:
+  - `adjacent_runtime_files_with_raw_console`
+  - `adjacent_runtime_files_using_structured_logger`
+  - `scope_undocumented_quiet_catches`
   - `scope_files_using_structured_logger`
   - `scope_raw_console_calls`
   - `scope_files_with_raw_console`
@@ -29,6 +32,12 @@ This session is an audit + migration loop, not a runtime speed optimization. Pha
 - `runtime/src/channels/web/workspace/file-service.ts` — upload/delete cleanup and user-visible workspace failure handling.
 - `runtime/src/db/connection.ts` — DB init/persistence/recovery error visibility.
 - `runtime/src/runtime/*` — startup, shutdown, message loop, worker wiring, bootstrap orchestration.
+- `runtime/src/ipc.ts` — IPC watcher and resume/message task processing.
+- `runtime/src/task-scheduler.ts` — scheduled task restore/execution lifecycle.
+- `runtime/src/queue.ts` — serialized queue execution and error reporting.
+- `runtime/src/agent-pool/slash-command.ts` — slash-command execution path adjacent to main agent runs.
+- `runtime/src/channels/web/recovery.ts` — interrupted-run recovery and resume queuing.
+- `runtime/src/channels/web/handlers/agent.ts` — web agent message/control processing path.
 - `runtime/src/utils/logger.ts` — shared structured logger path created for this ticket.
 - `runtime/scripts/structured-logging-scope-metrics.ts` — scope metric and future regression guard basis.
 - `autoresearch.sh`, `autoresearch.checks.sh`, `autoresearch.md` — session control files.
@@ -60,5 +69,6 @@ This session is an audit + migration loop, not a runtime speed optimization. Pha
 - Migrated `runtime/src/runtime/*`, `runtime/src/channels/whatsapp.ts`, `runtime/src/channels/web.ts`, and `runtime/src/channels/web/workspace/file-service.ts` onto the structured logger path while preserving explicit quiet guards for expected teardown/transient cases.
 - Converted `runtime/src/agent-pool.ts`, flipped the scope guard from metric-only to enforced, and drove `scope_raw_console_calls` to `0` while keeping full validation green.
 - Phase 2 optimized `scope_files_using_structured_logger` from `10` to `15`; only the intentional low-level allowlist file `runtime/src/runtime/console-timestamps.ts` now remains outside the logger-import set.
-- Phase 3 now targets `scope_undocumented_quiet_catches`: the remaining work is to distinguish truly expected quiet guards from under-documented fallback paths without gaming the raw-console benchmark.
+- Phase 3 drove `scope_undocumented_quiet_catches` from `7` to `0` by either documenting expected fallbacks or surfacing them with warnings.
+- Phase 4 now targets `adjacent_runtime_raw_console_calls` in the next ring of runtime/server modules around the original ticket scope.
 - Initial hypothesis confirmed: a small repo-local structured logger plus a scope metric/check script lets us migrate critical runtime modules incrementally without waiting for a repo-wide logging rewrite.
