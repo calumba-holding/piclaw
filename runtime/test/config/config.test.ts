@@ -1,133 +1,277 @@
-/**
- * test/config/config.test.ts – Tests for piclaw config loading and persistence.
- *
- * Verifies JSON config file reading/writing, default values, identity
- * fields (name, avatar), and environment variable overrides.
- */
+import { expect, test } from "bun:test";
+import { mkdirSync, readFileSync, writeFileSync } from "fs";
+import { join, resolve } from "path";
+import { createTempWorkspace, importFresh, withTempWorkspaceEnv } from "../helpers.js";
 
-import { expect, test, afterEach } from "bun:test";
-import { writeFileSync, mkdirSync } from "fs";
-import { join } from "path";
-import { getTestWorkspace, setEnv, importFresh } from "../helpers.js";
+const RUNTIME_DIR = resolve(import.meta.dir, "../..");
+const CONFIG_SUBPROCESS = join(RUNTIME_DIR, "test", "config", "config-subprocess.ts");
 
-let restoreEnv: (() => void) | null = null;
+type ConfigSnapshot = Record<string, any>;
 
-afterEach(() => {
-  restoreEnv?.();
-  restoreEnv = null;
-});
-
-test("loads pushover config from .piclaw/config.json", async () => {
-  const ws = getTestWorkspace();
-
-  const configDir = join(ws.workspace, ".piclaw");
+function writeWorkspaceConfig(workspace: string, config: Record<string, unknown>): string {
+  const configDir = join(workspace, ".piclaw");
   mkdirSync(configDir, { recursive: true });
-  writeFileSync(
-    join(configDir, "config.json"),
-    JSON.stringify({
+  const configPath = join(configDir, "config.json");
+  writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+  return configPath;
+}
+
+function loadConfigInSubprocess(
+  workspace: { workspace: string; store: string; data: string },
+  exports: string[],
+  options: { args?: string[]; env?: Record<string, string | undefined> } = {},
+): ConfigSnapshot {
+  const proc = Bun.spawnSync({
+    cmd: ["bun", CONFIG_SUBPROCESS, ...(options.args || [])],
+    cwd: RUNTIME_DIR,
+    env: {
+      PATH: process.env.PATH || "",
+      HOME: process.env.HOME || "/tmp",
+      TMPDIR: process.env.TMPDIR || "/tmp",
+      TMP: process.env.TMP || "/tmp",
+      TEMP: process.env.TEMP || "/tmp",
+      USER: process.env.USER || "agent",
+      PICLAW_WORKSPACE: workspace.workspace,
+      PICLAW_STORE: workspace.store,
+      PICLAW_DATA: workspace.data,
+      PICLAW_DB_IN_MEMORY: "1",
+      PICLAW_CONFIG_EXPORTS: exports.join(","),
+      ...(options.env || {}),
+    },
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  const stdout = proc.stdout.toString().trim();
+  const stderr = proc.stderr.toString().trim();
+  expect(proc.exitCode, stderr || stdout).toBe(0);
+  return JSON.parse(stdout || "{}");
+}
+
+test("loads config-file aliases for pushover and identity fields", () => {
+  const ws = createTempWorkspace("piclaw-config-");
+
+  try {
+    writeWorkspaceConfig(ws.workspace, {
       pushover: {
         appToken: "app-token",
-        userKey: "user-key",
+        user_key: "user-key",
         device: "device-1",
         priority: 2,
         sound: "ping",
       },
-    }),
-    "utf8"
-  );
+      assistant: {
+        agentName: "Config Bot",
+        agent_avatar: "/assistant.png",
+      },
+      user: {
+        name: "Casey",
+        avatar: "/user.png",
+        avatar_background: "#123456",
+      },
+      whatsappPhone: "+15551234567",
+    });
 
-  restoreEnv = setEnv({
-    PICLAW_WORKSPACE: ws.workspace,
-    PICLAW_STORE: ws.store,
-    PICLAW_DATA: ws.data,
-    ASSISTANT_NAME: "",
-  });
+    const snapshot = loadConfigInSubprocess(ws, [
+      "PUSHOVER_APP_TOKEN",
+      "PUSHOVER_USER_KEY",
+      "PUSHOVER_DEVICE",
+      "PUSHOVER_PRIORITY",
+      "PUSHOVER_SOUND",
+      "ASSISTANT_NAME",
+      "ASSISTANT_AVATAR",
+      "USER_NAME",
+      "USER_AVATAR",
+      "USER_AVATAR_BACKGROUND",
+      "WHATSAPP_PHONE",
+    ]);
 
-  await importFresh("../src/core/config.js");
-
-  const cfg = await importFresh<typeof import("../src/core/config.js")>("../src/core/config.js");
-  expect(cfg.PUSHOVER_APP_TOKEN).toBe("app-token");
-  expect(cfg.PUSHOVER_USER_KEY).toBe("user-key");
-  expect(cfg.PUSHOVER_DEVICE).toBe("device-1");
-  expect(cfg.PUSHOVER_PRIORITY).toBe(2);
-  expect(cfg.PUSHOVER_SOUND).toBe("ping");
+    expect(snapshot.PUSHOVER_APP_TOKEN).toBe("app-token");
+    expect(snapshot.PUSHOVER_USER_KEY).toBe("user-key");
+    expect(snapshot.PUSHOVER_DEVICE).toBe("device-1");
+    expect(snapshot.PUSHOVER_PRIORITY).toBe(2);
+    expect(snapshot.PUSHOVER_SOUND).toBe("ping");
+    expect(snapshot.ASSISTANT_NAME).toBe("Config Bot");
+    expect(snapshot.ASSISTANT_AVATAR).toBe("/assistant.png");
+    expect(snapshot.USER_NAME).toBe("Casey");
+    expect(snapshot.USER_AVATAR).toBe("/user.png");
+    expect(snapshot.USER_AVATAR_BACKGROUND).toBe("#123456");
+    expect(snapshot.WHATSAPP_PHONE).toBe("+15551234567");
+  } finally {
+    ws.cleanup();
+  }
 });
 
-test("env overrides config.json values", async () => {
-  const ws = getTestWorkspace();
+test("CLI web flags override env values and invalid CLI numbers fall back to env", () => {
+  const ws = createTempWorkspace("piclaw-config-");
 
-  const configDir = join(ws.workspace, ".piclaw");
-  mkdirSync(configDir, { recursive: true });
-  writeFileSync(
-    join(configDir, "config.json"),
-    JSON.stringify({
-      PUSHOVER_APP_TOKEN: "config-token",
-      PUSHOVER_USER_KEY: "config-user",
-    }),
-    "utf8"
-  );
+  try {
+    let snapshot = loadConfigInSubprocess(
+      ws,
+      ["WEB_PORT", "WEB_HOST", "WEB_IDLE_TIMEOUT"],
+      {
+        env: {
+          PICLAW_WEB_PORT: "8081",
+          PICLAW_WEB_HOST: "0.0.0.0",
+          PICLAW_WEB_IDLE_TIMEOUT: "10",
+        },
+        args: ["--port=9090", "--host", "127.0.0.1", "--idle-timeout", "25"],
+      },
+    );
 
-  restoreEnv = setEnv({
-    PICLAW_WORKSPACE: ws.workspace,
-    PICLAW_STORE: ws.store,
-    PICLAW_DATA: ws.data,
-    PUSHOVER_APP_TOKEN: "env-token",
-    PUSHOVER_USER_KEY: "env-user",
-  });
+    expect(snapshot.WEB_PORT).toBe(9090);
+    expect(snapshot.WEB_HOST).toBe("127.0.0.1");
+    expect(snapshot.WEB_IDLE_TIMEOUT).toBe(25);
 
-  const cfg = await importFresh<typeof import("../src/core/config.js")>("../src/core/config.js");
-  expect(cfg.PUSHOVER_APP_TOKEN).toBe("env-token");
-  expect(cfg.PUSHOVER_USER_KEY).toBe("env-user");
+    snapshot = loadConfigInSubprocess(
+      ws,
+      ["WEB_PORT", "WEB_IDLE_TIMEOUT"],
+      {
+        env: {
+          PICLAW_WEB_PORT: "8181",
+          PICLAW_WEB_IDLE_TIMEOUT: "12",
+        },
+        args: ["--port", "not-a-number", "--idle-timeout=bad"],
+      },
+    );
+
+    expect(snapshot.WEB_PORT).toBe(8181);
+    expect(snapshot.WEB_IDLE_TIMEOUT).toBe(12);
+  } finally {
+    ws.cleanup();
+  }
 });
 
-test("loads PICLAW_LOG_LEVEL from env", async () => {
-  const ws = getTestWorkspace();
+test("config and env fallback chains handle booleans and session settings", () => {
+  const ws = createTempWorkspace("piclaw-config-");
 
-  restoreEnv = setEnv({
-    PICLAW_WORKSPACE: ws.workspace,
-    PICLAW_STORE: ws.store,
-    PICLAW_DATA: ws.data,
-    PICLAW_LOG_LEVEL: "error",
-    LOG_LEVEL: undefined,
-  });
-
-  const cfg = await importFresh<typeof import("../src/core/config.js")>("../src/core/config.js");
-  expect(cfg.LOG_LEVEL).toBe("error");
-});
-
-test("loads TRUST_PROXY from web config and allows env override", async () => {
-  const ws = getTestWorkspace();
-
-  const configDir = join(ws.workspace, ".piclaw");
-  mkdirSync(configDir, { recursive: true });
-  writeFileSync(
-    join(configDir, "config.json"),
-    JSON.stringify({
+  try {
+    writeWorkspaceConfig(ws.workspace, {
       web: {
+        totpWindow: 4,
+        sessionTtl: 60,
+        internalSecret: "config-secret",
+        passkeyMode: "PASSKEY-ONLY",
         trustProxy: true,
       },
-    }),
-    "utf8"
+      webTerminalEnabled: true,
+      debugCardSubmissions: false,
+      sessionMaxSizeMb: 8,
+      sessionAutoRotate: true,
+    });
+
+    const snapshot = loadConfigInSubprocess(ws, [
+      "WEB_TOTP_WINDOW",
+      "WEB_SESSION_TTL",
+      "WEB_INTERNAL_SECRET",
+      "WEB_PASSKEY_MODE",
+      "TRUST_PROXY",
+      "WEB_TERMINAL_ENABLED",
+      "DEBUG_CARD_SUBMISSIONS",
+      "SESSION_MAX_SIZE_MB",
+      "SESSION_MAX_SIZE_BYTES",
+      "SESSION_AUTO_ROTATE",
+    ], {
+      env: {
+        PICLAW_WEB_SESSION_TTL: "120",
+        PICLAW_WEB_INTERNAL_SECRET: "env-secret",
+        PICLAW_TRUST_PROXY: "0",
+        PICLAW_WEB_TERMINAL_ENABLED: "false",
+        PICLAW_DEBUG_CARD_SUBMISSIONS: "yes",
+        PICLAW_SESSION_AUTO_ROTATE: "off",
+      },
+    });
+
+    expect(snapshot.WEB_TOTP_WINDOW).toBe(4);
+    expect(snapshot.WEB_SESSION_TTL).toBe(120);
+    expect(snapshot.WEB_INTERNAL_SECRET).toBe("env-secret");
+    expect(snapshot.WEB_PASSKEY_MODE).toBe("passkey-only");
+    expect(snapshot.TRUST_PROXY).toBe(false);
+    expect(snapshot.WEB_TERMINAL_ENABLED).toBe(false);
+    expect(snapshot.DEBUG_CARD_SUBMISSIONS).toBe(true);
+    expect(snapshot.SESSION_MAX_SIZE_MB).toBe(8);
+    expect(snapshot.SESSION_MAX_SIZE_BYTES).toBe(8 * 1024 * 1024);
+    expect(snapshot.SESSION_AUTO_ROTATE).toBe(false);
+  } finally {
+    ws.cleanup();
+  }
+});
+
+test("remote interop env flags and metadata load without a config file", () => {
+  const ws = createTempWorkspace("piclaw-config-");
+
+  try {
+    const snapshot = loadConfigInSubprocess(ws, [
+      "REMOTE_INTEROP_ENABLED",
+      "REMOTE_INTEROP_ALLOW_HTTP",
+      "REMOTE_SHORT_CIRCUIT_ENABLED",
+      "REMOTE_INSTANCE_NAME",
+      "REMOTE_INTEROP_DECISION_MODEL",
+    ], {
+      env: {
+        PICLAW_REMOTE_INTEROP_ENABLED: "1",
+        PICLAW_REMOTE_INTEROP_ALLOW_HTTP: "true",
+        PICLAW_REMOTE_SHORT_CIRCUIT_ENABLED: "1",
+        PICLAW_REMOTE_INSTANCE_NAME: "remote-a",
+        PICLAW_REMOTE_INTEROP_DECISION_MODEL: "decision-model-a",
+      },
+    });
+
+    expect(snapshot.REMOTE_INTEROP_ENABLED).toBe(true);
+    expect(snapshot.REMOTE_INTEROP_ALLOW_HTTP).toBe(true);
+    expect(snapshot.REMOTE_SHORT_CIRCUIT_ENABLED).toBe(true);
+    expect(snapshot.REMOTE_INSTANCE_NAME).toBe("remote-a");
+    expect(snapshot.REMOTE_INTEROP_DECISION_MODEL).toBe("decision-model-a");
+  } finally {
+    ws.cleanup();
+  }
+});
+
+test("runtime setters trim values, escape trigger regexes, and persist TOTP secrets", async () => {
+  await withTempWorkspaceEnv(
+    "piclaw-config-",
+    { PICLAW_WEB_TOTP_SECRET: undefined, LOG_LEVEL: undefined },
+    async (ws) => {
+      const configPath = writeWorkspaceConfig(ws.workspace, {
+        web: {
+          totp_secret: "legacy-secret",
+          keepMe: true,
+        },
+      });
+
+      const cfg = await importFresh<typeof import("../../src/core/config.js")>("../src/core/config.js");
+
+      cfg.setAssistantName("  Pi (Test) Bot  ");
+      cfg.setAssistantAvatar("  /assistant.svg  ");
+      cfg.setUserName("  Jordan  ");
+      cfg.setUserAvatar("  /user.svg  ");
+      cfg.setUserAvatarBackground("  #abcdef  ");
+
+      expect(cfg.ASSISTANT_NAME).toBe("Pi (Test) Bot");
+      expect(cfg.ASSISTANT_AVATAR).toBe("/assistant.svg");
+      expect(cfg.USER_NAME).toBe("Jordan");
+      expect(cfg.USER_AVATAR).toBe("/user.svg");
+      expect(cfg.USER_AVATAR_BACKGROUND).toBe("#abcdef");
+      expect(cfg.TRIGGER_PATTERN.test("hello @Pi (Test) Bot")).toBe(true);
+      expect(cfg.TRIGGER_PATTERN.test("hello @Pi Test Bot")).toBe(false);
+
+      expect(cfg.setWebTotpSecret("  fresh-secret  ")).toBe("fresh-secret");
+      expect(cfg.WEB_TOTP_SECRET).toBe("fresh-secret");
+      expect(process.env.PICLAW_WEB_TOTP_SECRET).toBe("fresh-secret");
+
+      const savedConfig = JSON.parse(readFileSync(configPath, "utf8"));
+      expect(savedConfig.web.totpSecret).toBe("fresh-secret");
+      expect(savedConfig.web.totp_secret).toBeUndefined();
+      expect(savedConfig.web.keepMe).toBe(true);
+
+      expect(cfg.setWebTotpSecret("   ")).toBe("");
+      expect(cfg.WEB_TOTP_SECRET).toBe("");
+      expect(process.env.PICLAW_WEB_TOTP_SECRET).toBeUndefined();
+
+      const clearedConfig = JSON.parse(readFileSync(configPath, "utf8"));
+      expect(clearedConfig.web.keepMe).toBe(true);
+      expect(clearedConfig.web.totpSecret).toBeUndefined();
+      expect(clearedConfig.web.totp_secret).toBeUndefined();
+    },
   );
-
-  restoreEnv = setEnv({
-    PICLAW_WORKSPACE: ws.workspace,
-    PICLAW_STORE: ws.store,
-    PICLAW_DATA: ws.data,
-    PICLAW_TRUST_PROXY: undefined,
-  });
-
-  const cfgFromConfig = await importFresh<typeof import("../src/core/config.js")>("../src/core/config.js");
-  expect(cfgFromConfig.TRUST_PROXY).toBe(true);
-
-  restoreEnv?.();
-  restoreEnv = setEnv({
-    PICLAW_WORKSPACE: ws.workspace,
-    PICLAW_STORE: ws.store,
-    PICLAW_DATA: ws.data,
-    PICLAW_TRUST_PROXY: "0",
-  });
-
-  const cfgFromEnv = await importFresh<typeof import("../src/core/config.js")>("../src/core/config.js");
-  expect(cfgFromEnv.TRUST_PROXY).toBe(false);
 });

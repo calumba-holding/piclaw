@@ -91,6 +91,28 @@ export function setEnv(vars: Record<string, string | undefined>): () => void {
   };
 }
 
+/** Run a callback with an isolated temp workspace wired into PICLAW_* env vars. */
+export async function withTempWorkspaceEnv<T>(
+  prefix: string,
+  vars: Record<string, string | undefined>,
+  run: (workspace: TempWorkspace) => Promise<T> | T,
+): Promise<T> {
+  const workspace = createTempWorkspace(prefix);
+  const restore = setEnv({
+    PICLAW_WORKSPACE: workspace.workspace,
+    PICLAW_STORE: workspace.store,
+    PICLAW_DATA: workspace.data,
+    ...vars,
+  });
+
+  try {
+    return await run(workspace);
+  } finally {
+    restore();
+    workspace.cleanup();
+  }
+}
+
 /** Import a module with a cache-busting suffix to bypass Bun's module cache. */
 export async function importFresh<T = any>(modulePath: string): Promise<T> {
   const suffix = `?t=${Date.now()}-${Math.random().toString(36).slice(2)}`;
