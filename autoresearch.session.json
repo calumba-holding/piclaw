@@ -1,0 +1,10 @@
+{
+  "chat_jid": "web:default",
+  "display_name": "Use kanban ticket `kanban/20-doing/adopt-pino-structured-logging.md` as the gove",
+  "model": "openai-codex/gpt-5.4",
+  "max_iterations": 12,
+  "variables": [
+    "console_calls_remaining",
+    "guard_passes"
+  ]
+}
