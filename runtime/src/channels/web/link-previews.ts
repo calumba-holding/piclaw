@@ -23,6 +23,7 @@ import {
 import { lookup } from "dns/promises";
 import { extname } from "path";
 import { isIP } from "net";
+import { createLogger } from "../../utils/logger.js";
 
 /** OpenGraph metadata for a URL: title, description, image, site name. */
 export interface LinkPreview {
@@ -38,6 +39,8 @@ export interface LinkPreviewChannel {
   pendingLinkPreviews: Set<number>;
   broadcastEvent(eventType: string, data: unknown): void;
 }
+
+const log = createLogger("web.link-previews");
 
 const MAX_URLS = 3;
 const FETCH_TIMEOUT_MS = 8000;
@@ -390,7 +393,11 @@ export function scheduleLinkPreviews(
       const interaction = getMessageByRowId(chatJid, rowId);
       if (interaction) channel.broadcastEvent("interaction_updated", interaction);
     } catch (err) {
-      console.warn("[web] Link preview fetch failed:", err);
+      log.warn("Link preview fetch failed", {
+        chatJid,
+        rowId,
+        err,
+      });
     } finally {
       channel.pendingLinkPreviews.delete(rowId);
     }

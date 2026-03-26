@@ -2,6 +2,10 @@
  * channels/web/manifest.ts – Web manifest response helper.
  */
 
+import { createLogger } from "../../utils/logger.js";
+
+const log = createLogger("web.manifest");
+
 /** Optional metadata returned by avatar cache preparation. */
 export interface ManifestIconMeta {
   updatedAt?: string;
@@ -40,7 +44,7 @@ export async function handleManifestRequest(req: Request, ctx: ManifestRequestCo
         });
       }
     } catch (err) {
-      console.warn("[web] Failed to prepare agent avatar for manifest:", err);
+      log.warn("Failed to prepare agent avatar for manifest", { err });
     }
   }
 

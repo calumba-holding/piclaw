@@ -7,6 +7,9 @@
  * Consumers: web/sse-hub.ts builds on these primitives.
  */
 
+import { createLogger } from "../../utils/logger.js";
+
+const log = createLogger("web.sse");
 const encoder = new TextEncoder();
 
 const CHAT_SCOPED_EVENT_TYPES = new Set([
@@ -121,7 +124,7 @@ export function broadcastEvent(channel: SseClientContainer, eventType: string, d
     : null;
 
   if (requiresChatScopedDelivery(eventType) && !eventChatJid) {
-    console.warn(`[web/sse] Dropping chat-scoped event without chat_jid: ${eventType}`);
+    log.warn("Dropping chat-scoped event without chat_jid", { eventType });
     return;
   }
 

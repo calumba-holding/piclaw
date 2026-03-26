@@ -11,7 +11,10 @@
 
 import type { AgentSession, ExtensionUIContext } from "@mariozechner/pi-coding-agent";
 
+import { createLogger } from "../../utils/logger.js";
 import { createFallbackTheme } from "./theme.js";
+
+const log = createLogger("web.ui-bridge");
 
 const WEB_THEME_NAMES = [
   "default",
@@ -110,7 +113,10 @@ export class UiBridge {
         reload: () => session.reload(),
       },
       onError: (error) => {
-        console.error("[web] Extension error:", error);
+        log.error("Extension UI error", {
+          chatJid,
+          err: error,
+        });
         this.channel.broadcastEvent("extension_ui_error", {
           chat_jid: chatJid,
           error: error instanceof Error ? error.message : String(error),

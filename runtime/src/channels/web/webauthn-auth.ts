@@ -32,6 +32,9 @@ import {
   resolveWebauthnRpInfo,
   type WebauthnChallengeTracker,
 } from "./webauthn-challenges.js";
+import { createLogger } from "../../utils/logger.js";
+
+const log = createLogger("web.webauthn-auth");
 
 /** Context contract consumed by WebAuthn login/register endpoint handlers. */
 export interface WebauthnAuthContext {
@@ -140,7 +143,10 @@ export async function handleWebauthnLoginFinish(req: Request, ctx: WebauthnAuthC
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Passkey verification failed";
-    console.warn(`[webauthn] Login verification error (ip=${ctx.getClientKey(req)}):`, err);
+    log.warn("WebAuthn login verification error", {
+      clientKey: ctx.getClientKey(req),
+      err,
+    });
     return ctx.json({ error: message }, 401);
   }
 
@@ -254,7 +260,10 @@ export async function handleWebauthnRegisterFinish(req: Request, ctx: WebauthnAu
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Passkey verification failed";
-    console.warn(`[webauthn] Registration verification error (ip=${ctx.getClientKey(req)}):`, err);
+    log.warn("WebAuthn registration verification error", {
+      clientKey: ctx.getClientKey(req),
+      err,
+    });
     return ctx.json({ error: message }, 401);
   }
 

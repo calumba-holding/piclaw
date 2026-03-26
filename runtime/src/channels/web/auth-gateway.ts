@@ -21,6 +21,9 @@ import type { WebauthnAuthContext } from "./webauthn-auth.js";
 import type { WebauthnEnrolPageContext } from "./webauthn-enrol-page.js";
 import type { WebauthnChallengeTracker } from "./webauthn-challenges.js";
 import { getClientKey as getRequestClientKey } from "./http/client.js";
+import { createLogger } from "../../utils/logger.js";
+
+const log = createLogger("web.auth-gateway");
 
 /** External dependencies required to construct a WebAuthGateway instance. */
 export interface WebAuthGatewayDeps {
@@ -103,8 +106,11 @@ export class WebAuthGateway {
   }
 
   private logAuthEvent(req: Request, event: string): void {
-    const message = `[auth] ${event} (ip=${this.getClientKey(req)})`;
-    const logger = this.deps.logAuthWarning ?? ((entry: string) => console.warn(entry));
-    logger(message);
+    const clientKey = this.getClientKey(req);
+    if (this.deps.logAuthWarning) {
+      this.deps.logAuthWarning(`[auth] ${event} (ip=${clientKey})`);
+      return;
+    }
+    log.warn("Auth event", { event, clientKey });
   }
 }

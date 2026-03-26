@@ -20,6 +20,9 @@ import {
 } from "./rate-limit-rules.js";
 import { type RouteFlags, shouldSkipAuthCheck } from "./route-flags.js";
 import { checkCsrfOrigin, rateLimitResponse } from "./security.js";
+import { createLogger } from "../../../utils/logger.js";
+
+const log = createLogger("web.request-guards");
 
 /** Channel contract required by HTTP request guard helpers. */
 export interface RequestGuardsChannel {
@@ -51,9 +54,11 @@ export async function enforceRequestGuards(
 
   if (flags.isInternalPost || flags.isInternalPatch) {
     if (internalSecretEnabled && !hasInternalAccess) {
-      console.warn(
-        `[auth] Internal secret required (ip=${getClientKey(req)}, method=${req.method}, path=${pathname})`
-      );
+      log.warn("Internal secret required", {
+        clientKey: getClientKey(req),
+        method: req.method,
+        path: pathname,
+      });
       return channel.json({ error: "Unauthorized" }, 401);
     }
   }
@@ -64,21 +69,30 @@ export async function enforceRequestGuards(
 
   if (flags.isAuthVerify) {
     if (isRateLimited(req, "auth/verify", AUTH_RATE_WINDOW_MS, AUTH_RATE_LIMIT)) {
-      console.warn(`[auth] Rate limit exceeded for /auth/verify (ip=${getClientKey(req)})`);
+      log.warn("Auth verify rate limit exceeded", {
+        clientKey: getClientKey(req),
+        endpoint: "/auth/verify",
+      });
       return channel.json({ error: "Too many login attempts. Try again later." }, 429);
     }
   }
 
   if (flags.isWebauthnLoginStart || flags.isWebauthnLoginFinish) {
     if (isRateLimited(req, "webauthn/login", AUTH_RATE_WINDOW_MS, AUTH_RATE_LIMIT)) {
-      console.warn(`[auth] Rate limit exceeded for WebAuthn login (ip=${getClientKey(req)})`);
+      log.warn("WebAuthn login rate limit exceeded", {
+        clientKey: getClientKey(req),
+        endpoint: "webauthn/login",
+      });
       return channel.json({ error: "Too many login attempts. Try again later." }, 429);
     }
   }
 
   if (flags.isWebauthnEnrollPage || flags.isWebauthnRegisterStart || flags.isWebauthnRegisterFinish) {
     if (isRateLimited(req, "webauthn/enrol", ENROLL_RATE_WINDOW_MS, ENROLL_RATE_LIMIT)) {
-      console.warn(`[auth] Rate limit exceeded for WebAuthn enrol (ip=${getClientKey(req)})`);
+      log.warn("WebAuthn enrol rate limit exceeded", {
+        clientKey: getClientKey(req),
+        endpoint: "webauthn/enrol",
+      });
       return channel.json({ error: "Too many enrol attempts. Try again later." }, 429);
     }
   }
@@ -95,7 +109,11 @@ export async function enforceRequestGuards(
     }
 
     if (!skipAuthCheck && !channel.authGateway.isAuthenticated(req)) {
-      console.warn(`[auth] Unauthorized request (ip=${getClientKey(req)}, method=${req.method}, path=${pathname})`);
+      log.warn("Unauthorized request", {
+        clientKey: getClientKey(req),
+        method: req.method,
+        path: pathname,
+      });
       if (flags.isIndex) {
         return await serveLoginPageResponse(channel.endpointContexts.auth());
       }
@@ -110,7 +128,10 @@ export async function enforceRequestGuards(
 
   if (flags.isMutating && !hasInternalAccess && !flags.isAuthEndpoint) {
     if (!checkCsrfOrigin(req)) {
-      console.warn(`[security] CSRF origin check failed (ip=${getClientKey(req)}, origin=${req.headers.get("origin")})`);
+      log.warn("CSRF origin check failed", {
+        clientKey: getClientKey(req),
+        origin: req.headers.get("origin"),
+      });
       return channel.json({ error: "Origin not allowed" }, 403);
     }
   }
