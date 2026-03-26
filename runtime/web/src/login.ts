@@ -113,7 +113,9 @@ if (window.PublicKeyCredential && typeof PublicKeyCredential.isConditionalMediat
     .then((available) => {
       if (available) attemptPasskey({ conditional: true });
     })
-    .catch(() => {});
+    .catch(() => {
+      /* expected: some browsers expose the API but reject the capability probe. */
+    });
 }
 
 codeInput.addEventListener("focus", () => {

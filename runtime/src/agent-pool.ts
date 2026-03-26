@@ -625,13 +625,17 @@ export class AgentPool {
     });
 
     const abortHandler = () => {
-      void sideSession.abort().catch(() => {});
+      void sideSession.abort().catch(() => {
+        /* expected: side session may already be aborting when the outer signal fires. */
+      });
     };
     options.signal?.addEventListener("abort", abortHandler, { once: true });
     if (timeoutMs > 0) {
       timeoutId = setTimeout(() => {
         timedOut = true;
-        void sideSession.abort().catch(() => {});
+        void sideSession.abort().catch(() => {
+          /* expected: side session may already be aborting when the timeout fires. */
+        });
       }, timeoutMs);
     }
 

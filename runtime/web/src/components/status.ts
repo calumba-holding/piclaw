@@ -234,29 +234,46 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
         return `${rounded}${unit}`;
     };
 
-    const SERIES_COLORS = [
+    const SERIES_COLOR_ANCHORS = [
         'var(--accent-color)',
-        'color-mix(in srgb, var(--accent-color) 72%, var(--success-color))',
         'var(--success-color)',
-        'color-mix(in srgb, var(--accent-color) 50%, var(--warning-color))',
-        'var(--warning-color)',
+        'var(--warning-color, #f59e0b)',
         'var(--danger-color)',
-        'color-mix(in srgb, var(--accent-color) 42%, var(--text-primary))',
-        'color-mix(in srgb, var(--success-color) 46%, var(--text-primary))',
     ];
 
+    const resolveSeriesColor = (index, total) => {
+        const anchors = SERIES_COLOR_ANCHORS;
+        if (!Array.isArray(anchors) || anchors.length === 0) return 'var(--accent-color)';
+        if (anchors.length === 1 || !Number.isFinite(total) || total <= 1) return anchors[0];
+        const clampedIndex = Math.max(0, Math.min(Number.isFinite(index) ? index : 0, total - 1));
+        const scaled = (clampedIndex / Math.max(1, total - 1)) * (anchors.length - 1);
+        const leftIndex = Math.floor(scaled);
+        const rightIndex = Math.min(anchors.length - 1, leftIndex + 1);
+        const mixRatio = scaled - leftIndex;
+        const left = anchors[leftIndex];
+        const right = anchors[rightIndex];
+        if (!right || leftIndex === rightIndex || mixRatio <= 0.001) return left;
+        if (mixRatio >= 0.999) return right;
+        const leftWeight = Math.round((1 - mixRatio) * 1000) / 10;
+        const rightWeight = Math.round(mixRatio * 1000) / 10;
+        return `color-mix(in oklab, ${left} ${leftWeight}%, ${right} ${rightWeight}%)`;
+    };
+
     const renderCombinedSeriesChart = (seriesList, panelKey = 'autoresearch') => {
-        const normalized = Array.isArray(seriesList)
+        const prepared = Array.isArray(seriesList)
             ? seriesList
-                .map((series, index) => ({
+                .map((series) => ({
                     ...series,
-                    color: SERIES_COLORS[index % SERIES_COLORS.length],
                     points: Array.isArray(series?.points)
                         ? series.points.filter((point) => Number.isFinite(point?.value) && Number.isFinite(point?.run))
                         : [],
                 }))
                 .filter((series) => series.points.length > 0)
             : [];
+        const normalized = prepared.map((series, index) => ({
+            ...series,
+            color: resolveSeriesColor(index, prepared.length),
+        }));
         if (normalized.length === 0) return null;
 
         const width = 320;

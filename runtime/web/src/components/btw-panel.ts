@@ -11,13 +11,17 @@ export function BtwPanel({ session, onClose, onInject, onRetry }) {
 
     useEffect(() => {
         if (thinkingRef.current && renderedThinking) {
-            renderMermaidDiagrams(thinkingRef.current).catch(() => {});
+            renderMermaidDiagrams(thinkingRef.current).catch(() => {
+                /* expected: mermaid rendering is best-effort for BTW thinking panels. */
+            });
         }
     }, [renderedThinking]);
 
     useEffect(() => {
         if (answerRef.current && renderedAnswer) {
-            renderMermaidDiagrams(answerRef.current).catch(() => {});
+            renderMermaidDiagrams(answerRef.current).catch(() => {
+                /* expected: mermaid rendering is best-effort for BTW answer panels. */
+            });
         }
     }, [renderedAnswer]);
 

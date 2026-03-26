@@ -530,7 +530,9 @@ function FileAttachmentCard({ mediaId }) {
     const [info, setInfo] = useState(null);
     useEffect(() => {
         if (!mediaId) return;
-        getMediaInfo(mediaId).then(setInfo).catch(() => {});
+        getMediaInfo(mediaId).then(setInfo).catch(() => {
+            /* expected: attachment metadata is best-effort for workspace cards. */
+        });
     }, [mediaId]);
     if (!info) return null;
     const filename = info.filename || 'file';
@@ -1171,7 +1173,9 @@ export function WorkspaceExplorer({
         const active = activeRef.current ?? visibleRef.current;
         const visible = document.visibilityState !== 'hidden'
             && (active || (media.matches && visibleRef.current));
-        setWorkspaceVisibility(visible, showHiddenRef.current).catch(() => {});
+        setWorkspaceVisibility(visible, showHiddenRef.current).catch(() => {
+            /* expected: workspace visibility pings are best-effort. */
+        });
     }).current;
 
     const debouncedVisibilityRef = useRef(0);
@@ -1231,7 +1235,9 @@ export function WorkspaceExplorer({
                 clearTimeout(longPressTimerRef.current);
                 longPressTimerRef.current = null;
             }
-            setWorkspaceVisibility(false, showHiddenRef.current).catch(() => {});
+            setWorkspaceVisibility(false, showHiddenRef.current).catch(() => {
+                /* expected: workspace visibility pings are best-effort during teardown. */
+            });
         };
     }, []);
 
@@ -1463,7 +1469,9 @@ export function WorkspaceExplorer({
                 setLocalStorageItem('workspaceShowHidden', String(next));
             }
             showHiddenRef.current = next;
-            setWorkspaceVisibility(true, next).catch(() => {});
+            setWorkspaceVisibility(true, next).catch(() => {
+                /* expected: show-hidden visibility refresh is best-effort. */
+            });
             lastSigRef.current = '';
             loadTreeFnRef.current?.();
             const openPaths = Array.from(expandedRef.current || []).filter((p) => p && p !== '.');

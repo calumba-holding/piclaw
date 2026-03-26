@@ -65,7 +65,9 @@ export function MarkdownPreview({ getContent, path, onClose }) {
     // Render mermaid diagrams after HTML update
     useEffect(() => {
         if (previewRef.current && renderedHtml) {
-            renderMermaidDiagrams(previewRef.current).catch(() => {});
+            renderMermaidDiagrams(previewRef.current).catch(() => {
+                /* expected: mermaid rendering is best-effort for markdown previews. */
+            });
         }
     }, [renderedHtml]);
 

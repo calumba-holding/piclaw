@@ -20,7 +20,9 @@ function FileAttachment({ mediaId, onPreview }) {
     const [info, setInfo] = useState(null);
 
     useEffect(() => {
-        getMediaInfo(mediaId).then(setInfo).catch(() => {});
+        getMediaInfo(mediaId).then(setInfo).catch(() => {
+            /* expected: attachment metadata is best-effort for message file cards. */
+        });
     }, [mediaId]);
 
     if (!info) return null;
@@ -75,7 +77,9 @@ function AttachmentPill({ attachment, onPreview }) {
 
     useEffect(() => {
         if (!Number.isFinite(mediaId)) return undefined;
-        getMediaInfo(mediaId).then(setInfo).catch(() => {});
+        getMediaInfo(mediaId).then(setInfo).catch(() => {
+            /* expected: attachment metadata is best-effort for attachment pills. */
+        });
         return undefined;
     }, [mediaId]);
 

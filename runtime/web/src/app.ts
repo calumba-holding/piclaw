@@ -1708,7 +1708,9 @@ function MainApp({ locationParams, navigate }) {
                 if (activeChatJidRef.current !== targetChatJid) return;
                 if (payload) applyModelState(payload);
             })
-            .catch(() => {});
+            .catch(() => {
+                /* expected: model-state refresh is best-effort during chat switches. */
+            });
     }, [applyModelState, currentChatJid]);
 
     const refreshActiveChatAgents = useCallback(() => {
@@ -1718,8 +1720,8 @@ function MainApp({ locationParams, navigate }) {
             : [];
 
         Promise.all([
-            getActiveChatAgents().catch(() => ({ chats: [] })),
-            getChatBranches(null, { includeArchived: true }).catch(() => ({ chats: [] })),
+            getActiveChatAgents().catch(() => ({ chats: [] /* expected: active-agent refresh is best-effort. */ })),
+            getChatBranches(null, { includeArchived: true }).catch(() => ({ chats: [] /* expected: archived-branch refresh is best-effort. */ })),
         ])
             .then(([activePayload, branchPayload]) => {
                 if (activeChatJidRef.current !== targetChatJid) return;
@@ -1765,7 +1767,9 @@ function MainApp({ locationParams, navigate }) {
                     : [];
                 setCurrentChatBranches(chats);
             })
-            .catch(() => {});
+            .catch(() => {
+                /* expected: branch-list refresh is best-effort while the UI is already usable. */
+            });
     }, [currentRootChatJid]);
     const handleInjectQueuedFollowup = useCallback((queuedItem) => {
         const rowId = queuedItem?.row_id;
@@ -2593,7 +2597,9 @@ function MainApp({ locationParams, navigate }) {
                     if (activeChatJidRef.current !== targetChatJid) return;
                     if (ctx) setContextUsage(ctx);
                 })
-                .catch(() => {});
+                .catch(() => {
+                    /* expected: context usage refresh is best-effort after model switches. */
+                });
             return;
         }
 
