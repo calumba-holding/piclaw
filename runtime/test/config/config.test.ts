@@ -227,6 +227,64 @@ test("remote interop env flags and metadata load without a config file", () => {
   }
 });
 
+test("in-process module init handles deprecated env warnings, argv parsing, and string coercions", async () => {
+  await withTempWorkspaceEnv(
+    "piclaw-config-",
+    {
+      ASSISTANT_NAME: "Legacy Pi",
+      PICLAW_ASSISTANT_NAME: undefined,
+      PICLAW_WEB_PORT: "8181",
+      PICLAW_WEB_IDLE_TIMEOUT: "12",
+      PICLAW_WEB_TERMINAL_ENABLED: "yes",
+      PICLAW_DEBUG_CARD_SUBMISSIONS: "off",
+      PICLAW_SESSION_MAX_SIZE_MB: "64",
+      PICLAW_SESSION_AUTO_ROTATE: "on",
+      TZ: "UTC",
+    },
+    async () => {
+      const stderrChunks: string[] = [];
+      const originalArgv = process.argv.slice();
+      const originalStderrWrite = process.stderr.write.bind(process.stderr);
+
+      process.argv = [
+        originalArgv[0] || "bun",
+        originalArgv[1] || "test",
+        "--port",
+        "9001",
+        "--host=127.0.0.1",
+        "--idle-timeout=22",
+      ];
+      (process.stderr.write as unknown as (chunk: string | Uint8Array) => boolean) = ((chunk: string | Uint8Array) => {
+        stderrChunks.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
+        return true;
+      }) as typeof process.stderr.write;
+
+      try {
+        const cfg = await importFresh<typeof import("../../src/core/config.js")>("../src/core/config.js");
+
+        expect(cfg.ASSISTANT_NAME).toBe("Legacy Pi");
+        expect(cfg.WEB_PORT).toBe(9001);
+        expect(cfg.WEB_HOST).toBe("127.0.0.1");
+        expect(cfg.WEB_IDLE_TIMEOUT).toBe(22);
+        expect(cfg.WEB_TERMINAL_ENABLED).toBe(true);
+        expect(cfg.DEBUG_CARD_SUBMISSIONS).toBe(false);
+        expect(cfg.SESSION_MAX_SIZE_MB).toBe(64);
+        expect(cfg.SESSION_MAX_SIZE_BYTES).toBe(64 * 1024 * 1024);
+        expect(cfg.SESSION_AUTO_ROTATE).toBe(true);
+        expect(cfg.TIMEZONE).toBe("UTC");
+      } finally {
+        process.argv = originalArgv;
+        process.stderr.write = originalStderrWrite;
+      }
+
+      const stderr = stderrChunks.join("");
+      expect(stderr).toContain("Deprecated environment variable is set");
+      expect(stderr).toContain('"oldName":"ASSISTANT_NAME"');
+      expect(stderr).toContain('"newName":"PICLAW_ASSISTANT_NAME"');
+    },
+  );
+});
+
 test("runtime setters trim values, escape trigger regexes, and persist TOTP secrets", async () => {
   await withTempWorkspaceEnv(
     "piclaw-config-",
@@ -272,6 +330,14 @@ test("runtime setters trim values, escape trigger regexes, and persist TOTP secr
       expect(clearedConfig.web.keepMe).toBe(true);
       expect(clearedConfig.web.totpSecret).toBeUndefined();
       expect(clearedConfig.web.totp_secret).toBeUndefined();
+
+      writeWorkspaceConfig(ws.workspace, {
+        web: {
+          totp_secret: "legacy-only-secret",
+        },
+      });
+      expect(cfg.setWebTotpSecret("   ")).toBe("");
+      expect(JSON.parse(readFileSync(configPath, "utf8")).web).toBeUndefined();
     },
   );
 });

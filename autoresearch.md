@@ -38,3 +38,5 @@ Raise automated coverage for `runtime/src/core/config.ts` and `runtime/src/secur
 - Added an in-process setter/persistence test for `setAssistantName()` / `setWebTotpSecret()` to cover mutable runtime branches that subprocess snapshots cannot exercise.
 - Reworked `secure/keychain.ts` tests around isolated temp workspaces + in-memory DBs, covering CRUD, file-backed key material, provider overrides, placeholder/env resolution, and unsupported-KDF / missing-username failures.
 - Added `./scripts/audit-core-config-keychain-coverage.sh` to generate repeatable coverage evidence under `artifacts/add-tests-core-config-and-keychain/`.
+- A config-only follow-up improved the metric without perturbing keychain coverage: an in-process config init test now captures deprecated-env warnings, CLI argv parsing, string boolean/number coercions, and the branch that removes an empty `web` object when clearing the TOTP secret.
+- Avoid adding more import-heavy keychain edge-case tests casually: one discarded attempt caused Bun LCOV to undercount keychain execution and dropped reported coverage below acceptance even though runtime behavior was fine.

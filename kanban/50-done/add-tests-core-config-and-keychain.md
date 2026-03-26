@@ -54,7 +54,7 @@ Two critical modules have near-zero test coverage:
 - Added `withTempWorkspaceEnv()` in `runtime/test/helpers.ts` for small reusable env + workspace isolation.
 - Added canonical evidence command `./scripts/audit-core-config-keychain-coverage.sh`.
 - Evidence: `artifacts/add-tests-core-config-and-keychain/coverage-summary.md`
-  - `src/core/config.ts`: 96.12% line coverage
+  - `src/core/config.ts`: 96.35% line coverage
   - `src/secure/keychain.ts`: 81.42% line coverage
 - Validation:
   - `PICLAW_DB_IN_MEMORY=1 bun test --max-concurrency=1 test/config/config.test.ts test/keychain.test.ts`
