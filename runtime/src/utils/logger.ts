@@ -3,9 +3,12 @@
  *
  * Emits newline-delimited JSON records directly to stdout/stderr so logs stay
  * machine-parsable even when console timestamp patching is enabled elsewhere.
+ * Logging honours the global PICLAW_LOG_LEVEL / LOG_LEVEL threshold.
  */
 
-export type LogLevel = "debug" | "info" | "warn" | "error";
+import { getConfiguredLogLevel, shouldLog } from "./log-level.js";
+import type { LogLevel } from "./log-level.js";
+
 export type LogFields = Record<string, unknown> & { err?: unknown };
 
 export interface StructuredLogger {
@@ -92,6 +95,7 @@ function writeRecord(
   message: string,
   fields?: LogFields,
 ): void {
+  if (!shouldLog(level, getConfiguredLogLevel())) return;
   const record = buildRecord(level, moduleName, bindings, message, fields);
   const line = JSON.stringify(record);
   if (level === "warn" || level === "error") {

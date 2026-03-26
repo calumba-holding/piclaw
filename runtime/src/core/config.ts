@@ -25,6 +25,7 @@ import { existsSync } from "fs";
 import { readEnvFile } from "./env.js";
 import { readJsonConfig, writeJsonConfig } from "./config-store.js";
 import { createLogger } from "../utils/logger.js";
+import { getConfiguredLogLevel, parseLogLevel } from "../utils/log-level.js";
 
 // ---------------------------------------------------------------------------
 // .env file – loaded once at module init and merged with process.env below.
@@ -66,6 +67,8 @@ const envConfig = readEnvFile([
   "PICLAW_REMOTE_INSTANCE_NAME",
   "PICLAW_REMOTE_SHORT_CIRCUIT_ENABLED",
   "PICLAW_REMOTE_INTEROP_DECISION_MODEL",
+  "PICLAW_LOG_LEVEL",
+  "LOG_LEVEL",
 ]);
 
 // ---------------------------------------------------------------------------
@@ -271,10 +274,20 @@ warnDeprecatedEnv("ASSISTANT_NAME", "PICLAW_ASSISTANT_NAME");
 warnDeprecatedEnv("ASSISTANT_AVATAR", "PICLAW_ASSISTANT_AVATAR");
 warnDeprecatedEnv("AGENT_TIMEOUT", "PICLAW_AGENT_TIMEOUT");
 warnDeprecatedEnv("AGENT_TIMEOUT_BACKGROUND", "PICLAW_BACKGROUND_AGENT_TIMEOUT");
+warnDeprecatedEnv("LOG_LEVEL", "PICLAW_LOG_LEVEL");
 
 // ---------------------------------------------------------------------------
 // Mutable identity settings – can be changed at runtime via agent-control.
 // ---------------------------------------------------------------------------
+
+/** Global runtime logging threshold (default info). */
+export const LOG_LEVEL = parseLogLevel(
+  process.env.PICLAW_LOG_LEVEL ||
+    envConfig.PICLAW_LOG_LEVEL ||
+    process.env.LOG_LEVEL ||
+    envConfig.LOG_LEVEL ||
+    getConfiguredLogLevel(),
+);
 
 /** Display name of the assistant. Updated by setAssistantName(). */
 export let ASSISTANT_NAME =

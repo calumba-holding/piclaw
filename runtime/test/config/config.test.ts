@@ -80,6 +80,21 @@ test("env overrides config.json values", async () => {
   expect(cfg.PUSHOVER_USER_KEY).toBe("env-user");
 });
 
+test("loads PICLAW_LOG_LEVEL from env", async () => {
+  const ws = getTestWorkspace();
+
+  restoreEnv = setEnv({
+    PICLAW_WORKSPACE: ws.workspace,
+    PICLAW_STORE: ws.store,
+    PICLAW_DATA: ws.data,
+    PICLAW_LOG_LEVEL: "error",
+    LOG_LEVEL: undefined,
+  });
+
+  const cfg = await importFresh<typeof import("../src/core/config.js")>("../src/core/config.js");
+  expect(cfg.LOG_LEVEL).toBe("error");
+});
+
 test("loads TRUST_PROXY from web config and allows env override", async () => {
   const ws = getTestWorkspace();
 
