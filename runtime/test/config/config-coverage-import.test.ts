@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "fs";
+import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { withTempWorkspaceEnv } from "../helpers.js";
 
@@ -66,6 +66,20 @@ test("plain import covers config module init branches with isolated argv and env
         expect(cfg.SESSION_MAX_SIZE_MB).toBe(64);
         expect(cfg.SESSION_AUTO_ROTATE).toBe(true);
         expect(cfg.TIMEZONE).toBe("UTC");
+
+        const configPath = join(ws.workspace, ".piclaw", "config.json");
+        expect(cfg.setWebTotpSecret("  fresh-secret  ")).toBe("fresh-secret");
+        expect(cfg.WEB_TOTP_SECRET).toBe("fresh-secret");
+        expect(process.env.PICLAW_WEB_TOTP_SECRET).toBe("fresh-secret");
+        const savedConfig = JSON.parse(readFileSync(configPath, "utf8"));
+        expect(savedConfig.web.totpSecret).toBe("fresh-secret");
+        expect(savedConfig.web.passkeyMode).toBe("PASSKEY-ONLY");
+
+        writeWorkspaceConfig(ws.workspace, { web: { totp_secret: "legacy-only-secret" } });
+        expect(cfg.setWebTotpSecret("   ")).toBe("");
+        expect(cfg.WEB_TOTP_SECRET).toBe("");
+        expect(process.env.PICLAW_WEB_TOTP_SECRET).toBeUndefined();
+        expect(JSON.parse(readFileSync(configPath, "utf8")).web).toBeUndefined();
       } finally {
         process.argv = originalArgv;
         process.stderr.write = originalStderrWrite;

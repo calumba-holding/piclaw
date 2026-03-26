@@ -11,6 +11,6 @@
 | Module | Lines hit | Lines found | Line coverage |
 | --- | ---: | ---: | ---: |
 | `src/core/config.ts` | 438 | 447 | 97.99% |
-| `src/secure/keychain.ts` | 179 | 184 | 97.28% |
+| `src/secure/keychain.ts` | 182 | 184 | 98.91% |
 
-- Combined uncovered lines: 14
+- Combined uncovered lines: 11

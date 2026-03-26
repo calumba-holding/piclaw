@@ -56,7 +56,7 @@ Two critical modules have near-zero test coverage:
 - Added canonical evidence command `./scripts/audit-core-config-keychain-coverage.sh`.
 - Evidence: `artifacts/add-tests-core-config-and-keychain/coverage-summary.md`
   - `src/core/config.ts`: 97.99% line coverage
-  - `src/secure/keychain.ts`: 97.28% line coverage
+  - `src/secure/keychain.ts`: 98.91% line coverage
 - Validation:
   - `PICLAW_DB_IN_MEMORY=1 bun test --max-concurrency=1 test/config/config-coverage-import.test.ts`
   - `PICLAW_DB_IN_MEMORY=1 bun test --max-concurrency=1 test/keychain-coverage-import.test.ts`

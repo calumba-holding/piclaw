@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-03-26T22:37:52.356Z",
+  "generatedAt": "2026-03-26T22:40:15.197Z",
   "command": "./scripts/audit-core-config-keychain-coverage.sh",
   "config": {
     "file": "src/core/config.ts",
@@ -11,10 +11,10 @@
   "keychain": {
     "file": "src/secure/keychain.ts",
     "lf": 184,
-    "lh": 179,
-    "uncovered": 5,
-    "line_pct": 97.28
+    "lh": 182,
+    "uncovered": 2,
+    "line_pct": 98.91
   },
-  "uncovered_lines": 14,
-  "min_line_pct": 97.28
+  "uncovered_lines": 11,
+  "min_line_pct": 97.99
 }
