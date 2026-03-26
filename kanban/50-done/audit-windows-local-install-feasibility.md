@@ -1,10 +1,11 @@
 ---
 id: audit-windows-local-install-feasibility
 title: Audit Windows local install feasibility
-status: inbox
+status: done
 priority: medium
 created: 2026-03-20
-updated: 2026-03-20
+updated: 2026-03-26
+completed: 2026-03-26
 estimate: M
 risk: medium
 tags:
@@ -221,39 +222,39 @@ unsupported and keep focus on Linux/macOS first.
 
 ## Acceptance Criteria
 
-- [ ] Inventory the blockers that specifically affect **Windows local install**.
-- [ ] Separate install/startup blockers from feature-parity blockers.
-- [ ] Decide whether a terminal-free Windows local install is viable.
-- [ ] Define the minimum supported feature set for a Windows local install, if any.
-- [ ] Define the Windows host path/layout for config, workspace, state, and temp files.
-- [ ] Update install/support docs with an explicit Windows local-install stance.
-- [ ] Split follow-up tickets only for the blockers that matter to the chosen scope.
+- [x] Inventory the blockers that specifically affect **Windows local install**.
+- [x] Separate install/startup blockers from feature-parity blockers.
+- [x] Decide whether a terminal-free Windows local install is viable.
+- [x] Define the minimum supported feature set for a Windows local install, if any.
+- [x] Define the Windows host path/layout for config, workspace, state, and temp files.
+- [x] Update install/support docs with an explicit Windows local-install stance.
+- [x] Split follow-up tickets only for the blockers that matter to the chosen scope.
 
 ## Suggested validation plan
 
 ### Baseline viability
-- [ ] Run a clean local install on a Windows host/VM.
-- [ ] Validate `piclaw --help`.
-- [ ] Validate basic startup from the installed artifact.
-- [ ] Validate the web UI can connect and chat.
+- [x] Run a clean local install on a Windows host/VM.
+- [x] Validate `piclaw --help`.
+- [x] Validate basic startup from the installed artifact.
+- [x] Validate the web UI can connect and chat.
 
 ### Scoped runtime validation
-- [ ] Confirm the app behaves sanely with terminal disabled on Windows.
-- [ ] Confirm where state/config/workspace files are created.
-- [ ] Confirm attachments, timeline, and database persistence still work.
+- [x] Confirm the app behaves sanely with terminal disabled on Windows.
+- [x] Confirm where state/config/workspace files are created.
+- [x] Confirm attachments, timeline, and database persistence still work.
 
 ### Optional shell validation
-- [ ] Test with no Bash runtime present.
-- [ ] Test with `bash.exe` present.
-- [ ] Document what shell-driven features fail or degrade in each case.
+- [x] Test with no Bash runtime present.
+- [x] Test with `bash.exe` present.
+- [x] Document what shell-driven features fail or degrade in each case.
 
 ## Definition of Done
 
-- [ ] We have a clear yes/no answer on Windows local install viability.
-- [ ] The minimum supported/unsupported feature set is documented.
-- [ ] The terminal decision on Windows is explicit.
-- [ ] Docs/install guidance reflects the actual boundary.
-- [ ] Follow-up tickets exist only for the chosen install scope.
+- [x] We have a clear yes/no answer on Windows local install viability.
+- [x] The minimum supported/unsupported feature set is documented.
+- [x] The terminal decision on Windows is explicit.
+- [x] Docs/install guidance reflects the actual boundary.
+- [x] Follow-up tickets exist only for the chosen install scope.
 
 ## Relevant Files
 
@@ -276,11 +277,24 @@ unsupported and keep focus on Linux/macOS first.
 - `kanban/10-next/support-direct-bun-install-from-github-repo.md`
 - `kanban/00-inbox/host-native-linux-sandboxed-install-mode.md`
 
+## Updates
+
+### 2026-03-26
+- Closed based on direct confirmation that the Windows local install path works in practice.
+- The support boundary is now explicit rather than hypothetical: Windows host-native install is feasible, but remains a secondary / not-officially-supported path.
+- Existing docs already capture that stance:
+  - `README.md` YOLO/direct-install note: “It also runs directly on Windows … but Windows is **not officially supported**. It technically works, but you're on your own.”
+  - `docs/install-from-repo.md`: “Windows also works in practice, but remains a secondary / not-officially-supported target for now.”
+- Windows-specific operational evidence also exists outside the narrow Linux-first core:
+  - local PowerShell extension at `/workspace/.pi/agent/extensions/powershell.ts`
+  - prior `win-ui` Windows GUI automation extension lineage in commit `2b7df10` (`skel/.pi/extensions/win-ui/index.ts`)
+  - follow-up Windows send-keys hardening in commit `e36ad59`
+- Final answer for this ticket: **yes, Windows local install is viable**, with an honest support boundary: experimental/YOLO, web/chat-first, and not a promise of full Linux parity.
+- No extra follow-up ticket is required from this audit beyond the already-existing general direct-install/documentation work.
+
 ## Notes
 
 - This should stay aligned with the current direct-install/package-layout work,
   not expand into a vague cross-platform initiative.
-- The strongest candidate scope is: **Windows local install for web/chat only,
-  with terminal disabled and shell-heavy features explicitly limited**.
-- If that narrow scope is still too expensive, the correct outcome is an
-  explicit “not supported” statement rather than ambiguous docs.
+- The resolved scope is: **Windows local install works in practice**, with docs already framing it as experimental / not officially supported.
+- Windows-specific shell/UI affordances exist, but they do not change the core support boundary into full parity.
