@@ -1,19 +1,14 @@
 # Autoresearch: audit silent catch blocks
 
 ## Objective
-Close the governing kanban ticket cleanly now that the audit, tests, quality hooks, and CI guard are all in place. The governing ticket started as `kanban/10-next/audit-silent-catch-blocks.md` and should now reflect completed/review-ready status with acceptance criteria checked off.
+Sync the higher-level master quality-cleanup ticket now that the silent-catch audit ticket itself is review-ready. The implementation work is complete; this final pass is about preventing stale portfolio metadata.
 
-The implementation work is complete. The resumed loop is now focused on durable project hygiene: updating the ticket/lane/status/evidence so future agents do not rediscover or reopen this audit unnecessarily.
-
-Success means the ticket has:
-- completed acceptance checkboxes,
-- an updated status/frontmatter consistent with its lane,
-- recorded evidence that the guard exists in quality/autoresearch/CI.
+Success means the master ticket that tracks blocking quality items reflects that `audit-silent-catch-blocks` is no longer `next`.
 
 We are optimizing for durable closure while keeping the repo state coherent.
 
 ## Metrics
-- **Primary**: `ticket_closure_gaps` (count, lower is better) — outstanding ticket/lane/acceptance gaps for the silent-catch audit ticket
+- **Primary**: `master_ticket_sync_gaps` (count, lower is better) — stale master-ticket references that still show the silent-catch audit as incomplete
 - **Secondary**:
   - `repo_silent_catch_blocks` — repo-wide empty `catch {}` count (should stay 0)
   - `repo_silent_promise_catches` — repo-wide empty `.catch(() => {})` count (should stay 0)
@@ -23,11 +18,9 @@ We are optimizing for durable closure while keeping the repo state coherent.
 `./autoresearch.sh` — emits structured `METRIC name=value` lines.
 
 ## Files in Scope
-- `kanban/10-next/audit-silent-catch-blocks.md` or its moved successor lane path — governing ticket to update/move
-- `.github/workflows/ci.yml` — CI adoption point for the silent-swallow guard
-- `runtime/scripts/silent-swallow-metrics.ts` — reusable scanner/metrics script for empty swallow detection
-- `runtime/test/scripts/silent-swallow-metrics.test.ts` — focused regression coverage for the scanner
-- `autoresearch.checks.sh` and `package.json` — existing local/backpressure guard wiring must stay intact
+- `kanban/40-review/audit-silent-catch-blocks.md` — governing ticket, already review-ready
+- `kanban/30-blocked/codebase-quality-cleanup-2026.md` — master ticket whose sub-ticket status needs syncing
+- `.github/workflows/ci.yml`, `runtime/scripts/silent-swallow-metrics.ts`, `runtime/test/scripts/silent-swallow-metrics.test.ts`, `autoresearch.checks.sh`, `package.json` — guard infrastructure that must remain intact
 - `runtime/src/**`, `runtime/web/src/**`, `runtime/scripts/**`, `runtime/extensions/**`, `runtime/test/**`, `skel/scripts/**` — monitored repo code that must remain at zero silent swallows
 
 ## Off Limits
@@ -61,3 +54,4 @@ We are optimizing for durable closure while keeping the repo state coherent.
 - `.github/workflows/ci.yml` now runs `bun run check:silent-swallows` before the web build, closing the last obvious enforcement gap.
 - New target: update the governing kanban ticket so its lane/status/acceptance criteria reflect the completed audit and new regression guards.
 - The governing ticket has been moved to `kanban/40-review/`, its status/frontmatter were updated, acceptance criteria were checked off, and evidence notes now mention the quality/autoresearch/CI guard layers.
+- New target: sync the master `codebase-quality-cleanup-2026` tracker so it no longer reports the silent-catch audit as `next`.

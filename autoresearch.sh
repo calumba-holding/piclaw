@@ -14,47 +14,13 @@ if [[ "$check_script" == *"silent-swallow-metrics.ts --check"* && "$quality_scri
   guard_check_present=1
 fi
 
-ticket_file=""
-for candidate in \
-  kanban/10-next/audit-silent-catch-blocks.md \
-  kanban/40-review/audit-silent-catch-blocks.md \
-  kanban/50-done/audit-silent-catch-blocks.md; do
-  if [[ -f "$candidate" ]]; then
-    ticket_file="$candidate"
-    break
-  fi
-done
-
-if [[ -z "$ticket_file" ]]; then
-  echo "missing governing ticket file" >&2
-  exit 1
+master_ticket_sync_gaps=0
+if ! grep -q '| `audit-silent-catch-blocks` | review |' kanban/30-blocked/codebase-quality-cleanup-2026.md && \
+   ! grep -q '| `audit-silent-catch-blocks` | done |' kanban/30-blocked/codebase-quality-cleanup-2026.md; then
+  master_ticket_sync_gaps=$((master_ticket_sync_gaps + 1))
 fi
 
-unchecked_count=$(grep -c '^- \[ \]' "$ticket_file" || true)
-status_value=$(awk -F': ' '/^status:/{print $2; exit}' "$ticket_file")
-path_gap=0
-status_gap=0
-evidence_gap=0
-
-case "$ticket_file" in
-  kanban/40-review/*|kanban/50-done/*) path_gap=0 ;;
-  *) path_gap=1 ;;
-esac
-
-case "$status_value" in
-  review|done) status_gap=0 ;;
-  *) status_gap=1 ;;
-esac
-
-if grep -q 'check:silent-swallows\|silent-swallow-metrics\|CI' "$ticket_file"; then
-  evidence_gap=0
-else
-  evidence_gap=1
-fi
-
-ticket_closure_gaps=$((unchecked_count + path_gap + status_gap + evidence_gap))
-
-echo "METRIC ticket_closure_gaps=${ticket_closure_gaps}"
+echo "METRIC master_ticket_sync_gaps=${master_ticket_sync_gaps}"
 echo "METRIC repo_silent_catch_blocks=${repo_silent_catch_blocks:-0}"
 echo "METRIC repo_silent_promise_catches=${repo_silent_promise_catches:-0}"
 echo "METRIC guard_check_present=${guard_check_present}"
