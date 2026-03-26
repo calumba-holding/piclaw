@@ -866,12 +866,7 @@ export class WebChannel implements WebChannelLike {
 
   /** POST /agent/autoresearch/stop — stop the running autoresearch experiment for this chat. */
   async handleAutoresearchStop(req: Request): Promise<Response> {
-    let payload: { chat_jid?: string; generate_report?: boolean } = {};
-    try {
-      payload = await req.json();
-    } catch {
-      payload = {};
-    }
+    const payload: { chat_jid?: string; generate_report?: boolean } = await req.json().catch(() => ({}));
     const chatJid = typeof payload.chat_jid === "string" && payload.chat_jid.trim()
       ? payload.chat_jid.trim()
       : DEFAULT_CHAT_JID;
@@ -894,12 +889,7 @@ export class WebChannel implements WebChannelLike {
 
   /** POST /agent/autoresearch/dismiss — dismiss the final autoresearch status panel for this chat. */
   async handleAutoresearchDismiss(req: Request): Promise<Response> {
-    let payload: { chat_jid?: string } = {};
-    try {
-      payload = await req.json();
-    } catch {
-      payload = {};
-    }
+    const payload: { chat_jid?: string } = await req.json().catch(() => ({}));
     const chatJid = typeof payload.chat_jid === "string" && payload.chat_jid.trim()
       ? payload.chat_jid.trim()
       : DEFAULT_CHAT_JID;

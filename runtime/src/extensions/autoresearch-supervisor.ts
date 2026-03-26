@@ -1200,7 +1200,7 @@ export const autoresearchSupervisor: ExtensionFactory = (pi: ExtensionAPI) => {
         const { entries, newOffset } = readNewJsonlLines(activeExperiment.jsonlPath, activeExperiment.lastJsonlOffset);
         if (entries.length === 0) return;
         activeExperiment.lastJsonlOffset = newOffset;
-        for (const entry of entries) {
+        for (const _entry of entries) {
           emitAutoresearchStatus(broadcastEvent, activeExperiment, "running", buildActiveExperimentSummary(activeExperiment));
         }
       }, 2000);

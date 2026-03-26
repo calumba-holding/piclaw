@@ -71,9 +71,3 @@ export function checkPendingShutdown(): void {
   }, 500);
 }
 
-/**
- * Check if a shutdown is pending (for status reporting).
- */
-export function isPendingShutdown(): boolean {
-  return pendingShutdownReason !== null;
-}

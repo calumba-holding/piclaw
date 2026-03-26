@@ -2,7 +2,8 @@
  * test/agent-pool/agent-pool-tools.test.ts – Tests for built-in extension tool registration.
  *
  * Verifies that builtinExtensionFactories register the expected tools
- * (attach_file, messages, model control, tool discovery, keychain, SQL introspection, workspace search)
+ * (attach_file, messages, model control, tool discovery, keychain, SQL introspection, workspace search,
+ * adaptive cards, dashboard widget posting, graceful exit, and autoresearch controls)
  * and slash commands (/tasks, /scheduled, /theme, /tint) on a mock ExtensionAPI.
  */
 
@@ -64,6 +65,11 @@ describe("builtin extension factories", () => {
     expect(fake.tools.has("keychain")).toBe(true);
     expect(fake.tools.has("introspect_sql")).toBe(true);
     expect(fake.tools.has("send_adaptive_card")).toBe(true);
+    expect(fake.tools.has("send_dashboard_widget")).toBe(true);
+    expect(fake.tools.has("exit_process")).toBe(true);
+    expect(fake.tools.has("start_autoresearch")).toBe(true);
+    expect(fake.tools.has("stop_autoresearch")).toBe(true);
+    expect(fake.tools.has("autoresearch_status")).toBe(true);
 
     // Commands from scheduled-tasks + ui-theme extensions
     expect(fake.commands.has("tasks")).toBe(true);
@@ -73,6 +79,6 @@ describe("builtin extension factories", () => {
   });
 
   test("factories array has expected length", () => {
-    expect(builtinExtensionFactories.length).toBe(12);
+    expect(builtinExtensionFactories.length).toBe(14);
   });
 });
