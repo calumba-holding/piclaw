@@ -3,14 +3,14 @@
 ## Objective
 Reduce unstructured `console.*` usage in the critical-path runtime/server files from kanban ticket `kanban/20-doing/adopt-pino-structured-logging.md`, replace it with a shared structured logger, and make teardown/race/degraded/error paths explicit enough that resumed agents can tell whether a site should guard quietly, warn with context, or fail loudly.
 
-This session is an audit + migration loop, not a runtime speed optimization. The workload is a repo-quality benchmark that measures remaining raw console usage in scope while full correctness checks gate kept runs.
+This session is an audit + migration loop, not a runtime speed optimization. Phase 1 eliminated non-allowlisted raw console usage in scope; Phase 2 increases structured-logger coverage across the remaining critical-path files while full correctness checks keep the raw-console guard locked at zero.
 
 ## Metrics
-- **Primary**: `scope_raw_console_calls` (unitless, lower is better) — count of non-allowlisted raw `console.log/warn/error/info/debug` references in the ticket scope.
+- **Primary**: `scope_files_using_structured_logger` (unitless, higher is better) — count of in-scope critical-path files that import the shared structured logger.
 - **Secondary**:
+  - `scope_raw_console_calls`
   - `scope_files_with_raw_console`
   - `scope_allowlisted_console_calls`
-  - `scope_files_using_structured_logger`
   - `scope_expected_guard_markers`
   - `repo_silent_catch_blocks`
   - `repo_files_with_silent_catches`
@@ -54,8 +54,9 @@ This session is an audit + migration loop, not a runtime speed optimization. The
 - **Allowlist**: raw console use is only acceptable in deliberately low-level plumbing that cannot sensibly route through the structured logger (currently expected to be tiny and explicit).
 
 ## What's Been Tried
-- Baseline: `scope_raw_console_calls=77` with full guards passing.
+- Phase 1 baseline: `scope_raw_console_calls=77` with full guards passing.
 - Added `runtime/src/utils/logger.ts` and `runtime/scripts/structured-logging-scope-metrics.ts` so the loop can measure ticket-scope raw console usage directly and later enforce it with `--check`.
 - Migrated `runtime/src/runtime/*`, `runtime/src/channels/whatsapp.ts`, `runtime/src/channels/web.ts`, and `runtime/src/channels/web/workspace/file-service.ts` onto the structured logger path while preserving explicit quiet guards for expected teardown/transient cases.
-- Remaining high-noise holdout after the first migration pass was `runtime/src/agent-pool.ts`; current pass is focused on converting that file so the scope guard can flip from metric-only to enforced.
+- Converted `runtime/src/agent-pool.ts`, flipped the scope guard from metric-only to enforced, and drove `scope_raw_console_calls` to `0` while keeping full validation green.
+- Phase 2 now optimizes `scope_files_using_structured_logger` with `scope_raw_console_calls=0` treated as a locked secondary guard. Remaining non-logger scope files are `runtime/src/db/connection.ts`, `runtime/src/runtime/composition.ts`, `runtime/src/runtime/coordinator.ts`, `runtime/src/runtime/provider-bootstrap.ts`, `runtime/src/runtime/state.ts`, plus the intentional low-level allowlist file `runtime/src/runtime/console-timestamps.ts`.
 - Initial hypothesis confirmed: a small repo-local structured logger plus a scope metric/check script lets us migrate critical runtime modules incrementally without waiting for a repo-wide logging rewrite.
