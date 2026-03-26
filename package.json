@@ -58,6 +58,7 @@
     "check:hook-tdz": "bun run runtime/scripts/check-hook-tdz.ts",
     "check:silent-swallows": "bun run runtime/scripts/silent-swallow-metrics.ts --check",
     "quality": "bun run lint && bun run typecheck && bun run test && bun run check:pack-hygiene && bun run check:stale-dist && bun run check:import-boundaries && bun run check:unused-exports && bun run check:hook-tdz && bun run check:silent-swallows",
+    "audit:baseline-quality-deterministic": "./scripts/audit-baseline-quality-deterministic.sh",
     "check:repo-install": "bun pm pack --dry-run",
     "smoke:repo-install": "./scripts/smoke-install-from-repo.sh",
     "proxmox": "bun run runtime/scripts/proxmox.ts",

@@ -29,7 +29,7 @@ This is the first split follow-up from the older XL umbrella ticket
 
 ## Acceptance Criteria
 
-- [ ] Repo-root quality gates run cleanly:
+- [x] Repo-root quality gates run cleanly:
   - `bun run lint`
   - `bun run typecheck`
   - `bun run check:pack-hygiene`
@@ -37,22 +37,23 @@ This is the first split follow-up from the older XL umbrella ticket
   - `bun run check:import-boundaries`
   - `bun run check:unused-exports`
   - `bun run check:hook-tdz`
-- [ ] Deterministic grouped tests run cleanly.
-- [ ] Any flaky deterministic failures are either fixed or split into explicit follow-up tickets.
-- [ ] A timestamped log/artifact path is recorded in the ticket update.
+- [x] Deterministic grouped tests run cleanly.
+- [x] Any flaky deterministic failures are either fixed or split into explicit follow-up tickets.
+- [x] A timestamped log/artifact path is recorded in the ticket update.
 
 ## Test Plan
 
-- [ ] `cd /workspace/piclaw && bun run quality`
-- [ ] Run focused deterministic suites from `runtime/test/` as needed to isolate failures.
-- [ ] Re-run any flaky group at least 3 times before calling it stable.
+- [x] `cd /workspace/piclaw && bun run quality`
+- [x] `cd /workspace/piclaw && bun run audit:baseline-quality-deterministic`
+- [x] Run focused deterministic suites from `runtime/test/` as needed to isolate failures.
+- [x] Re-run any flaky group at least 3 times before calling it stable.
 
 ## Definition of Done
 
-- [ ] Baseline quality gates are green.
-- [ ] Deterministic suites targeted by this pass are green.
-- [ ] Any remaining failures are narrowed into explicit follow-up tickets.
-- [ ] Evidence is recorded in `## Updates`.
+- [x] Baseline quality gates are green.
+- [x] Deterministic suites targeted by this pass are green.
+- [x] Any remaining failures are narrowed into explicit follow-up tickets.
+- [x] Evidence is recorded in `## Updates`.
 
 ## Updates
 
@@ -62,6 +63,22 @@ This is the first split follow-up from the older XL umbrella ticket
 - Moved from `10-next` to `20-doing` to run an autoresearch-assisted hardening pass.
 - Current framing for the experiment: the baseline quality command is green, so the goal is to turn this into a repeatable one-command deterministic sweep with timestamped evidence, explicit grouped suites, flake classification/retry behavior, and clear follow-up generation for anything still unstable.
 - Usual guardrails apply: iterative lint/typecheck/test fix passes are required, checks failures should trigger repair iterations before new speculative changes, and optional/browser/fuzz work should stay out of the default deterministic sweep unless explicitly carved out.
+- Added canonical repo entrypoint: `bun run audit:baseline-quality-deterministic` via `scripts/audit-baseline-quality-deterministic.sh` + `scripts/audit-baseline-quality-deterministic.ts`.
+- Added deterministic audit self-tests in `runtime/test/scripts/audit-baseline-quality-deterministic.test.ts` so group exposure and follow-up ticket markdown stay import-safe and regression-tested.
+- The default sweep now discovers deterministic tests automatically, assigns them into 13 explicit groups, excludes optional/manual/fuzz suites by explicit policy, reruns failing groups up to 3 total attempts, and classifies them as `pass`, `consistent_fail`, `flake`, or `infra_fail`.
+- Timestamped baseline evidence recorded on `main` at:
+  - artifact dir: `/workspace/piclaw/artifacts/baseline-quality-deterministic/2026-03-26T17-28-25Z`
+  - summary: `/workspace/piclaw/artifacts/baseline-quality-deterministic/2026-03-26T17-28-25Z/summary.md`
+  - machine-readable summary: `/workspace/piclaw/artifacts/baseline-quality-deterministic/2026-03-26T17-28-25Z/summary.json`
+  - run log: `/workspace/piclaw/artifacts/baseline-quality-deterministic/2026-03-26T17-28-25Z/run.log`
+- Validated results from the merged hardened sweep on `main`:
+  - `stability_gap_count=0`
+  - `deterministic_sweep_runtime_sec=36.172`
+  - 181 deterministic test files covered across 13 groups
+  - 1 explicit exclusion: `runtime/test/channels/web/browser-chat-isolation.optional.test.ts`
+  - no flaky groups after the default retry policy
+  - no follow-up tickets needed from the baseline run
+- Broad validation stayed green on `main` via `bun run quality`, and the autoresearch sandbox also held the stronger soak workloads clean through repeat counts 2, 3, 5, 10, and 20 without surfacing hidden instability.
 
 ## Links
 
