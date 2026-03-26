@@ -1,20 +1,20 @@
 {
-  "generatedAt": "2026-03-26T22:31:16.961Z",
-  "command": "PICLAW_DB_IN_MEMORY=1 bun test --max-concurrency=1 test/config/config.test.ts test/keychain.test.ts --coverage --coverage-reporter=lcov",
+  "generatedAt": "2026-03-26T22:37:52.356Z",
+  "command": "./scripts/audit-core-config-keychain-coverage.sh",
   "config": {
     "file": "src/core/config.ts",
-    "lf": 438,
-    "lh": 422,
-    "uncovered": 16,
-    "line_pct": 96.35
+    "lf": 447,
+    "lh": 438,
+    "uncovered": 9,
+    "line_pct": 97.99
   },
   "keychain": {
     "file": "src/secure/keychain.ts",
-    "lf": 183,
-    "lh": 149,
-    "uncovered": 34,
-    "line_pct": 81.42
+    "lf": 184,
+    "lh": 179,
+    "uncovered": 5,
+    "line_pct": 97.28
   },
-  "uncovered_lines": 50,
-  "min_line_pct": 81.42
+  "uncovered_lines": 14,
+  "min_line_pct": 97.28
 }
