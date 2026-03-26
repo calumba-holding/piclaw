@@ -15,6 +15,8 @@ test("plain import covers config module init branches with isolated argv and env
     {
       ASSISTANT_NAME: "Legacy Pi",
       PICLAW_ASSISTANT_NAME: undefined,
+      PICLAW_INTERNAL_SECRET: undefined,
+      PICLAW_WEB_INTERNAL_SECRET: undefined,
       PICLAW_WEB_PORT: "8181",
       PICLAW_WEB_IDLE_TIMEOUT: "12",
       TZ: "UTC",
