@@ -8,6 +8,9 @@ import {
   streamSimpleAzureOpenAIResponses,
   streamSimpleOpenAICompletions,
 } from "@mariozechner/pi-ai";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("runtime.provider-bootstrap");
 
 /** Minimal AgentPool contract needed to register optional model providers. */
 export interface ProviderBootstrapAgentPool {
@@ -96,12 +99,19 @@ export function registerOptionalProviders(agentPool: ProviderBootstrapAgentPool)
         streamSimple: toProviderStreamSimple(streamSimpleAzureOpenAIResponses),
         models: buildAzureOpenAiModels(modelIds, names),
       });
+      log.info("Registered Azure OpenAI provider models", {
+        operation: "register_optional_providers.azure_openai",
+        modelCount: modelIds.length,
+      });
     } else if (!azureApiRegistered) {
       agentPool.registerModelProvider(AZURE_OPENAI_PROVIDER, {
         baseUrl: aoaiBaseUrl,
         api: AZURE_OPENAI_API,
         apiKey: aoaiToken,
         streamSimple: toProviderStreamSimple(streamSimpleAzureOpenAIResponses),
+      });
+      log.info("Registered Azure OpenAI transport for existing provider models", {
+        operation: "register_optional_providers.azure_openai_transport",
       });
     }
   }
@@ -124,12 +134,19 @@ export function registerOptionalProviders(agentPool: ProviderBootstrapAgentPool)
         streamSimple: toProviderStreamSimple(streamSimpleOpenAICompletions),
         models: buildAzureFoundryModels(modelIds, names),
       });
+      log.info("Registered Azure Foundry provider models", {
+        operation: "register_optional_providers.azure_foundry",
+        modelCount: modelIds.length,
+      });
     } else if (!foundryApiRegistered) {
       agentPool.registerModelProvider(AZURE_FOUNDRY_PROVIDER, {
         baseUrl: foundryBaseUrl,
         api: AZURE_FOUNDRY_API,
         apiKey: foundryToken,
         streamSimple: toProviderStreamSimple(streamSimpleOpenAICompletions),
+      });
+      log.info("Registered Azure Foundry transport for existing provider models", {
+        operation: "register_optional_providers.azure_foundry_transport",
       });
     }
   }

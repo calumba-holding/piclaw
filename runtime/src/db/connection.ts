@@ -21,6 +21,9 @@ import fs from "fs";
 import path from "path";
 
 import { STORE_DIR } from "../core/config.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("db.connection");
 
 /** Singleton database handle; set by initDatabase(), accessed via getDb(). */
 let db: Database | null = null;
@@ -408,7 +411,7 @@ function ensureMessageColumns(database: Database): void {
     try {
       database.exec(`ALTER TABLE messages ADD COLUMN ${name} ${type}`);
     } catch {
-      // ignore if column already exists or cannot be added
+      /* expected: schema migration may race a previously-migrated database state. */
     }
   };
   ensureColumn("content_blocks");
@@ -442,7 +445,7 @@ function ensureScheduledTaskColumns(database: Database): void {
     try {
       database.exec(`ALTER TABLE scheduled_tasks ADD COLUMN ${name} ${type}`);
     } catch {
-      // ignore if column already exists or cannot be added
+      /* expected: schema migration may race a previously-migrated database state. */
     }
   };
 
@@ -460,7 +463,7 @@ function ensureWebSessionColumns(database: Database): void {
     try {
       database.exec("ALTER TABLE web_sessions ADD COLUMN auth_method TEXT");
     } catch {
-      // ignore if column already exists or cannot be added
+      /* expected: schema migration may race a previously-migrated database state. */
     }
   }
 }
@@ -532,7 +535,7 @@ function ensureChatCursorFailedColumns(database: Database): void {
       try {
         database.exec(`ALTER TABLE chat_cursors ADD COLUMN ${col} ${type}`);
       } catch {
-        // Already exists or table not yet created – either is fine.
+        /* expected: table or column may already be in the desired migration state. */
       }
     }
   }
@@ -567,9 +570,11 @@ function migrateChatCursors(database: Database): void {
         if (typeof ts === "string" && ts) insert.run(jid, ts);
       }
     })();
-  } catch {
-    // Migration failed – cursors start empty. Worst case: reprocess some
-    // already-seen messages. Acceptable given this only happens once.
+  } catch (err) {
+    log.warn("Failed to migrate legacy chat cursors; starting with empty cursors", {
+      operation: "migrate_chat_cursors",
+      err,
+    });
   }
 }
 
@@ -601,8 +606,11 @@ export function initDatabase(): void {
     if (db) {
       try {
         db.close();
-      } catch {
-        // ignore close errors
+      } catch (err) {
+        log.warn("Failed to close previous database handle before reinitializing", {
+          operation: "init_database.close_previous_handle",
+          err,
+        });
       }
     }
 
@@ -614,9 +622,16 @@ export function initDatabase(): void {
     }
     dbMode = nextMode;
     dbPathCache = nextPath;
+    log.info("Opened database connection", {
+      operation: "init_database.open",
+      mode: nextMode,
+      path: nextPath,
+      reusedConnection: false,
+    });
   }
 
   if (!db) {
+    log.error("Database initialization failed", { operation: "init_database" });
     throw new Error("Database initialization failed");
   }
 

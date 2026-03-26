@@ -2,12 +2,15 @@
  * runtime/coordinator.ts – Runtime message-loop orchestration helpers.
  */
 
+import { createLogger } from "../utils/logger.js";
 import {
   processMessages,
   runMessageLoop,
   type MessageLoopDeps,
   type MessageProcessingDeps,
 } from "./message-loop.js";
+
+const log = createLogger("runtime.coordinator");
 
 /** Dependencies required to start the runtime message-processing loop. */
 export type StartRuntimeLoopDeps = {
@@ -28,6 +31,11 @@ export type StartRuntimeLoopDeps = {
 export async function startRuntimeLoop(deps: StartRuntimeLoopDeps): Promise<void> {
   const runMessageLoopImpl = deps.runMessageLoopFn ?? runMessageLoop;
   const processMessagesImpl = deps.processMessagesFn ?? processMessages;
+
+  log.info("Binding runtime loop dependencies", {
+    operation: "start_runtime_loop",
+    pollIntervalMs: deps.pollIntervalMs,
+  });
 
   await runMessageLoopImpl({
     queue: deps.queue,

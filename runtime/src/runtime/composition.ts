@@ -5,7 +5,10 @@
 import { AgentPool } from "../agent-pool.js";
 import { DATA_DIR } from "../core/config.js";
 import { AgentQueue } from "../queue.js";
+import { createLogger } from "../utils/logger.js";
 import { RuntimeState } from "./state.js";
+
+const log = createLogger("runtime.composition");
 
 /** Core long-lived services that runtime main wiring composes together. */
 export interface RuntimeCoreServices {
@@ -29,11 +32,16 @@ export function createRuntimeCoreServices(deps: RuntimeCoreFactoryDeps = {}): Ru
   const createAgentPool = deps.createAgentPool ?? (() => new AgentPool());
   const createState = deps.createState ?? ((dir) => new RuntimeState(dir));
 
-  return {
+  const services = {
     queue: createQueue(),
     agentPool: createAgentPool(),
     state: createState(dataDir),
   };
+  log.info("Created runtime core services", {
+    operation: "create_runtime_core_services",
+    dataDir,
+  });
+  return services;
 }
 
 /** Async runtime shutdown callback signature for signal handlers. */
@@ -49,6 +57,10 @@ export function registerRuntimeShutdownSignals(
   registrar: RuntimeSignalRegistrar,
   shutdown: RuntimeShutdownHandler
 ): void {
+  log.info("Registering runtime shutdown signals", {
+    operation: "register_runtime_shutdown_signals",
+    signals: ["SIGTERM", "SIGINT"],
+  });
   registrar.on("SIGTERM", () => {
     void shutdown("SIGTERM");
   });

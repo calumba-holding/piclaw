@@ -14,6 +14,9 @@ import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
 import { getRouterState, setRouterState } from "../db.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("runtime.state");
 
 /** Persistent runtime state: per-chat timestamps, active chat JIDs. */
 export class RuntimeState {
@@ -27,9 +30,17 @@ export class RuntimeState {
 
   loadChats(): void {
     const chatsFile = join(this.dataDir, "chats.json");
-    if (existsSync(chatsFile)) {
+    if (!existsSync(chatsFile)) return;
+    try {
       const data = JSON.parse(readFileSync(chatsFile, "utf-8"));
       this.chatJids = new Set(data.jids || []);
+    } catch (err) {
+      log.warn("Failed to parse persisted chat list; starting with an empty set", {
+        operation: "load_chats",
+        chatsFile,
+        err,
+      });
+      this.chatJids = new Set();
     }
   }
 
@@ -43,7 +54,11 @@ export class RuntimeState {
     const agentTs = getRouterState("last_agent_timestamp");
     try {
       this.lastAgentTimestamp = agentTs ? JSON.parse(agentTs) : {};
-    } catch {
+    } catch (err) {
+      log.warn("Failed to parse persisted agent timestamps; resetting state", {
+        operation: "load_timestamps",
+        err,
+      });
       this.lastAgentTimestamp = {};
     }
   }
