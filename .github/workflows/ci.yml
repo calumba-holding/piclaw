@@ -23,5 +23,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Check for silent swallow regressions
+        run: bun run check:silent-swallows
+
       - name: Build web bundles and run web regression tests
         run: make build-web

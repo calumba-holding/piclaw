@@ -54,3 +54,4 @@ We are optimizing for durable audit coverage while keeping builds/tests passing.
 - New target: add focused tests for the scanner itself so comment handling and `--check` semantics stay reliable.
 - Focused tests exposed and then fixed an underlying bug in the scanner: it originally ignored comments but still counted `catch {}` patterns inside strings/template text. The scanner now masks all non-code spans and the dedicated script test covers comment-only false positives, real detections, and `--check` failure behavior.
 - New target: wire `check:silent-swallows` into CI so the audit guard is enforced outside local/autoresearch workflows too.
+- `.github/workflows/ci.yml` now runs `bun run check:silent-swallows` before the web build, closing the last obvious enforcement gap.
