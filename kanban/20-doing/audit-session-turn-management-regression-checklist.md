@@ -197,7 +197,8 @@ LIMIT 80;
   - result: **9 passed / 0 failed**
   - log: `/workspace/logs/audit-session-turn-management-regression-2026-03-26T14-36-47Z.log`
 - Because the baseline is already green, the active experiment is aimed at reducing regression blind spots rather than chasing a single known failing test.
-- Launched autoresearch experiment `exp-mn7kunh6-jdlu` in a sandbox copy with max `20` iterations.
+- Archived a stray root-level `autoresearch.jsonl` so the new experiment would start clean instead of resuming unrelated logging-history data.
+- Launched autoresearch experiment `exp-mn7kwv7p-5xlf` in a sandbox copy with max `20` iterations.
 - Experiment brief:
   - automate more of the checklist,
   - tighten regression coverage around queue/session/branch isolation,
