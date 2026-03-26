@@ -18,7 +18,10 @@ import { Type } from "@sinclair/typebox";
 import type { AgentToolResult, ExtensionAPI, ExtensionFactory } from "@mariozechner/pi-coding-agent";
 import { WORKSPACE_DIR } from "../core/config.js";
 import { createMedia } from "../db/media.js";
+import { createLogger } from "../utils/logger.js";
 import { postMessagesToolMessage } from "./messages-crud.js";
+
+const log = createLogger("extensions.autoresearch-supervisor");
 
 // ── Paths ───────────────────────────────────────────────────────
 
@@ -307,7 +310,10 @@ function createReportRef(reportPath: string | null): AutoresearchReportRef | nul
       downloadUrl: mediaId > 0 ? `/media/${mediaId}` : null,
     };
   } catch (error) {
-    console.warn("[autoresearch] Failed to create report attachment:", error);
+    log.warn("Failed to create autoresearch report attachment", {
+      reportPath,
+      error,
+    });
     return {
       path: reportPath,
       filename: basename(reportPath),
@@ -577,7 +583,10 @@ function writeSessionMetadata(workDir: string, metadata: AutoresearchSessionMeta
   try {
     writeFileSync(sessionMetadataPath(workDir), JSON.stringify(metadata, null, 2) + "\n", "utf-8");
   } catch (error) {
-    console.warn("[autoresearch] Failed to write session metadata:", error);
+    log.warn("Failed to write autoresearch session metadata", {
+      workDir,
+      error,
+    });
   }
 }
 
@@ -690,7 +699,10 @@ async function startAutoresearch(
     const hasExistingData = existsSync(jsonlPath);
 
     if (hasExistingData) {
-      console.log(`[autoresearch] Resuming existing experiment ${id} with ${parseJsonlFile(jsonlPath).length} entries`);
+      log.info("Resuming existing sandboxed autoresearch experiment", {
+        id,
+        entryCount: parseJsonlFile(jsonlPath).length,
+      });
     } else {
       mkdirSync(sessionDir, { recursive: true });
       try {
@@ -834,7 +846,12 @@ async function startAutoresearch(
         finalizeAutoresearchRun(activeExperiment, "completed", { reason, generateReport: true });
         spawnSync("tmux", ["send-keys", "-t", tmux, "C-c", ""], { stdio: "ignore" });
         setTimeout(() => spawnSync("tmux", ["kill-session", "-t", tmux], { stdio: "ignore" }), 2000);
-        console.log(`[autoresearch] Experiment ${expId} completed (${runCount} runs, idle ${Math.round(idleMs / 1000)}s, reason: ${reason})`);
+        log.info("Autoresearch experiment completed", {
+          experimentId: expId,
+          runCount,
+          idleSeconds: Math.round(idleMs / 1000),
+          reason,
+        });
         activeExperiment = null;
         return;
       }
@@ -1143,6 +1160,8 @@ export const autoresearchSupervisor: ExtensionFactory = (pi: ExtensionAPI) => {
 
   // On piclaw restart, try to re-detect a running tmux session
   const reattachExisting = () => {
+    let tmuxSession: string | null = null;
+    let experimentId: string | null = null;
     try {
       const result = spawnSync("tmux", ["list-sessions", "-F", "#{session_name}"], { encoding: "utf8" });
       if (result.status !== 0) return;
@@ -1150,11 +1169,13 @@ export const autoresearchSupervisor: ExtensionFactory = (pi: ExtensionAPI) => {
       if (sessions.length === 0) return;
 
       // Re-attach to the first found autoresearch session
-      const tmuxSession = sessions[0];
-      const id = tmuxSession.slice(TMUX_SESSION_PREFIX.length);
+      const discoveredTmuxSession = sessions[0];
+      const discoveredExperimentId = discoveredTmuxSession.slice(TMUX_SESSION_PREFIX.length);
+      tmuxSession = discoveredTmuxSession;
+      experimentId = discoveredExperimentId;
 
       // Read the tmux pane's cwd to find the working dir (sandbox)
-      const cwdResult = spawnSync("tmux", ["display-message", "-t", tmuxSession, "-p", "#{pane_current_path}"], { encoding: "utf8" });
+      const cwdResult = spawnSync("tmux", ["display-message", "-t", discoveredTmuxSession, "-p", "#{pane_current_path}"], { encoding: "utf8" });
       const projectDir = cwdResult.stdout?.trim() || "";
       if (!projectDir || !existsSync(projectDir)) return;
 
@@ -1163,8 +1184,8 @@ export const autoresearchSupervisor: ExtensionFactory = (pi: ExtensionAPI) => {
       if (!existsSync(jsonlPath)) return;
       const metadata = readSessionMetadata(projectDir);
       activeExperiment = {
-        id,
-        tmuxSession,
+        id: discoveredExperimentId,
+        tmuxSession: discoveredTmuxSession,
         projectDir,
         jsonlPath,
         model: typeof metadata?.model === "string" && metadata.model.trim() ? metadata.model.trim() : null,
@@ -1182,7 +1203,7 @@ export const autoresearchSupervisor: ExtensionFactory = (pi: ExtensionAPI) => {
         lastJsonlOffset: existsSync(jsonlPath) ? readFileSync(jsonlPath, "utf-8").length : 0,
         lastActivityAt: Date.now(),
         chatJid: typeof metadata?.chat_jid === "string" && metadata.chat_jid.trim() ? metadata.chat_jid.trim() : resolveStatusChatJid(),
-        displayName: typeof metadata?.display_name === "string" && metadata.display_name.trim() ? metadata.display_name.trim() : (basename(projectDir) || id || "Experiment"),
+        displayName: typeof metadata?.display_name === "string" && metadata.display_name.trim() ? metadata.display_name.trim() : (basename(projectDir) || discoveredExperimentId || "Experiment"),
       };
 
       // Resume polling
@@ -1211,9 +1232,16 @@ export const autoresearchSupervisor: ExtensionFactory = (pi: ExtensionAPI) => {
         : buildActiveExperimentSummary(activeExperiment);
       emitAutoresearchStatus(broadcastEvent, activeExperiment, "running", summary);
 
-      console.log(`[autoresearch] Re-attached to running experiment ${id} (tmux: ${tmuxSession})`);
+      log.info("Re-attached to running autoresearch experiment", {
+        experimentId,
+        tmuxSession,
+      });
     } catch (err) {
-      console.warn("[autoresearch] Failed to re-attach to existing session:", err);
+      log.warn("Failed to re-attach to existing autoresearch session", {
+        experimentId,
+        tmuxSession,
+        err,
+      });
     }
   };
 
