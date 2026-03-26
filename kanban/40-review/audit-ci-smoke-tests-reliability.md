@@ -1,10 +1,10 @@
 ---
 id: audit-ci-smoke-tests-reliability
 title: Audit CI smoke tests for reliability and usefulness
-status: next
+status: review
 priority: high
 created: 2026-03-25
-updated: 2026-03-25
+updated: 2026-03-26
 target_release: next
 estimate: S
 risk: medium
@@ -113,18 +113,38 @@ and report results without blocking the publish pipeline.
 
 ## Acceptance Criteria
 
-- [ ] No smoke test can hang the pipeline indefinitely (timeouts on all commands).
-- [ ] `pi --version` and `piclaw --help` either have safe alternatives or
+- [x] No smoke test can hang the pipeline indefinitely (timeouts on all commands).
+- [x] `pi --version` and `piclaw --help` either have safe alternatives or
       verified non-blocking behavior.
-- [ ] Cold-start overhead minimised (single container or parallel runs).
-- [ ] Smoke test step completes in < 5 minutes per architecture.
-- [ ] Decision documented on whether smoke tests should block the manifest step.
+- [x] Cold-start overhead minimised (single container or parallel runs).
+- [x] Smoke test step completes in < 5 minutes per architecture.
+- [x] Decision documented on whether smoke tests should block the manifest step.
 
 ## Test Plan
 
 - [ ] Trigger a test publish and verify smoke tests complete within timeout.
 - [ ] Verify version assertions still catch real mismatches.
 - [ ] Verify a bad image (e.g., missing bun) fails the smoke test correctly.
+
+## Updates
+
+### 2026-03-26
+- Board review selection: this is the **next best audit to pull** once current active WIP has room.
+- Chosen over the larger audit tickets because it is:
+  - small (`S`),
+  - high-priority,
+  - likely to produce immediate delivery/build reliability gains,
+  - and bounded enough to complete without opening a broader architecture/testing campaign.
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
+
+### 2026-03-26 — implemented
+- Added `scripts/docker/publish-smoke-test.sh` so publish smoke tests run through one bounded, reusable path instead of large inline YAML blocks.
+- Kept the fast one-shot binary assertions (`bun`, `restic`, Azure support, `pi`, `piclaw`) but avoided invoking potentially interactive `pi --version` / `piclaw --help`.
+- Added an actual runtime smoke check: start the image detached, publish an ephemeral localhost port, and poll `GET /login` until the web UI responds or the bounded startup timeout expires.
+- Added explicit per-step `timeout-minutes: 5` in `.github/workflows/publish.yml`, plus script-level static and HTTP timeout controls.
+- Added failure diagnostics: if the boot smoke fails, the workflow now emits container logs before exiting.
+- Decision: smoke tests remain **blocking** for the manifest merge step because they are now time-bounded and validate the deployment-critical HTTP startup path rather than only binary presence.
+- Remaining follow-up for final closure: observe at least one green publish run on GitHub Actions and confirm wall-clock timings on both architectures.
 
 ## Links
 

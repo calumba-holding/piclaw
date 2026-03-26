@@ -90,18 +90,18 @@ jobs:
             BUN_PREFER_BASELINE=${{ env.BUN_PREFER_BASELINE }}
 
       - name: Smoke test AMD64 image
+        timeout-minutes: 5
+        env:
+          STATIC_TIMEOUT_SEC: "120"
+          HTTP_TIMEOUT_SEC: "90"
         run: |
           IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
-          timeout 120 docker run --rm --entrypoint sh --platform linux/amd64 "$IMAGE_REF" -c '
-            set -e
-            echo "=== Bun ===" && bun --version
-            echo "=== Restic ===" && restic version
-            echo "=== Restic Azure ===" && strings "$(command -v restic)" | grep -qi azure.Config
-            echo "=== Pi CLI ===" && test -x "$(command -v pi)" && echo "ok"
-            echo "=== Piclaw CLI ===" && test -x "$(command -v piclaw)" && echo "ok"
-          ' | tee /tmp/smoke.txt
-          grep -q "${{ needs.resolve-runtime-versions.outputs.bun_version }}" /tmp/smoke.txt
-          grep -q "restic ${{ needs.resolve-runtime-versions.outputs.restic_version }}" /tmp/smoke.txt
+          chmod +x ./scripts/docker/publish-smoke-test.sh
+          ./scripts/docker/publish-smoke-test.sh \
+            "$IMAGE_REF" \
+            linux/amd64 \
+            "${{ needs.resolve-runtime-versions.outputs.bun_version }}" \
+            "${{ needs.resolve-runtime-versions.outputs.restic_version }}"
 
   # Build ARM64 image on native ARM runner
   build-arm64:
@@ -148,18 +148,18 @@ jobs:
             BUN_PREFER_BASELINE=${{ env.BUN_PREFER_BASELINE }}
 
       - name: Smoke test ARM64 image
+        timeout-minutes: 5
+        env:
+          STATIC_TIMEOUT_SEC: "120"
+          HTTP_TIMEOUT_SEC: "90"
         run: |
           IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
-          timeout 120 docker run --rm --entrypoint sh --platform linux/arm64 "$IMAGE_REF" -c '
-            set -e
-            echo "=== Bun ===" && bun --version
-            echo "=== Restic ===" && restic version
-            echo "=== Restic Azure ===" && strings "$(command -v restic)" | grep -qi azure.Config
-            echo "=== Pi CLI ===" && test -x "$(command -v pi)" && echo "ok"
-            echo "=== Piclaw CLI ===" && test -x "$(command -v piclaw)" && echo "ok"
-          ' | tee /tmp/smoke.txt
-          grep -q "${{ needs.resolve-runtime-versions.outputs.bun_version }}" /tmp/smoke.txt
-          grep -q "restic ${{ needs.resolve-runtime-versions.outputs.restic_version }}" /tmp/smoke.txt
+          chmod +x ./scripts/docker/publish-smoke-test.sh
+          ./scripts/docker/publish-smoke-test.sh \
+            "$IMAGE_REF" \
+            linux/arm64 \
+            "${{ needs.resolve-runtime-versions.outputs.bun_version }}" \
+            "${{ needs.resolve-runtime-versions.outputs.restic_version }}"
 
   # Merge digests into a single multi-arch manifest
   merge:
