@@ -470,6 +470,9 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
                                     <div class="agent-series-chart-command">
                                         <div class="agent-series-chart-command-header">
                                             <span>Attach to session</span>
+                                        </div>
+                                        <div class="agent-series-chart-command-shell">
+                                            <pre class="agent-series-chart-command-code">${tmuxCommand}</pre>
                                             <button
                                                 type="button"
                                                 class="agent-series-chart-command-copy"
@@ -480,7 +483,6 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
                                                 ${COPY_ICON_SVG}
                                             </button>
                                         </div>
-                                        <pre class="agent-series-chart-command-code">${tmuxCommand}</pre>
                                     </div>
                                 `}
                             </div>

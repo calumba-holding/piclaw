@@ -5483,19 +5483,25 @@ body {
 .agent-series-chart-command-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
     margin-bottom: 4px;
     color: var(--text-secondary);
     font-size: var(--font-size-xs);
 }
 
+.agent-series-chart-command-shell {
+    position: relative;
+}
+
 .agent-series-chart-command-copy {
+    position: absolute;
+    top: 8px;
+    right: 8px;
     width: 26px;
     height: 26px;
-    border: 1px solid var(--border-color);
+    border: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
     border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+    background: color-mix(in srgb, var(--bg-primary) 76%, var(--bg-secondary));
     color: var(--text-secondary);
     display: inline-flex;
     align-items: center;
@@ -5524,7 +5530,7 @@ body {
 
 .agent-series-chart-command-code {
     margin: 0;
-    padding: 8px 10px;
+    padding: 8px 44px 8px 10px;
     border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
     border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--bg-secondary) 86%, var(--bg-primary));
