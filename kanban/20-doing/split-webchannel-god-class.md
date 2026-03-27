@@ -1,7 +1,7 @@
 ---
 id: split-webchannel-god-class
 title: "Refactor: split WebChannel god-class into composable services"
-status: next
+status: doing
 priority: critical
 created: 2026-03-23
 updated: 2026-03-27
@@ -53,6 +53,13 @@ Extract `WebChannel` into a composition of focused services:
 - This unblocks all future web-layer work
 
 ## Updates
+
+### 2026-03-27
+- Lane change: `10-next` → `20-doing`.
+- Selected as the next active refactor because it is the highest-leverage open structural cleanup ticket, is unblocked, and directly unblocks follow-up web-layer cleanup work.
+- Current repo reality at pickup time: `runtime/src/channels/web.ts` is 1,905 lines and continues to be the largest maintainability hotspot in the runtime.
+- Immediate execution focus: choose the first extractable seam (`SseService`, `QueuedFollowupService`, or HTTP/bootstrap wiring) and land the split in bounded slices rather than attempting a one-shot rewrite.
+- Quality: ★★★★☆ 7/10 (problem: 2, scope: 1, test: 1, deps: 2, risk: 1)
 
 ### 2026-03-27
 - Repo-status audit refreshed the size callout to match the current file: `runtime/src/channels/web.ts` is now 1,905 lines.
