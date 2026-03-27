@@ -59,6 +59,19 @@ async function fetchVncSession(targetId = null) {
     return body;
 }
 
+async function createVncHandoff(targetId) {
+    const url = `/vnc/handoff?target=${encodeURIComponent(String(targetId || '').trim())}`;
+    const response = await fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(body?.error || `HTTP ${response.status}`);
+    }
+    return body?.handoff || null;
+}
+
 function isPanePopoutMode() {
     if (typeof window === 'undefined') return false;
     try {
@@ -74,9 +87,14 @@ function canRequestPanePopout() {
     return !isStandaloneWebAppMode() && !isPanePopoutMode();
 }
 
-function buildVncWebSocketUrl(targetId) {
+function buildVncWebSocketUrl(targetId, handoffToken = null) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${window.location.host}/vnc/ws?target=${encodeURIComponent(targetId)}`;
+    const url = new URL(`${protocol}//${window.location.host}/vnc/ws`);
+    url.searchParams.set('target', String(targetId || ''));
+    if (handoffToken) {
+        url.searchParams.set('handoff', String(handoffToken));
+    }
+    return url.toString();
 }
 
 function buildDirectVncTargetReference(host, port) {
@@ -101,6 +119,20 @@ function parseDirectVncTargetReference(value) {
         host: text.slice(0, lastColon),
         port: text.slice(lastColon + 1),
     };
+}
+
+function consumePanePopoutTransferToken(paramName) {
+    if (typeof window === 'undefined') return null;
+    try {
+        const url = new URL(window.location.href);
+        const token = url.searchParams.get(paramName)?.trim() || '';
+        if (!token) return null;
+        url.searchParams.delete(paramName);
+        window.history?.replaceState?.(window.history.state, document.title, url.toString());
+        return token;
+    } catch {
+        return null;
+    }
 }
 
 class VncPaneInstance implements PaneInstance {
@@ -139,11 +171,13 @@ class VncPaneInstance implements PaneInstance {
     private frameTimeoutId = null;
     private rawFallbackAttempted = false;
     private protocolRecovering = false;
+    private pendingHandoffToken = null;
 
     constructor(container, context) {
         this.container = container;
         this.targetId = parseVncTargetFromPath(context?.path);
         this.targetLabel = this.targetId || null;
+        this.pendingHandoffToken = consumePanePopoutTransferToken('vnc_handoff');
 
         this.root = document.createElement('div');
         this.root.className = 'vnc-pane-shell';
@@ -776,6 +810,8 @@ class VncPaneInstance implements PaneInstance {
             this.protocolRecovering = false;
         }
 
+        const handoffToken = this.pendingHandoffToken || null;
+
         const selectedEncodings = preferredEncodings == null ? null : String(preferredEncodings).trim();
         const wasmDecoder = await loadRemoteDisplayWasmDecoder();
         const protocolOptions: any = {};
@@ -807,9 +843,12 @@ class VncPaneInstance implements PaneInstance {
         }
 
         this.socketBoundary = new WebSocketRemoteDisplayBoundary({
-            url: buildVncWebSocketUrl(this.targetId),
+            url: buildVncWebSocketUrl(this.targetId, handoffToken),
             binaryType: 'arraybuffer',
             onOpen: () => {
+                if (handoffToken && this.pendingHandoffToken === handoffToken) {
+                    this.pendingHandoffToken = null;
+                }
                 this.setStatus(`Connected to proxy for ${this.targetId}. Waiting for VNC/RFB data…`);
                 this.updateDisplayInfo('WebSocket proxy connected. Waiting for handshake…');
                 this.updateDisplayMeta();
@@ -877,6 +916,16 @@ class VncPaneInstance implements PaneInstance {
             `;
             this.setStatus(`Session load failed: ${error?.message || 'Unknown error'}`);
         }
+    }
+
+    async preparePopoutTransfer() {
+        if (!this.targetId) return null;
+        const handoff = await createVncHandoff(this.targetId);
+        const token = typeof handoff?.token === 'string' ? handoff.token.trim() : '';
+        if (!token) {
+            throw new Error('No live VNC session is available to transfer.');
+        }
+        return { vnc_handoff: token };
     }
 
     getContent() { return undefined; }

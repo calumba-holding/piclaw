@@ -64,6 +64,12 @@ export interface PaneInstance {
 
     /** Register callback for close requests. */
     onClose?(cb: () => void): void;
+
+    /**
+     * Optional pre-popout hook. Lets a pane prepare transferable session state
+     * and return extra query parameters for the destination window.
+     */
+    preparePopoutTransfer?(): Promise<Record<string, string> | null> | Record<string, string> | null;
 }
 
 /**

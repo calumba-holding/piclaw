@@ -3240,35 +3240,25 @@ function MainApp({ locationParams, navigate }) {
         }
     }, [chatOnlyMode, currentChatJid, navigate, refreshActiveChatAgents, refreshCurrentChatBranches, showIntentToast]);
 
-    const handlePopOutPane = useCallback((path, label) => {
+    const handlePopOutPane = useCallback(async (path, label) => {
         if (typeof window === 'undefined' || isWebAppMode) return;
         const panePath = typeof path === 'string' && path.trim() ? path.trim() : '';
         if (!panePath) return;
 
-        const closeSourceTabIfTransferred = () => {
+        const closeSourcePaneIfTransferred = () => {
             const sourceTab = tabStore.get(panePath);
-            if (!sourceTab || sourceTab.dirty) return;
-            handleTabClose(panePath);
+            if (sourceTab && !sourceTab.dirty) {
+                handleTabClose(panePath);
+                return;
+            }
+            if (panePath === TERMINAL_TAB_PATH && dockVisible) {
+                setDockVisible(false);
+            }
         };
 
         const openOptions = getPaneWindowOpenOptions(panePath);
         if (!openOptions) {
             showIntentToast('Could not open pane window', 'Opening pane windows is unavailable in standalone webapp mode.', 'warning', 5000);
-            return;
-        }
-
-        const popoutUrl = buildPanePopoutUrl(window.location.href, panePath, {
-            label: typeof label === 'string' && label.trim() ? label.trim() : undefined,
-            chatJid: currentChatJid,
-        });
-
-        if (openOptions.mode === 'tab') {
-            const opened = window.open(popoutUrl, openOptions.target);
-            if (!opened) {
-                showIntentToast('Could not open pane window', 'The browser blocked opening a new tab or window.', 'warning', 5000);
-                return;
-            }
-            closeSourceTabIfTransferred();
             return;
         }
 
@@ -3281,9 +3271,30 @@ function MainApp({ locationParams, navigate }) {
             title: typeof label === 'string' && label.trim() ? `Opening ${label}…` : 'Opening pane…',
             message: 'Preparing a standalone pane window. This should only take a moment.',
         });
-        navigateProvisionalChatWindow(provisionalWindow, popoutUrl);
-        closeSourceTabIfTransferred();
-    }, [currentChatJid, handleTabClose, isWebAppMode, showIntentToast]);
+
+        let popoutParams = null;
+        try {
+            const activePath = typeof tabStripActiveId === 'string' ? tabStripActiveId.trim() : '';
+            const sourceInstance = activePath === panePath
+                ? editorInstanceRef.current
+                : (panePath === TERMINAL_TAB_PATH ? dockInstanceRef.current : null);
+            if (typeof sourceInstance?.preparePopoutTransfer === 'function') {
+                popoutParams = await sourceInstance.preparePopoutTransfer();
+            }
+
+            const popoutUrl = buildPanePopoutUrl(window.location.href, panePath, {
+                label: typeof label === 'string' && label.trim() ? label.trim() : undefined,
+                chatJid: currentChatJid,
+                params: popoutParams,
+            });
+            navigateProvisionalChatWindow(provisionalWindow, popoutUrl);
+            closeSourcePaneIfTransferred();
+        } catch (error) {
+            closeProvisionalChatWindow(provisionalWindow);
+            const detail = error?.message || 'Could not transfer pane state to the new window.';
+            showIntentToast('Could not open pane window', detail, 'warning', 5000);
+        }
+    }, [currentChatJid, dockVisible, handleTabClose, isWebAppMode, showIntentToast, tabStripActiveId]);
 
     // Listen for preview-card / pane events that request opening a tab or standalone pane window.
     useEffect(() => {

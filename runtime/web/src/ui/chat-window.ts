@@ -161,6 +161,18 @@ export function buildPanePopoutUrl(baseHref, panePath, options = {}) {
     if (options?.chatJid) {
         url.searchParams.set('chat_jid', String(options.chatJid));
     }
+    const extraParams = options?.params && typeof options.params === 'object' ? options.params : null;
+    if (extraParams) {
+        for (const [key, value] of Object.entries(extraParams)) {
+            const normalizedKey = String(key || '').trim();
+            if (!normalizedKey) continue;
+            if (value === null || value === undefined || value === '') {
+                url.searchParams.delete(normalizedKey);
+            } else {
+                url.searchParams.set(normalizedKey, String(value));
+            }
+        }
+    }
     url.searchParams.delete('chat_only');
     url.searchParams.delete('branch_loader');
     url.searchParams.delete('branch_source_chat_jid');

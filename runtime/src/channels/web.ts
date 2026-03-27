@@ -700,6 +700,7 @@ export class WebChannel implements WebChannelLike {
   private handleVncWebSocketUpgrade(req: Request, server?: Bun.Server<WebSocketSessionData>): Response | undefined {
     const url = new URL(req.url);
     const targetId = url.searchParams.get("target")?.trim() || "";
+    const handoffToken = url.searchParams.get("handoff")?.trim() || "";
     if (!targetId) {
       return this.json({ error: "Missing VNC target." }, 400);
     }
@@ -714,6 +715,7 @@ export class WebChannel implements WebChannelLike {
     if (!owner) {
       return this.json({ error: "Unauthorized or unknown/disallowed VNC target" }, 401);
     }
+    owner.handoffToken = handoffToken || null;
     if (!server?.upgrade(req, { data: owner })) {
       return this.json({ error: "WebSocket upgrade failed" }, 400);
     }
@@ -854,6 +856,29 @@ export class WebChannel implements WebChannelLike {
       return this.json({ error: "Unknown or disallowed VNC target", ...this.vncService.getSessionInfo() }, 404);
     }
     return this.json(this.vncService.getSessionInfo(targetId || null), 200);
+  }
+
+  async handleVncHandoff(req: Request): Promise<Response> {
+    const url = new URL(req.url);
+    const targetId = url.searchParams.get("target")?.trim() || "";
+    if (!targetId) {
+      return this.json({ error: "Missing VNC target." }, 400);
+    }
+    const authEnabled = this.authGateway.isAuthEnabled();
+    if (authEnabled && !this.authGateway.isAuthenticated(req)) {
+      return this.json({ error: "Unauthorized" }, 401);
+    }
+    if (!checkCsrfOrigin(req)) {
+      return this.json({ error: "Origin not allowed" }, 403);
+    }
+    if (!this.vncService.resolveTargetReference(targetId)) {
+      return this.json({ error: "Unknown or disallowed VNC target", ...this.vncService.getSessionInfo() }, 404);
+    }
+    const handoff = this.vncService.createHandoffFromRequest(req, targetId, !authEnabled);
+    if (!handoff) {
+      return this.json({ error: "No live VNC session is available to transfer." }, 409);
+    }
+    return this.json({ ok: true, handoff }, 200);
   }
 
   broadcastEvent(eventType: string, data: unknown): void {

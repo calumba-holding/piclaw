@@ -18,6 +18,7 @@ export interface VncSessionOwner {
   token: string;
   userId: string;
   targetRef: string;
+  handoffToken?: string | null;
 }
 
 export type VncSocketData = VncSessionOwner;
@@ -26,6 +27,7 @@ export interface VncSessionServiceOptions {
   targets?: VncTargetRecord[];
   allowDirectTargets?: boolean;
   connectTimeoutMs?: number;
+  handoffTtlMs?: number;
   createSocket?: (target: VncTargetRecord) => Socket;
 }
 
@@ -33,6 +35,7 @@ const FALLBACK_VNC_OWNER = {
   token: "web-vnc-local-default",
   userId: DEFAULT_WEB_USER_ID,
 };
+const DEFAULT_VNC_HANDOFF_TTL_MS = 15_000;
 
 function sanitizeId(value: string): string {
   return String(value || "")
@@ -151,12 +154,21 @@ function defaultCreateSocket(target: VncTargetRecord): Socket {
   return createConnection({ host: target.host, port: target.port });
 }
 
+function createHandoffToken(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `vnc-handoff-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
 /** Manages allowlisted/direct VNC target metadata and per-websocket TCP bridge sessions. */
 export class VncSessionService {
   private readonly targets = new Map<string, VncTargetRecord>();
   private readonly allowDirectTargets: boolean;
   private readonly createSocket: (target: VncTargetRecord) => Socket;
   private readonly connectTimeoutMs: number;
+  private readonly handoffTtlMs: number;
   private readonly bridge: WebSocketTcpBridge<VncSocketData, VncTargetRecord>;
 
   constructor(options: VncSessionServiceOptions = {}) {
@@ -171,6 +183,9 @@ export class VncSessionService {
     this.connectTimeoutMs = Number.isFinite(options.connectTimeoutMs)
       ? Math.max(1, Number(options.connectTimeoutMs))
       : 10_000;
+    this.handoffTtlMs = Number.isFinite(options.handoffTtlMs)
+      ? Math.max(1, Number(options.handoffTtlMs))
+      : DEFAULT_VNC_HANDOFF_TTL_MS;
     this.bridge = new WebSocketTcpBridge<VncSocketData, VncTargetRecord>({
       createSocket: (target) => this.createSocketWithHandshakeTimeout(target),
       onConnect: (ws, target) => {
@@ -243,12 +258,35 @@ export class VncSessionService {
     if (token) {
       const session = getWebSession(token);
       if (session) {
-        return { kind: "vnc", token, userId: session.user_id, targetRef: target.id };
+        return { kind: "vnc", token, userId: session.user_id, targetRef: target.id, handoffToken: null };
       }
     }
 
     if (!allowUnauthenticated) return null;
-    return { kind: "vnc", token: FALLBACK_VNC_OWNER.token, userId: FALLBACK_VNC_OWNER.userId, targetRef: target.id };
+    return { kind: "vnc", token: FALLBACK_VNC_OWNER.token, userId: FALLBACK_VNC_OWNER.userId, targetRef: target.id, handoffToken: null };
+  }
+
+  private matchesOwner(left: VncSessionOwner | null | undefined, right: VncSessionOwner | null | undefined): boolean {
+    if (!left || !right) return false;
+    return left.kind === "vnc"
+      && right.kind === "vnc"
+      && left.token === right.token
+      && left.userId === right.userId
+      && left.targetRef === right.targetRef;
+  }
+
+  createHandoffFromRequest(req: Request, targetRef: string, allowUnauthenticated = false): { token: string; expires_at: string } | null {
+    const owner = this.resolveOwnerFromRequest(req, targetRef, allowUnauthenticated);
+    if (!owner) return null;
+    const record = this.bridge.findConnection((entry) => this.matchesOwner(entry.owner as VncSessionOwner, owner));
+    if (!record) return null;
+    const token = createHandoffToken();
+    const prepared = this.bridge.prepareHandoff(record, token, this.handoffTtlMs);
+    if (!prepared) return null;
+    return {
+      token,
+      expires_at: new Date(Date.now() + this.handoffTtlMs).toISOString(),
+    };
   }
 
   getSessionInfo(targetRef?: string | null) {
@@ -279,6 +317,21 @@ export class VncSessionService {
       try { ws.close(1008, "Unknown VNC target."); } catch { /* expected: websocket may already be gone while rejecting an unknown target. */ }
       return;
     }
+
+    const handoffToken = String(ws.data.handoffToken || "").trim();
+    if (handoffToken) {
+      const handoffRecord = this.bridge.getHandoffRecord(handoffToken);
+      const handoffOwner = handoffRecord?.owner as VncSessionOwner | undefined;
+      const sameOwner = this.matchesOwner(handoffOwner, ws.data);
+      const sameTarget = Boolean(handoffRecord && (handoffRecord.target as VncTargetRecord)?.id === target.id);
+      if (!handoffRecord || !sameOwner || !sameTarget) {
+        try { ws.close(1008, "Invalid or expired VNC handoff."); } catch { /* expected: websocket may already be gone while rejecting an invalid handoff. */ }
+        return;
+      }
+      this.bridge.attachClient(ws, target, { handoffToken });
+      return;
+    }
+
     this.bridge.attachClient(ws, target);
   }
 

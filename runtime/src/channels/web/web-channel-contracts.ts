@@ -134,6 +134,7 @@ export interface WebChannelLike
   handleSse(req: Request): Response;
   handleTerminalSession(req: Request): Response;
   handleVncSession(req: Request): Response;
+  handleVncHandoff(req: Request): Promise<Response>;
   handleAgents(): Promise<Response>;
 
   handleWorkspaceVisibility(req: Request): Promise<Response>;
