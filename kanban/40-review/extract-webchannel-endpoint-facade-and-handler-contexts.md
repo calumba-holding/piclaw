@@ -1,7 +1,7 @@
 ---
 id: extract-webchannel-endpoint-facade-and-handler-contexts
 title: Extract WebChannel endpoint facade and handler contexts seam
-status: doing
+status: review
 priority: high
 created: 2026-03-27
 updated: 2026-03-27
@@ -120,29 +120,49 @@ focused validation while keeping behavior and public surfaces unchanged.
 
 ## Test Plan
 
-- [ ] Add or strengthen focused tests for:
+- [x] Add or strengthen focused tests for:
   - endpoint facade delegation
   - identity/avatar refresh behavior
   - handler-context reuse where practical
-- [ ] Re-run affected integration coverage from:
+- [x] Re-run affected integration coverage from:
   - `runtime/test/channels/web/web-channel.test.ts`
   - endpoint/context-focused tests under `runtime/test/channels/web/`
-- [ ] Run validation in repair-first order:
+- [x] Run validation in repair-first order:
   1. focused endpoint-facade tests
   2. targeted `web-channel` tests
   3. `bun run lint`
   4. `bun run typecheck`
-- [ ] Leave behind a stable validation command/script if a canonical slice entrypoint emerges.
+- [x] Leave behind a stable validation command/script if a canonical slice entrypoint emerges.
 
 ## Definition of Done
 
-- [ ] Extracted endpoint-facade seam is mergeable back to `main`.
-- [ ] Focused and integration validation are green.
-- [ ] Ticket `## Updates` records commands, evidence, and files touched.
-- [ ] Parent WebChannel split ticket is updated to reflect the next chosen seam.
-- [ ] Any larger adjacent follow-up seams discovered are split explicitly instead of bundled.
+- [x] Extracted endpoint-facade seam is mergeable back to `main`.
+- [x] Focused and integration validation are green.
+- [x] Ticket `## Updates` records commands, evidence, and files touched.
+- [x] Parent WebChannel split ticket is updated to reflect the next chosen seam.
+- [x] Any larger adjacent follow-up seams discovered are split explicitly instead of bundled.
 
 ## Updates
+
+### 2026-03-27
+- Lane change: `20-doing` → `40-review` after landing the slice on `main`.
+- Landed `runtime/src/channels/web/channel-endpoint-facade-service.ts` and delegated the lightweight endpoint wrappers through it, while updating `channel-endpoint-context-factory.ts` to centralize live identity snapshot normalization and preserve avatar/manifest refresh behavior.
+- Added focused seam coverage in:
+  - `runtime/test/channels/web/channel-endpoint-facade-service.test.ts`
+  - `runtime/test/channels/web/web-channel-endpoint-facade-delegation.test.ts`
+  - `runtime/test/channels/web/channel-endpoint-context-factory.test.ts`
+- Updated deterministic audit grouping for the new endpoint facade tests in:
+  - `scripts/audit-baseline-quality-deterministic.ts`
+  - `runtime/test/scripts/audit-baseline-quality-deterministic.test.ts`
+- Validation evidence:
+  - `bun test runtime/test/channels/web/channel-endpoint-context-factory.test.ts runtime/test/channels/web/channel-endpoint-facade-service.test.ts runtime/test/channels/web/web-channel-endpoint-facade-delegation.test.ts runtime/test/channels/web/web-channel.test.ts runtime/test/scripts/audit-baseline-quality-deterministic.test.ts`
+  - `bun run test`
+  - `bun run lint`
+  - `bun run typecheck`
+- Result: `runtime/src/channels/web.ts` dropped from 1602 to 1546 lines while preserving endpoint payloads, status codes, and live identity/avatar refresh semantics.
+- Next bounded seam split out explicitly instead of widening scope in-place:
+  - `kanban/20-doing/extract-webchannel-agent-control-plane-wrappers.md`
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-27
 - Created as the next bounded execution slice under `split-webchannel-god-class` after the message-write/follow-up seam landed.
@@ -153,6 +173,7 @@ focused validation while keeping behavior and public surfaces unchanged.
 ## Links
 
 - `kanban/20-doing/split-webchannel-god-class.md`
+- `kanban/20-doing/extract-webchannel-agent-control-plane-wrappers.md`
 - `kanban/40-review/extract-webchannel-queued-followup-service.md`
 - `kanban/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`
 - `kanban/40-review/extract-webchannel-sse-broadcast-and-session-wiring.md`

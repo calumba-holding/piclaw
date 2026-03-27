@@ -3,6 +3,7 @@
  */
 
 import { getDb, replaceMessageContent } from "../../db.js";
+import { resolveAvatarUrl } from "./avatar-service.js";
 import type { WebChannelLike } from "./web-channel-contracts.js";
 import type { AuthEndpointsContext } from "./auth-endpoints.js";
 import {
@@ -19,17 +20,41 @@ import type { AgentsEndpointContext, AvatarEndpointContext } from "./identity-en
 import type { PostMutationsContext } from "./post-mutations.js";
 import type { UiEndpointsContext } from "./ui-endpoints.js";
 
+/** Live identity/avatar snapshot consumed by endpoint facade/context builders. */
+export interface WebChannelIdentitySnapshot {
+  assistantName: string;
+  assistantAvatarRaw: string | null;
+  agentAvatarUrl: string | null;
+  userName: string | null;
+  userAvatarRaw: string | null;
+  userAvatarUrl: string | null;
+  userAvatarBackground: string | null;
+}
+
+/** Normalize live identity config into the shared endpoint snapshot shape. */
+export function createWebChannelIdentitySnapshot(identity: {
+  assistantName: string;
+  assistantAvatar?: string | null;
+  userName?: string | null;
+  userAvatar?: string | null;
+  userAvatarBackground?: string | null;
+}): WebChannelIdentitySnapshot {
+  return {
+    assistantName: identity.assistantName,
+    assistantAvatarRaw: identity.assistantAvatar || null,
+    agentAvatarUrl: resolveAvatarUrl("agent", identity.assistantAvatar),
+    userName: identity.userName || null,
+    userAvatarRaw: identity.userAvatar || null,
+    userAvatarUrl: resolveAvatarUrl("user", identity.userAvatar),
+    userAvatarBackground: identity.userAvatarBackground || null,
+  };
+}
+
 /** Immutable options needed to build channel endpoint contexts. */
 export interface WebChannelEndpointFactoryOptions {
   defaultChatJid: string;
   defaultAgentId: string;
-  agentName: string;
-  agentAvatar: string | null;
-  userName: string | null;
-  userAvatar: string | null;
-  userAvatarBackground: string | null;
-  assistantAvatarRaw: string | null;
-  userAvatarRaw: string | null;
+  getIdentitySnapshot(): WebChannelIdentitySnapshot;
 }
 
 /** Lazily built endpoint contexts consumed by WebChannel handlers. */
@@ -48,6 +73,11 @@ export function createWebChannelEndpointContexts(
   channel: WebChannelLike,
   options: WebChannelEndpointFactoryOptions
 ): WebChannelEndpointContexts {
+  let agentStatusContext: AgentStatusContext | null = null;
+  let contentContext: ContentEndpointsContext | null = null;
+  let uiContext: UiEndpointsContext | null = null;
+  let authContext: AuthEndpointsContext | null = null;
+
   return {
     postMutations: () => createPostMutationsContext({
       defaultChatJid: options.defaultChatJid,
@@ -67,60 +97,86 @@ export function createWebChannelEndpointContexts(
       },
     }),
 
-    agentStatus: () => createAgentStatusContext({
-      defaultChatJid: options.defaultChatJid,
-      json: (payload, status = 200) => channel.json(payload, status),
-      getAgentStatus: (chatJid) => channel.getAgentStatus(chatJid),
-      getBuffer: (turnId, panel) => channel.getBuffer(turnId, panel),
-      getContextUsageForChat: (chatJid) => channel.agentPool.getContextUsageForChat(chatJid),
-      getAvailableModels: (chatJid) => channel.agentPool.getAvailableModels(chatJid),
-    }),
+    agentStatus: () => {
+      if (!agentStatusContext) {
+        agentStatusContext = createAgentStatusContext({
+          defaultChatJid: options.defaultChatJid,
+          json: (payload, status = 200) => channel.json(payload, status),
+          getAgentStatus: (chatJid) => channel.getAgentStatus(chatJid),
+          getBuffer: (turnId, panel) => channel.getBuffer(turnId, panel),
+          getContextUsageForChat: (chatJid) => channel.agentPool.getContextUsageForChat(chatJid),
+          getAvailableModels: (chatJid) => channel.agentPool.getAvailableModels(chatJid),
+        });
+      }
+      return agentStatusContext;
+    },
 
-    content: () => createContentEndpointsContext({
-      defaultChatJid: options.defaultChatJid,
-      json: (payload, status = 200) => channel.json(payload, status),
-      getBuffer: (turnId, panel) => channel.getBuffer(turnId, panel),
-    }),
+    content: () => {
+      if (!contentContext) {
+        contentContext = createContentEndpointsContext({
+          defaultChatJid: options.defaultChatJid,
+          json: (payload, status = 200) => channel.json(payload, status),
+          getBuffer: (turnId, panel) => channel.getBuffer(turnId, panel),
+        });
+      }
+      return contentContext;
+    },
 
-    ui: () => createUiEndpointsContext({
-      json: (payload, status = 200) => channel.json(payload, status),
-      getWorkspaceVisible: () => channel.workspaceVisible,
-      setWorkspaceVisible: (value) => {
-        channel.workspaceVisible = value;
-      },
-      getWorkspaceShowHidden: () => channel.workspaceShowHidden,
-      setWorkspaceShowHidden: (value) => {
-        channel.workspaceShowHidden = value;
-      },
-      setPanelExpanded: (turnId, panel, expanded) => {
-        channel.setPanelExpanded(turnId, panel, expanded);
-      },
-      handleUiResponse: (requestId, outcome, chatJid) => channel.uiBridge.handleUiResponse(requestId, outcome, chatJid),
-    }),
+    ui: () => {
+      if (!uiContext) {
+        uiContext = createUiEndpointsContext({
+          json: (payload, status = 200) => channel.json(payload, status),
+          getWorkspaceVisible: () => channel.workspaceVisible,
+          setWorkspaceVisible: (value) => {
+            channel.workspaceVisible = value;
+          },
+          getWorkspaceShowHidden: () => channel.workspaceShowHidden,
+          setWorkspaceShowHidden: (value) => {
+            channel.workspaceShowHidden = value;
+          },
+          setPanelExpanded: (turnId, panel, expanded) => {
+            channel.setPanelExpanded(turnId, panel, expanded);
+          },
+          handleUiResponse: (requestId, outcome, chatJid) => channel.uiBridge.handleUiResponse(requestId, outcome, chatJid),
+        });
+      }
+      return uiContext;
+    },
 
-    agents: () => createAgentsEndpointContext({
-      agentPool: channel.agentPool,
-      defaultChatJid: options.defaultChatJid,
-      defaultAgentId: options.defaultAgentId,
-      agentName: options.agentName,
-      agentAvatar: options.agentAvatar,
-      userName: options.userName,
-      userAvatar: options.userAvatar,
-      userAvatarBackground: options.userAvatarBackground,
-      json: (payload, status = 200) => channel.json(payload, status),
-    }),
+    agents: () => {
+      const identity = options.getIdentitySnapshot();
+      return createAgentsEndpointContext({
+        agentPool: channel.agentPool,
+        defaultChatJid: options.defaultChatJid,
+        defaultAgentId: options.defaultAgentId,
+        agentName: identity.assistantName,
+        agentAvatar: identity.agentAvatarUrl,
+        userName: identity.userName,
+        userAvatar: identity.userAvatarUrl,
+        userAvatarBackground: identity.userAvatarBackground,
+        json: (payload, status = 200) => channel.json(payload, status),
+      });
+    },
 
-    avatar: () => createAvatarEndpointContext({
-      assistantAvatar: options.assistantAvatarRaw,
-      userAvatar: options.userAvatarRaw,
-      json: (payload, status = 200) => channel.json(payload, status),
-    }),
+    avatar: () => {
+      const identity = options.getIdentitySnapshot();
+      return createAvatarEndpointContext({
+        assistantAvatar: identity.assistantAvatarRaw,
+        userAvatar: identity.userAvatarRaw,
+        json: (payload, status = 200) => channel.json(payload, status),
+      });
+    },
 
-    auth: () => ({
-      createTotpContext: () => channel.authGateway.createTotpContext(),
-      createWebauthnContext: () => channel.authGateway.createWebauthnContext(),
-      createWebauthnEnrolPageContext: () => channel.authGateway.createWebauthnEnrolPageContext(),
-      serveStatic: (relPath) => channel.serveStatic(relPath),
-    }),
+    auth: () => {
+      if (!authContext) {
+        authContext = {
+          createTotpContext: () => channel.authGateway.createTotpContext(),
+          createWebauthnContext: () => channel.authGateway.createWebauthnContext(),
+          createWebauthnEnrolPageContext: () => channel.authGateway.createWebauthnEnrolPageContext(),
+          serveStatic: (relPath) => channel.serveStatic(relPath),
+        };
+      }
+      return authContext;
+    },
   };
 }

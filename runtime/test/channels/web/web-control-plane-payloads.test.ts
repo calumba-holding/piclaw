@@ -22,8 +22,17 @@ describe("web control-plane payload guards", () => {
       handleUiResponse: () => ({ status: "ok" as const }),
     };
     const channel = {
-      endpointContexts: {
-        ui: () => uiContext,
+      endpointFacade: {
+        handleThoughtVisibility: async (req: Request) => {
+          const ctx = uiContext;
+          const mod = await import("../../../src/channels/web/ui-endpoints.js");
+          return await mod.handleThoughtVisibilityRequest(req, ctx as any);
+        },
+        handleAgentRespond: async (req: Request) => {
+          const ctx = uiContext;
+          const mod = await import("../../../src/channels/web/ui-endpoints.js");
+          return await mod.handleAgentRespondRequest(req, ctx as any);
+        },
       },
     } as any;
 

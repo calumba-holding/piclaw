@@ -14,6 +14,7 @@ test("plain import covers keychain file-key, CRUD, resolution, and disabled-stat
 
       const db = await import("../src/db.js");
       db.initDatabase();
+      db.getDb().exec("DELETE FROM keychain_entries;");
       const keychain = await import("../src/secure/keychain.js");
 
       try {
