@@ -1,10 +1,11 @@
 ---
 id: support-direct-bun-install-from-github-repo
 title: Support direct Bun installation from the GitHub repository
-status: next
+status: done
 priority: medium
 created: 2026-03-19
-updated: 2026-03-19
+updated: 2026-03-27
+completed: 2026-03-27
 target_release: later
 estimate: M
 risk: medium
@@ -182,6 +183,11 @@ That is the lowest-risk route consistent with the refinement answers:
 - `piclaw/src/index.ts`
 
 ## Updates
+
+### 2026-03-27
+- Metadata correction during board hygiene pass: this file is the canonical `50-done/` copy after stale-duplicate cleanup, so the front matter now matches the lane.
+- No scope/implementation details changed in this pass; this was a board-consistency fix.
+- Quality: ★★★★★ 9/10 (problem: 2, scope: 2, test: 2, deps: 2, risk: 1)
 
 ### 2026-03-19
 - Created from a full refinement pass using Adaptive Cards.

@@ -64,6 +64,10 @@ web-facing call sites separately.
 ## Updates
 
 ### 2026-03-27
+- Lane change: `10-next` → `50-done` during board hygiene pass after confirming the ticket itself was already fully marked complete with validation evidence recorded.
+- Quality: ★★★★★ 9/10 (problem: 2, scope: 2, test: 2, deps: 2, risk: 1)
+
+### 2026-03-27
 - Rewired the remaining high-value web identity reads to the mutable getter seam:
   - `runtime/src/channels/web.ts`
   - `runtime/src/channels/web/handlers/agent.ts`

@@ -68,6 +68,10 @@ Primary targets:
 ## Updates
 
 ### 2026-03-27
+- Lane change: `20-doing` → `50-done` during board hygiene pass after confirming the ticket itself was already fully marked complete with evidence recorded.
+- Quality: ★★★★★ 9/10 (problem: 2, scope: 2, test: 2, deps: 2, risk: 1)
+
+### 2026-03-27
 - Created by splitting the remaining scope out of `kanban/50-done/extract-typed-config-objects.md` after the extraction/object-grouping milestone landed on `main`.
 - Starting point after the merged extraction pass:
   - bare constant exports in `runtime/src/core/config.ts`: 10
