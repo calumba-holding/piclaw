@@ -1,10 +1,11 @@
 ---
 id: consolidate-web-channel-test-bootstrap-fixtures
 title: Consolidate duplicated WebChannel test bootstrap fixtures
-status: next
+status: done
 priority: medium
 created: 2026-03-27
 updated: 2026-03-27
+completed: 2026-03-27
 target_release: later
 estimate: M
 risk: medium
@@ -46,15 +47,30 @@ The duplication is substantial and high-churn, but touching it in the small Path
 
 ## Acceptance Criteria
 
-- [ ] Shared setup helper(s) replace duplicated setup blocks in at least 2 WebChannel test files.
-- [ ] Affected tests remain green.
-- [ ] Lint and typecheck remain green.
-- [ ] Any pruned tests include explicit equivalent coverage notes.
+- [x] Shared setup helper(s) replace duplicated setup blocks in at least 2 WebChannel test files.
+- [x] Affected tests remain green.
+- [x] Lint and typecheck remain green.
+- [x] Any pruned tests include explicit equivalent coverage notes. *(N/A: no tests were pruned in this pass.)*
 
 ## Updates
 
 ### 2026-03-27
 - Split out from `reduce-code-duplication-and-prune-redundant-tests` Path A pass after identifying broader WebChannel test fixture duplication as a larger/riskier candidate.
+- Completed an initial narrow fixture extraction with a new helper: `runtime/test/channels/web/helpers/web-channel-fixture.ts`.
+- Migrated two representative suites to the shared helper:
+  - `runtime/test/channels/web/web-agent-streaming.test.ts`
+  - `runtime/test/channels/web/chat-isolation.test.ts`
+- The helper now centralizes:
+  - workspace/env wiring
+  - DB initialization
+  - optional reset/seed hooks
+  - minimal `WebChannel` construction
+  - captured broadcast-event collection for assertions
+- Validation:
+  - `bun test --max-concurrency=1 runtime/test/channels/web/web-agent-streaming.test.ts runtime/test/channels/web/chat-isolation.test.ts`
+  - `bun run lint`
+  - `bun run typecheck`
+- This keeps the pass intentionally narrow and leaves larger WebChannel suite migrations for follow-up work if still worthwhile.
 
 ## Links
 
