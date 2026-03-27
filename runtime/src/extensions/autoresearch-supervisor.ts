@@ -19,6 +19,7 @@ import type { AgentToolResult, ExtensionAPI, ExtensionFactory } from "@mariozech
 import { WORKSPACE_DIR } from "../core/config.js";
 import { createMedia } from "../db/media.js";
 import { createLogger } from "../utils/logger.js";
+import { clearAutoresearchSessionFiles, prepareDirectAutoresearchWorktree } from "./autoresearch-workdir.js";
 import { postMessagesToolMessage } from "./messages-crud.js";
 
 const log = createLogger("extensions.autoresearch-supervisor");
@@ -692,6 +693,7 @@ async function startAutoresearch(
   const sessionDir = join(SESSIONS_DIR, id);
   let workDir: string;
   let branchName: string | null = null;
+  let worktreeRoot: string | null = null;
 
   if (useSandbox) {
     const sandboxDir = join(sessionDir, "sandbox");
@@ -710,21 +712,20 @@ async function startAutoresearch(
       } catch (err) {
         return buildResult(`❌ Failed to copy project to sandbox: ${err instanceof Error ? err.message : String(err)}`);
       }
+      clearAutoresearchSessionFiles(sandboxDir);
     }
     workDir = sandboxDir;
   } else {
-    // Direct mode — run on a new branch in the existing repo
-    if (!existsSync(join(projectDir, ".git"))) {
-      return buildResult(`❌ Direct mode requires an existing git repository in ${projectDir}. Initialize one first or enable sandbox mode.`);
-    }
-    mkdirSync(sessionDir, { recursive: true });
+    // Direct mode — run on a fresh branch + git worktree so repo-root autoresearch
+    // files from unrelated historical experiments cannot be resumed accidentally.
     branchName = `autoresearch/${id}`;
     try {
-      execSync(`git checkout -b ${JSON.stringify(branchName)}`, { cwd: projectDir, stdio: "ignore" });
+      const prepared = prepareDirectAutoresearchWorktree(projectDir, sessionDir, branchName);
+      worktreeRoot = prepared.worktreeRoot;
+      workDir = prepared.workDir;
     } catch (err) {
-      return buildResult(`❌ Failed to create branch ${branchName}: ${err instanceof Error ? err.message : String(err)}`);
+      return buildResult(`❌ Failed to prepare direct autoresearch worktree ${branchName}: ${err instanceof Error ? err.message : String(err)}`);
     }
-    workDir = projectDir;
   }
 
   // Git safety — init if needed (sandbox mode)
@@ -872,12 +873,13 @@ async function startAutoresearch(
     `Experiment: ${id}`,
     `tmux session: ${tmuxSession}`,
     `Project: ${workDir}`,
+    worktreeRoot ? `Worktree: ${worktreeRoot}` : "",
     branchName ? `Branch: ${branchName} (direct mode)` : "Mode: sandboxed copy",
     model ? `Model: ${model}` : "Model: (pi default)",
     params.max_iterations ? `Max iterations: ${params.max_iterations}` : "",
     hasExistingData ? `Resuming with existing JSONL data.` : "",
     "",
-    useSandbox ? `Experiment runs in a copied sandbox — the original repo is not modified by this run.` : `⚠️ Direct mode — changes are made on branch ${branchName} in the original repo.`,
+    useSandbox ? `Experiment runs in a copied sandbox — the original repo is not modified by this run.` : `⚠️ Direct mode — changes are made in an isolated git worktree on branch ${branchName}. Existing repo-root autoresearch files are cleared in that worktree before launch to avoid stale experiment state reuse.`,
     `Use stop_autoresearch to stop and clean up.`,
   ].filter(Boolean);
 

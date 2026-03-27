@@ -18,8 +18,9 @@ Autonomous experiment loop: try ideas, keep what works, discard what doesn't, ne
 1. Ask (or infer): **Goal**, **Command**, **Metric** (+ direction), **Files in scope**, **Constraints**.
 2. `git checkout -b autoresearch/<goal>-<date>`
 3. Read the source files. Understand the workload deeply before writing anything.
-4. Write `autoresearch.md` and `autoresearch.sh` (see below). Commit both.
-5. `init_experiment` → run baseline → `log_experiment` → start looping immediately.
+4. Confirm this is a fresh experiment workspace. If unrelated stale `autoresearch.*` files are already present, re-establish a clean workdir before continuing rather than silently resuming the wrong experiment.
+5. Write `autoresearch.md` and `autoresearch.sh` (see below). Commit both.
+6. `init_experiment` → run baseline → `log_experiment` → start looping immediately.
 
 ### `autoresearch.md`
 
