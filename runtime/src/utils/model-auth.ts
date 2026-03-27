@@ -2,12 +2,9 @@ import type { ModelRegistry } from "@mariozechner/pi-coding-agent";
 import type { Api, Model } from "@mariozechner/pi-ai";
 
 /** Resolved auth payload for provider requests in Piclaw runtime helpers. */
-export interface ModelRequestAuth {
-  ok: boolean;
-  apiKey?: string;
-  headers?: Record<string, string>;
-  error?: string;
-}
+export type ModelRequestAuth =
+  | { ok: true; apiKey?: string; headers?: Record<string, string> }
+  | { ok: false; error: string };
 
 /**
  * Resolve per-request auth in a way that works with current upstream Pi and older test doubles.

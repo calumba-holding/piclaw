@@ -253,6 +253,71 @@ test("agent pool can run a side prompt with the current model and thinking level
   expect(seen).toEqual([{ model: "openai/gpt-test", reasoning: "high", prompt: "Side question" }]);
 });
 
+test("agent pool forwards header-based auth for side prompts", async () => {
+  const ws = getTestWorkspace();
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const { AgentPool } = await importFresh<typeof import("../src/agent-pool.js")>("../src/agent-pool.js");
+
+  const seen: Array<{ apiKey: unknown; headers: unknown }> = [];
+  class StubSession {
+    model = {
+      provider: "openai",
+      id: "gpt-test",
+      api: "openai-responses",
+      reasoning: true,
+      input: ["text"],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: 128000,
+      maxTokens: 8192,
+    };
+    thinkingLevel = "high";
+    subscribe(_listener: (event: any) => void) {
+      return () => {};
+    }
+    async prompt(_prompt: string) {}
+    async abort() {}
+    dispose() {}
+  }
+
+  const pool = new AgentPool({
+    createSession: async () => new StubSession() as any,
+    modelRegistry: {
+      getApiKeyAndHeaders: async () => ({
+        ok: true,
+        headers: { Authorization: "Bearer side-token", "X-Test": "1" },
+      }),
+      find: () => undefined,
+      getAll: () => [],
+      getAvailable: () => [],
+    } as any,
+    sideStreamSimple: (_model: any, _context: any, options: any) => {
+      seen.push({ apiKey: options?.apiKey, headers: options?.headers });
+      return (async function* () {
+        yield {
+          type: "done",
+          reason: "stop",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "header answer" }],
+            api: "openai-responses",
+            provider: "openai",
+            model: "gpt-test",
+            usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+            stopReason: "stop",
+            timestamp: Date.now(),
+          },
+        } as any;
+      })() as any;
+    },
+  });
+
+  const result = await pool.runSidePrompt("web:default", "Side question");
+  expect(result.status).toBe("success");
+  expect(result.result).toBe("header answer");
+  expect(seen).toEqual([{ apiKey: undefined, headers: { Authorization: "Bearer side-token", "X-Test": "1" } }]);
+});
+
 test("agent pool forks active chats from the previous stable turn boundary", async () => {
   const ws = createTempWorkspace("piclaw-active-fork-");
   restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });

@@ -127,6 +127,7 @@ describe("smart-compaction", () => {
       ui: { notify: vi.fn() },
       model: { provider: "test", id: "test-model", reasoning: false },
       modelRegistry: {
+        getApiKeyAndHeaders: vi.fn().mockResolvedValue({ ok: true, apiKey: "test-key", headers: { "X-Test": "1" } }),
         getApiKey: vi.fn().mockResolvedValue("test-key"),
         getAll: vi.fn().mockReturnValue([]),
       },
@@ -206,6 +207,44 @@ describe("smart-compaction", () => {
     expect(ctx.ui.notify).toHaveBeenCalledWith(
       "Smart compaction complete ✓",
       "info",
+    );
+  });
+
+  it("forwards header-based auth to completeSimple", async () => {
+    const summaryText = "## Goal\nHeader auth\n\n## Constraints & Preferences\n- none\n\n## Progress\n### Done\n- [x] auth\n\n### In Progress\n\n### Blocked\n\n## Key Decisions\n\n## Next Steps\n\n## Critical Context\n- context";
+
+    (completeSimple as any).mockResolvedValueOnce({
+      content: [{ type: "text", text: summaryText }],
+      stopReason: "end",
+    });
+
+    const ctx = makeCtx({
+      modelRegistry: {
+        getApiKeyAndHeaders: vi.fn().mockResolvedValue({
+          ok: true,
+          headers: { Authorization: "Bearer compact-token", "X-Test": "1" },
+        }),
+        getAll: vi.fn().mockReturnValue([]),
+      },
+    });
+
+    const result = await handler!(
+      {
+        preparation: makePreparation(60),
+        branchEntries: [],
+        signal: new AbortController().signal,
+      },
+      ctx,
+    );
+
+    expect(result).toBeDefined();
+    expect(completeSimple).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({
+        apiKey: undefined,
+        headers: { Authorization: "Bearer compact-token", "X-Test": "1" },
+      }),
     );
   });
 
@@ -292,9 +331,9 @@ describe("smart-compaction", () => {
     );
   });
 
-  it("falls through when no API key", async () => {
+  it("falls through when no auth is available", async () => {
     const ctx = makeCtx();
-    ctx.modelRegistry.getApiKey.mockResolvedValueOnce(null);
+    ctx.modelRegistry.getApiKeyAndHeaders.mockResolvedValueOnce({ ok: false, error: "missing auth" });
 
     const result = await handler!(
       {
