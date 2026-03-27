@@ -1,7 +1,7 @@
 ---
 id: extract-webchannel-queued-followup-service
 title: Extract WebChannel queued follow-up lifecycle into a service
-status: doing
+status: review
 priority: high
 created: 2026-03-27
 updated: 2026-03-27
@@ -131,6 +131,21 @@ keep the rest of `WebChannel` untouched in this slice.
 ## Updates
 
 ### 2026-03-27
+- Lane change: `20-doing` → `40-review` after the slice landed on `main` via `d55e920` (`Extract queued followup lifecycle service`).
+- Evidence recorded from the landing pass:
+  - focused seam tests in `runtime/test/channels/web/queued-followup-lifecycle-service.test.ts`
+  - targeted integration validation in `runtime/test/channels/web/web-channel.test.ts`
+  - `bun run lint`
+  - `bun run typecheck`
+- Landed source surfaces:
+  - `runtime/src/channels/web.ts`
+  - `runtime/src/channels/web/queued-followup-lifecycle-service.ts`
+  - `runtime/test/channels/web/queued-followup-lifecycle-service.test.ts`
+- Follow-up seam split out explicitly instead of widening scope in-place:
+  - `kanban/20-doing/extract-webchannel-server-lifecycle-and-websocket-gateway.md`
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
+
+### 2026-03-27
 - Created as the first bounded execution slice under `split-webchannel-god-class`.
 - Chosen because queued follow-up lifecycle appears cohesive, deterministic, and already covered by meaningful queue-state integration tests.
 - Intended as an autoresearch-friendly seam using the usual repair-first loop and a canonical validation path.
@@ -139,4 +154,5 @@ keep the rest of `WebChannel` untouched in this slice.
 ## Links
 
 - `kanban/20-doing/split-webchannel-god-class.md`
+- `kanban/20-doing/extract-webchannel-server-lifecycle-and-websocket-gateway.md`
 - `/workspace/notes/piclaw-autoresearch-audit-checklist.md`

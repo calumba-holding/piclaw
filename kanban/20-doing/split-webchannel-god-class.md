@@ -55,15 +55,15 @@ Extract `WebChannel` into a composition of focused services:
 ## Updates
 
 ### 2026-03-27
-- Execution strategy narrowed from the umbrella refactor to bounded child slices suitable for autoresearch/test-fix loops.
-- Chose the first extraction seam as the queued follow-up lifecycle and split it into:
-  - `kanban/20-doing/extract-webchannel-queued-followup-service.md`
+- The first bounded child slice (`kanban/20-doing/extract-webchannel-queued-followup-service.md`) landed on `main` via `d55e920` (`Extract queued followup lifecycle service`) and moved to review.
+- Chose the next extraction seam as server lifecycle + websocket gateway wiring and split it into:
+  - `kanban/20-doing/extract-webchannel-server-lifecycle-and-websocket-gateway.md`
 - Rationale:
-  - cohesive lifecycle already concentrated in `runtime/src/channels/web.ts`
-  - deterministic queue semantics already covered by targeted `web-channel` tests
-  - materially reduces `WebChannel` responsibility without mixing in Bun server/TLS/SSE/websocket concerns
-- Planned autoresearch loop for this slice:
-  1. create/strengthen focused seam tests
+  - `start()` / `stop()` / websocket upgrade dispatch remain a cohesive orchestration seam inside `runtime/src/channels/web.ts`
+  - existing `authGateway`, `terminalService`, `vncService`, and request-router boundaries already provide natural collaborators for extraction
+  - this reduces `WebChannel` transport/bootstrap responsibility without mixing in later SSE or endpoint decomposition work
+- Planned repair-first loop for this slice:
+  1. create/strengthen focused lifecycle/gateway tests
   2. extract the smallest viable service boundary
   3. run targeted tests
   4. run `bun run lint`
