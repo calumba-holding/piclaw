@@ -55,6 +55,23 @@ Extract `WebChannel` into a composition of focused services:
 ## Updates
 
 ### 2026-03-27
+- Execution strategy narrowed from the umbrella refactor to bounded child slices suitable for autoresearch/test-fix loops.
+- Chose the first extraction seam as the queued follow-up lifecycle and split it into:
+  - `kanban/20-doing/extract-webchannel-queued-followup-service.md`
+- Rationale:
+  - cohesive lifecycle already concentrated in `runtime/src/channels/web.ts`
+  - deterministic queue semantics already covered by targeted `web-channel` tests
+  - materially reduces `WebChannel` responsibility without mixing in Bun server/TLS/SSE/websocket concerns
+- Planned autoresearch loop for this slice:
+  1. create/strengthen focused seam tests
+  2. extract the smallest viable service boundary
+  3. run targeted tests
+  4. run `bun run lint`
+  5. run `bun run typecheck`
+  6. only then widen scope if still justified
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
+
+### 2026-03-27
 - Lane change: `10-next` → `20-doing`.
 - Selected as the next active refactor because it is the highest-leverage open structural cleanup ticket, is unblocked, and directly unblocks follow-up web-layer cleanup work.
 - Current repo reality at pickup time: `runtime/src/channels/web.ts` is 1,905 lines and continues to be the largest maintainability hotspot in the runtime.
@@ -71,3 +88,4 @@ Extract `WebChannel` into a composition of focused services:
 - [Quality assessment](../docs/quality-assessment-2026-03-23.md)
 - Blocked by: nothing
 - Blocks: `codebase-quality-cleanup-2026` (master ticket)
+- Child slice: `kanban/20-doing/extract-webchannel-queued-followup-service.md`
