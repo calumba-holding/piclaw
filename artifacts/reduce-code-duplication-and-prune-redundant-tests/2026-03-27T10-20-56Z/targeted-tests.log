@@ -1,0 +1,28 @@
+bun test v1.3.11 (af24e281)
+
+test/extensions/extensions-workspace-search.test.ts:
+{"ts":"2026-03-27T10:41:04.881Z","level":"info","module":"db.connection","message":"Opened database connection","operation":"init_database.open","mode":"memory","path":":memory:","reusedConnection":false}
+(pass) workspace-search extension > registers search_workspace tool [17.00ms]
+(pass) workspace-search extension > indexes notes + skills and returns matches [4.00ms]
+(pass) workspace-search extension > scope filters to notes or skills [2.00ms]
+(pass) workspace-search extension > aggressively cleans up deleted files [3.00ms]
+(pass) workspace-search extension > skips oversized files and removes stale entries [2.00ms]
+(pass) workspace-search extension > paginates results with offset [2.00ms]
+(pass) workspace-search extension > refresh indexes large file sets [9.00ms]
+
+test/extensions/extensions-internal-tools.test.ts:
+(pass) internal-tools extension > registers list_internal_tools tool [1.00ms]
+(pass) internal-tools extension > lists tools with brief descriptions and query filter
+(pass) internal-tools extension > includes parameter schemas when requested
+
+test/extensions/extensions-keychain-tools.test.ts:
+(pass) keychain-tools extension > lists keychain entries [24.00ms]
+(pass) keychain-tools extension > retrieves secret and username fields [87.00ms]
+(pass) keychain-tools extension > sets a keychain entry and can read it back [104.00ms]
+(pass) keychain-tools extension > deletes a keychain entry [26.00ms]
+(pass) keychain-tools extension > set/delete actions validate required fields [33.00ms]
+
+ 15 pass
+ 0 fail
+ 41 expect() calls
+Ran 15 tests across 3 files. [348.00ms]

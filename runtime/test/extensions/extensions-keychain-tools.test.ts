@@ -3,40 +3,8 @@
  */
 
 import { beforeEach, afterEach, describe, expect, test } from "bun:test";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { createTempWorkspace, importFresh, setEnv } from "../helpers.js";
-
-function makeFakeApi() {
-  const tools = new Map<string, any>();
-  return {
-    api: {
-      on() {},
-      registerTool(tool: any) { tools.set(tool.name, tool); },
-      registerCommand() {},
-      registerShortcut() {},
-      registerFlag() {},
-      getFlag() { return undefined; },
-      registerMessageRenderer() {},
-      sendMessage() {},
-      sendUserMessage() {},
-      appendEntry() {},
-      setSessionName() {},
-      getSessionName() { return undefined; },
-      setLabel() {},
-      exec: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
-      getActiveTools: () => [],
-      getAllTools: () => [],
-      setActiveTools() {},
-      getCommands: () => [],
-      setModel: async () => true,
-      getThinkingLevel: () => "off" as any,
-      setThinkingLevel() {},
-      registerProvider() {},
-      unregisterProvider() {},
-    } as unknown as ExtensionAPI,
-    tools,
-  };
-}
+import { createFakeExtensionApi } from "./fake-extension-api.js";
 
 describe("keychain-tools extension", () => {
   let ws: ReturnType<typeof createTempWorkspace>;
@@ -72,16 +40,10 @@ describe("keychain-tools extension", () => {
     const { keychainTools } = await importFresh<typeof import("../src/extensions/keychain-tools.js")>(
       "../src/extensions/keychain-tools.js",
     );
-    const fake = makeFakeApi();
+    const fake = createFakeExtensionApi();
     keychainTools(fake.api);
     return fake.tools.get("keychain");
   }
-
-  test("registers keychain tool", async () => {
-    const tool = await getTool();
-    expect(tool).toBeDefined();
-    expect(tool.name).toBe("keychain");
-  });
 
   test("lists keychain entries", async () => {
     const tool = await getTool();

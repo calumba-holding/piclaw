@@ -1,10 +1,10 @@
 ---
 id: reduce-code-duplication-and-prune-redundant-tests
 title: Reduce code duplication and prune redundant test coverage
-status: next
+status: done
 priority: medium
 created: 2026-03-26
-updated: 2026-03-26
+updated: 2026-03-27
 target_release: later
 estimate: M
 risk: medium
@@ -69,11 +69,11 @@ Look for:
 
 ## Acceptance Criteria
 
-- [ ] At least one concrete low-risk code duplication seam is removed or consolidated.
-- [ ] At least one area of overlapping/redundant test coverage is merged, pruned, or rewritten more cleanly.
-- [ ] Any removed tests are justified by equivalent or stronger remaining coverage.
-- [ ] Shared helper/fixture cleanup is documented where applicable.
-- [ ] Larger or riskier duplication candidates are split into explicit follow-up tickets instead of being bundled into this pass.
+- [x] At least one concrete low-risk code duplication seam is removed or consolidated.
+- [x] At least one area of overlapping/redundant test coverage is merged, pruned, or rewritten more cleanly.
+- [x] Any removed tests are justified by equivalent or stronger remaining coverage.
+- [x] Shared helper/fixture cleanup is documented where applicable.
+- [x] Larger or riskier duplication candidates are split into explicit follow-up tickets instead of being bundled into this pass.
 
 ## Implementation Paths
 
@@ -110,22 +110,42 @@ test removals.
 
 ## Test Plan
 
-- [ ] Run the targeted affected test suites before and after changes.
-- [ ] Run `cd /workspace/piclaw && bun run test` if the change surface is broad enough.
-- [ ] Record what duplication was removed and what equivalent coverage remains.
-- [ ] If new/modified exported `.ts` symbols are introduced while extracting helpers:
-  - [ ] All exported symbols have JSDoc
-  - [ ] Interface/type properties documented
-  - [ ] Public class methods documented
+- [x] Run the targeted affected test suites before and after changes.
+- [x] Run `cd /workspace/piclaw && bun run test` if the change surface is broad enough. *(Not required for this narrow pass; targeted suites + lint + typecheck were sufficient.)*
+- [x] Record what duplication was removed and what equivalent coverage remains.
+- [x] If new/modified exported `.ts` symbols are introduced while extracting helpers:
+  - [x] All exported symbols have JSDoc
+  - [x] Interface/type properties documented *(N/A: no exported interface/type properties introduced in this pass.)*
+  - [x] Public class methods documented *(N/A: no new public classes introduced in this pass.)*
 
 ## Definition of Done
 
-- [ ] Low-risk duplication reduced in at least one meaningful seam.
-- [ ] Redundant test coverage is pruned/merged with justification.
-- [ ] No meaningful regression coverage is lost.
-- [ ] Update history records before/after rationale and evidence.
+- [x] Low-risk duplication reduced in at least one meaningful seam.
+- [x] Redundant test coverage is pruned/merged with justification.
+- [x] No meaningful regression coverage is lost.
+- [x] Update history records before/after rationale and evidence.
 
 ## Updates
+
+### 2026-03-27
+- Completed a narrow Path A pass on `main` with a small, reviewable diff.
+- Identified low-risk duplication targets:
+  1. repeated `ExtensionAPI` test-double boilerplate across extension suites,
+  2. thin registration-only tests overlapped by stronger behavior tests,
+  3. repeated extension workspace/env + DB setup glue,
+  4. repeated WebChannel bootstrap fixtures (larger candidate).
+- Consolidated one concrete duplication seam by extracting `runtime/test/extensions/fake-extension-api.ts` and using it in:
+  - `runtime/test/extensions/extensions-keychain-tools.test.ts`
+  - `runtime/test/extensions/extensions-internal-tools.test.ts`
+  - `runtime/test/extensions/extensions-workspace-search.test.ts`
+- Pruned one redundant test area by removing `registers keychain tool` from `extensions-keychain-tools.test.ts`.
+  - Equivalent/stronger remaining coverage: behavior tests for list/get/set/delete/validation all retrieve and execute the same registered tool, so registration failures still fail with higher-signal functional assertions.
+- Split larger/riskier duplication follow-up: `kanban/10-next/consolidate-web-channel-test-bootstrap-fixtures.md`.
+- Validation on `main`:
+  - `cd runtime && PICLAW_DB_IN_MEMORY=1 bun test --max-concurrency=1 test/extensions/extensions-keychain-tools.test.ts test/extensions/extensions-internal-tools.test.ts test/extensions/extensions-workspace-search.test.ts` (15 pass / 0 fail)
+  - `bun run lint` (pass)
+  - `bun run typecheck` (pass)
+- Evidence: `artifacts/reduce-code-duplication-and-prune-redundant-tests/2026-03-27T10-20-56Z/summary.md`
 
 ### 2026-03-26
 - Created to explicitly track code/test duplication cleanup after noticing that earlier audit work covered this topic historically, but no current open ticket owned it directly.
@@ -138,3 +158,5 @@ test removals.
 - `kanban/30-blocked/codebase-quality-cleanup-2026.md`
 - `kanban/10-next/split-webchannel-god-class.md`
 - `kanban/10-next/split-agentpool-god-class.md`
+- `kanban/10-next/consolidate-web-channel-test-bootstrap-fixtures.md`
+- `artifacts/reduce-code-duplication-and-prune-redundant-tests/2026-03-27T10-20-56Z/summary.md`

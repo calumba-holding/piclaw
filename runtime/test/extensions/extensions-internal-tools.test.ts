@@ -4,48 +4,12 @@
 
 import { describe, expect, test } from "bun:test";
 import "../helpers.js";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-
-function makeFakeApi(initialTools: Array<{ name: string; description?: string; parameters?: unknown }>) {
-  const tools = new Map<string, any>();
-  let allTools = [...initialTools];
-  return {
-    api: {
-      on() {},
-      registerTool(tool: any) { tools.set(tool.name, tool); },
-      registerCommand() {},
-      registerShortcut() {},
-      registerFlag() {},
-      getFlag() { return undefined; },
-      registerMessageRenderer() {},
-      sendMessage() {},
-      sendUserMessage() {},
-      appendEntry() {},
-      setSessionName() {},
-      getSessionName() { return undefined; },
-      setLabel() {},
-      exec: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
-      getActiveTools: () => [],
-      getAllTools: () => allTools,
-      setActiveTools() {},
-      getCommands: () => [],
-      setModel: async () => true,
-      getThinkingLevel: () => "off" as any,
-      setThinkingLevel() {},
-      registerProvider() {},
-      unregisterProvider() {},
-    } as unknown as ExtensionAPI,
-    tools,
-    setAllTools(next: Array<{ name: string; description?: string; parameters?: unknown }>) {
-      allTools = [...next];
-    },
-  };
-}
+import { createFakeExtensionApi } from "./fake-extension-api.js";
 
 describe("internal-tools extension", () => {
   test("registers list_internal_tools tool", async () => {
     const { internalTools } = await import("../../src/extensions/internal-tools.js");
-    const fake = makeFakeApi([]);
+    const fake = createFakeExtensionApi({ allTools: [] });
     internalTools(fake.api);
 
     const tool = fake.tools.get("list_internal_tools");
@@ -55,11 +19,11 @@ describe("internal-tools extension", () => {
 
   test("lists tools with brief descriptions and query filter", async () => {
     const { internalTools } = await import("../../src/extensions/internal-tools.js");
-    const fake = makeFakeApi([
+    const fake = createFakeExtensionApi({ allTools: [
       { name: "bash", description: "Run a shell command and return output." },
       { name: "messages", description: "Search, retrieve, add, or delete messages." },
       { name: "list_internal_tools", description: "List available internal tools." },
-    ]);
+    ] });
     internalTools(fake.api);
 
     const tool = fake.tools.get("list_internal_tools");
@@ -75,13 +39,13 @@ describe("internal-tools extension", () => {
 
   test("includes parameter schemas when requested", async () => {
     const { internalTools } = await import("../../src/extensions/internal-tools.js");
-    const fake = makeFakeApi([
+    const fake = createFakeExtensionApi({ allTools: [
       {
         name: "read",
         description: "Read a file.",
         parameters: { type: "object", properties: { path: { type: "string" } } },
       },
-    ]);
+    ] });
     internalTools(fake.api);
 
     const tool = fake.tools.get("list_internal_tools");

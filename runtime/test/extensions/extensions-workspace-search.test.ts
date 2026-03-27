@@ -6,44 +6,12 @@
  */
 
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { createTempWorkspace, setEnv } from "../helpers.js";
 import { initDatabase } from "../../src/db.js";
 import { withChatContext } from "../../src/core/chat-context.js";
-
-function makeFakeApi() {
-  const tools = new Map<string, any>();
-  return {
-    api: {
-      on() {},
-      registerTool(tool: any) { tools.set(tool.name, tool); },
-      registerCommand() {},
-      registerShortcut() {},
-      registerFlag() {},
-      getFlag() { return undefined; },
-      registerMessageRenderer() {},
-      sendMessage() {},
-      sendUserMessage() {},
-      appendEntry() {},
-      setSessionName() {},
-      getSessionName() { return undefined; },
-      setLabel() {},
-      exec: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
-      getActiveTools: () => [],
-      getAllTools: () => [],
-      setActiveTools() {},
-      getCommands: () => [],
-      setModel: async () => true,
-      getThinkingLevel: () => "off" as any,
-      setThinkingLevel() {},
-      registerProvider() {},
-      unregisterProvider() {},
-    } as unknown as ExtensionAPI,
-    tools,
-  };
-}
+import { createFakeExtensionApi } from "./fake-extension-api.js";
 
 describe("workspace-search extension", () => {
   let ws: ReturnType<typeof createTempWorkspace>;
@@ -76,7 +44,7 @@ describe("workspace-search extension", () => {
 
   async function getSearchTool() {
     const { workspaceSearch } = await import("../../src/extensions/workspace-search.js");
-    const fake = makeFakeApi();
+    const fake = createFakeExtensionApi();
     workspaceSearch(fake.api);
     return fake.tools.get("search_workspace")!;
   }
