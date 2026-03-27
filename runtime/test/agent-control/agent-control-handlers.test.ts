@@ -14,6 +14,7 @@ import { getTestWorkspace, setEnv } from "../helpers.js";
 import { DEFAULT_TEST_MODEL, TestAgentControlSession, cleanupRotatedSessionArtifacts, createTestModelRegistry } from "./session-fixture.js";
 
 let restoreEnv: (() => void) | null = null;
+let restoreIdentityState: (() => void) | null = null;
 
 // ── Config fixture ──────────────────────────────────────────────
 // Tests that exercise config-writing handlers must never touch the real
@@ -51,13 +52,28 @@ function restoreConfig() {
   savedConfigPath = null;
 }
 
-beforeEach(() => {
+async function saveIdentityState() {
+  const cfg = await import("../../src/core/config.js");
+  const snapshot = { ...cfg.getIdentityConfig() };
+  return () => {
+    cfg.setAssistantName(snapshot.assistantName);
+    cfg.setAssistantAvatar(snapshot.assistantAvatar);
+    cfg.setUserName(snapshot.userName);
+    cfg.setUserAvatar(snapshot.userAvatar);
+    cfg.setUserAvatarBackground(snapshot.userAvatarBackground);
+  };
+}
+
+beforeEach(async () => {
+  restoreIdentityState = await saveIdentityState();
   saveConfig();
   cleanupRotatedSessionArtifacts(process.cwd());
 });
 
 afterEach(() => {
   cleanupRotatedSessionArtifacts(process.cwd());
+  restoreIdentityState?.();
+  restoreIdentityState = null;
   restoreConfig();
   restoreEnv?.();
   restoreEnv = null;
