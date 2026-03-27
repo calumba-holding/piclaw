@@ -63,6 +63,7 @@ import {
 } from "./db.js";
 import { createUuid } from "./utils/ids.js";
 import { createLogger } from "./utils/logger.js";
+import { resolveModelRequestAuth } from "./utils/model-auth.js";
 
 const log = createLogger("agent-pool");
 
@@ -517,13 +518,13 @@ export class AgentPool {
     }
 
     if (this.sideStreamSimple) {
-      const apiKey = await this.modelRegistry.getApiKey(model);
-      if (!apiKey) {
+      const auth = await resolveModelRequestAuth(this.modelRegistry, model);
+      if (!auth.ok) {
         return {
           status: "error",
           result: null,
           thinking: null,
-          error: `No credentials available for ${model.provider}/${model.id}.`,
+          error: auth.error || `No credentials available for ${model.provider}/${model.id}.`,
           model: `${model.provider}/${model.id}`,
         };
       }
@@ -541,7 +542,8 @@ export class AgentPool {
           ],
         },
         {
-          apiKey,
+          apiKey: auth.apiKey,
+          headers: auth.headers,
           reasoning: toSideReasoning((session as AgentSession & { thinkingLevel?: unknown }).thinkingLevel),
           signal: options.signal,
         },

@@ -469,14 +469,18 @@ export function createStreamingEventHandler(options: StreamingEventHandlerOption
       }
     }
 
-    if (event.type === "auto_compaction_start") {
+    if (event.type === "compaction_start") {
       const reason = (event as { reason?: string }).reason;
       const title = reason === "overflow"
         ? "Compacting context"
-        : "Auto-compacting after response";
+        : reason === "threshold"
+          ? "Auto-compacting after response"
+          : "Compacting context";
       const detail = reason === "overflow"
         ? "Recovering from context pressure so the turn can continue."
-        : "Shrinking recent context before continuing the turn.";
+        : reason === "threshold"
+          ? "Shrinking recent context before continuing the turn."
+          : undefined;
       options.emitter.status({
         ...base,
         type: "intent",
@@ -487,8 +491,8 @@ export function createStreamingEventHandler(options: StreamingEventHandlerOption
       });
     }
 
-    if (event.type === "auto_compaction_end") {
-      const e = event as { errorMessage?: string; willRetry?: boolean; aborted?: boolean };
+    if (event.type === "compaction_end") {
+      const e = event as { errorMessage?: string; willRetry?: boolean; aborted?: boolean; reason?: string };
       if (e.errorMessage) {
         options.emitter.status({
           ...base,
@@ -505,7 +509,7 @@ export function createStreamingEventHandler(options: StreamingEventHandlerOption
         options.emitter.status({
           ...base,
           type: "intent",
-          title: "Auto-compaction cancelled",
+          title: e.reason === "manual" ? "Compaction cancelled" : "Auto-compaction cancelled",
         });
       }
     }

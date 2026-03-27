@@ -84,12 +84,6 @@ export function resolveShellCandidates(options: ResolveShellConfigOptions = {}):
   return candidates;
 }
 
-/** Determine the preferred shell binary and arguments for command execution. */
-export function resolveShellConfig(options: ResolveShellConfigOptions = {}): ShellConfig {
-  const [first] = resolveShellCandidates(options);
-  return first ?? { shell: "bash", args: POSIX_ARGS, family: "posix" };
-}
-
 /** Create host-shell tool operations with child process tracking and keychain resolution. */
 export function createTrackedBashOperations(): BashOperations {
   return {

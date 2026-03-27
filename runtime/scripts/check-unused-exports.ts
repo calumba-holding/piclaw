@@ -14,6 +14,7 @@ const ALLOWED_UNUSED_EXPORTS = new Set([
   "src/channels/web/workspace/service.ts:14 - createWorkspaceUpdateThrottle",
   "src/channels/web/workspace/service.ts:15 - WorkspaceUpdate",
   "src/core/chat-context.ts:49 - getChatContext",
+  "src/core/config.ts:316 - getLoggingConfig",
   "src/db.ts:103 - DEFAULT_PASSKEY_USER_ID",
   "src/db.ts:119 - deleteWebSession",
   "src/db.ts:123 - ChatInfo",

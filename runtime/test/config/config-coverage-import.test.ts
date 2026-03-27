@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
-import { withTempWorkspaceEnv } from "../helpers.js";
+import { importFresh, withTempWorkspaceEnv } from "../helpers.js";
 
 function writeWorkspaceConfig(workspace: string, config: Record<string, unknown>): void {
   const configDir = join(workspace, ".piclaw");
@@ -70,7 +70,7 @@ test("plain import covers config module init branches with isolated argv and env
       }) as typeof process.stderr.write;
 
       try {
-        const cfg = await import("../../src/core/config.js");
+        const cfg = await importFresh<typeof import("../../src/core/config.js")>("../src/core/config.js");
         expect(cfg.ASSISTANT_NAME).toBe("Legacy Pi");
         expect(cfg.WEB_SERVER_CONFIG).toEqual({
           port: 9001,

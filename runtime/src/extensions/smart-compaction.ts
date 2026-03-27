@@ -30,6 +30,7 @@ import { convertToLlm } from "@mariozechner/pi-coding-agent";
 import { completeSimple } from "@mariozechner/pi-ai";
 import type { Message } from "@mariozechner/pi-ai";
 import type { CompactionResult } from "@mariozechner/pi-coding-agent";
+import { resolveModelRequestAuth } from "../utils/model-auth.js";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -676,8 +677,8 @@ export const smartCompaction: ExtensionFactory = (pi: ExtensionAPI) => {
       ctx.ui.notify("No model available for smart compaction", "warning");
       return;
     }
-    const apiKey = await ctx.modelRegistry.getApiKey(model);
-    if (!apiKey) {
+    const auth = await resolveModelRequestAuth(ctx.modelRegistry as any, model);
+    if (!auth.ok) {
       ctx.ui.notify("Compaction model is not configured in Pi Agent settings (run `pi /login`)", "warning");
       return;
     }
@@ -692,8 +693,8 @@ export const smartCompaction: ExtensionFactory = (pi: ExtensionAPI) => {
 
     const maxTokens = Math.floor(0.8 * settings.reserveTokens);
     const completionOptions = (model as any).reasoning
-      ? { maxTokens, signal, apiKey, reasoning: "high" as const }
-      : { maxTokens, signal, apiKey };
+      ? { maxTokens, signal, apiKey: auth.apiKey, headers: auth.headers, reasoning: "high" as const }
+      : { maxTokens, signal, apiKey: auth.apiKey, headers: auth.headers };
 
     try {
       const response = await completeSimple(

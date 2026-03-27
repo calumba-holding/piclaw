@@ -233,10 +233,10 @@ describe("web agent streaming", () => {
     const agentPool = {
       setSessionBinder: () => {},
       runAgent: async (_prompt: string, _chatJid: string, options: any) => {
-        options.onEvent?.(makeEvent("auto_compaction_start", { reason: "overflow" }));
+        options.onEvent?.(makeEvent("compaction_start", { reason: "overflow" }));
         options.onEvent?.(makeEvent("message_update", { assistantMessageEvent: { type: "text_start" } }));
         options.onEvent?.(makeEvent("message_update", { assistantMessageEvent: { type: "text_delta", delta: "compact" } }));
-        options.onEvent?.(makeEvent("auto_compaction_end", { errorMessage: null }));
+        options.onEvent?.(makeEvent("compaction_end", { reason: "overflow", result: undefined, aborted: false, willRetry: false, errorMessage: undefined }));
         return { status: "success", result: "compaction response", attachments: [] };
       },
       getContextUsageForChat: async () => null,
