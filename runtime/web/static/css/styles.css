@@ -65,6 +65,13 @@
     --radius-lg: 16px;
     --radius-full: 9999px;
 
+    /* Shared chat surface sizing */
+    --chat-surface-radius: var(--radius-md);
+    --chat-surface-padding-y: 7px;
+    --chat-surface-padding-x: 10px;
+    --chat-surface-inline-gap: 6px;
+    --chat-surface-control-height: 30px;
+
     /* Shadows */
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -2322,8 +2329,8 @@ body {
     gap: 0;
     background-color: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    padding: 2px 3px;
+    border-radius: var(--chat-surface-radius);
+    padding: var(--chat-surface-padding-y) var(--chat-surface-padding-x);
 }
 
 .compose-input-wrapper:focus-within {
@@ -2349,7 +2356,7 @@ body {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-xs);
-    padding: 2px var(--spacing-xs) 0 var(--spacing-xs);
+    padding: 0 0 4px 0;
     align-items: center;
 }
 
@@ -2372,12 +2379,12 @@ body {
 }
 
 .compose-inline-status {
-    margin: 2px var(--spacing-xs) 0 var(--spacing-xs);
-    border-radius: var(--radius-md);
+    margin: 2px 0 0 0;
+    border-radius: var(--chat-surface-radius);
     border: 1px solid color-mix(in srgb, var(--accent-color) 28%, transparent);
     background: color-mix(in srgb, var(--accent-color) 10%, transparent);
     color: var(--text-primary);
-    padding: 6px 8px;
+    padding: var(--chat-surface-padding-y) var(--chat-surface-padding-x);
     line-height: 1.3;
 }
 
@@ -2389,7 +2396,7 @@ body {
 .compose-inline-status-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--chat-surface-inline-gap);
     min-width: 0;
 }
 
@@ -2502,7 +2509,7 @@ body {
     color: var(--text-primary);
     background-color: transparent;
     outline: none;
-    padding: 1px calc(var(--spacing-xs) + 28px) 2px 1px;
+    padding: 0 calc(var(--spacing-xs) + 28px) 0 0;
     line-height: 1.5;
     overflow-y: hidden;
     overflow-wrap: anywhere;
@@ -2770,24 +2777,24 @@ body {
 .compose-queue-stack-item {
     display: flex;
     align-items: stretch;
-    gap: 6px;
+    gap: var(--chat-surface-inline-gap);
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    padding: 4px 6px;
+    border-radius: var(--chat-surface-radius);
+    padding: var(--chat-surface-padding-y) var(--chat-surface-padding-x);
     min-width: 0;
 }
 
 .compose-queue-stack-content {
     flex: 1 1 auto;
     min-width: 0;
-    font-size: 11.5px;
+    font-size: 12px;
     color: var(--text-secondary);
-    line-height: 1.2;
+    line-height: 1.3;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 4px 6px;
+    gap: 4px var(--chat-surface-inline-gap);
     overflow: hidden;
 }
 
@@ -2821,16 +2828,17 @@ body {
 }
 
 .compose-queue-stack-steer-btn {
-    padding: 2px 8px 2px 5px;
+    min-height: var(--chat-surface-control-height);
+    padding: 0 10px 0 8px;
     border-radius: 999px;
     color: var(--accent-color);
-    opacity: 0.6;
+    opacity: 0.72;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 3px;
-    font-size: 11px;
-    font-weight: 500;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
     cursor: pointer;
     transition: opacity 0.15s ease, background-color 0.15s ease;
     background: none;
@@ -2849,7 +2857,9 @@ body {
 }
 
 .compose-queue-stack-close-btn {
-    padding: 2px;
+    width: 26px;
+    height: 26px;
+    padding: 0;
     border-radius: 999px;
     color: var(--accent-color);
     opacity: 0;
@@ -5067,12 +5077,12 @@ body {
 }
 
 .agent-thinking {
-    padding: calc((var(--spacing-md) / 2) - 1px) calc(var(--spacing-md) / 2);
+    padding: var(--chat-surface-padding-y) var(--chat-surface-padding-x);
     margin: 0 var(--spacing-sm);
     background-color: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-bottom-color: transparent;
-    border-radius: var(--radius-md);
+    border-radius: var(--chat-surface-radius);
     color: var(--text-secondary);
     font-size: var(--font-size-sm);
     animation: fadeIn 0.2s ease-out;
