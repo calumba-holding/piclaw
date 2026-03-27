@@ -128,6 +128,8 @@ In addition to the inline factories, piclaw ships **optional extensions** under 
 |-----------|------|---------|
 | `azure-openai.ts` | `AOAI_BASE_URL` must be set | Azure OpenAI + Foundry provider with managed-identity or API-key auth |
 | `context-mode.ts` | Always loaded | Tool-output storage, search handles, and `exec_batch` tool |
+| `cdp-browser/` | Always loaded | Cross-platform Chromium CDP browser control tool (`cdp_browser`) |
+| `win-ui/` | Always loaded (runtime no-op off Windows) | Windows desktop automation via bun:ffi + IAccessible (`win_*` tools) |
 | `drawio-editor/` | Always loaded | Self-hosted draw.io editor with extension route, save endpoint, and workspace export |
 | `office-viewer/` | Always loaded | Lightweight JS Office document viewer with extension route |
 

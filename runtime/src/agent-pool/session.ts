@@ -49,6 +49,8 @@ const EXTENSIONS_DIR = resolve(__dirname, "../../extensions");
 const OPTIONAL_EXTENSIONS: { path: string; envGate?: string }[] = [
   { path: resolve(EXTENSIONS_DIR, "azure-openai.ts"), envGate: "AOAI_BASE_URL" },
   { path: resolve(EXTENSIONS_DIR, "context-mode.ts") },
+  { path: resolve(EXTENSIONS_DIR, "cdp-browser", "index.ts") },
+  { path: resolve(EXTENSIONS_DIR, "win-ui", "index.ts") },
   { path: resolve(EXTENSIONS_DIR, "office-viewer", "index.ts") },
 ];
 
