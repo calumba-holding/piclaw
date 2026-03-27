@@ -38,8 +38,7 @@ import {
 import { streamSimple, type AssistantMessageEvent, type AssistantMessageEventStream, type Model, type Api, type Usage } from "@mariozechner/pi-ai";
 
 import { applyControlCommand, type AgentControlCommand, type AgentControlResult } from "./agent-control/index.js";
-import { AGENT_TIMEOUT, ASSISTANT_NAME, SESSION_AUTO_ROTATE, SESSION_MAX_SIZE_BYTES, SESSIONS_DIR, WORKSPACE_DIR } from "./core/config.js";
-import { detectChannel } from "./router.js";
+import { ASSISTANT_NAME, SESSIONS_DIR, WORKSPACE_DIR, getAgentRuntimeConfig, getSessionStorageConfig } from "./core/config.js";import { detectChannel } from "./router.js";
 import { createTrackedBashOperations } from "./tools/tracked-bash.js";
 import { getAttachmentRegistry, type AttachmentInfo } from "./agent-pool/attachments.js";
 import { writeAgentLog } from "./agent-pool/logging.js";
@@ -369,14 +368,15 @@ export class AgentPool {
 
   /** Attempt safe automatic session rotation before the next prompt when configured. */
   private async maybeAutoRotateSession(session: AgentSession, chatJid: string): Promise<void> {
-    const autoRotateEnabled = SESSION_AUTO_ROTATE
+    const sessionStorageConfig = getSessionStorageConfig();
+    const autoRotateEnabled = sessionStorageConfig.autoRotate
       || ["1", "true", "yes", "on"].includes((process.env.PICLAW_SESSION_AUTO_ROTATE || "").trim().toLowerCase());
     if (!autoRotateEnabled) return;
 
     const envThresholdMb = parseInt(process.env.PICLAW_SESSION_MAX_SIZE_MB || "", 10);
     const thresholdBytes = Number.isFinite(envThresholdMb) && envThresholdMb > 0
       ? envThresholdMb * 1024 * 1024
-      : SESSION_MAX_SIZE_BYTES;
+      : sessionStorageConfig.maxSizeBytes;
 
     const sessionFileSize = getSessionFileSize(session.sessionFile);
     if (sessionFileSize === null || sessionFileSize < thresholdBytes) return;
@@ -420,8 +420,7 @@ export class AgentPool {
 
       const tracker = this.createTurnTracker(chatJid, options.onTurnComplete);
       const unsub = this.subscribeToSession(session, chatJid, tracker, options.onEvent);
-      const timeoutMs = typeof options.timeoutMs === "number" ? options.timeoutMs : AGENT_TIMEOUT;
-      const { timeoutId, timedOutRef } = this.startPromptTimeout(session, chatJid, timeoutMs);
+      const timeoutMs = typeof options.timeoutMs === "number" ? options.timeoutMs : getAgentRuntimeConfig().timeoutMs;      const { timeoutId, timedOutRef } = this.startPromptTimeout(session, chatJid, timeoutMs);
 
       const channel = detectChannel(chatJid);
       return await withChatContext(chatJid, channel, async () => {
@@ -619,8 +618,7 @@ export class AgentPool {
     let finalMessage: SideAssistantMessage | null = null;
     let timedOut = false;
     const channel = detectChannel(chatJid);
-    const timeoutMs = AGENT_TIMEOUT;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const timeoutMs = getAgentRuntimeConfig().timeoutMs;    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const unsubscribe = sideSession.subscribe((event) => {
       options.onEvent?.(event);

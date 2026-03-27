@@ -2,7 +2,7 @@
  * channels/web/totp-auth.ts – TOTP verification endpoint orchestration.
  */
 
-import { WEB_SESSION_TTL, WEB_TOTP_SECRET, WEB_TOTP_WINDOW } from "../../core/config.js";
+import { getWebRuntimeConfig } from "../../core/config.js";
 import { createWebSession, DEFAULT_WEB_USER_ID } from "../../db.js";
 import { okJson } from "./http/http-utils.js";
 import { randomSessionToken, verifyTotp } from "./auth.js";
@@ -27,11 +27,12 @@ export interface TotpAuthContext {
 }
 
 function getTotpWindowSteps(): number {
-  return Number.isFinite(WEB_TOTP_WINDOW) ? Math.max(0, WEB_TOTP_WINDOW) : 1;
+  const rawWindow = getWebRuntimeConfig().totpWindow;
+  return Number.isFinite(rawWindow) ? Math.max(0, rawWindow) : 1;
 }
 
 function getSessionTtlSeconds(): number {
-  const rawTtl = Number.isFinite(WEB_SESSION_TTL) ? WEB_SESSION_TTL : 0;
+  const rawTtl = getWebRuntimeConfig().sessionTtl;
   return Math.max(60, rawTtl || 0);
 }
 
@@ -56,7 +57,7 @@ export async function handleAuthVerifyRequest(req: Request, ctx: TotpAuthContext
     return ctx.json({ error: "Too many failed attempts. Try again later." }, 429);
   }
 
-  if (!verifyTotp(WEB_TOTP_SECRET, code, getTotpWindowSteps())) {
+  if (!verifyTotp(getWebRuntimeConfig().totpSecret, code, getTotpWindowSteps())) {
     const failure = ctx.failureTracker.recordFailure(clientKey, now);
     if (failure.locked) {
       ctx.logAuthEvent(req, `TOTP lockout triggered (${failure.failures} failures)`);

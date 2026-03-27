@@ -9,10 +9,10 @@
  *   - QR code authentication (printed to terminal on first connect).
  *   - Multi-file auth state persistence under STORE_DIR.
  *   - Automatic reconnection on disconnect.
- *   - Phone number filtering (WHATSAPP_PHONE) to restrict inbound handling.
+ *   - Phone number filtering (`WHATSAPP_CONFIG.phoneNumber`) to restrict inbound handling.
  *
  * Consumers:
- *   - runtime.ts creates a WhatsAppChannel at startup (if WHATSAPP_PHONE
+ *   - runtime.ts creates a WhatsAppChannel at startup (if `WHATSAPP_CONFIG.phoneNumber`
  *     is configured) and wires its callbacks.
  *   - runtime/message-loop.ts polls for new WhatsApp messages via the DB.
  */
@@ -29,7 +29,7 @@ import makeWASocket, {
 } from "@whiskeysockets/baileys";
 import qrcode from "qrcode-terminal";
 
-import { ASSISTANT_NAME, STORE_DIR, WHATSAPP_PHONE } from "../core/config.js";
+import { ASSISTANT_NAME, STORE_DIR, getWhatsAppConfig } from "../core/config.js";
 import type { OnChatMetadata, OnInboundMessage } from "../types.js";
 import { createUuid } from "../utils/ids.js";
 import { createLogger } from "../utils/logger.js";
@@ -92,9 +92,10 @@ export class WhatsAppChannel {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(opts: WhatsAppChannelOpts) {
+    const whatsAppConfig = getWhatsAppConfig();
     this.opts = {
       ...opts,
-      phoneNumber: opts.phoneNumber || (WHATSAPP_PHONE || undefined),
+      phoneNumber: opts.phoneNumber || (whatsAppConfig.phoneNumber || undefined),
     };
   }
 

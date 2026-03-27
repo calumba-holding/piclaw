@@ -8,7 +8,7 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync, chmodSync } from "fs";
 import { join } from "path";
 import { createHash, generateKeyPairSync, createPrivateKey, createPublicKey, sign, verify } from "crypto";
-import { DATA_DIR, REMOTE_INSTANCE_NAME } from "../core/config.js";
+import { DATA_DIR, getRemoteInteropConfig } from "../core/config.js";
 
 /** Persisted local identity record for remote interop communication. */
 export interface InteropIdentity {
@@ -69,7 +69,7 @@ export function loadOrCreateIdentity(): InteropIdentity {
     public_key: base64UrlEncode(publicDer),
     private_key: base64UrlEncode(privateDer),
     fingerprint: computeFingerprint(instanceId),
-    instance_name: REMOTE_INSTANCE_NAME || "piclaw",
+    instance_name: getRemoteInteropConfig().instanceName || "piclaw",
     created_at: new Date().toISOString(),
   };
 

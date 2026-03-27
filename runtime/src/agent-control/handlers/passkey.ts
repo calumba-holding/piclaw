@@ -9,7 +9,7 @@
 
 import type { AgentSession } from "@mariozechner/pi-coding-agent";
 import type { AgentControlCommand, AgentControlResult } from "../agent-control-types.js";
-import { WEB_PASSKEY_MODE, WEB_TOTP_SECRET } from "../../core/config.js";
+import { getWebRuntimeConfig } from "../../core/config.js";
 import { getChatChannel, getChatJid } from "../../core/chat-context.js";
 import { getWebOrigin } from "../../channels/web/request-origin.js";
 import {
@@ -24,7 +24,7 @@ const MAX_LINK_MINUTES = 5;
 
 type PasskeyCommand = Extract<AgentControlCommand, { type: "passkey" }>;
 
-const isPasskeysEnabled = () => (WEB_PASSKEY_MODE || "").toLowerCase() !== "totp-only";
+const isPasskeysEnabled = () => (getWebRuntimeConfig().passkeyMode || "").toLowerCase() !== "totp-only";
 
 const maskCredential = (id: string): string => {
   if (!id) return "unknown";
@@ -51,7 +51,8 @@ export async function handlePasskey(_session: AgentSession, command: PasskeyComm
   }
 
   if (action === "enrol" || action === "enroll") {
-    if (!WEB_TOTP_SECRET || !WEB_TOTP_SECRET.trim()) {
+    const webRuntimeConfig = getWebRuntimeConfig();
+    if (!webRuntimeConfig.totpSecret || !webRuntimeConfig.totpSecret.trim()) {
       return { status: "error", message: "TOTP is not configured; enrolment is disabled." };
     }
     const channel = getChatChannel();

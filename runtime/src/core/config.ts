@@ -116,10 +116,26 @@ function pickBoolean(config: Record<string, unknown>, keys: string[]): boolean |
 // Timing constants used by the runtime message loop and scheduler.
 // ---------------------------------------------------------------------------
 
-/** How often the router polls for new messages (ms). Used by runtime.ts. */
-export const POLL_INTERVAL = 2000;
-/** How often the task scheduler checks for due tasks (ms). Used by task-scheduler.ts. */
-export const SCHEDULER_POLL_INTERVAL = 60000;
+/** Typed runtime timing settings grouped for bootstrap, IPC, and scheduler wiring. */
+export interface RuntimeTimingConfig {
+  pollIntervalMs: number;
+  schedulerPollIntervalMs: number;
+  ipcPollIntervalMs: number;
+  timezone: string;
+}
+
+/** Grouped runtime timing settings. */
+export const RUNTIME_TIMING_CONFIG = Object.freeze<RuntimeTimingConfig>({
+  pollIntervalMs: 2000,
+  schedulerPollIntervalMs: 60000,
+  ipcPollIntervalMs: 1000,
+  timezone: process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone,
+});
+
+/** Return grouped runtime timing settings for runtime wiring and tests. */
+export function getRuntimeTimingConfig(): Readonly<RuntimeTimingConfig> {
+  return RUNTIME_TIMING_CONFIG;
+}
 
 // ---------------------------------------------------------------------------
 // Filesystem paths – all env-configurable for flexible volume layouts.
@@ -280,14 +296,26 @@ warnDeprecatedEnv("LOG_LEVEL", "PICLAW_LOG_LEVEL");
 // Mutable identity settings – can be changed at runtime via agent-control.
 // ---------------------------------------------------------------------------
 
-/** Global runtime logging threshold (default info). */
-export const LOG_LEVEL = parseLogLevel(
-  process.env.PICLAW_LOG_LEVEL ||
-    envConfig.PICLAW_LOG_LEVEL ||
-    process.env.LOG_LEVEL ||
-    envConfig.LOG_LEVEL ||
-    getConfiguredLogLevel(),
-);
+/** Typed logging settings grouped for runtime diagnostics. */
+export interface LoggingConfig {
+  level: ReturnType<typeof parseLogLevel>;
+}
+
+/** Grouped logging settings. */
+export const LOGGING_CONFIG = Object.freeze<LoggingConfig>({
+  level: parseLogLevel(
+    process.env.PICLAW_LOG_LEVEL ||
+      envConfig.PICLAW_LOG_LEVEL ||
+      process.env.LOG_LEVEL ||
+      envConfig.LOG_LEVEL ||
+      getConfiguredLogLevel(),
+  ),
+});
+
+/** Return grouped logging settings for runtime wiring and tests. */
+export function getLoggingConfig(): Readonly<LoggingConfig> {
+  return LOGGING_CONFIG;
+}
 
 /** Display name of the assistant. Updated by setAssistantName(). */
 export let ASSISTANT_NAME =
@@ -332,28 +360,36 @@ export let USER_AVATAR_BACKGROUND =
 // Agent timeout settings – how long a single agent turn may run.
 // ---------------------------------------------------------------------------
 
-/** Max duration (ms) for a foreground agent turn. Default 30 minutes. */
-export const AGENT_TIMEOUT = parseInt(
-  process.env.PICLAW_AGENT_TIMEOUT ||
-    envConfig.PICLAW_AGENT_TIMEOUT ||
-    process.env.AGENT_TIMEOUT ||
-    envConfig.AGENT_TIMEOUT ||
-    "1800000",
-  10
-); // 30min default
+/** Typed agent turn timeout settings grouped for runtime and handler wiring. */
+export interface AgentRuntimeConfig {
+  timeoutMs: number;
+  backgroundTimeoutMs: number;
+}
 
-/** Max duration (ms) for background (scheduled) agent turns. 0 = use AGENT_TIMEOUT. */
-export const BACKGROUND_AGENT_TIMEOUT = parseInt(
-  process.env.PICLAW_BACKGROUND_AGENT_TIMEOUT ||
-    envConfig.PICLAW_BACKGROUND_AGENT_TIMEOUT ||
-    process.env.AGENT_TIMEOUT_BACKGROUND ||
-    envConfig.AGENT_TIMEOUT_BACKGROUND ||
-    "0",
-  10
-);
+/** Grouped agent turn timeout settings. */
+export const AGENT_RUNTIME_CONFIG = Object.freeze<AgentRuntimeConfig>({
+  timeoutMs: parseInt(
+    process.env.PICLAW_AGENT_TIMEOUT ||
+      envConfig.PICLAW_AGENT_TIMEOUT ||
+      process.env.AGENT_TIMEOUT ||
+      envConfig.AGENT_TIMEOUT ||
+      "1800000",
+    10
+  ),
+  backgroundTimeoutMs: parseInt(
+    process.env.PICLAW_BACKGROUND_AGENT_TIMEOUT ||
+      envConfig.PICLAW_BACKGROUND_AGENT_TIMEOUT ||
+      process.env.AGENT_TIMEOUT_BACKGROUND ||
+      envConfig.AGENT_TIMEOUT_BACKGROUND ||
+      "0",
+    10
+  ),
+});
 
-/** How often (ms) the IPC watcher polls for new task files. */
-export const IPC_POLL_INTERVAL = 1000;
+/** Return grouped agent timeout settings for runtime wiring and tests. */
+export function getAgentRuntimeConfig(): Readonly<AgentRuntimeConfig> {
+  return AGENT_RUNTIME_CONFIG;
+}
 
 // ---------------------------------------------------------------------------
 // CLI argument parsing helpers.
@@ -397,116 +433,143 @@ const CLI_WEB_IDLE_TIMEOUT = readCliArg("--idle-timeout");
 const CLI_WEB_TLS_CERT = readCliArg("--tls-cert");
 const CLI_WEB_TLS_KEY = readCliArg("--tls-key");
 
-/** TCP port for the web UI / API server. */
-export const WEB_PORT = parsePort(CLI_WEB_PORT, ENV_WEB_PORT);
-/** Bind address for the web server (defaults to all interfaces). */
-export const WEB_HOST = CLI_WEB_HOST || process.env.PICLAW_WEB_HOST || "0.0.0.0";
-/** Idle timeout (seconds) for HTTP connections. 0 = no timeout. */
-export const WEB_IDLE_TIMEOUT = parsePort(CLI_WEB_IDLE_TIMEOUT, ENV_WEB_IDLE_TIMEOUT);
+/** Typed web server network/TLS settings grouped for WebChannel wiring. */
+export interface WebServerConfig {
+  port: number;
+  host: string;
+  idleTimeout: number;
+  tlsCert: string;
+  tlsKey: string;
+}
 
-/** Path to the TLS certificate file (empty string = plain HTTP). */
-export const WEB_TLS_CERT =
-  CLI_WEB_TLS_CERT ||
-  process.env.PICLAW_WEB_TLS_CERT ||
-  envConfig.PICLAW_WEB_TLS_CERT ||
-  (HAS_DEFAULT_TLS ? DEFAULT_TLS_CERT_PATH : "");
-/** Path to the TLS private key file. */
-export const WEB_TLS_KEY =
-  CLI_WEB_TLS_KEY ||
-  process.env.PICLAW_WEB_TLS_KEY ||
-  envConfig.PICLAW_WEB_TLS_KEY ||
-  (HAS_DEFAULT_TLS ? DEFAULT_TLS_KEY_PATH : "");
+/** Grouped web server network/TLS settings. */
+export const WEB_SERVER_CONFIG = Object.freeze<WebServerConfig>({
+  port: parsePort(CLI_WEB_PORT, ENV_WEB_PORT),
+  host: CLI_WEB_HOST || process.env.PICLAW_WEB_HOST || "0.0.0.0",
+  idleTimeout: parsePort(CLI_WEB_IDLE_TIMEOUT, ENV_WEB_IDLE_TIMEOUT),
+  tlsCert:
+    CLI_WEB_TLS_CERT ||
+    process.env.PICLAW_WEB_TLS_CERT ||
+    envConfig.PICLAW_WEB_TLS_CERT ||
+    (HAS_DEFAULT_TLS ? DEFAULT_TLS_CERT_PATH : ""),
+  tlsKey:
+    CLI_WEB_TLS_KEY ||
+    process.env.PICLAW_WEB_TLS_KEY ||
+    envConfig.PICLAW_WEB_TLS_KEY ||
+    (HAS_DEFAULT_TLS ? DEFAULT_TLS_KEY_PATH : ""),
+});
 
-/** TOTP secret for web UI login (empty = auth disabled). Updated at runtime by /totp reset. */
-export let WEB_TOTP_SECRET =
-  process.env.PICLAW_WEB_TOTP_SECRET ||
-  envConfig.PICLAW_WEB_TOTP_SECRET ||
-  configWebTotpSecret ||
-  "";
-/** Number of 30-second windows to accept around the current TOTP code. */
-export const WEB_TOTP_WINDOW = parseInt(
-  process.env.PICLAW_WEB_TOTP_WINDOW ||
-    envConfig.PICLAW_WEB_TOTP_WINDOW ||
-    (configWebTotpWindow !== undefined ? String(configWebTotpWindow) : "1"),
-  10
-);
-/** Session cookie lifetime in seconds (default 7 days). */
-export const WEB_SESSION_TTL = parseInt(
-  process.env.PICLAW_WEB_SESSION_TTL ||
-    envConfig.PICLAW_WEB_SESSION_TTL ||
-    (configWebSessionTtl !== undefined ? String(configWebSessionTtl) : String(7 * 24 * 60 * 60)),
-  10
-);
-/** Shared secret for internal API calls between services. */
-export const WEB_INTERNAL_SECRET =
-  process.env.PICLAW_INTERNAL_SECRET ||
-  process.env.PICLAW_WEB_INTERNAL_SECRET ||
-  envConfig.PICLAW_INTERNAL_SECRET ||
-  envConfig.PICLAW_WEB_INTERNAL_SECRET ||
-  configWebInternalSecret ||
-  "";
+/** Return grouped web server settings for WebChannel wiring and tests. */
+export function getWebServerConfig(): Readonly<WebServerConfig> {
+  return WEB_SERVER_CONFIG;
+}
 
-/** Passkey mode: "totp-fallback" (default), "passkey-only", or "totp-only". */
-export const WEB_PASSKEY_MODE = (
-  process.env.PICLAW_WEB_PASSKEY_MODE ||
-  envConfig.PICLAW_WEB_PASSKEY_MODE ||
-  configWebPasskeyMode ||
-  "totp-fallback"
-).toLowerCase();
+/** Mutable web auth/session/runtime settings grouped for auth and UI wiring. */
+export interface WebRuntimeConfig {
+  totpSecret: string;
+  totpWindow: number;
+  sessionTtl: number;
+  internalSecret: string;
+  passkeyMode: string;
+  terminalEnabled: boolean;
+  debugCardSubmissions: boolean;
+  trustProxy: boolean;
+}
 
 const webTerminalEnabled = pickBoolean(piclawConfig, ["webTerminalEnabled", "PICLAW_WEB_TERMINAL_ENABLED"]);
 const envWebTerminalEnabled = pickBoolean({ PICLAW_WEB_TERMINAL_ENABLED: process.env.PICLAW_WEB_TERMINAL_ENABLED ?? envConfig.PICLAW_WEB_TERMINAL_ENABLED }, ["PICLAW_WEB_TERMINAL_ENABLED"]);
-/** Enable the experimental authenticated web terminal backend (default false). */
-export const WEB_TERMINAL_ENABLED = envWebTerminalEnabled ?? webTerminalEnabled ?? false;
-
 const debugCards = pickBoolean(piclawConfig, ["debugCardSubmissions", "PICLAW_DEBUG_CARD_SUBMISSIONS"]);
 const envDebugCards = pickBoolean({ PICLAW_DEBUG_CARD_SUBMISSIONS: process.env.PICLAW_DEBUG_CARD_SUBMISSIONS ?? envConfig.PICLAW_DEBUG_CARD_SUBMISSIONS }, ["PICLAW_DEBUG_CARD_SUBMISSIONS"]);
-/** When true, card submissions are posted as visible user messages in the timeline. Default false. */
-export const DEBUG_CARD_SUBMISSIONS = envDebugCards ?? debugCards ?? false;
-
 const envTrustProxyRaw = process.env.PICLAW_TRUST_PROXY ?? envConfig.PICLAW_TRUST_PROXY;
 const envTrustProxy = pickBoolean({ PICLAW_TRUST_PROXY: envTrustProxyRaw }, ["PICLAW_TRUST_PROXY"]);
 
-/** Trust x-forwarded-* / x-real-ip headers from a reverse proxy (default false). */
-export const TRUST_PROXY = envTrustProxy ?? configTrustProxy ?? false;
+/** Grouped web auth/session/runtime settings. `totpSecret` stays mutable for runtime resets. */
+export const WEB_RUNTIME_CONFIG: WebRuntimeConfig = Object.seal({
+  totpSecret:
+    process.env.PICLAW_WEB_TOTP_SECRET ||
+    envConfig.PICLAW_WEB_TOTP_SECRET ||
+    configWebTotpSecret ||
+    "",
+  totpWindow: parseInt(
+    process.env.PICLAW_WEB_TOTP_WINDOW ||
+      envConfig.PICLAW_WEB_TOTP_WINDOW ||
+      (configWebTotpWindow !== undefined ? String(configWebTotpWindow) : "1"),
+    10
+  ),
+  sessionTtl: parseInt(
+    process.env.PICLAW_WEB_SESSION_TTL ||
+      envConfig.PICLAW_WEB_SESSION_TTL ||
+      (configWebSessionTtl !== undefined ? String(configWebSessionTtl) : String(7 * 24 * 60 * 60)),
+    10
+  ),
+  internalSecret:
+    process.env.PICLAW_INTERNAL_SECRET ||
+    process.env.PICLAW_WEB_INTERNAL_SECRET ||
+    envConfig.PICLAW_INTERNAL_SECRET ||
+    envConfig.PICLAW_WEB_INTERNAL_SECRET ||
+    configWebInternalSecret ||
+    "",
+  passkeyMode: (
+    process.env.PICLAW_WEB_PASSKEY_MODE ||
+    envConfig.PICLAW_WEB_PASSKEY_MODE ||
+    configWebPasskeyMode ||
+    "totp-fallback"
+  ).toLowerCase(),
+  terminalEnabled: envWebTerminalEnabled ?? webTerminalEnabled ?? false,
+  debugCardSubmissions: envDebugCards ?? debugCards ?? false,
+  trustProxy: envTrustProxy ?? configTrustProxy ?? false,
+});
+
+/** Return grouped web auth/session/runtime settings for handlers and tests. */
+export function getWebRuntimeConfig(): Readonly<WebRuntimeConfig> {
+  return WEB_RUNTIME_CONFIG;
+}
 
 // ---------------------------------------------------------------------------
 // Remote interop configuration (cross-instance IPC).
 // ---------------------------------------------------------------------------
 
-const REMOTE_INTEROP_ENABLED_RAW = pickBoolean(piclawConfig, ["remoteInteropEnabled", "PICLAW_REMOTE_INTEROP_ENABLED"]);
-const REMOTE_INTEROP_ALLOW_HTTP_RAW = pickBoolean(piclawConfig, ["remoteInteropAllowHttp", "PICLAW_REMOTE_INTEROP_ALLOW_HTTP"]);
-const REMOTE_SHORT_CIRCUIT_RAW = pickBoolean(piclawConfig, ["remoteInteropShortCircuitEnabled", "PICLAW_REMOTE_SHORT_CIRCUIT_ENABLED"]);
+/** Typed remote interop settings grouped for lower-coupling service wiring. */
+export interface RemoteInteropConfig {
+  enabled: boolean;
+  allowHttp: boolean;
+  shortCircuitEnabled: boolean;
+  instanceName: string;
+  decisionModel: string;
+}
 
-/** Enable cross-instance interop endpoints (default false). */
-export const REMOTE_INTEROP_ENABLED =
-  REMOTE_INTEROP_ENABLED_RAW ??
-  ((process.env.PICLAW_REMOTE_INTEROP_ENABLED || "").toLowerCase() === "true" ||
-    process.env.PICLAW_REMOTE_INTEROP_ENABLED === "1");
+const remoteInteropEnabledRaw = pickBoolean(piclawConfig, ["remoteInteropEnabled", "PICLAW_REMOTE_INTEROP_ENABLED"]);
+const remoteInteropAllowHttpRaw = pickBoolean(piclawConfig, ["remoteInteropAllowHttp", "PICLAW_REMOTE_INTEROP_ALLOW_HTTP"]);
+const remoteShortCircuitRaw = pickBoolean(piclawConfig, ["remoteInteropShortCircuitEnabled", "PICLAW_REMOTE_SHORT_CIRCUIT_ENABLED"]);
 
-/** Allow http:// callback URLs for interop (default false). */
-export const REMOTE_INTEROP_ALLOW_HTTP =
-  REMOTE_INTEROP_ALLOW_HTTP_RAW ??
-  ((process.env.PICLAW_REMOTE_INTEROP_ALLOW_HTTP || "").toLowerCase() === "true" ||
-    process.env.PICLAW_REMOTE_INTEROP_ALLOW_HTTP === "1");
+/** Grouped remote interop settings with existing config/env precedence preserved. */
+export const REMOTE_INTEROP_CONFIG = Object.freeze<RemoteInteropConfig>({
+  enabled:
+    remoteInteropEnabledRaw ??
+    ((process.env.PICLAW_REMOTE_INTEROP_ENABLED || "").toLowerCase() === "true" ||
+      process.env.PICLAW_REMOTE_INTEROP_ENABLED === "1"),
+  allowHttp:
+    remoteInteropAllowHttpRaw ??
+    ((process.env.PICLAW_REMOTE_INTEROP_ALLOW_HTTP || "").toLowerCase() === "true" ||
+      process.env.PICLAW_REMOTE_INTEROP_ALLOW_HTTP === "1"),
+  shortCircuitEnabled:
+    remoteShortCircuitRaw ??
+    ((process.env.PICLAW_REMOTE_SHORT_CIRCUIT_ENABLED || "").toLowerCase() === "true" ||
+      process.env.PICLAW_REMOTE_SHORT_CIRCUIT_ENABLED === "1"),
+  instanceName:
+    pickString(piclawConfig, ["remoteInstanceName", "PICLAW_REMOTE_INSTANCE_NAME"]) ||
+    process.env.PICLAW_REMOTE_INSTANCE_NAME ||
+    "",
+  decisionModel:
+    pickString(piclawConfig, ["remoteInteropDecisionModel", "PICLAW_REMOTE_INTEROP_DECISION_MODEL"]) ||
+    process.env.PICLAW_REMOTE_INTEROP_DECISION_MODEL ||
+    "",
+});
 
-/** Enable short-circuit execution mode (default false). */
-export const REMOTE_SHORT_CIRCUIT_ENABLED =
-  REMOTE_SHORT_CIRCUIT_RAW ??
-  ((process.env.PICLAW_REMOTE_SHORT_CIRCUIT_ENABLED || "").toLowerCase() === "true" ||
-    process.env.PICLAW_REMOTE_SHORT_CIRCUIT_ENABLED === "1");
-
-/** Optional display name for this instance in interop metadata. */
-export const REMOTE_INSTANCE_NAME =
-  pickString(piclawConfig, ["remoteInstanceName", "PICLAW_REMOTE_INSTANCE_NAME"]) ||
-  process.env.PICLAW_REMOTE_INSTANCE_NAME ||
-  "";
-
-/** Optional decision model label for interop mediation (metadata only). */
-export const REMOTE_INTEROP_DECISION_MODEL =
-  pickString(piclawConfig, ["remoteInteropDecisionModel", "PICLAW_REMOTE_INTEROP_DECISION_MODEL"]) ||
-  process.env.PICLAW_REMOTE_INTEROP_DECISION_MODEL ||
-  "";
+/** Return the grouped remote interop settings for service wiring and tests. */
+export function getRemoteInteropConfig(): Readonly<RemoteInteropConfig> {
+  return REMOTE_INTEROP_CONFIG;
+}
 
 /** Directory for persisted Pi session files. */
 export const SESSIONS_DIR = resolve(DATA_DIR, "sessions");
@@ -522,20 +585,32 @@ const configSessionAutoRotate = pickBoolean(piclawConfig, [
   "PICLAW_SESSION_AUTO_ROTATE",
 ]);
 
-/** Warning threshold for oversized session files (default 100 MB). */
-export const SESSION_MAX_SIZE_MB =
+/** Typed session-file safeguards grouped for runtime/session wiring. */
+export interface SessionStorageConfig {
+  maxSizeMb: number;
+  maxSizeBytes: number;
+  autoRotate: boolean;
+}
+
+const sessionMaxSizeMb =
   pickNumber({ PICLAW_SESSION_MAX_SIZE_MB: process.env.PICLAW_SESSION_MAX_SIZE_MB ?? envConfig.PICLAW_SESSION_MAX_SIZE_MB }, [
     "PICLAW_SESSION_MAX_SIZE_MB",
   ]) ?? configSessionMaxSizeMb ?? 100;
 
-/** Warning threshold for oversized session files in bytes. */
-export const SESSION_MAX_SIZE_BYTES = SESSION_MAX_SIZE_MB * 1024 * 1024;
+/** Grouped session-file safeguards. */
+export const SESSION_STORAGE_CONFIG = Object.freeze<SessionStorageConfig>({
+  maxSizeMb: sessionMaxSizeMb,
+  maxSizeBytes: sessionMaxSizeMb * 1024 * 1024,
+  autoRotate:
+    pickBoolean({ PICLAW_SESSION_AUTO_ROTATE: process.env.PICLAW_SESSION_AUTO_ROTATE ?? envConfig.PICLAW_SESSION_AUTO_ROTATE }, [
+      "PICLAW_SESSION_AUTO_ROTATE",
+    ]) ?? configSessionAutoRotate ?? false,
+});
 
-/** Automatically rotate oversized persisted session files before the next prompt (default false). */
-export const SESSION_AUTO_ROTATE =
-  pickBoolean({ PICLAW_SESSION_AUTO_ROTATE: process.env.PICLAW_SESSION_AUTO_ROTATE ?? envConfig.PICLAW_SESSION_AUTO_ROTATE }, [
-    "PICLAW_SESSION_AUTO_ROTATE",
-  ]) ?? configSessionAutoRotate ?? false;
+/** Return grouped session-file safeguards for runtime wiring and tests. */
+export function getSessionStorageConfig(): Readonly<SessionStorageConfig> {
+  return SESSION_STORAGE_CONFIG;
+}
 
 // ---------------------------------------------------------------------------
 // Trigger pattern – used by router.ts to decide if a message mentions the bot.
@@ -546,11 +621,20 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Regex that matches `@AssistantName` at the start or after whitespace. */
-export let TRIGGER_PATTERN = new RegExp(`(?:^|\\s)@${escapeRegex(ASSISTANT_NAME)}\\b`, "i");
+/** Mutable routing settings grouped for live assistant-name updates. */
+export interface RoutingConfig {
+  triggerPattern: RegExp;
+}
 
-/** IANA timezone string for the runtime environment (used by scheduler formatting). */
-export const TIMEZONE = process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone;
+/** Grouped routing settings. `triggerPattern` stays mutable with assistant renames. */
+export const ROUTING_CONFIG: RoutingConfig = Object.seal({
+  triggerPattern: new RegExp(`(?:^|\\s)@${escapeRegex(ASSISTANT_NAME)}\\b`, "i"),
+});
+
+/** Return grouped routing settings for runtime wiring and tests. */
+export function getRoutingConfig(): Readonly<RoutingConfig> {
+  return ROUTING_CONFIG;
+}
 
 // ---------------------------------------------------------------------------
 // Runtime setters – called by agent-control handlers to update identity.
@@ -559,7 +643,7 @@ export const TIMEZONE = process.env.TZ || Intl.DateTimeFormat().resolvedOptions(
 /** Update the assistant's display name and re-derive the trigger pattern. */
 export function setAssistantName(name: string): void {
   ASSISTANT_NAME = name.trim() || "PiClaw";
-  TRIGGER_PATTERN = new RegExp(`(?:^|\\s)@${escapeRegex(ASSISTANT_NAME)}\\b`, "i");
+  ROUTING_CONFIG.triggerPattern = new RegExp(`(?:^|\\s)@${escapeRegex(ASSISTANT_NAME)}\\b`, "i");
 }
 
 /** Update the assistant's avatar URL/path. */
@@ -622,55 +706,91 @@ export function setWebTotpSecret(secret: string): string {
 
   writeJsonConfig(PICLAW_CONFIG_PATH, config);
 
-  WEB_TOTP_SECRET = next;
+  WEB_RUNTIME_CONFIG.totpSecret = next;
   if (next) {
     process.env.PICLAW_WEB_TOTP_SECRET = next;
   } else {
     delete process.env.PICLAW_WEB_TOTP_SECRET;
   }
 
-  return WEB_TOTP_SECRET;
+  return WEB_RUNTIME_CONFIG.totpSecret;
 }
 
 // ---------------------------------------------------------------------------
 // Tool output retention settings – used by db/tool-outputs.ts.
 // ---------------------------------------------------------------------------
 
-/** Number of days to keep tool output records before automatic cleanup. */
-export const TOOL_OUTPUT_RETENTION_DAYS = parseInt(process.env.PICLAW_TOOL_OUTPUT_RETENTION_DAYS || "30", 10);
-/** Interval (ms) between automatic tool-output cleanup runs. Default 12 hours. */
-export const TOOL_OUTPUT_CLEANUP_INTERVAL_MS = parseInt(
-  process.env.PICLAW_TOOL_OUTPUT_CLEANUP_INTERVAL_MS || String(12 * 60 * 60 * 1000),
-  10
-);
+/** Typed tool-output retention settings grouped for runtime startup wiring. */
+export interface ToolOutputConfig {
+  retentionDays: number;
+  cleanupIntervalMs: number;
+}
+
+/** Grouped tool-output retention settings. */
+export const TOOL_OUTPUT_CONFIG = Object.freeze<ToolOutputConfig>({
+  retentionDays: parseInt(process.env.PICLAW_TOOL_OUTPUT_RETENTION_DAYS || "30", 10),
+  cleanupIntervalMs: parseInt(
+    process.env.PICLAW_TOOL_OUTPUT_CLEANUP_INTERVAL_MS || String(12 * 60 * 60 * 1000),
+    10
+  ),
+});
+
+/** Return the grouped tool-output settings for startup wiring and tests. */
+export function getToolOutputConfig(): Readonly<ToolOutputConfig> {
+  return TOOL_OUTPUT_CONFIG;
+}
 
 // ---------------------------------------------------------------------------
 // WhatsApp channel settings.
 // ---------------------------------------------------------------------------
 
-/** Phone number for the WhatsApp channel (empty = WhatsApp disabled). */
-export const WHATSAPP_PHONE =
-  process.env.WHATSAPP_PHONE ||
-  envConfig.WHATSAPP_PHONE ||
-  process.env.PICLAW_WHATSAPP_PHONE ||
-  envConfig.PICLAW_WHATSAPP_PHONE ||
-  configWhatsappPhone ||
-  "";
+/** Typed WhatsApp channel settings grouped for startup/channel wiring. */
+export interface WhatsAppConfig {
+  phoneNumber: string;
+}
+
+/** Grouped WhatsApp channel settings. */
+export const WHATSAPP_CONFIG = Object.freeze<WhatsAppConfig>({
+  phoneNumber:
+    process.env.WHATSAPP_PHONE ||
+    envConfig.WHATSAPP_PHONE ||
+    process.env.PICLAW_WHATSAPP_PHONE ||
+    envConfig.PICLAW_WHATSAPP_PHONE ||
+    configWhatsappPhone ||
+    "",
+});
+
+/** Return the grouped WhatsApp settings for startup and channel wiring. */
+export function getWhatsAppConfig(): Readonly<WhatsAppConfig> {
+  return WHATSAPP_CONFIG;
+}
 
 // ---------------------------------------------------------------------------
 // Pushover notification channel settings.
 // ---------------------------------------------------------------------------
 
-/** Pushover API application token. */
-export const PUSHOVER_APP_TOKEN = process.env.PUSHOVER_APP_TOKEN || envConfig.PUSHOVER_APP_TOKEN || configAppToken || "";
-/** Pushover user/group key. */
-export const PUSHOVER_USER_KEY = process.env.PUSHOVER_USER_KEY || envConfig.PUSHOVER_USER_KEY || configUserKey || "";
-/** Pushover target device name (empty = all devices). */
-export const PUSHOVER_DEVICE = process.env.PUSHOVER_DEVICE || envConfig.PUSHOVER_DEVICE || configDevice || "";
-/** Pushover notification priority (-2 to 2). */
-export const PUSHOVER_PRIORITY = parseInt(
-  process.env.PUSHOVER_PRIORITY || envConfig.PUSHOVER_PRIORITY || (configPriority !== undefined ? String(configPriority) : "0"),
-  10
-);
-/** Pushover notification sound name. */
-export const PUSHOVER_SOUND = process.env.PUSHOVER_SOUND || envConfig.PUSHOVER_SOUND || configSound || "";
+/** Typed Pushover channel settings grouped for runtime startup wiring. */
+export interface PushoverConfig {
+  appToken: string;
+  userKey: string;
+  device: string;
+  priority: number;
+  sound: string;
+}
+
+/** Grouped Pushover channel settings. */
+export const PUSHOVER_CONFIG = Object.freeze<PushoverConfig>({
+  appToken: process.env.PUSHOVER_APP_TOKEN || envConfig.PUSHOVER_APP_TOKEN || configAppToken || "",
+  userKey: process.env.PUSHOVER_USER_KEY || envConfig.PUSHOVER_USER_KEY || configUserKey || "",
+  device: process.env.PUSHOVER_DEVICE || envConfig.PUSHOVER_DEVICE || configDevice || "",
+  priority: parseInt(
+    process.env.PUSHOVER_PRIORITY || envConfig.PUSHOVER_PRIORITY || (configPriority !== undefined ? String(configPriority) : "0"),
+    10
+  ),
+  sound: process.env.PUSHOVER_SOUND || envConfig.PUSHOVER_SOUND || configSound || "",
+});
+
+/** Return the grouped Pushover settings for startup wiring and tests. */
+export function getPushoverConfig(): Readonly<PushoverConfig> {
+  return PUSHOVER_CONFIG;
+}

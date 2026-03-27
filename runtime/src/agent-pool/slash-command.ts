@@ -18,7 +18,7 @@
 import type { AgentSession, AgentSessionEvent } from "@mariozechner/pi-coding-agent";
 
 import type { AgentControlResult } from "../agent-control/agent-control-types.js";
-import { AGENT_TIMEOUT } from "../core/config.js";
+import { getAgentRuntimeConfig } from "../core/config.js";
 import { withChatContext } from "../core/chat-context.js";
 import { detectChannel } from "../router.js";
 import { createLogger } from "../utils/logger.js";
@@ -68,6 +68,7 @@ export async function executeSlashCommand(
   rawText: string
 ): Promise<AgentControlResult> {
   const startTime = Date.now();
+  const agentRuntimeConfig = getAgentRuntimeConfig();
   try {
     log.info("Executing slash command", {
       operation: "execute_slash_command",
@@ -155,20 +156,20 @@ export async function executeSlashCommand(
 
     let timedOut = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    if (AGENT_TIMEOUT > 0) {
+    if (agentRuntimeConfig.timeoutMs > 0) {
       timeoutId = setTimeout(async () => {
         timedOut = true;
         log.error("Slash command timed out", {
           operation: "execute_slash_command.timeout",
           chatJid,
-          timeoutMs: AGENT_TIMEOUT,
+          timeoutMs: agentRuntimeConfig.timeoutMs,
         });
         try {
           await session.abort();
         } catch {
           /* expected: timed-out slash command session may already be aborting. */
         }
-      }, AGENT_TIMEOUT);
+      }, agentRuntimeConfig.timeoutMs);
     }
 
     const channel = detectChannel(chatJid);
@@ -182,7 +183,7 @@ export async function executeSlashCommand(
     }
 
     if (timedOut) {
-      return { status: "error", message: `Timed out after ${AGENT_TIMEOUT}ms` };
+      return { status: "error", message: `Timed out after ${agentRuntimeConfig.timeoutMs}ms` };
     }
 
     const finalText = (assistantBuffer && assistantBuffer.trim())

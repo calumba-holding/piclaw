@@ -49,15 +49,33 @@ Expose a `getConfig()` function or inject config objects as constructor paramete
 
 ## Acceptance criteria
 
-- [ ] No more than 10 bare constant exports remain (truly global ones like `WORKSPACE_DIR`)
+- [x] No more than 10 bare constant exports remain (truly global ones like `WORKSPACE_DIR`)
 - [ ] Config objects are passed as parameters to services, not imported as globals
-- [ ] Existing tests still pass
-- [ ] Config module has ≥ 50% test coverage
+- [x] Existing tests still pass
+- [x] Config module has ≥ 50% test coverage
 
 ## Notes
 
 - This is a prerequisite for proper unit testing — currently, changing config in tests requires manipulating module-level state
 - Can be done incrementally (one config group at a time)
+
+## Updates
+
+- 2026-03-26: Landed a narrow remote-interop slice without widening scope. `runtime/src/core/config.ts` now exposes a frozen `REMOTE_INTEROP_CONFIG` object plus `getRemoteInteropConfig()`, and the low-risk remote consumers (`remote/service.ts`, `remote/service-operations.ts`, `remote/identity.ts`, `remote/ssrf.ts`) were rewired to use the typed object/getter while preserving the existing env/config precedence and current runtime payload shapes.
+- Evidence: `artifacts/extract-typed-config-objects/summary.md`
+- Validation path: `./scripts/audit-extract-typed-config-objects.sh`, then `bun run lint`, then `bun run typecheck`
+- Existing config coverage evidence still holds after this slice: `./scripts/audit-core-config-keychain-coverage.sh` reported `config_pct=100` and `uncovered_lines=0` for `runtime/src/core/config.ts`.
+- 2026-03-26 follow-up: extracted tool-output retention settings into `TOOL_OUTPUT_CONFIG` plus `getToolOutputConfig()` and rewired `runtime/startup.ts` to consume the typed object.
+- 2026-03-26 follow-up: extracted `PUSHOVER_CONFIG`/`getPushoverConfig()` and `WHATSAPP_CONFIG`/`getWhatsAppConfig()`, rewired `runtime/startup.ts` and `channels/whatsapp.ts`, and extended config tests so grouped getters stay covered under both subprocess and plain-import paths.
+- Existing config coverage evidence was refreshed after the grouped channel-config slice; `./scripts/audit-core-config-keychain-coverage.sh` is back to `config_pct=100` and `uncovered_lines=0`.
+- 2026-03-26 follow-up: extracted `SESSION_STORAGE_CONFIG`/`getSessionStorageConfig()`, rewired the session-size warning path and auto-rotate path to use the grouped config, and kept the existing runtime env override behavior for auto-rotate thresholds in `agent-pool.ts`.
+- 2026-03-26 follow-up: extracted `AGENT_RUNTIME_CONFIG`/`getAgentRuntimeConfig()`, rewired the low-risk timeout consumers (`agent-pool.ts`, `agent-pool/slash-command.ts`, `channels/web/handlers/agent.ts`), and updated the canonical audit so the plain-import config coverage test runs in a separate Bun process from the consumer regression tests.
+- 2026-03-26 follow-up: extracted `RUNTIME_TIMING_CONFIG`/`getRuntimeTimingConfig()`, rewired the low-risk timing consumers (`runtime/bootstrap.ts`, `ipc.ts`, `task-scheduler.ts`, `task-scheduler-utils.ts`), and extended the canonical audit with existing runtime bootstrap/scheduler/IPC tests in a third Bun process.
+- 2026-03-26 follow-up: extracted `WEB_SERVER_CONFIG`/`getWebServerConfig()`, rewired `runtime/src/channels/web.ts` to consume the grouped host/port/idle-timeout/TLS settings, and updated the config tests so CLI/env/TLS precedence is asserted through the grouped object.
+- 2026-03-26 follow-up: extracted `WEB_RUNTIME_CONFIG`, `LOGGING_CONFIG`, and `ROUTING_CONFIG`; rewired the remaining low-risk web/auth/request-client consumers plus the trigger-pattern consumers; and extended the canonical audit with the existing passkey/TOTP/proxy/request-client tests.
+- Existing config coverage evidence was refreshed again after the web-runtime/logging/routing slice; `./scripts/audit-core-config-keychain-coverage.sh` still reports `config_pct=100` and `uncovered_lines=0`.
+- Bare constant exports in `runtime/src/core/config.ts` are now down to 10, meeting the first acceptance criterion while leaving only the path/session globals plus mutable identity scalars as flat exports.
+- Remaining scope: the still-open part of the ticket is mainly about consumer injection/global-import cleanup and the mutable identity slice, not the raw export count anymore.
 
 ## Links
 

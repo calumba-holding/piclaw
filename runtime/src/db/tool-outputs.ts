@@ -10,7 +10,7 @@
  * and context-tools.ts).
  *
  * Automatic cleanup of old records is driven by the retention settings in
- * core/config.ts (TOOL_OUTPUT_RETENTION_DAYS / TOOL_OUTPUT_CLEANUP_INTERVAL_MS).
+ * core/config.ts (`TOOL_OUTPUT_CONFIG` / `getToolOutputConfig()`).
  *
  * Consumers:
  *   - tool-output.ts calls storeToolOutput() + insertToolOutputChunk().

@@ -1,10 +1,10 @@
 /**
  * request-client.ts – Helpers for deriving client/request metadata safely.
  *
- * Forwarded headers are only trusted when TRUST_PROXY is enabled.
+ * Forwarded headers are only trusted when `WEB_RUNTIME_CONFIG.trustProxy` is enabled.
  */
 
-import { TRUST_PROXY } from "../core/config.js";
+import { getWebRuntimeConfig } from "../core/config.js";
 
 /** Return first token from comma-separated forwarded header values. */
 export function firstHeaderValue(value: string | null): string | null {
@@ -37,7 +37,7 @@ function parseForwardedHeader(value: string | null): { proto: string | null; hos
 }
 
 /** Derive a client key (IP-like token) for logging/rate limiting. */
-export function getClientKey(req: Request, trustProxy = TRUST_PROXY): string {
+export function getClientKey(req: Request, trustProxy = getWebRuntimeConfig().trustProxy): string {
   if (trustProxy) {
     const forwarded = firstHeaderValue(req.headers.get("x-forwarded-for"));
     if (forwarded) return forwarded;
@@ -51,9 +51,9 @@ export function getClientKey(req: Request, trustProxy = TRUST_PROXY): string {
 
 /**
  * Resolve externally-visible origin fields for URL generation.
- * Uses forwarded host/proto only when TRUST_PROXY is enabled.
+ * Uses forwarded host/proto only when `WEB_RUNTIME_CONFIG.trustProxy` is enabled.
  */
-export function getRequestOriginParts(req: Request, trustProxy = TRUST_PROXY): { proto: string; host: string } {
+export function getRequestOriginParts(req: Request, trustProxy = getWebRuntimeConfig().trustProxy): { proto: string; host: string } {
   const url = new URL(req.url);
 
   const forwarded = trustProxy ? parseForwardedHeader(req.headers.get("forwarded")) : { proto: null, host: null };

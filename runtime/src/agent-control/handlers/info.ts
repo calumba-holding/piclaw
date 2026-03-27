@@ -14,7 +14,7 @@ import type { AgentControlCommand, AgentControlResult } from "../agent-control-t
 import { formatBytes, formatCompactNumber, formatCurrency } from "../agent-control-helpers.js";
 import { CONTROL_COMMAND_DEFINITIONS } from "../command-registry.js";
 import { getChatJid } from "../../core/chat-context.js";
-import { SESSION_MAX_SIZE_BYTES, SESSION_MAX_SIZE_MB } from "../../core/config.js";
+import { getSessionStorageConfig } from "../../core/config.js";
 import { getTokenUsageByModel, getTokenUsageByProvider, getTokenUsageTotals } from "../../db.js";
 import { searchWorkspace } from "../../workspace-search.js";
 
@@ -39,7 +39,8 @@ export async function handleState(session: AgentSession, _command: StateCommand)
     }
   })();
 
-  const isOversizedSession = sessionFileSize !== null && sessionFileSize >= SESSION_MAX_SIZE_BYTES;
+  const sessionStorageConfig = getSessionStorageConfig();
+  const isOversizedSession = sessionFileSize !== null && sessionFileSize >= sessionStorageConfig.maxSizeBytes;
   const lines = [
     `Model: ${modelLabel}`,
     `Thinking level: ${session.thinkingLevel}${session.supportsThinking() ? "" : " (thinking off)"}`,
@@ -59,7 +60,7 @@ export async function handleState(session: AgentSession, _command: StateCommand)
 
   if (isOversizedSession && sessionFileSize !== null) {
     lines.push(
-      `Session file warning: exceeds configured threshold (${formatBytes(sessionFileSize)} >= ${SESSION_MAX_SIZE_MB} MB). Consider /session-rotate.`
+      `Session file warning: exceeds configured threshold (${formatBytes(sessionFileSize)} >= ${sessionStorageConfig.maxSizeMb} MB). Consider /session-rotate.`
     );
   }
   return { status: "success", message: lines.join("\n") };

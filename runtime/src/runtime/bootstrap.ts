@@ -4,8 +4,8 @@
 
 import {
   ASSISTANT_NAME,
-  POLL_INTERVAL,
-  TRIGGER_PATTERN,
+  getRoutingConfig,
+  getRuntimeTimingConfig,
 } from "../core/config.js";
 import { stopIpcWatcher } from "../ipc.js";
 import type { SchedulerDeps } from "../task-scheduler.js";
@@ -121,8 +121,8 @@ export function createDefaultRuntimeBootstrapDeps(core: RuntimeBootstrapDefaultC
   return {
     core,
     assistantName: ASSISTANT_NAME,
-    triggerPattern: TRIGGER_PATTERN,
-    pollIntervalMs: POLL_INTERVAL,
+    triggerPattern: getRoutingConfig().triggerPattern,
+    pollIntervalMs: getRuntimeTimingConfig().pollIntervalMs,
     signalRegistrar: process,
     initializeRuntimeEnvironment: () => initializeRuntimeEnvironment(core.state),
     registerOptionalProviders: () => registerOptionalProviders(core.agentPool),

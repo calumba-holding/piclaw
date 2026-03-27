@@ -73,30 +73,28 @@ test("loads config-file aliases for pushover and identity fields", () => {
     });
 
     const snapshot = loadConfigInSubprocess(ws, [
-      "PUSHOVER_APP_TOKEN",
-      "PUSHOVER_USER_KEY",
-      "PUSHOVER_DEVICE",
-      "PUSHOVER_PRIORITY",
-      "PUSHOVER_SOUND",
+      "PUSHOVER_CONFIG",
       "ASSISTANT_NAME",
       "ASSISTANT_AVATAR",
       "USER_NAME",
       "USER_AVATAR",
       "USER_AVATAR_BACKGROUND",
-      "WHATSAPP_PHONE",
+      "WHATSAPP_CONFIG",
     ]);
 
-    expect(snapshot.PUSHOVER_APP_TOKEN).toBe("app-token");
-    expect(snapshot.PUSHOVER_USER_KEY).toBe("user-key");
-    expect(snapshot.PUSHOVER_DEVICE).toBe("device-1");
-    expect(snapshot.PUSHOVER_PRIORITY).toBe(2);
-    expect(snapshot.PUSHOVER_SOUND).toBe("ping");
+    expect(snapshot.PUSHOVER_CONFIG).toEqual({
+      appToken: "app-token",
+      userKey: "user-key",
+      device: "device-1",
+      priority: 2,
+      sound: "ping",
+    });
     expect(snapshot.ASSISTANT_NAME).toBe("Config Bot");
     expect(snapshot.ASSISTANT_AVATAR).toBe("/assistant.png");
     expect(snapshot.USER_NAME).toBe("Casey");
     expect(snapshot.USER_AVATAR).toBe("/user.png");
     expect(snapshot.USER_AVATAR_BACKGROUND).toBe("#123456");
-    expect(snapshot.WHATSAPP_PHONE).toBe("+15551234567");
+    expect(snapshot.WHATSAPP_CONFIG).toEqual({ phoneNumber: "+15551234567" });
   } finally {
     ws.cleanup();
   }
@@ -108,35 +106,58 @@ test("CLI web flags override env values and invalid CLI numbers fall back to env
   try {
     let snapshot = loadConfigInSubprocess(
       ws,
-      ["WEB_PORT", "WEB_HOST", "WEB_IDLE_TIMEOUT"],
+      ["WEB_SERVER_CONFIG"],
       {
         env: {
           PICLAW_WEB_PORT: "8081",
           PICLAW_WEB_HOST: "0.0.0.0",
           PICLAW_WEB_IDLE_TIMEOUT: "10",
+          PICLAW_WEB_TLS_CERT: "/env-cert.pem",
+          PICLAW_WEB_TLS_KEY: "/env-key.pem",
         },
-        args: ["--port=9090", "--host", "127.0.0.1", "--idle-timeout", "25"],
+        args: [
+          "--port=9090",
+          "--host",
+          "127.0.0.1",
+          "--idle-timeout",
+          "25",
+          "--tls-cert=/cli-cert.pem",
+          "--tls-key",
+          "/cli-key.pem",
+        ],
       },
     );
 
-    expect(snapshot.WEB_PORT).toBe(9090);
-    expect(snapshot.WEB_HOST).toBe("127.0.0.1");
-    expect(snapshot.WEB_IDLE_TIMEOUT).toBe(25);
+    expect(snapshot.WEB_SERVER_CONFIG).toEqual({
+      port: 9090,
+      host: "127.0.0.1",
+      idleTimeout: 25,
+      tlsCert: "/cli-cert.pem",
+      tlsKey: "/cli-key.pem",
+    });
 
     snapshot = loadConfigInSubprocess(
       ws,
-      ["WEB_PORT", "WEB_IDLE_TIMEOUT"],
+      ["WEB_SERVER_CONFIG"],
       {
         env: {
           PICLAW_WEB_PORT: "8181",
+          PICLAW_WEB_HOST: "127.0.0.1",
           PICLAW_WEB_IDLE_TIMEOUT: "12",
+          PICLAW_WEB_TLS_CERT: "/env-cert-fallback.pem",
+          PICLAW_WEB_TLS_KEY: "/env-key-fallback.pem",
         },
         args: ["--port", "not-a-number", "--idle-timeout=bad"],
       },
     );
 
-    expect(snapshot.WEB_PORT).toBe(8181);
-    expect(snapshot.WEB_IDLE_TIMEOUT).toBe(12);
+    expect(snapshot.WEB_SERVER_CONFIG).toEqual({
+      port: 8181,
+      host: "127.0.0.1",
+      idleTimeout: 12,
+      tlsCert: "/env-cert-fallback.pem",
+      tlsKey: "/env-key-fallback.pem",
+    });
   } finally {
     ws.cleanup();
   }
@@ -161,16 +182,8 @@ test("config and env fallback chains handle booleans and session settings", () =
     });
 
     const snapshot = loadConfigInSubprocess(ws, [
-      "WEB_TOTP_WINDOW",
-      "WEB_SESSION_TTL",
-      "WEB_INTERNAL_SECRET",
-      "WEB_PASSKEY_MODE",
-      "TRUST_PROXY",
-      "WEB_TERMINAL_ENABLED",
-      "DEBUG_CARD_SUBMISSIONS",
-      "SESSION_MAX_SIZE_MB",
-      "SESSION_MAX_SIZE_BYTES",
-      "SESSION_AUTO_ROTATE",
+      "WEB_RUNTIME_CONFIG",
+      "SESSION_STORAGE_CONFIG",
     ], {
       env: {
         PICLAW_WEB_SESSION_TTL: "120",
@@ -182,32 +195,264 @@ test("config and env fallback chains handle booleans and session settings", () =
       },
     });
 
-    expect(snapshot.WEB_TOTP_WINDOW).toBe(4);
-    expect(snapshot.WEB_SESSION_TTL).toBe(120);
-    expect(snapshot.WEB_INTERNAL_SECRET).toBe("env-secret");
-    expect(snapshot.WEB_PASSKEY_MODE).toBe("passkey-only");
-    expect(snapshot.TRUST_PROXY).toBe(false);
-    expect(snapshot.WEB_TERMINAL_ENABLED).toBe(false);
-    expect(snapshot.DEBUG_CARD_SUBMISSIONS).toBe(true);
-    expect(snapshot.SESSION_MAX_SIZE_MB).toBe(8);
-    expect(snapshot.SESSION_MAX_SIZE_BYTES).toBe(8 * 1024 * 1024);
-    expect(snapshot.SESSION_AUTO_ROTATE).toBe(false);
+    expect(snapshot.WEB_RUNTIME_CONFIG).toEqual({
+      totpSecret: "",
+      totpWindow: 4,
+      sessionTtl: 120,
+      internalSecret: "env-secret",
+      passkeyMode: "passkey-only",
+      terminalEnabled: false,
+      debugCardSubmissions: true,
+      trustProxy: false,
+    });
+    expect(snapshot.SESSION_STORAGE_CONFIG).toEqual({
+      maxSizeMb: 8,
+      maxSizeBytes: 8 * 1024 * 1024,
+      autoRotate: false,
+    });
   } finally {
     ws.cleanup();
   }
 });
 
-test("remote interop env flags and metadata load without a config file", () => {
+test("tool output config getter groups retention env settings", async () => {
+  await withTempWorkspaceEnv(
+    "piclaw-config-",
+    {
+      PICLAW_TOOL_OUTPUT_RETENTION_DAYS: "14",
+      PICLAW_TOOL_OUTPUT_CLEANUP_INTERVAL_MS: "60000",
+    },
+    async () => {
+      const cfg = await importFresh<typeof import("../../src/core/config.js")>("../src/core/config.js");
+
+      expect(cfg.getToolOutputConfig()).toBe(cfg.TOOL_OUTPUT_CONFIG);
+      expect(Object.isFrozen(cfg.TOOL_OUTPUT_CONFIG)).toBe(true);
+      expect(cfg.TOOL_OUTPUT_CONFIG).toEqual({
+        retentionDays: 14,
+        cleanupIntervalMs: 60000,
+      });
+    },
+  );
+});
+
+test("pushover config getter groups aliased config file settings", async () => {
+  await withTempWorkspaceEnv(
+    "piclaw-config-",
+    {},
+    async (ws) => {
+      writeWorkspaceConfig(ws.workspace, {
+        pushover: {
+          appToken: "app-token-2",
+          user_key: "user-key-2",
+          device: "device-2",
+          priority: 1,
+          sound: "magic",
+        },
+      });
+
+      const cfg = await importFresh<typeof import("../../src/core/config.js")>("../src/core/config.js");
+
+      expect(cfg.getPushoverConfig()).toBe(cfg.PUSHOVER_CONFIG);
+      expect(Object.isFrozen(cfg.PUSHOVER_CONFIG)).toBe(true);
+      expect(cfg.PUSHOVER_CONFIG).toEqual({
+        appToken: "app-token-2",
+        userKey: "user-key-2",
+        device: "device-2",
+        priority: 1,
+        sound: "magic",
+      });
+    },
+  );
+});
+
+test("whatsapp config getter groups the configured phone number", async () => {
+  await withTempWorkspaceEnv(
+    "piclaw-config-",
+    {},
+    async (ws) => {
+      writeWorkspaceConfig(ws.workspace, {
+        whatsappPhone: "+15557654321",
+      });
+
+      const cfg = await importFresh<typeof import("../../src/core/config.js")>("../src/core/config.js");
+
+      expect(cfg.getWhatsAppConfig()).toBe(cfg.WHATSAPP_CONFIG);
+      expect(Object.isFrozen(cfg.WHATSAPP_CONFIG)).toBe(true);
+      expect(cfg.WHATSAPP_CONFIG).toEqual({ phoneNumber: "+15557654321" });
+    },
+  );
+});
+
+test("session storage config getter groups size and auto-rotate settings", async () => {
+  await withTempWorkspaceEnv(
+    "piclaw-config-",
+    {
+      PICLAW_SESSION_MAX_SIZE_MB: "64",
+      PICLAW_SESSION_AUTO_ROTATE: "on",
+    },
+    async () => {
+      const cfg = await importFresh<typeof import("../../src/core/config.js")>("../src/core/config.js");
+
+      expect(cfg.getSessionStorageConfig()).toBe(cfg.SESSION_STORAGE_CONFIG);
+      expect(Object.isFrozen(cfg.SESSION_STORAGE_CONFIG)).toBe(true);
+      expect(cfg.SESSION_STORAGE_CONFIG).toEqual({
+        maxSizeMb: 64,
+        maxSizeBytes: 64 * 1024 * 1024,
+        autoRotate: true,
+      });
+    },
+  );
+});
+
+test("agent runtime config getter groups foreground and background timeout settings", async () => {
+  await withTempWorkspaceEnv(
+    "piclaw-config-",
+    {
+      PICLAW_AGENT_TIMEOUT: "120000",
+      PICLAW_BACKGROUND_AGENT_TIMEOUT: "45000",
+    },
+    async () => {
+      const cfg = await importFresh<typeof import("../../src/core/config.js")>("../src/core/config.js");
+
+      expect(cfg.getAgentRuntimeConfig()).toBe(cfg.AGENT_RUNTIME_CONFIG);
+      expect(Object.isFrozen(cfg.AGENT_RUNTIME_CONFIG)).toBe(true);
+      expect(cfg.AGENT_RUNTIME_CONFIG).toEqual({
+        timeoutMs: 120000,
+        backgroundTimeoutMs: 45000,
+      });
+    },
+  );
+});
+
+test("runtime timing config getter groups poll intervals and timezone", async () => {
+  await withTempWorkspaceEnv(
+    "piclaw-config-",
+    {
+      TZ: "UTC",
+    },
+    async () => {
+      const cfg = await importFresh<typeof import("../../src/core/config.js")>("../src/core/config.js");
+
+      expect(cfg.getRuntimeTimingConfig()).toBe(cfg.RUNTIME_TIMING_CONFIG);
+      expect(Object.isFrozen(cfg.RUNTIME_TIMING_CONFIG)).toBe(true);
+      expect(cfg.RUNTIME_TIMING_CONFIG).toEqual({
+        pollIntervalMs: 2000,
+        schedulerPollIntervalMs: 60000,
+        ipcPollIntervalMs: 1000,
+        timezone: "UTC",
+      });
+    },
+  );
+});
+
+test("logging config getter resolves the configured log level", async () => {
+  await withTempWorkspaceEnv(
+    "piclaw-config-",
+    {
+      PICLAW_LOG_LEVEL: "warn",
+      LOG_LEVEL: undefined,
+    },
+    async () => {
+      const cfg = await importFresh<typeof import("../../src/core/config.js")>("../src/core/config.js");
+
+      expect(cfg.getLoggingConfig()).toBe(cfg.LOGGING_CONFIG);
+      expect(Object.isFrozen(cfg.LOGGING_CONFIG)).toBe(true);
+      expect(cfg.LOGGING_CONFIG).toEqual({ level: "warn" });
+    },
+  );
+});
+
+test("web server config getter groups host/port/idle-timeout/tls settings", async () => {
+  await withTempWorkspaceEnv(
+    "piclaw-config-",
+    {
+      PICLAW_WEB_PORT: "8081",
+      PICLAW_WEB_HOST: "0.0.0.0",
+      PICLAW_WEB_IDLE_TIMEOUT: "10",
+      PICLAW_WEB_TLS_CERT: "/env-cert.pem",
+      PICLAW_WEB_TLS_KEY: "/env-key.pem",
+    },
+    async () => {
+      const originalArgv = process.argv.slice();
+      process.argv = [
+        originalArgv[0] || "bun",
+        originalArgv[1] || "test",
+        "--port=9090",
+        "--host",
+        "127.0.0.1",
+        "--idle-timeout",
+        "25",
+        "--tls-cert=/cli-cert.pem",
+        "--tls-key",
+        "/cli-key.pem",
+      ];
+
+      try {
+        const cfg = await importFresh<typeof import("../../src/core/config.js")>("../src/core/config.js");
+
+        expect(cfg.getWebServerConfig()).toBe(cfg.WEB_SERVER_CONFIG);
+        expect(Object.isFrozen(cfg.WEB_SERVER_CONFIG)).toBe(true);
+        expect(cfg.WEB_SERVER_CONFIG).toEqual({
+          port: 9090,
+          host: "127.0.0.1",
+          idleTimeout: 25,
+          tlsCert: "/cli-cert.pem",
+          tlsKey: "/cli-key.pem",
+        });
+      } finally {
+        process.argv = originalArgv;
+      }
+    },
+  );
+});
+
+test("web runtime config getter groups auth/session/proxy settings", async () => {
+  await withTempWorkspaceEnv(
+    "piclaw-config-",
+    {
+      PICLAW_WEB_SESSION_TTL: "120",
+      PICLAW_WEB_INTERNAL_SECRET: "env-secret",
+      PICLAW_TRUST_PROXY: "0",
+      PICLAW_WEB_TERMINAL_ENABLED: "false",
+      PICLAW_DEBUG_CARD_SUBMISSIONS: "yes",
+    },
+    async (ws) => {
+      writeWorkspaceConfig(ws.workspace, {
+        web: {
+          totpSecret: "config-secret",
+          totpWindow: 4,
+          sessionTtl: 60,
+          internalSecret: "config-secret",
+          passkeyMode: "PASSKEY-ONLY",
+          trustProxy: true,
+        },
+        webTerminalEnabled: true,
+        debugCardSubmissions: false,
+      });
+
+      const cfg = await importFresh<typeof import("../../src/core/config.js")>("../src/core/config.js");
+
+      expect(cfg.getWebRuntimeConfig()).toBe(cfg.WEB_RUNTIME_CONFIG);
+      expect(Object.isSealed(cfg.WEB_RUNTIME_CONFIG)).toBe(true);
+      expect(cfg.WEB_RUNTIME_CONFIG).toEqual({
+        totpSecret: "config-secret",
+        totpWindow: 4,
+        sessionTtl: 120,
+        internalSecret: "env-secret",
+        passkeyMode: "passkey-only",
+        terminalEnabled: false,
+        debugCardSubmissions: true,
+        trustProxy: false,
+      });
+    },
+  );
+});
+
+test("remote interop env flags and metadata load into the typed remote config object", () => {
   const ws = createTempWorkspace("piclaw-config-");
 
   try {
-    const snapshot = loadConfigInSubprocess(ws, [
-      "REMOTE_INTEROP_ENABLED",
-      "REMOTE_INTEROP_ALLOW_HTTP",
-      "REMOTE_SHORT_CIRCUIT_ENABLED",
-      "REMOTE_INSTANCE_NAME",
-      "REMOTE_INTEROP_DECISION_MODEL",
-    ], {
+    const snapshot = loadConfigInSubprocess(ws, ["REMOTE_INTEROP_CONFIG"], {
       env: {
         PICLAW_REMOTE_INTEROP_ENABLED: "1",
         PICLAW_REMOTE_INTEROP_ALLOW_HTTP: "true",
@@ -217,14 +462,42 @@ test("remote interop env flags and metadata load without a config file", () => {
       },
     });
 
-    expect(snapshot.REMOTE_INTEROP_ENABLED).toBe(true);
-    expect(snapshot.REMOTE_INTEROP_ALLOW_HTTP).toBe(true);
-    expect(snapshot.REMOTE_SHORT_CIRCUIT_ENABLED).toBe(true);
-    expect(snapshot.REMOTE_INSTANCE_NAME).toBe("remote-a");
-    expect(snapshot.REMOTE_INTEROP_DECISION_MODEL).toBe("decision-model-a");
+    expect(snapshot.REMOTE_INTEROP_CONFIG).toEqual({
+      enabled: true,
+      allowHttp: true,
+      shortCircuitEnabled: true,
+      instanceName: "remote-a",
+      decisionModel: "decision-model-a",
+    });
   } finally {
     ws.cleanup();
   }
+});
+
+test("typed remote interop config getter returns the frozen shared object", async () => {
+  await withTempWorkspaceEnv(
+    "piclaw-config-",
+    {
+      PICLAW_REMOTE_INTEROP_ENABLED: "1",
+      PICLAW_REMOTE_INTEROP_ALLOW_HTTP: "0",
+      PICLAW_REMOTE_SHORT_CIRCUIT_ENABLED: "1",
+      PICLAW_REMOTE_INSTANCE_NAME: "remote-b",
+      PICLAW_REMOTE_INTEROP_DECISION_MODEL: "decision-model-b",
+    },
+    async () => {
+      const cfg = await importFresh<typeof import("../../src/core/config.js")>("../src/core/config.js");
+
+      expect(cfg.getRemoteInteropConfig()).toBe(cfg.REMOTE_INTEROP_CONFIG);
+      expect(Object.isFrozen(cfg.REMOTE_INTEROP_CONFIG)).toBe(true);
+      expect(cfg.REMOTE_INTEROP_CONFIG).toEqual({
+        enabled: true,
+        allowHttp: false,
+        shortCircuitEnabled: true,
+        instanceName: "remote-b",
+        decisionModel: "decision-model-b",
+      });
+    },
+  );
 });
 
 test("in-process module init handles deprecated env warnings, argv parsing, and string coercions", async () => {
@@ -235,10 +508,16 @@ test("in-process module init handles deprecated env warnings, argv parsing, and 
       PICLAW_ASSISTANT_NAME: undefined,
       PICLAW_WEB_PORT: "8181",
       PICLAW_WEB_IDLE_TIMEOUT: "12",
+      PICLAW_INTERNAL_SECRET: undefined,
+      PICLAW_WEB_INTERNAL_SECRET: undefined,
+      PICLAW_WEB_TLS_CERT: "/env-cert-runtime.pem",
+      PICLAW_WEB_TLS_KEY: "/env-key-runtime.pem",
       PICLAW_WEB_TERMINAL_ENABLED: "yes",
       PICLAW_DEBUG_CARD_SUBMISSIONS: "off",
       PICLAW_SESSION_MAX_SIZE_MB: "64",
       PICLAW_SESSION_AUTO_ROTATE: "on",
+      PICLAW_AGENT_TIMEOUT: "120000",
+      PICLAW_BACKGROUND_AGENT_TIMEOUT: "45000",
       TZ: "UTC",
     },
     async () => {
@@ -263,15 +542,45 @@ test("in-process module init handles deprecated env warnings, argv parsing, and 
         const cfg = await importFresh<typeof import("../../src/core/config.js")>("../src/core/config.js");
 
         expect(cfg.ASSISTANT_NAME).toBe("Legacy Pi");
-        expect(cfg.WEB_PORT).toBe(9001);
-        expect(cfg.WEB_HOST).toBe("127.0.0.1");
-        expect(cfg.WEB_IDLE_TIMEOUT).toBe(22);
-        expect(cfg.WEB_TERMINAL_ENABLED).toBe(true);
-        expect(cfg.DEBUG_CARD_SUBMISSIONS).toBe(false);
-        expect(cfg.SESSION_MAX_SIZE_MB).toBe(64);
-        expect(cfg.SESSION_MAX_SIZE_BYTES).toBe(64 * 1024 * 1024);
-        expect(cfg.SESSION_AUTO_ROTATE).toBe(true);
-        expect(cfg.TIMEZONE).toBe("UTC");
+        expect(cfg.WEB_SERVER_CONFIG).toEqual({
+          port: 9001,
+          host: "127.0.0.1",
+          idleTimeout: 22,
+          tlsCert: "/env-cert-runtime.pem",
+          tlsKey: "/env-key-runtime.pem",
+        });
+        expect(cfg.getWebServerConfig()).toBe(cfg.WEB_SERVER_CONFIG);
+        expect(cfg.WEB_RUNTIME_CONFIG).toEqual({
+          totpSecret: "",
+          totpWindow: 1,
+          sessionTtl: 7 * 24 * 60 * 60,
+          internalSecret: "",
+          passkeyMode: "totp-fallback",
+          terminalEnabled: true,
+          debugCardSubmissions: false,
+          trustProxy: false,
+        });
+        expect(cfg.getWebRuntimeConfig()).toBe(cfg.WEB_RUNTIME_CONFIG);
+        expect(cfg.SESSION_STORAGE_CONFIG).toEqual({
+          maxSizeMb: 64,
+          maxSizeBytes: 64 * 1024 * 1024,
+          autoRotate: true,
+        });
+        expect(cfg.getSessionStorageConfig()).toBe(cfg.SESSION_STORAGE_CONFIG);
+        expect(cfg.AGENT_RUNTIME_CONFIG).toEqual({
+          timeoutMs: 120000,
+          backgroundTimeoutMs: 45000,
+        });
+        expect(cfg.getAgentRuntimeConfig()).toBe(cfg.AGENT_RUNTIME_CONFIG);
+        expect(cfg.RUNTIME_TIMING_CONFIG).toEqual({
+          pollIntervalMs: 2000,
+          schedulerPollIntervalMs: 60000,
+          ipcPollIntervalMs: 1000,
+          timezone: "UTC",
+        });
+        expect(cfg.getRuntimeTimingConfig()).toBe(cfg.RUNTIME_TIMING_CONFIG);
+        expect(cfg.LOGGING_CONFIG).toEqual({ level: "info" });
+        expect(cfg.getLoggingConfig()).toBe(cfg.LOGGING_CONFIG);
       } finally {
         process.argv = originalArgv;
         process.stderr.write = originalStderrWrite;
@@ -310,11 +619,13 @@ test("runtime setters trim values, escape trigger regexes, and persist TOTP secr
       expect(cfg.USER_NAME).toBe("Jordan");
       expect(cfg.USER_AVATAR).toBe("/user.svg");
       expect(cfg.USER_AVATAR_BACKGROUND).toBe("#abcdef");
-      expect(cfg.TRIGGER_PATTERN.test("hello @Pi (Test) Bot")).toBe(true);
-      expect(cfg.TRIGGER_PATTERN.test("hello @Pi Test Bot")).toBe(false);
+      expect(cfg.getRoutingConfig()).toBe(cfg.ROUTING_CONFIG);
+      expect(Object.isSealed(cfg.ROUTING_CONFIG)).toBe(true);
+      expect(cfg.ROUTING_CONFIG.triggerPattern.test("hello @Pi (Test) Bot")).toBe(true);
+      expect(cfg.ROUTING_CONFIG.triggerPattern.test("hello @Pi Test Bot")).toBe(false);
 
       expect(cfg.setWebTotpSecret("  fresh-secret  ")).toBe("fresh-secret");
-      expect(cfg.WEB_TOTP_SECRET).toBe("fresh-secret");
+      expect(cfg.WEB_RUNTIME_CONFIG.totpSecret).toBe("fresh-secret");
       expect(process.env.PICLAW_WEB_TOTP_SECRET).toBe("fresh-secret");
 
       const savedConfig = JSON.parse(readFileSync(configPath, "utf8"));
@@ -323,7 +634,7 @@ test("runtime setters trim values, escape trigger regexes, and persist TOTP secr
       expect(savedConfig.web.keepMe).toBe(true);
 
       expect(cfg.setWebTotpSecret("   ")).toBe("");
-      expect(cfg.WEB_TOTP_SECRET).toBe("");
+      expect(cfg.WEB_RUNTIME_CONFIG.totpSecret).toBe("");
       expect(process.env.PICLAW_WEB_TOTP_SECRET).toBeUndefined();
 
       const clearedConfig = JSON.parse(readFileSync(configPath, "utf8"));

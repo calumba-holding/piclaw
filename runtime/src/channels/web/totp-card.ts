@@ -7,7 +7,7 @@
  */
 
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { WEB_INTERNAL_SECRET } from "../../core/config.js";
+import { getWebRuntimeConfig } from "../../core/config.js";
 import { generateTotpQr } from "../../utils/totp-qr.js";
 
 /** Supported TOTP card flows. */
@@ -47,7 +47,7 @@ const FALLBACK_SIGNING_SECRET = randomBytes(32).toString("base64url");
 const BASE64URL_PADDING = "====";
 
 function getSigningSecret(): string {
-  return (WEB_INTERNAL_SECRET || "").trim() || FALLBACK_SIGNING_SECRET;
+  return (getWebRuntimeConfig().internalSecret || "").trim() || FALLBACK_SIGNING_SECRET;
 }
 
 function encodeBase64Url(value: string): string {

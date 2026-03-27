@@ -21,7 +21,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync } from "fs";
 import { basename, join } from "path";
 import { CronExpressionParser } from "cron-parser";
-import { DATA_DIR, IPC_POLL_INTERVAL, TIMEZONE } from "./core/config.js";
+import { DATA_DIR, getRuntimeTimingConfig } from "./core/config.js";
 import { MediaService } from "./channels/web/media-service.js";
 import { createTask, deleteTask, getTaskById, updateTask } from "./db.js";
 import type { ScheduledTask } from "./types.js";
@@ -219,7 +219,7 @@ function computeScheduledNextRun(
 ): string | undefined {
   if (scheduleType === "cron") {
     try {
-      const timezone: string | undefined = typeof TIMEZONE === "string" ? TIMEZONE : undefined;
+      const timezone = getRuntimeTimingConfig().timezone;
       const next = CronExpressionParser.parse(scheduleValue, { tz: timezone }).next().toISOString();
       return next ?? undefined;
     } catch {
@@ -276,7 +276,7 @@ export function startIpcWatcher(deps: IpcDeps): () => void {
     }
 
     if (!running) return;
-    pollTimer = setTimeout(poll, IPC_POLL_INTERVAL);
+    pollTimer = setTimeout(poll, getRuntimeTimingConfig().ipcPollIntervalMs);
   };
 
   poll();

@@ -5,7 +5,7 @@
 import { createUuid } from "../utils/ids.js";
 import type { AgentPool } from "../agent-pool.js";
 import { getRemotePeer, storeRemoteRequest, updateRemotePeer, type RemotePeerRecord } from "../db/remote-interop.js";
-import { REMOTE_SHORT_CIRCUIT_ENABLED } from "../core/config.js";
+import type { RemoteInteropConfig } from "../core/config.js";
 import { verifySignedRequest } from "./auth.js";
 import type { RemoteNonceCache } from "./nonce-cache.js";
 import {
@@ -35,6 +35,7 @@ export interface RemoteOperationHandlersContext {
   revokeLimiter: SlidingWindowLimiter;
   executeConcurrency: RemoteExecuteConcurrency;
   agentPool?: AgentPool;
+  remoteConfig: Readonly<RemoteInteropConfig>;
   getDecisionModel: () => string;
 }
 
@@ -153,7 +154,7 @@ export async function handleExecute(req: Request, context: RemoteOperationHandle
     return jsonResponse({ error: sig.error }, 401);
   }
 
-  if (!REMOTE_SHORT_CIRCUIT_ENABLED || peer.mode !== "short-circuit" || peer.profile !== "full") {
+  if (!context.remoteConfig.shortCircuitEnabled || peer.mode !== "short-circuit" || peer.profile !== "full") {
     return jsonResponse({ error: "Short-circuit execution not allowed." }, 403);
   }
 

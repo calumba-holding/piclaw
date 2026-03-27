@@ -3268,7 +3268,7 @@ test("web channel commits TOTP setup only after successful same-card confirmatio
   const res = await (fixture.web as any).handleRequest(req);
   expect(res.status).toBe(200);
   expect(res.headers.get("Set-Cookie")).toContain("piclaw_session=");
-  expect(fixture.config.WEB_TOTP_SECRET).toBe(fixture.parsed.state.secret);
+  expect(fixture.config.WEB_RUNTIME_CONFIG.totpSecret).toBe(fixture.parsed.state.secret);
 
   const updated = fixture.db.getMessageByRowId("web:default", fixture.sourceRowId);
   expect((updated?.data.content_blocks?.[0] as any)?.state).toBe("completed");
@@ -3314,7 +3314,7 @@ test("web channel leaves TOTP setup unchanged on invalid same-card confirmation"
   const res = await (fixture.web as any).handleRequest(req);
   expect(res.status).toBe(200);
   expect(res.headers.get("Set-Cookie")).toBeNull();
-  expect(fixture.config.WEB_TOTP_SECRET).toBe("");
+  expect(fixture.config.WEB_RUNTIME_CONFIG.totpSecret).toBe("");
 
   const updated = fixture.db.getMessageByRowId("web:default", fixture.sourceRowId);
   expect((updated?.data.content_blocks?.[0] as any)?.state).toBe("active");
@@ -3365,7 +3365,7 @@ test("web channel commits TOTP reset only after successful new-secret confirmati
   const res = await (fixture.web as any).handleRequest(req);
   expect(res.status).toBe(200);
   expect(res.headers.get("Set-Cookie")).toContain("piclaw_session=");
-  expect(fixture.config.WEB_TOTP_SECRET).toBe(fixture.parsed.state.secret);
+  expect(fixture.config.WEB_RUNTIME_CONFIG.totpSecret).toBe(fixture.parsed.state.secret);
   expect(fixture.db.getWebSession("old-session")).toBeNull();
 
   const updated = fixture.db.getMessageByRowId("web:default", fixture.sourceRowId);
@@ -3410,7 +3410,7 @@ test("web channel preserves existing secret and sessions when reset confirmation
   const res = await (fixture.web as any).handleRequest(req);
   expect(res.status).toBe(200);
   expect(res.headers.get("Set-Cookie")).toBeNull();
-  expect(fixture.config.WEB_TOTP_SECRET).toBe(currentSecret);
+  expect(fixture.config.WEB_RUNTIME_CONFIG.totpSecret).toBe(currentSecret);
   expect(fixture.db.getWebSession("old-session")).not.toBeNull();
 
   const updated = fixture.db.getMessageByRowId("web:default", fixture.sourceRowId);

@@ -10,14 +10,13 @@
 
 import type { WebChannelLike } from "../web-channel-contracts.js";
 import {
-  AGENT_TIMEOUT,
   ASSISTANT_AVATAR,
   ASSISTANT_NAME,
-  BACKGROUND_AGENT_TIMEOUT,
-  TRIGGER_PATTERN,
   USER_AVATAR,
   USER_AVATAR_BACKGROUND,
   USER_NAME,
+  getAgentRuntimeConfig,
+  getRoutingConfig,
 } from "../../../core/config.js";
 import { parseControlCommand } from "../../../agent-control/index.js";
 import {
@@ -112,7 +111,7 @@ export async function handleAgentMessage(
     return channel.json({ error: "Missing 'content' field" }, 400);
   }
 
-  const command = parseControlCommand(content, TRIGGER_PATTERN);
+  const command = parseControlCommand(content, getRoutingConfig().triggerPattern);
   const trimmed = content.trim();
   const themeCommand = handleUiThemeCommand(trimmed);
   const isStreaming = typeof channel.agentPool.isStreaming === "function"
@@ -854,10 +853,11 @@ export async function processChat(
   // proved too short for legitimate long-running tool workflows, and 15
   // minutes has still been a little tight for some real sessions, so allow up
   // to 20 minutes here while still respecting any lower global timeout.
-  const INTERACTIVE_WEB_TIMEOUT_MS = Math.min(AGENT_TIMEOUT, 20 * 60 * 1000);
+  const agentRuntimeConfig = getAgentRuntimeConfig();
+  const INTERACTIVE_WEB_TIMEOUT_MS = Math.min(agentRuntimeConfig.timeoutMs, 20 * 60 * 1000);
   const timeoutMs = hasActiveClients
     ? INTERACTIVE_WEB_TIMEOUT_MS
-    : (BACKGROUND_AGENT_TIMEOUT > 0 ? BACKGROUND_AGENT_TIMEOUT : AGENT_TIMEOUT);
+    : (agentRuntimeConfig.backgroundTimeoutMs > 0 ? agentRuntimeConfig.backgroundTimeoutMs : agentRuntimeConfig.timeoutMs);
 
   let turnCount = 0;
   let hadIntermediateOutput = false;

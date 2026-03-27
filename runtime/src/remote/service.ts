@@ -3,7 +3,7 @@
  */
 
 import type { AgentPool } from "../agent-pool.js";
-import { REMOTE_INTEROP_DECISION_MODEL, REMOTE_INTEROP_ENABLED } from "../core/config.js";
+import { getRemoteInteropConfig, type RemoteInteropConfig } from "../core/config.js";
 import {
   DEFAULT_NONCE_CACHE_SIZE,
   DEFAULT_NONCE_TTL_MS,
@@ -32,16 +32,16 @@ import {
   type RemoteOperationHandlersContext,
 } from "./service-operations.js";
 
-function isRemoteInteropEnabled(): boolean {
-  if (REMOTE_INTEROP_ENABLED) return true;
+function isRemoteInteropEnabled(config: Readonly<RemoteInteropConfig>): boolean {
+  if (config.enabled) return true;
   const raw = (process.env.PICLAW_REMOTE_INTEROP_ENABLED || "").trim().toLowerCase();
   return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
 }
 
-function getRemoteInteropDecisionModel(): string {
+function getRemoteInteropDecisionModel(config: Readonly<RemoteInteropConfig>): string {
   const raw = (process.env.PICLAW_REMOTE_INTEROP_DECISION_MODEL || "").trim();
   if (raw) return raw;
-  return REMOTE_INTEROP_DECISION_MODEL || "";
+  return config.decisionModel || "";
 }
 
 /**
@@ -61,7 +61,10 @@ export class RemoteInteropService {
   private readonly revokeLimiter = new SlidingWindowLimiter(REVOKE_LIMIT, REVOKE_WINDOW_MS);
   private readonly executeConcurrency = new RemoteExecuteConcurrency(4, 1);
 
-  constructor(private readonly agentPool?: AgentPool) {}
+  constructor(
+    private readonly agentPool?: AgentPool,
+    private readonly remoteConfig: Readonly<RemoteInteropConfig> = getRemoteInteropConfig(),
+  ) {}
 
   private pairingContext(): RemotePairingHandlersContext {
     return {
@@ -80,13 +83,14 @@ export class RemoteInteropService {
       revokeLimiter: this.revokeLimiter,
       executeConcurrency: this.executeConcurrency,
       agentPool: this.agentPool,
-      getDecisionModel: getRemoteInteropDecisionModel,
+      remoteConfig: this.remoteConfig,
+      getDecisionModel: () => getRemoteInteropDecisionModel(this.remoteConfig),
     };
   }
 
   /** Route an incoming `/api/remote/*` request to the appropriate handler. */
   async handleRequest(req: Request): Promise<Response> {
-    if (!isRemoteInteropEnabled()) {
+    if (!isRemoteInteropEnabled(this.remoteConfig)) {
       return jsonResponse({ error: "Not found" }, 404);
     }
 

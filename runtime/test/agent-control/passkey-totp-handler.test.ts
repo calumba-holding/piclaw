@@ -139,7 +139,7 @@ test("handleTotp validates action and returns a single-card setup flow without c
   expect(generated.status).toBe("success");
   expect(Array.isArray(generated.contentBlocks)).toBe(true);
   expect(generated.message).toContain("Nothing is saved until confirmation succeeds");
-  expect(config.WEB_TOTP_SECRET).toBe("");
+  expect(config.WEB_RUNTIME_CONFIG.totpSecret).toBe("");
 
   const parsed = extractTotpCardState(generated, totpCard);
   expect(parsed.ok).toBe(true);
@@ -174,7 +174,7 @@ test("handleTotp reuses the active secret for secondary-device setup and stages 
   const reset = await totp.handleTotp({} as any, { type: "totp", action: "reset", code } as any);
   expect(reset.status).toBe("success");
   expect(reset.message).toContain("Nothing changes until confirmation succeeds");
-  expect(config.WEB_TOTP_SECRET).toBe(secret);
+  expect(config.WEB_RUNTIME_CONFIG.totpSecret).toBe(secret);
 
   const resetState = extractTotpCardState(reset, totpCard);
   expect(resetState.ok).toBe(true);

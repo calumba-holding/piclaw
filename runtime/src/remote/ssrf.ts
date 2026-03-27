@@ -8,7 +8,7 @@
 
 import { lookup } from "dns/promises";
 import { isIP } from "net";
-import { REMOTE_INTEROP_ALLOW_HTTP } from "../core/config.js";
+import { getRemoteInteropConfig } from "../core/config.js";
 
 type ResolveHost = (hostname: string) => Promise<string[]>;
 
@@ -100,7 +100,7 @@ export async function validateCallbackUrl(
     return { ok: false, error: "Invalid callback_url." };
   }
 
-  if (url.protocol !== "https:" && !(REMOTE_INTEROP_ALLOW_HTTP && url.protocol === "http:")) {
+  if (url.protocol !== "https:" && !(getRemoteInteropConfig().allowHttp && url.protocol === "http:")) {
     return { ok: false, error: "callback_url must use https." };
   }
 

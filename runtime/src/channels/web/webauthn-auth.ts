@@ -23,7 +23,7 @@ import {
   storeWebauthnCredential,
   updateWebauthnCredentialCounter,
 } from "../../db.js";
-import { ASSISTANT_NAME, USER_NAME, WEB_SESSION_TTL } from "../../core/config.js";
+import { ASSISTANT_NAME, USER_NAME, getWebRuntimeConfig } from "../../core/config.js";
 import { okJson } from "./http/http-utils.js";
 import { randomSessionToken } from "./auth.js";
 import {
@@ -49,7 +49,7 @@ export interface WebauthnAuthContext {
 }
 
 function getTtlSeconds(): number {
-  const rawTtl = Number.isFinite(WEB_SESSION_TTL) ? WEB_SESSION_TTL : 0;
+  const rawTtl = getWebRuntimeConfig().sessionTtl;
   return Math.max(60, rawTtl || 0);
 }
 

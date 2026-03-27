@@ -5,7 +5,7 @@ import {
   type TotpAuthContext,
   type TotpFailureTrackerLike,
 } from "../../../src/channels/web/totp-auth.js";
-import { WEB_TOTP_SECRET } from "../../../src/core/config.js";
+import { WEB_RUNTIME_CONFIG } from "../../../src/core/config.js";
 import { initDatabase } from "../../../src/db.js";
 
 class StubFailureTracker implements TotpFailureTrackerLike {
@@ -173,7 +173,7 @@ describe("totp auth verify handler", () => {
     const cleared = { value: false };
     const req = new Request("https://example.com/auth/verify", {
       method: "POST",
-      body: JSON.stringify({ code: totpCode(WEB_TOTP_SECRET) }),
+      body: JSON.stringify({ code: totpCode(WEB_RUNTIME_CONFIG.totpSecret) }),
       headers: { "Content-Type": "application/json" },
     });
 

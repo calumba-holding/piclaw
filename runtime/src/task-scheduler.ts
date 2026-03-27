@@ -19,7 +19,7 @@
  *   - The AgentQueue (queue.ts) serialises task execution with user messages per chat lane while allowing unrelated chats to progress in parallel.
  */
 
-import { SCHEDULER_POLL_INTERVAL, WORKSPACE_DIR } from "./core/config.js";
+import { WORKSPACE_DIR, getRuntimeTimingConfig } from "./core/config.js";
 import { computeNextRun } from "./task-scheduler-utils.js";
 import type { AgentPool } from "./agent-pool.js";
 import { getDueTasks, getTaskById, logTaskRun, updateTaskAfterRun } from "./db.js";
@@ -305,7 +305,7 @@ export function startSchedulerLoop(deps: SchedulerDeps): () => void {
       });
     }
     if (!started) return;
-    schedulerTimer = setTimeout(loop, SCHEDULER_POLL_INTERVAL);
+    schedulerTimer = setTimeout(loop, getRuntimeTimingConfig().schedulerPollIntervalMs);
   };
   loop();
   return stopSchedulerLoop;

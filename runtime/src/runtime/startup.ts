@@ -11,16 +11,11 @@ import { WhatsAppChannel } from "../channels/whatsapp.js";
 import { setMessagesPostFn } from "../extensions/messages-crud.js";
 import {
   DATA_DIR,
-  PUSHOVER_APP_TOKEN,
-  PUSHOVER_DEVICE,
-  PUSHOVER_PRIORITY,
-  PUSHOVER_SOUND,
-  PUSHOVER_USER_KEY,
   STORE_DIR,
-  TOOL_OUTPUT_CLEANUP_INTERVAL_MS,
-  TOOL_OUTPUT_RETENTION_DAYS,
-  WHATSAPP_PHONE,
   WORKSPACE_DIR,
+  getPushoverConfig,
+  getToolOutputConfig,
+  getWhatsAppConfig,
 } from "../core/config.js";
 import { initDatabase, storeChatMetadata, storeMessage } from "../db.js";
 import type { AgentQueue } from "../queue.js";
@@ -40,7 +35,8 @@ export function initializeRuntimeEnvironment(state: RuntimeState): void {
   mkdirSync(WORKSPACE_DIR, { recursive: true });
 
   initDatabase();
-  startToolOutputCleanup(TOOL_OUTPUT_RETENTION_DAYS, TOOL_OUTPUT_CLEANUP_INTERVAL_MS);
+  const toolOutputConfig = getToolOutputConfig();
+  startToolOutputCleanup(toolOutputConfig.retentionDays, toolOutputConfig.cleanupIntervalMs);
   state.loadTimestamps();
   state.loadChats();
 }
@@ -98,16 +94,17 @@ export function queueStartupResumePendingIpc(): void {
 
 /** Start optional Pushover channel if configured. */
 export async function startOptionalPushoverChannel(): Promise<PushoverChannel | null> {
-  if (!PUSHOVER_APP_TOKEN || !PUSHOVER_USER_KEY) {
+  const pushoverConfig = getPushoverConfig();
+  if (!pushoverConfig.appToken || !pushoverConfig.userKey) {
     return null;
   }
 
   const pushover = new PushoverChannel({
-    appToken: PUSHOVER_APP_TOKEN,
-    userKey: PUSHOVER_USER_KEY,
-    device: PUSHOVER_DEVICE || undefined,
-    priority: PUSHOVER_PRIORITY,
-    sound: PUSHOVER_SOUND || undefined,
+    appToken: pushoverConfig.appToken,
+    userKey: pushoverConfig.userKey,
+    device: pushoverConfig.device || undefined,
+    priority: pushoverConfig.priority,
+    sound: pushoverConfig.sound || undefined,
   });
   await pushover.start();
   return pushover;
@@ -115,7 +112,8 @@ export async function startOptionalPushoverChannel(): Promise<PushoverChannel | 
 
 /** Build WhatsApp channel with runtime callbacks and pairing IPC integration. */
 export function createWhatsAppChannel(state: RuntimeState): WhatsAppChannel {
-  if (!WHATSAPP_PHONE) {
+  const whatsAppConfig = getWhatsAppConfig();
+  if (!whatsAppConfig.phoneNumber) {
     // Return a no-op stub when WhatsApp is not configured.
     // The runtime expects a whatsapp object with connect/disconnect/sendMessage/setTyping.
     return {
@@ -129,7 +127,7 @@ export function createWhatsAppChannel(state: RuntimeState): WhatsAppChannel {
 
   return new WhatsAppChannel({
     chatJids: () => state.chatJids,
-    phoneNumber: WHATSAPP_PHONE || undefined,
+    phoneNumber: whatsAppConfig.phoneNumber || undefined,
     onPairingCode: (code) => {
       try {
         const ipcDir = join(DATA_DIR, "ipc", "messages");

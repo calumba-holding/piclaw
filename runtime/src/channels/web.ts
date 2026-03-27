@@ -24,18 +24,8 @@ import {
   USER_AVATAR,
   USER_AVATAR_BACKGROUND,
   USER_NAME,
-  WEB_HOST,
-  WEB_IDLE_TIMEOUT,
-  WEB_PORT,
-  WEB_TLS_CERT,
-  WEB_TLS_KEY,
-  WEB_SESSION_TTL,
-  WEB_TOTP_SECRET,
-  WEB_TOTP_WINDOW,
-  WEB_INTERNAL_SECRET,
-  WEB_PASSKEY_MODE,
-  WEB_TERMINAL_ENABLED,
-  DEBUG_CARD_SUBMISSIONS,
+  getWebRuntimeConfig,
+  getWebServerConfig,
   setWebTotpSecret,
 } from "../core/config.js";
 import { startWorkspaceWatcher } from "./web/handlers/workspace.js";
@@ -153,7 +143,7 @@ const STATE_KEY = "last_agent_timestamp_web";
 const LINK_PREVIEW_CACHE_PURGE_INTERVAL_MS = 12 * 60 * 60 * 1000;
 
 function getWebSessionTtlSeconds(): number {
-  const rawTtl = Number.isFinite(WEB_SESSION_TTL) ? WEB_SESSION_TTL : 0;
+  const rawTtl = getWebRuntimeConfig().sessionTtl;
   return Math.max(60, rawTtl || 0);
 }
 
@@ -209,6 +199,8 @@ export class WebChannel implements WebChannelLike {
   terminalService = new TerminalSessionService();
   vncService = new VncSessionService();
   linkPreviewCachePurgeTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly webServerConfig = getWebServerConfig();
+  private readonly webRuntimeConfig = getWebRuntimeConfig();
 
   constructor(opts: WebChannelOpts) {
     this.queue = opts.queue;
@@ -225,11 +217,11 @@ export class WebChannel implements WebChannelLike {
     }));
     this.authGateway = new WebAuthGateway(
       {
-        passkeyMode: WEB_PASSKEY_MODE || "",
-        totpSecret: WEB_TOTP_SECRET || "",
-        internalSecret: WEB_INTERNAL_SECRET || "",
-        sessionTtlSeconds: WEB_SESSION_TTL,
-        hasTls: Boolean(WEB_TLS_CERT && WEB_TLS_KEY),
+        passkeyMode: this.webRuntimeConfig.passkeyMode || "",
+        totpSecret: this.webRuntimeConfig.totpSecret || "",
+        internalSecret: this.webRuntimeConfig.internalSecret || "",
+        sessionTtlSeconds: this.webRuntimeConfig.sessionTtl,
+        hasTls: Boolean(this.webServerConfig.tlsCert && this.webServerConfig.tlsKey),
       },
       {
         json: (payload, status = 200) => this.json(payload, status),
@@ -276,10 +268,10 @@ export class WebChannel implements WebChannelLike {
     for (let attempt = 1; attempt <= MAX_BIND_ATTEMPTS; attempt++) {
       try {
         this.server = Bun.serve<WebSocketSessionData>({
-          hostname: WEB_HOST,
-          port: WEB_PORT,
+          hostname: this.webServerConfig.host,
+          port: this.webServerConfig.port,
           reusePort: true,
-          idleTimeout: WEB_IDLE_TIMEOUT,
+          idleTimeout: this.webServerConfig.idleTimeout,
           // Hard limit on request body size. Individual endpoints enforce tighter
           // limits (e.g., 10 MB for media uploads, 512 MB for workspace uploads,
           // 100 KB for message content).
@@ -319,7 +311,7 @@ export class WebChannel implements WebChannelLike {
         if (err?.code === "EADDRINUSE" && attempt < MAX_BIND_ATTEMPTS) {
           log.warn("Port busy; retrying web bind", {
             operation: "start.bind_retry",
-            port: WEB_PORT,
+            port: this.webServerConfig.port,
             attempt,
             maxAttempts: MAX_BIND_ATTEMPTS,
             retryMs: BIND_RETRY_MS,
@@ -350,8 +342,8 @@ export class WebChannel implements WebChannelLike {
     log.info("Web UI listening", {
       operation: "start.listen",
       scheme,
-      host: WEB_HOST,
-      port: WEB_PORT,
+      host: this.webServerConfig.host,
+      port: this.webServerConfig.port,
     });
   }
 
@@ -658,11 +650,11 @@ export class WebChannel implements WebChannelLike {
   }
 
   private async loadTlsOptions(): Promise<{ cert: string; key: string } | null> {
-    if (!WEB_TLS_CERT || !WEB_TLS_KEY) return null;
+    if (!this.webServerConfig.tlsCert || !this.webServerConfig.tlsKey) return null;
     try {
       const [cert, key] = await Promise.all([
-        Bun.file(WEB_TLS_CERT).text(),
-        Bun.file(WEB_TLS_KEY).text(),
+        Bun.file(this.webServerConfig.tlsCert).text(),
+        Bun.file(this.webServerConfig.tlsKey).text(),
       ]);
       return { cert, key };
     } catch (error) {
@@ -686,7 +678,7 @@ export class WebChannel implements WebChannelLike {
   }
 
   private handleTerminalWebSocketUpgrade(req: Request, server?: Bun.Server<WebSocketSessionData>): Response | undefined {
-    if (!WEB_TERMINAL_ENABLED) {
+    if (!this.webRuntimeConfig.terminalEnabled) {
       return this.json({ error: "Web terminal is disabled." }, 404);
     }
     const authEnabled = this.authGateway.isAuthEnabled();
@@ -835,7 +827,7 @@ export class WebChannel implements WebChannelLike {
   }
 
   handleTerminalSession(req: Request): Response {
-    if (!WEB_TERMINAL_ENABLED) {
+    if (!this.webRuntimeConfig.terminalEnabled) {
       return this.json({ enabled: false, error: "Web terminal is disabled." }, 200);
     }
     const authEnabled = this.authGateway.isAuthEnabled();
@@ -1648,7 +1640,7 @@ export class WebChannel implements WebChannelLike {
         return await sendTotpFeedback(message, "failed");
       }
 
-      const activeSecret = (WEB_TOTP_SECRET || "").trim();
+      const activeSecret = (this.webRuntimeConfig.totpSecret || "").trim();
       if (hashTotpSecret(activeSecret) !== parsedTotp.state.previousSecretHash) {
         completeTotpCard("failed");
         return await sendTotpFeedback(
@@ -1657,7 +1649,7 @@ export class WebChannel implements WebChannelLike {
         );
       }
 
-      if (!verifyTotp(parsedTotp.state.secret, confirmationCode, WEB_TOTP_WINDOW)) {
+      if (!verifyTotp(parsedTotp.state.secret, confirmationCode, this.webRuntimeConfig.totpWindow)) {
         return await sendTotpFeedback(
           "TOTP validation failed: the code did not match the secret shown in the card. No changes were made.",
           "active",
@@ -1704,7 +1696,7 @@ export class WebChannel implements WebChannelLike {
     // When debug card submissions is off, remove the visible "Card submission: ..."
     // user message from the timeline. The submission data is preserved in the
     // source card's last_submission and content_blocks.
-    if (!DEBUG_CARD_SUBMISSIONS) {
+    if (!this.webRuntimeConfig.debugCardSubmissions) {
       const forwardBody = await forwardRes.clone().json().catch(() => null);
       const forwardBodyRecord = forwardBody as
         | { id?: number | string; user_message?: { id?: number | string } }

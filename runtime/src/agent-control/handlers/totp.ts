@@ -9,7 +9,7 @@
 
 import type { AgentSession } from "@mariozechner/pi-coding-agent";
 import type { AgentControlCommand, AgentControlResult } from "../agent-control-types.js";
-import { ASSISTANT_NAME, USER_NAME, WEB_TOTP_SECRET, WEB_TOTP_WINDOW } from "../../core/config.js";
+import { ASSISTANT_NAME, USER_NAME, getWebRuntimeConfig } from "../../core/config.js";
 import { getChatChannel } from "../../core/chat-context.js";
 import { verifyTotp } from "../../channels/web/auth.js";
 import {
@@ -51,7 +51,8 @@ export async function handleTotp(_session: AgentSession, command: TotpCommand): 
     return { status: "error", message: "TOTP setup cards are only available in the web UI." };
   }
 
-  const currentSecret = (WEB_TOTP_SECRET || "").trim();
+  const webRuntimeConfig = getWebRuntimeConfig();
+  const currentSecret = (webRuntimeConfig.totpSecret || "").trim();
   const hasSecret = Boolean(currentSecret);
   const isReset = action === "reset";
 
@@ -68,7 +69,7 @@ export async function handleTotp(_session: AgentSession, command: TotpCommand): 
       };
     }
 
-    if (!verifyTotp(currentSecret, code, WEB_TOTP_WINDOW)) {
+    if (!verifyTotp(currentSecret, code, webRuntimeConfig.totpWindow)) {
       return { status: "error", message: "Invalid confirmation code." };
     }
   }

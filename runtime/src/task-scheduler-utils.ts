@@ -6,7 +6,7 @@
  */
 
 import { CronExpressionParser } from "cron-parser";
-import { TIMEZONE } from "./core/config.js";
+import { getRuntimeTimingConfig } from "./core/config.js";
 
 /**
  * Compute the next execution time for a scheduled task.
@@ -18,7 +18,7 @@ import { TIMEZONE } from "./core/config.js";
 export function computeNextRun(scheduleType: string, scheduleValue: string): string | null {
   if (scheduleType === "cron") {
     try {
-      return CronExpressionParser.parse(scheduleValue, { tz: TIMEZONE }).next().toISOString();
+      return CronExpressionParser.parse(scheduleValue, { tz: getRuntimeTimingConfig().timezone }).next().toISOString();
     } catch {
       return null;
     }

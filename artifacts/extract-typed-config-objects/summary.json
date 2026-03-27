@@ -1,0 +1,13 @@
+{
+  "ticket": "kanban/10-next/extract-typed-config-objects.md",
+  "command": "./scripts/audit-extract-typed-config-objects.sh",
+  "timestamp": "2026-03-27T00:33:03.823Z",
+  "metrics": {
+    "bare_constant_exports": 10,
+    "remote_bare_exports": 0,
+    "typed_config_objects": 11
+  },
+  "evidence": {
+    "targeted_tests": "artifacts/extract-typed-config-objects/targeted-tests.txt"
+  }
+}
