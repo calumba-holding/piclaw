@@ -11,14 +11,22 @@ import {
 
 /** Channel contract required by media-route HTTP dispatcher. */
 export interface MediaDispatchChannel extends MediaResponseContext {
+  /** Parse path id segments into optional integer ids. */
   parseOptionalInt(value: string | null): number | null;
+  /** Optional override for POST `/media/upload` requests. */
   handleMediaUpload?(req: Request): Promise<Response>;
+  /** Optional override for GET `/media/:id` and thumbnail binary routes. */
   handleMedia?(id: number, thumbnail: boolean): Response;
+  /** Optional override for GET `/media/:id/info` metadata route. */
   handleMediaInfo?(id: number): Response;
 }
 
 /**
- * Handle /media routes when the request matches; otherwise return null.
+ * Dispatch `/media/*` routes and return null when no media route matches.
+ * @param channel Media dispatcher contract with optional handler overrides.
+ * @param req Incoming HTTP request.
+ * @param pathname Parsed request pathname used for route matching and id extraction.
+ * @returns Matched media response, or null when the request should fall through.
  */
 export async function handleMediaRoutes(
   channel: MediaDispatchChannel,

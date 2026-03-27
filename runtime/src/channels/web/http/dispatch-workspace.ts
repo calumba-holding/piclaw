@@ -19,23 +19,40 @@ import {
 
 /** Channel contract required by workspace-route HTTP dispatcher. */
 export interface WorkspaceDispatchChannel {
+  /** Handle workspace visibility toggles from the UI. */
   handleWorkspaceVisibility(req: Request): Promise<Response>;
+  /** Optional override for GET `/workspace/tree` requests. */
   handleWorkspaceTree?(req: Request): Response;
+  /** Optional override for GET `/workspace/file` requests. */
   handleWorkspaceFile?(req: Request): Response;
+  /** Optional override for GET `/workspace/branch` requests. */
   handleWorkspaceBranch?(req: Request): Response;
+  /** Optional override for PUT `/workspace/file` requests. */
   handleWorkspaceUpdate?(req: Request): Promise<Response>;
+  /** Optional override for DELETE `/workspace/file` requests. */
   handleWorkspaceDelete?(req: Request): Response;
+  /** Optional override for GET `/workspace/raw` requests. */
   handleWorkspaceRaw?(req: Request): Response;
+  /** Optional override for GET `/workspace/download` requests. */
   handleWorkspaceDownload?(req: Request): Promise<Response>;
+  /** Optional override for POST `/workspace/attach` requests. */
   handleWorkspaceAttach?(req: Request): Promise<Response>;
+  /** Optional override for POST `/workspace/upload` requests. */
   handleWorkspaceUpload?(req: Request): Promise<Response>;
+  /** Optional override for POST `/workspace/file` create requests. */
   handleWorkspaceCreate?(req: Request): Promise<Response>;
+  /** Optional override for POST `/workspace/rename` requests. */
   handleWorkspaceRename?(req: Request): Promise<Response>;
+  /** Optional override for POST `/workspace/move` requests. */
   handleWorkspaceMove?(req: Request): Promise<Response>;
 }
 
 /**
- * Handle /workspace routes when the request matches; otherwise return null.
+ * Dispatch `/workspace/*` routes and return null when no workspace route matches.
+ * @param channel Workspace dispatcher contract with optional handler overrides.
+ * @param req Incoming HTTP request.
+ * @param pathname Parsed request pathname used for route matching.
+ * @returns Matched workspace response, or null when another dispatcher should continue.
  */
 export async function handleWorkspaceRoutes(
   channel: WorkspaceDispatchChannel,

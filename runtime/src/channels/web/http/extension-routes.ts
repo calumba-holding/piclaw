@@ -19,6 +19,12 @@ import { createLogger } from "../../../utils/logger.js";
 
 const log = createLogger("web.extension-routes");
 
+/**
+ * Extension-provided HTTP handler invoked for matching route prefixes.
+ * @param req Incoming HTTP request.
+ * @param pathname Parsed request pathname.
+ * @returns A response to short-circuit routing, or null to allow fallback handling.
+ */
 export type ExtensionRouteHandler = (req: Request, pathname: string) => Response | Promise<Response> | null;
 
 interface RegisteredRoute {
@@ -30,9 +36,11 @@ interface RegisteredRoute {
 const routes: RegisteredRoute[] = [];
 
 /**
- * Register an HTTP route handler for a path prefix.
- * The handler is called for any request whose pathname starts with `prefix`.
- * If the handler returns null, the request falls through to the next handler.
+ * Register an extension HTTP route handler for a path prefix.
+ * @param prefix Path prefix to match (normalized to begin with `/`).
+ * @param handler Extension route callback invoked for matching requests.
+ * @param extensionPath Extension identifier/path used for diagnostics.
+ * @returns Nothing.
  */
 export function registerExtensionRoute(
   prefix: string,
@@ -45,8 +53,10 @@ export function registerExtensionRoute(
 }
 
 /**
- * Try to handle a request with registered extension routes.
- * Returns a Response if matched, null otherwise.
+ * Attempt to serve a request via registered extension routes.
+ * @param req Incoming HTTP request.
+ * @param pathname Parsed request pathname.
+ * @returns A matched extension response, or null when no route handled the request.
  */
 export async function handleExtensionRoutes(
   req: Request,
@@ -78,12 +88,18 @@ export async function handleExtensionRoutes(
   return null;
 }
 
-/** Clear all registered routes (used on extension reload). */
+/**
+ * Remove all registered extension routes (used during extension reload).
+ * @returns Nothing.
+ */
 export function clearExtensionRoutes(): void {
   routes.length = 0;
 }
 
-/** Get info about registered routes for debugging. */
+/**
+ * Return the currently registered extension route prefixes for diagnostics.
+ * @returns A lightweight route listing with prefix and owning extension path.
+ */
 export function getRegisteredRoutes(): Array<{ prefix: string; extensionPath: string }> {
   return routes.map(r => ({ prefix: r.prefix, extensionPath: r.extensionPath }));
 }

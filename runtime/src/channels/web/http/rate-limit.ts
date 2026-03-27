@@ -25,7 +25,15 @@ function pruneRateBuckets(now: number): void {
   }
 }
 
-/** Core rate-limit check using an explicit client key (test-friendly). */
+/**
+ * Evaluate whether a client exceeds a sliding-window request limit.
+ * @param clientKey Stable client identifier bucketed by IP/session fingerprint.
+ * @param bucket Logical endpoint/action bucket name.
+ * @param windowMs Sliding window duration in milliseconds.
+ * @param limit Maximum allowed requests within the window.
+ * @param now Optional timestamp override for deterministic tests.
+ * @returns True when the request should be rate-limited.
+ */
 export function isRateLimitedForClient(
   clientKey: string,
   bucket: string,
@@ -45,12 +53,22 @@ export function isRateLimitedForClient(
   return trimmed.length > limit;
 }
 
-/** Request-scoped rate-limit helper used by web request routing. */
+/**
+ * Request-scoped rate-limit helper that derives client identity from the request.
+ * @param req Incoming HTTP request.
+ * @param bucket Logical endpoint/action bucket name.
+ * @param windowMs Sliding window duration in milliseconds.
+ * @param limit Maximum allowed requests within the window.
+ * @returns True when this request exceeds the configured rate limit.
+ */
 export function isRateLimited(req: Request, bucket: string, windowMs: number, limit: number): boolean {
   return isRateLimitedForClient(getClientKey(req), bucket, windowMs, limit);
 }
 
-/** Test helper: clear in-memory limiter state. */
+/**
+ * Clear in-memory rate limiter state for deterministic test setup.
+ * @returns Nothing.
+ */
 export function resetRateLimiterStateForTests(): void {
   rateBuckets.clear();
   lastRatePrune = Date.now();

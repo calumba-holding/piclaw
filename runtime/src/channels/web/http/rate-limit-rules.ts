@@ -32,13 +32,19 @@ const DATA_AGENT_SIDE_PROMPT_LIMIT = 20;
 
 /** Rate-limit rule returned for a specific method/path endpoint. */
 export type DataRateLimitRule = {
+  /** Logical bucket key used by the in-memory rate limiter. */
   bucket: string;
+  /** Maximum number of allowed requests within the configured data window. */
   limit: number;
+  /** Client-facing error message returned when the limit is exceeded. */
   message: string;
 };
 
 /**
- * Return data rate-limit rule for the current request, if any.
+ * Resolve the data-plane rate-limit rule for a request method/path pair.
+ * @param method HTTP method for the current request.
+ * @param pathname Parsed request pathname.
+ * @returns Matching rate-limit rule, or null when no rule applies.
  */
 export function getDataRateLimitRule(method: string, pathname: string): DataRateLimitRule | null {
   if (method === "POST" && pathname === "/post") {

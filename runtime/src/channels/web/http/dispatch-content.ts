@@ -5,7 +5,12 @@
 import type { WebChannelLike } from "../web-channel-contracts.js";
 
 /**
- * Handle primary content routes when the request matches; otherwise return null.
+ * Dispatch primary content routes and return null when no primary route matches.
+ * @param channel Web channel contract with content endpoint handlers and parsing helpers.
+ * @param req Incoming HTTP request.
+ * @param pathname Parsed request pathname used for route matching.
+ * @param url Parsed request URL used for query-parameter extraction.
+ * @returns Matched primary content response, or null when the request should fall through.
  */
 export async function handleContentPrimaryRoutes(
   channel: WebChannelLike,
@@ -61,7 +66,12 @@ export async function handleContentPrimaryRoutes(
 }
 
 /**
- * Handle late content routes that currently run after agent dispatch.
+ * Dispatch secondary/late content routes that run after agent dispatch.
+ * @param channel Web channel contract with secondary content handlers.
+ * @param req Incoming HTTP request.
+ * @param pathname Parsed request pathname used for route matching.
+ * @param url Parsed request URL used for delete-cascade query extraction.
+ * @returns Matched secondary content response, or null when no secondary route applies.
  */
 export async function handleContentSecondaryRoutes(
   channel: WebChannelLike,

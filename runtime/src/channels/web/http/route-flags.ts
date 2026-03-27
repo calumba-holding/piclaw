@@ -12,31 +12,53 @@ const APPLE_ICON_PATHS = new Set([
 
 /** Precomputed route classification flags used by web HTTP dispatch. */
 export type RouteFlags = {
+  /** True when the request method is GET or HEAD. */
   isGetOrHead: boolean;
+  /** True when the request targets the login page. */
   isLoginPage: boolean;
+  /** True when the request targets `/auth/verify`. */
   isAuthVerify: boolean;
+  /** True when the request targets WebAuthn login start. */
   isWebauthnLoginStart: boolean;
+  /** True when the request targets WebAuthn login finish. */
   isWebauthnLoginFinish: boolean;
+  /** True when the request targets WebAuthn register start. */
   isWebauthnRegisterStart: boolean;
+  /** True when the request targets WebAuthn register finish. */
   isWebauthnRegisterFinish: boolean;
+  /** True when the request targets the WebAuthn enrolment page. */
   isWebauthnEnrollPage: boolean;
+  /** True when the request targets the internal post endpoint. */
   isInternalPost: boolean;
+  /** True when the request targets internal patch-style post updates. */
   isInternalPatch: boolean;
+  /** True when the request targets `/` or `/index.html`. */
   isIndex: boolean;
+  /** True when the request targets `/manifest.json`. */
   isManifest: boolean;
+  /** True when the request targets `/favicon.ico`. */
   isFavicon: boolean;
+  /** True when the request targets known Apple touch icon paths. */
   isAppleIcon: boolean;
+  /** True when the request path starts with `/static/`. */
   isStaticAsset: boolean;
+  /** True when a static asset is safe to serve unauthenticated. */
   isPublicStatic: boolean;
+  /** True when the request path starts with `/docs/`. */
   isDocsAsset: boolean;
+  /** True when the request targets the agent avatar endpoint. */
   isAvatar: boolean;
+  /** True when the request method mutates state (POST/PUT/DELETE/PATCH). */
   isMutating: boolean;
+  /** True when the request targets any auth endpoint. */
   isAuthEndpoint: boolean;
 };
 
 /**
- * Determine which /static/ paths are safe to serve without authentication.
- * Public pages only need styling, icons, and the login bundle.
+ * Determine which `/static/` assets are safe to serve without authentication.
+ * Public pages only require styling, icons, and the login bundle.
+ * @param pathname Request pathname to classify.
+ * @returns True when the static asset can be served on unauthenticated pages.
  */
 export function isPublicStaticPath(pathname: string): boolean {
   if (pathname.startsWith("/static/fonts/")) return true;
@@ -50,7 +72,12 @@ export function isPublicStaticPath(pathname: string): boolean {
   return false;
 }
 
-/** Compute common route flags used by auth/security/dispatch flows. */
+/**
+ * Compute common route flags consumed by auth, security, and dispatch pipelines.
+ * @param req Incoming HTTP request.
+ * @param pathname Parsed request pathname.
+ * @returns Route classification flags used by downstream guard/dispatcher logic.
+ */
 export function getRouteFlags(req: Request, pathname: string): RouteFlags {
   const isGetOrHead = req.method === "GET" || req.method === "HEAD";
   const isAuthVerify = req.method === "POST" && pathname === "/auth/verify";
@@ -93,7 +120,10 @@ export function getRouteFlags(req: Request, pathname: string): RouteFlags {
 }
 
 /**
- * Public unauthenticated endpoints/assets when auth is enabled.
+ * Determine whether auth checks can be skipped for this route classification.
+ * @param flags Route classification flags for the current request.
+ * @param hasInternalAccess Whether internal-secret bypass access has already been validated.
+ * @returns True when the request should bypass standard auth-session checks.
  */
 export function shouldSkipAuthCheck(flags: RouteFlags, hasInternalAccess: boolean): boolean {
   return (

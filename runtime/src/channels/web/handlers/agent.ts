@@ -64,7 +64,15 @@ function fallbackAgentHandle(chatJid: string): string {
     .replace(/^-+|-+$/g, "") || "agent";
 }
 
-/** Handle POST to create an agent message and start an agent run. */
+/**
+ * Handle a web `/agent/:agentId/message` request by storing user input and starting/queuing a run.
+ * @param channel Web channel contract providing persistence, queueing, and broadcast helpers.
+ * @param req Incoming HTTP request containing normalized message payload data.
+ * @param pathname Request pathname used to resolve the explicit target agent id.
+ * @param chatJid Chat JID that should receive the message/run.
+ * @param defaultAgentId Fallback agent id when the route does not include one explicitly.
+ * @returns A JSON response describing created messages, queueing, or routing failures.
+ */
 export async function handleAgentMessage(
   channel: WebChannelLike,
   req: Request,
@@ -662,7 +670,14 @@ export async function handleAgentMessage(
 
 }
 
-/** Process a chat message: detect commands, queue agent run, or store post. */
+/**
+ * Drain chat work for an agent turn, including deferred followups and run lifecycle events.
+ * @param channel Web channel contract for chat state, queue control, and event fanout.
+ * @param chatJid Chat JID being processed.
+ * @param agentId Agent identifier used for run execution and telemetry.
+ * @param threadRootId Optional thread root id used to keep follow-up messages linked.
+ * @returns Resolves when the current chat processing cycle has completed.
+ */
 export async function processChat(
   channel: WebChannelLike,
   chatJid: string,

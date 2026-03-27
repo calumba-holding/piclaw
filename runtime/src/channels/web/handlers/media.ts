@@ -15,10 +15,16 @@ const mediaService = new MediaService();
 
 /** Minimal response contract needed by media endpoint handlers. */
 export interface MediaResponseContext {
+  /** Build JSON responses for media endpoint success/error payloads. */
   json(payload: unknown, status?: number): Response;
 }
 
-/** Handle POST /media: file upload. */
+/**
+ * Handle POST `/media` requests for media upload.
+ * @param channel Response context used to encode JSON result payloads.
+ * @param req Incoming HTTP request containing multipart form data with `file`.
+ * @returns JSON response with created media metadata or validation errors.
+ */
 export async function handleMediaUpload(channel: MediaResponseContext, req: Request): Promise<Response> {
   let form: FormData;
   try {
@@ -49,7 +55,13 @@ const INLINE_SAFE_TYPES = new Set([
   "image/x-icon",
 ]);
 
-/** Route media requests to upload, download, or info handlers. */
+/**
+ * Resolve media binary requests, including thumbnail and inline/attachment behavior.
+ * @param channel Response context used for JSON errors.
+ * @param id Media row id to fetch.
+ * @param thumbnail Whether to return a thumbnail variant when available.
+ * @returns Binary media response on success, or JSON error response when media is missing.
+ */
 export function handleMedia(channel: MediaResponseContext, id: number, thumbnail: boolean): Response {
   const result = mediaService.getMedia(id, thumbnail);
   if (result.status !== 200) return channel.json({ error: "Media not found" }, result.status);
@@ -65,7 +77,12 @@ export function handleMedia(channel: MediaResponseContext, id: number, thumbnail
   return new Response(result.body, { headers });
 }
 
-/** Handle GET /media/:id/info: metadata query. */
+/**
+ * Handle GET `/media/:id/info` metadata lookup requests.
+ * @param channel Response context used to serialize JSON payloads.
+ * @param id Media row id to inspect.
+ * @returns JSON response containing media metadata or not-found status.
+ */
 export function handleMediaInfo(channel: MediaResponseContext, id: number): Response {
   const result = mediaService.getInfo(id);
   return channel.json(result.body, result.status);

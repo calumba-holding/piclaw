@@ -61,7 +61,12 @@ function renderHtmlTemplate(relPath: string, html: string): string {
   return html;
 }
 
-/** Serve a static file from the web/static directory. */
+/**
+ * Serve a file from the web static asset directory.
+ * @param relPath Relative path inside `web/static`.
+ * @param notFound Callback used when the asset path is invalid or missing.
+ * @returns Static-file response with content-type/cache headers, or the provided not-found response.
+ */
 export async function serveStatic(relPath: string, notFound: () => Response): Promise<Response> {
   const filePath = resolve(STATIC_DIR, relPath);
   if (!filePath.startsWith(STATIC_DIR)) return notFound();
@@ -102,7 +107,12 @@ export async function serveStatic(relPath: string, notFound: () => Response): Pr
   });
 }
 
-/** Serve a static file from the docs directory. */
+/**
+ * Serve a file from the bundled docs directory.
+ * @param relPath Relative path inside the docs root.
+ * @param notFound Callback used when the docs asset path is invalid or missing.
+ * @returns Docs static-file response, or the provided not-found response.
+ */
 export async function serveDocsStatic(relPath: string, notFound: () => Response): Promise<Response> {
   const filePath = resolve(DOCS_DIR, relPath);
   if (!filePath.startsWith(DOCS_DIR)) return notFound();

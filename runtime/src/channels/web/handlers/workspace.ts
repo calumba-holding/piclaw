@@ -16,12 +16,19 @@ const workspaceService = new WorkspaceService();
 
 /** Contract required by the workspace watcher bridge. */
 export interface WorkspaceWatcherChannel {
+  /** Whether the workspace pane is currently visible in the web UI. */
   workspaceVisible: boolean;
+  /** Whether hidden files should be included in watcher-driven updates. */
   workspaceShowHidden: boolean;
+  /** Broadcast a workspace event payload to subscribed web clients. */
   broadcastEvent(eventType: string, data: unknown): void;
 }
 
-/** Handle GET /workspace/tree: return the directory tree. */
+/**
+ * Handle GET `/workspace/tree` requests for sidebar tree listing.
+ * @param req Incoming HTTP request containing optional path/depth/show_hidden filters.
+ * @returns JSON response with tree payload or a validation/service error body.
+ */
 export function handleWorkspaceTree(req: Request): Response {
   const url = new URL(req.url);
   const showHidden = url.searchParams.get("show_hidden") === "1" || url.searchParams.get("show_hidden") === "true";
@@ -33,7 +40,11 @@ export function handleWorkspaceTree(req: Request): Response {
   return jsonResponse(result.body, result.status);
 }
 
-/** Handle GET /workspace/file: return file content. */
+/**
+ * Handle GET `/workspace/file` requests to read workspace file content.
+ * @param req Incoming HTTP request with path/max/mode query parameters.
+ * @returns JSON response containing file content metadata or an error payload.
+ */
 export function handleWorkspaceFile(req: Request): Response {
   const url = new URL(req.url);
   const result = workspaceService.getFile(
@@ -44,14 +55,22 @@ export function handleWorkspaceFile(req: Request): Response {
   return jsonResponse(result.body, result.status);
 }
 
-/** Handle GET /workspace/branch: return the nearest enclosing git branch, if any. */
+/**
+ * Handle GET `/workspace/branch` requests to resolve the nearest git branch.
+ * @param req Incoming HTTP request with optional path query parameter.
+ * @returns JSON response containing branch metadata or an error payload.
+ */
 export function handleWorkspaceBranch(req: Request): Response {
   const url = new URL(req.url);
   const result = workspaceService.getGitBranch(url.searchParams.get("path"));
   return jsonResponse(result.body, result.status);
 }
 
-/** Handle PUT /workspace/file: update file contents. */
+/**
+ * Handle PUT `/workspace/file` requests to update file contents.
+ * @param req Incoming HTTP request containing JSON `{ path, content }`.
+ * @returns JSON response with update result, or a 400 error for invalid/missing input.
+ */
 export async function handleWorkspaceUpdate(req: Request): Promise<Response> {
   let data: { path?: string; content?: string };
   try {
@@ -68,14 +87,22 @@ export async function handleWorkspaceUpdate(req: Request): Promise<Response> {
   return jsonResponse(result.body, result.status);
 }
 
-/** Handle DELETE /workspace/file: delete a workspace file. */
+/**
+ * Handle DELETE `/workspace/file` requests to remove a file or directory entry.
+ * @param req Incoming HTTP request with `path` query parameter.
+ * @returns JSON response describing delete success or failure.
+ */
 export function handleWorkspaceDelete(req: Request): Response {
   const url = new URL(req.url);
   const result = workspaceService.deleteFile(url.searchParams.get("path"));
   return jsonResponse(result.body, result.status);
 }
 
-/** Handle GET /workspace/raw: serve raw file content for download or same-origin embedding. */
+/**
+ * Handle GET `/workspace/raw` requests by streaming raw file content.
+ * @param req Incoming HTTP request with file path and optional range headers.
+ * @returns File response with security/range headers, or an error response when file access fails.
+ */
 export function handleWorkspaceRaw(req: Request): Response {
   const url = new URL(req.url);
   const result = workspaceService.getRaw(url.searchParams.get("path"));
@@ -159,7 +186,11 @@ export function handleWorkspaceRaw(req: Request): Response {
   });
 }
 
-/** Handle POST /workspace/attach: attach a workspace file to agent context. */
+/**
+ * Handle POST `/workspace/attach` requests to attach a file into agent context.
+ * @param req Incoming HTTP request containing JSON `{ path }`.
+ * @returns JSON response with attachment metadata or validation/service errors.
+ */
 export async function handleWorkspaceAttach(req: Request): Promise<Response> {
   let data: { path?: string };
   try {
@@ -172,7 +203,11 @@ export async function handleWorkspaceAttach(req: Request): Promise<Response> {
   return jsonResponse(result.body, result.status);
 }
 
-/** Handle POST /workspace/upload: upload a file. */
+/**
+ * Handle POST `/workspace/upload` requests to upload files into the workspace.
+ * @param req Incoming HTTP request containing multipart form data and overwrite options.
+ * @returns JSON response with upload result or validation errors.
+ */
 export async function handleWorkspaceUpload(req: Request): Promise<Response> {
   const url = new URL(req.url);
   let formData: FormData;
@@ -191,7 +226,11 @@ export async function handleWorkspaceUpload(req: Request): Promise<Response> {
   return jsonResponse(result.body, result.status);
 }
 
-/** Handle POST /workspace/file: create a new workspace file. */
+/**
+ * Handle POST `/workspace/file` requests to create a new workspace file.
+ * @param req Incoming HTTP request containing JSON `{ path, name, content }`.
+ * @returns JSON response with created file metadata or validation errors.
+ */
 export async function handleWorkspaceCreate(req: Request): Promise<Response> {
   let data: { path?: string; name?: string; content?: string };
   try {
@@ -208,7 +247,11 @@ export async function handleWorkspaceCreate(req: Request): Promise<Response> {
   return jsonResponse(result.body, result.status);
 }
 
-/** Handle POST /workspace/rename: rename a file or folder. */
+/**
+ * Handle POST `/workspace/rename` requests to rename a file or folder.
+ * @param req Incoming HTTP request containing JSON `{ path, name }`.
+ * @returns JSON response with rename outcome or validation errors.
+ */
 export async function handleWorkspaceRename(req: Request): Promise<Response> {
   let data: { path?: string; name?: string };
   try {
@@ -229,7 +272,11 @@ export async function handleWorkspaceRename(req: Request): Promise<Response> {
   return jsonResponse(result.body, result.status);
 }
 
-/** Handle POST /workspace/move: move a file or folder to a new directory. */
+/**
+ * Handle POST `/workspace/move` requests to move a file or folder.
+ * @param req Incoming HTTP request containing JSON `{ path, target }`.
+ * @returns JSON response with move result or validation errors.
+ */
 export async function handleWorkspaceMove(req: Request): Promise<Response> {
   let data: { path?: string; target?: string };
   try {
@@ -250,7 +297,11 @@ export async function handleWorkspaceMove(req: Request): Promise<Response> {
   return jsonResponse(result.body, result.status);
 }
 
-/** Handle GET /workspace/download: serve a file as a download attachment. */
+/**
+ * Handle GET `/workspace/download` requests by streaming a ZIP archive.
+ * @param req Incoming HTTP request with optional path/show_hidden query options.
+ * @returns ZIP stream response on success, or JSON error response on failure.
+ */
 export async function handleWorkspaceDownload(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const showHidden = url.searchParams.get("show_hidden") === "1" || url.searchParams.get("show_hidden") === "true";
@@ -267,7 +318,11 @@ export async function handleWorkspaceDownload(req: Request): Promise<Response> {
   });
 }
 
-/** Start the workspace filesystem watcher and wire SSE broadcasts. */
+/**
+ * Start filesystem watching for workspace updates and broadcast them over SSE.
+ * @param channel Watcher channel contract providing visibility flags and event broadcasting.
+ * @returns Watch handle with an async `close()` method for cleanup.
+ */
 export function startWorkspaceWatcher(channel: WorkspaceWatcherChannel): { close: () => Promise<void> } {
   return workspaceService.startWatcher(
     (updates) => {

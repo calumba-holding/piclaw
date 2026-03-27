@@ -62,7 +62,12 @@ const SECURITY_HEADERS: Record<string, string> = {
     "frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
 };
 
-/** Clone a response and append baseline security headers. */
+/**
+ * Clone a response and append baseline security headers when absent.
+ * @param response Source response to wrap.
+ * @param isTls Whether the request arrived over TLS (controls HSTS header injection).
+ * @returns Response with baseline security headers applied.
+ */
 export function withSecurityHeaders(response: Response, isTls: boolean): Response {
   const headers = new Headers(response.headers);
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
@@ -79,12 +84,11 @@ export function withSecurityHeaders(response: Response, isTls: boolean): Respons
 }
 
 /**
- * CSRF origin validation for state-changing requests (POST/PUT/DELETE/PATCH).
- * Allows requests without Origin (non-browser clients), blocks origin="null".
- *
- * For browser requests we compare against both the direct request origin and a
- * forwarded-origin candidate. This preserves normal same-origin protections while
- * allowing TLS-terminating reverse proxies to POST without requiring a reload.
+ * Validate CSRF origin headers for state-changing requests.
+ * Allows requests without `Origin` (non-browser clients), blocks `Origin: null`,
+ * and supports TLS-terminating reverse proxies via forwarded-origin candidates.
+ * @param req Incoming HTTP request to validate.
+ * @returns True when origin is acceptable for mutation requests; otherwise false.
  */
 export function checkCsrfOrigin(req: Request): boolean {
   const origin = req.headers.get("origin");
@@ -111,7 +115,11 @@ export function checkCsrfOrigin(req: Request): boolean {
   }
 }
 
-/** Return a 429 JSON response. */
+/**
+ * Build a JSON 429 response for rate-limited requests.
+ * @param message Error message returned to the client.
+ * @returns HTTP 429 response with JSON body.
+ */
 export function rateLimitResponse(message: string): Response {
   return new Response(JSON.stringify({ error: message }), {
     status: 429,

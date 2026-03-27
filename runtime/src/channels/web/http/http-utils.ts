@@ -7,7 +7,13 @@
  * Consumers: All web/handlers/*.ts modules and web/http/response-service.ts.
  */
 
-/** Build a JSON HTTP response with consistent content-type headers. */
+/**
+ * Build a JSON HTTP response with consistent content-type handling.
+ * @param data Serializable payload to encode as JSON.
+ * @param status HTTP status code for the response.
+ * @param headers Optional response headers merged into the output.
+ * @returns A `Response` with JSON body and `Content-Type` set when absent.
+ */
 export function jsonResponse(data: unknown, status = 200, headers?: HeadersInit): Response {
   const responseHeaders = new Headers(headers);
   if (!responseHeaders.has("Content-Type")) responseHeaders.set("Content-Type", "application/json");
@@ -17,24 +23,47 @@ export function jsonResponse(data: unknown, status = 200, headers?: HeadersInit)
   });
 }
 
-/** Build the standard lightweight success envelope used by simple web mutations. */
+/**
+ * Build the lightweight success envelope used by simple JSON mutation endpoints.
+ * @param data Additional fields to merge into the `{ status: "ok" }` payload.
+ * @param status HTTP status code for the response.
+ * @param headers Optional response headers merged into the output.
+ * @returns JSON success response.
+ */
 export function okJson(data: Record<string, unknown> = {}, status = 200, headers?: HeadersInit): Response {
   return jsonResponse({ status: "ok", ...data }, status, headers);
 }
 
-/** Build the standard lightweight error envelope used by web JSON endpoints. */
+/**
+ * Build the standard lightweight error envelope used by JSON endpoints.
+ * @param error Human-readable error message.
+ * @param status HTTP status code for the response.
+ * @param headers Optional response headers merged into the output.
+ * @returns JSON error response.
+ */
 export function errorJson(error: string, status = 400, headers?: HeadersInit): Response {
   return jsonResponse({ error }, status, headers);
 }
 
-/** Clamp an integer value between min and max bounds. */
+/**
+ * Parse and clamp an integer query/header value between bounds.
+ * @param value Raw string value to parse.
+ * @param fallback Value returned when parsing fails.
+ * @param min Minimum allowed integer.
+ * @param max Maximum allowed integer.
+ * @returns Parsed integer constrained to the `[min, max]` range, or fallback on invalid input.
+ */
 export function clampInt(value: string | null, fallback: number, min: number, max: number): number {
   const parsed = value ? parseInt(value, 10) : fallback;
   if (Number.isNaN(parsed)) return fallback;
   return Math.min(Math.max(parsed, min), max);
 }
 
-/** Parse a string to an integer, returning undefined if invalid. */
+/**
+ * Parse an optional string as an integer.
+ * @param value Raw string value to parse.
+ * @returns Parsed integer, or null when input is missing/invalid.
+ */
 export function parseOptionalInt(value: string | null): number | null {
   if (!value) return null;
   const parsed = parseInt(value, 10);

@@ -6,9 +6,13 @@ import { getRequestOriginParts } from "./http/client.js";
 
 /** In-memory challenge entry for pending WebAuthn login/registration flows. */
 export type PendingWebauthnChallenge = {
+  /** Base64url-encoded challenge value issued to the client ceremony. */
   challenge: string;
+  /** Relying-party id associated with the challenge. */
   rpId: string;
+  /** User id associated with the challenge. */
   userId: string;
+  /** Epoch timestamp (ms) when the challenge was created. */
   createdAt: number;
 };
 
@@ -33,11 +37,24 @@ export class WebauthnChallengeTracker {
     }
   }
 
+  /**
+   * Track a pending WebAuthn login challenge.
+   * @param token Challenge token key used for lookup.
+   * @param value Challenge payload excluding creation timestamp.
+   * @param now Optional timestamp override for deterministic tests.
+   * @returns Nothing.
+   */
   trackLogin(token: string, value: Omit<PendingWebauthnChallenge, "createdAt">, now = Date.now()): void {
     this.prune(now);
     this.pendingLogins.set(token, { ...value, createdAt: now });
   }
 
+  /**
+   * Consume and remove a pending WebAuthn login challenge.
+   * @param token Challenge token key used for lookup.
+   * @param now Optional timestamp override for deterministic tests.
+   * @returns The pending challenge when found, otherwise null.
+   */
   consumeLogin(token: string, now = Date.now()): PendingWebauthnChallenge | null {
     this.prune(now);
     const entry = this.pendingLogins.get(token);
@@ -46,11 +63,24 @@ export class WebauthnChallengeTracker {
     return entry;
   }
 
+  /**
+   * Track a pending WebAuthn registration challenge.
+   * @param token Challenge token key used for lookup.
+   * @param value Challenge payload excluding creation timestamp.
+   * @param now Optional timestamp override for deterministic tests.
+   * @returns Nothing.
+   */
   trackRegistration(token: string, value: Omit<PendingWebauthnChallenge, "createdAt">, now = Date.now()): void {
     this.prune(now);
     this.pendingRegistrations.set(token, { ...value, createdAt: now });
   }
 
+  /**
+   * Consume and remove a pending WebAuthn registration challenge.
+   * @param token Challenge token key used for lookup.
+   * @param now Optional timestamp override for deterministic tests.
+   * @returns The pending challenge when found, otherwise null.
+   */
   consumeRegistration(token: string, now = Date.now()): PendingWebauthnChallenge | null {
     this.prune(now);
     const entry = this.pendingRegistrations.get(token);
@@ -60,7 +90,11 @@ export class WebauthnChallengeTracker {
   }
 }
 
-/** Resolve RP ID and origin tuple for WebAuthn ceremony options. */
+/**
+ * Resolve RP id and origin tuple for WebAuthn ceremony options.
+ * @param req Incoming HTTP request providing host/origin context.
+ * @returns RP id + origin tuple used by WebAuthn option builders.
+ */
 export function resolveWebauthnRpInfo(req: Request): { rpId: string; origin: string } {
   const url = new URL(req.url);
   const originHeader = req.headers.get("origin");
@@ -80,12 +114,20 @@ export function resolveWebauthnRpInfo(req: Request): { rpId: string; origin: str
   return { rpId, origin };
 }
 
-/** Encode binary data as base64url for WebAuthn JSON payloads. */
+/**
+ * Encode binary bytes as base64url for WebAuthn JSON payloads.
+ * @param value Raw bytes to encode.
+ * @returns Base64url-encoded string.
+ */
 export function bufferToBase64Url(value: Uint8Array): string {
   return Buffer.from(value).toString("base64url");
 }
 
-/** Decode a base64url string into binary bytes for WebAuthn verification. */
+/**
+ * Decode a base64url string into binary bytes for WebAuthn verification.
+ * @param value Base64url-encoded input string.
+ * @returns Decoded byte buffer.
+ */
 export function base64UrlToBuffer(value: string): Uint8Array<ArrayBuffer> {
   return Buffer.from(value, "base64url") as Uint8Array<ArrayBuffer>;
 }

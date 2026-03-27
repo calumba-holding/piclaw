@@ -5,11 +5,22 @@
 import type { WebChannelLike } from "../web-channel-contracts.js";
 import type { RouteFlags } from "./route-flags.js";
 
-/** Static asset serving function signature used by shell-route dispatcher. */
+/**
+ * Static asset resolver used when shell-route handlers need a fallback file response.
+ * @param req Incoming HTTP request.
+ * @param relPath Relative asset path inside the static root.
+ * @returns The resolved static-file response.
+ */
 export type ServeStaticAsset = (req: Request, relPath: string) => Promise<Response>;
 
 /**
- * Handle shell/static/avatar routes when the request matches; otherwise return null.
+ * Dispatch shell/static/avatar routes and return null when no shell path matches.
+ * @param channel Web channel contract exposing shell/static handlers.
+ * @param req Incoming HTTP request.
+ * @param pathname Parsed request pathname.
+ * @param flags Precomputed route-classification flags for the current request.
+ * @param serveStaticAsset Static resolver used by favicon/apple-icon fallback paths.
+ * @returns The matched shell/static response, or null when another dispatcher should continue.
  */
 export async function handleShellRoutes(
   channel: WebChannelLike,

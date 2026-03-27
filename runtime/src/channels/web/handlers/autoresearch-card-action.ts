@@ -8,8 +8,8 @@
 import { stopAutoresearchFromWeb } from "../../../extensions/autoresearch-supervisor.js";
 
 /**
- * Stop the currently running autoresearch experiment (card-action path).
- * Returns a human-readable result message.
+ * Stop the currently running autoresearch experiment via card action.
+ * @returns A human-readable status message suitable for timeline display.
  */
 export async function stopAutoresearchFromCard(): Promise<string> {
   const result = await stopAutoresearchFromWeb({ generate_report: true });

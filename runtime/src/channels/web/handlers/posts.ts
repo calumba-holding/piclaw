@@ -11,7 +11,14 @@
 import type { WebChannelLike } from "../web-channel-contracts.js";
 import { parsePostPayload, storePost } from "../posts-service.js";
 
-/** Route post requests to create, update, delete, or query handlers. */
+/**
+ * Handle post-create requests by validating payload and persisting a timeline entry.
+ * @param channel Web channel contract used for JSON response encoding and post storage dependencies.
+ * @param req Incoming HTTP request containing post JSON payload.
+ * @param isReply Whether the new post should be stored as a reply.
+ * @param chatJid Chat JID that owns the new post.
+ * @returns JSON response with stored post payload or validation errors.
+ */
 export async function handlePost(channel: WebChannelLike, req: Request, isReply: boolean, chatJid: string): Promise<Response> {
   let data: unknown;
   try {

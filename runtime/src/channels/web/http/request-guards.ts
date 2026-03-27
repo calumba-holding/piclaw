@@ -26,21 +26,33 @@ const log = createLogger("web.request-guards");
 
 /** Channel contract required by HTTP request guard helpers. */
 export interface RequestGuardsChannel {
+  /** Auth state gateway used to evaluate session and internal-secret access rules. */
   authGateway: {
+    /** Whether web auth is currently enabled. */
     isAuthEnabled(): boolean;
+    /** Whether internal-secret bypass checks are enabled. */
     isInternalSecretEnabled(): boolean;
+    /** Validate internal-secret access for this request. */
     verifyInternalSecret(req: Request): boolean;
+    /** Validate whether the request has an authenticated user session. */
     isAuthenticated(req: Request): boolean;
   };
+  /** Endpoint contexts used by auth verify/login route helpers. */
   endpointContexts: {
+    /** Build auth endpoint dependencies for login/verify helpers. */
     auth(): AuthEndpointsContext;
   };
+  /** Build a JSON response envelope for guard failures. */
   json(payload: unknown, status?: number): Response;
 }
 
 /**
- * Apply request guards in the same order as the request-router security pipeline.
- * Returns a response when request processing should stop; otherwise null.
+ * Apply auth, CSRF, and rate-limit guard checks before route dispatch.
+ * @param channel Request-guard channel contract for auth state and JSON responses.
+ * @param req Incoming HTTP request.
+ * @param pathname Parsed request pathname used for guard routing decisions.
+ * @param flags Precomputed route flags for auth/public/mutating endpoint detection.
+ * @returns A blocking response when a guard fails, or null when dispatch may continue.
  */
 export async function enforceRequestGuards(
   channel: RequestGuardsChannel,

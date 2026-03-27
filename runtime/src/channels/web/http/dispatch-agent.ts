@@ -138,7 +138,12 @@ const EXACT_AGENT_ROUTES: ExactAgentRoute[] = [
 ];
 
 /**
- * Handle /agent routes when the request matches; otherwise return null.
+ * Dispatch known `/agent/...` routes and return null when the path should fall through.
+ * @param channel Web channel contract exposing agent route handlers.
+ * @param req Incoming HTTP request.
+ * @param pathname Parsed request pathname used for exact route matching.
+ * @param url Parsed request URL used by handlers that consume query params.
+ * @returns The matched route response, or null when no `/agent` route applies.
  */
 export async function handleAgentRoutes(
   channel: WebChannelLike,

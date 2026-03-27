@@ -15,17 +15,26 @@ import type { RouteFlags } from "./route-flags.js";
 
 /** Channel contract required by auth-route HTTP dispatcher. */
 export interface AuthDispatchChannel {
+  /** Auth gateway methods required to validate pre-enrolment TOTP session state. */
   authGateway: {
+    /** Check whether the request currently has a valid temporary TOTP-authenticated session. */
     isTotpSession(req: Request): boolean;
   };
+  /** Endpoint-context factory for shared auth endpoint dependencies. */
   endpointContexts: {
+    /** Build auth endpoint context used by WebAuthn route handlers. */
     auth(): AuthEndpointsContext;
   };
+  /** Build JSON responses for auth-route validation failures. */
   json(payload: unknown, status?: number): Response;
 }
 
 /**
- * Handle auth routes when the request matches; otherwise return null.
+ * Dispatch WebAuthn auth routes and return null when no auth route matches.
+ * @param channel Auth dispatcher contract exposing session checks and endpoint contexts.
+ * @param req Incoming HTTP request.
+ * @param flags Precomputed route flags for auth endpoint classification.
+ * @returns Matched auth response, or null when the request is not handled here.
  */
 export async function handleAuthRoutes(
   channel: AuthDispatchChannel,
