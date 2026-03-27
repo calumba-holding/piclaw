@@ -41,9 +41,7 @@ import {
   getChatBranchByChatJid,
   getChatCursor,
   getDb,
-  getInflightMessageId,
   getMessageByRowId,
-  getMessageThreadRootIdById,
 } from "../db.js";
 import type { InteractionRow } from "../db.js";
 import type { QueuedFollowupItem } from "./web/followup-placeholders.js";
@@ -70,6 +68,10 @@ import {
   type WebChannelEndpointContexts,
 } from "./web/channel-endpoint-context-factory.js";
 import { WebChannelEndpointFacadeService } from "./web/channel-endpoint-facade-service.js";
+import {
+  createWebAgentControlPlaneService,
+  WebAgentControlPlaneService,
+} from "./web/agent-control-plane-service.js";
 import { createInteractionBroadcaster, type InteractionBroadcaster } from "./web/interaction-broadcaster.js";
 import { WebAuthGateway } from "./web/auth-gateway.js";
 import {
@@ -141,6 +143,7 @@ export class WebChannel implements WebChannelLike {
   private readonly serverLifecycleGateway: WebServerLifecycleGatewayService;
   private readonly messageWriteService: WebMessageWriteService;
   private readonly endpointFacade: WebChannelEndpointFacadeService;
+  private readonly controlPlaneService: WebAgentControlPlaneService;
   private readonly webServerConfig = getWebServerConfig();
   private readonly webRuntimeConfig = getWebRuntimeConfig();
 
@@ -222,6 +225,10 @@ export class WebChannel implements WebChannelLike {
             listKnownChats: (rootChatJid?: string | null, options?: { includeArchived?: boolean }) => unknown[];
           }).listKnownChats(rootChatJid, options)
         : undefined,
+    });
+    this.controlPlaneService = createWebAgentControlPlaneService(this, {
+      defaultChatJid: DEFAULT_CHAT_JID,
+      defaultAgentId: DEFAULT_AGENT_ID,
     });
     this.serverLifecycleGateway = createWebServerLifecycleGateway(this, {
       webServerConfig: this.webServerConfig,
@@ -555,236 +562,32 @@ export class WebChannel implements WebChannelLike {
 
   /** GET /agent/autoresearch/status — current live autoresearch status-panel widget payload. */
   async handleAutoresearchStatus(req: Request): Promise<Response> {
-    const url = new URL(req.url);
-    const chatJid = url.searchParams.get("chat_jid")?.trim() || DEFAULT_CHAT_JID;
-    try {
-      const { getAutoresearchWidgetPayload } = await import("../extensions/autoresearch-supervisor.js");
-      return this.json(getAutoresearchWidgetPayload(chatJid));
-    } catch (error) {
-      log.warn("Failed to read autoresearch status", {
-        operation: "handle_autoresearch_status",
-        err: error,
-      });
-      return this.json(null);
-    }
+    return await this.controlPlaneService.handleAutoresearchStatus(req);
   }
 
   /** POST /agent/autoresearch/stop — stop the running autoresearch experiment for this chat. */
   async handleAutoresearchStop(req: Request): Promise<Response> {
-    const parsed = await parseJsonObjectRequest(req);
-    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
-
-    const payload = parsed.payload as { chat_jid?: string; generate_report?: boolean };
-    const chatJid = typeof payload.chat_jid === "string" && payload.chat_jid.trim()
-      ? payload.chat_jid.trim()
-      : DEFAULT_CHAT_JID;
-    try {
-      const { stopAutoresearchFromWeb } = await import("../extensions/autoresearch-supervisor.js");
-      const result = await stopAutoresearchFromWeb({
-        chat_jid: chatJid,
-        generate_report: payload.generate_report !== false,
-      });
-      return this.json({
-        status: "ok",
-        chat_jid: chatJid,
-        result,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return this.json({ error: message || "Failed to stop autoresearch experiment." }, 500);
-    }
+    return await this.controlPlaneService.handleAutoresearchStop(req);
   }
 
   /** POST /agent/autoresearch/dismiss — dismiss the final autoresearch status panel for this chat. */
   async handleAutoresearchDismiss(req: Request): Promise<Response> {
-    const parsed = await parseJsonObjectRequest(req);
-    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
-
-    const payload = parsed.payload as { chat_jid?: string };
-    const chatJid = typeof payload.chat_jid === "string" && payload.chat_jid.trim()
-      ? payload.chat_jid.trim()
-      : DEFAULT_CHAT_JID;
-    try {
-      const { dismissAutoresearchWidget } = await import("../extensions/autoresearch-supervisor.js");
-      return this.json({
-        status: dismissAutoresearchWidget(chatJid) ? "ok" : "noop",
-        chat_jid: chatJid,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return this.json({ error: message || "Failed to dismiss autoresearch panel." }, 500);
-    }
+    return await this.controlPlaneService.handleAutoresearchDismiss(req);
   }
 
   /** GET /agent/queue-state — return queued follow-up placeholder count and pending content. */
   async handleAgentQueueState(req: Request): Promise<Response> {
-    const url = new URL(req.url);
-    const chatJid = url.searchParams.get("chat_jid") ?? DEFAULT_CHAT_JID;
-    const items = this.queuedFollowupLifecycle.listQueuedStateItems(chatJid);
-
-    return this.json({
-      count: items.length,
-      items,
-    });
-  }
-
-  private async removeQueuedFollowupForAction(
-    chatJid: string,
-    rowId: number,
-  ): Promise<{ removed: QueuedFollowupItem | null; source: "deferred" | "placeholder" | null }> {
-    return await this.queuedFollowupLifecycle.removeQueuedFollowupForAction(chatJid, Number(rowId), {
-      removeQueuedFollowupMessage: (queuedChatJid, queuedContent) =>
-        this.agentPool.removeQueuedFollowupMessage(queuedChatJid, queuedContent),
-    });
+    return await this.controlPlaneService.handleAgentQueueState(req);
   }
 
   /** POST /agent/queue-remove — remove a queued follow-up row from UI + session queue. */
   async handleAgentQueueRemove(req: Request): Promise<Response> {
-    const parsed = await parseJsonObjectRequest(req);
-    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
-
-    try {
-      const payload = parsed.payload as { chat_jid?: string; row_id?: number | string };
-      const chatJid = typeof payload.chat_jid === "string" && payload.chat_jid.trim()
-        ? payload.chat_jid.trim()
-        : DEFAULT_CHAT_JID;
-      const rawRowId = payload.row_id;
-      const rowId = typeof rawRowId === "string" ? Number(rawRowId) : rawRowId;
-      if (!Number.isFinite(rowId)) {
-        return this.json({ error: "Missing or invalid row_id" }, 400);
-      }
-
-      const { removed } = await this.removeQueuedFollowupForAction(chatJid, Number(rowId));
-      if (!removed) {
-        return this.json({ status: "ok", removed: false, count: this.getQueuedFollowupCount(chatJid) }, 200);
-      }
-
-      this.broadcastEvent("agent_followup_removed", {
-        chat_jid: chatJid,
-        row_id: removed.rowId,
-        thread_id: removed.threadId ?? null,
-      });
-
-      return this.json({
-        status: "ok",
-        removed: true,
-        row_id: removed.rowId,
-        count: this.getQueuedFollowupCount(chatJid),
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return this.json({ error: message }, 500);
-    }
+    return await this.controlPlaneService.handleAgentQueueRemove(req);
   }
 
   /** POST /agent/queue-steer — atomically convert one queued follow-up into steering or an immediate send. */
   async handleAgentQueueSteer(req: Request): Promise<Response> {
-    const parsed = await parseJsonObjectRequest(req);
-    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
-
-    try {
-      const payload = parsed.payload as { chat_jid?: string; row_id?: number | string };
-      const chatJid = typeof payload.chat_jid === "string" && payload.chat_jid.trim()
-        ? payload.chat_jid.trim()
-        : DEFAULT_CHAT_JID;
-      const rawRowId = payload.row_id;
-      const rowId = typeof rawRowId === "string" ? Number(rawRowId) : rawRowId;
-      if (!Number.isFinite(rowId)) {
-        return this.json({ error: "Missing or invalid row_id" }, 400);
-      }
-
-      const { removed } = await this.removeQueuedFollowupForAction(chatJid, Number(rowId));
-      if (!removed) {
-        return this.json({ status: "ok", removed: false, count: this.getQueuedFollowupCount(chatJid) }, 200);
-      }
-
-      this.broadcastEvent("agent_followup_removed", {
-        chat_jid: chatJid,
-        row_id: removed.rowId,
-        thread_id: removed.threadId ?? null,
-      });
-
-      const steerContent = typeof removed.queuedContent === "string" ? removed.queuedContent.trim() : "";
-      if (!steerContent) {
-        return this.json({ status: "ok", removed: true, queued: false, count: this.getQueuedFollowupCount(chatJid) }, 200);
-      }
-
-      const isStreaming = typeof this.agentPool.isStreaming === "function"
-        ? this.agentPool.isStreaming(chatJid)
-        : false;
-      const inflightMessageId = getInflightMessageId(chatJid);
-      const activeThreadRootId = inflightMessageId
-        ? getMessageThreadRootIdById(chatJid, inflightMessageId)
-        : null;
-      const steerThreadId = removed.threadId ?? activeThreadRootId ?? null;
-
-      const interaction = this.storeMessage(
-        chatJid,
-        steerContent,
-        false,
-        removed.mediaIds ?? [],
-        {
-          contentBlocks: Array.isArray(removed.contentBlocks) ? removed.contentBlocks : undefined,
-          linkPreviews: Array.isArray(removed.linkPreviews) ? removed.linkPreviews : undefined,
-          threadId: steerThreadId ?? undefined,
-          isSteeringMessage: isStreaming,
-        }
-      );
-      if (!interaction) {
-        // Restore the queued item so a failed timeline write does not drop it.
-        this.prependQueuedFollowupItem(chatJid, removed);
-        this.broadcastEvent("agent_followup_queued", {
-          chat_jid: chatJid,
-          thread_id: removed.threadId ?? null,
-          row_id: removed.rowId,
-          content: removed.queuedContent,
-          timestamp: removed.queuedAt,
-        });
-        return this.json({ error: "Failed to store message" }, 500);
-      }
-
-      this.broadcastEvent("new_post", interaction);
-
-      if (isStreaming) {
-        const steerResult = await this.agentPool.queueStreamingMessage(chatJid, steerContent, "steer");
-        if (steerResult.queued) {
-          this.queuePendingSteering(chatJid, interaction.timestamp);
-          const queuedAt = new Date().toISOString();
-          this.broadcastEvent("agent_steer_queued", {
-            chat_jid: chatJid,
-            thread_id: interaction.data?.thread_id ?? steerThreadId ?? null,
-            source: "queued-item",
-            timestamp: queuedAt,
-            content: steerContent,
-          });
-          return this.json({
-            status: "ok",
-            removed: true,
-            row_id: removed.rowId,
-            user_message: interaction,
-            thread_id: interaction.data?.thread_id ?? steerThreadId ?? null,
-            queued: "steer",
-            count: this.getQueuedFollowupCount(chatJid),
-          }, 201);
-        }
-      }
-
-      this.queue.enqueue(async () => {
-        await this.processChat(chatJid, DEFAULT_AGENT_ID, interaction.data?.thread_id ?? interaction.id);
-      }, `chat:${chatJid}:${interaction.id}`, `chat:${chatJid}`);
-
-      return this.json({
-        status: "ok",
-        removed: true,
-        row_id: removed.rowId,
-        user_message: interaction,
-        thread_id: interaction.data?.thread_id ?? interaction.id ?? null,
-        count: this.getQueuedFollowupCount(chatJid),
-      }, 201);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return this.json({ error: message }, 500);
-    }
+    return await this.controlPlaneService.handleAgentQueueSteer(req);
   }
 
   /** GET /agent/models — return available model labels and current selection. */
@@ -804,115 +607,22 @@ export class WebChannel implements WebChannelLike {
 
   /** POST /agent/branch-fork — create a first-class forked branch with its own session identity. */
   async handleAgentBranchFork(req: Request): Promise<Response> {
-    const parsed = await parseJsonObjectRequest(req);
-    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
-
-    const payload = parsed.payload as { source_chat_jid?: string; agent_name?: string };
-    const sourceChatJid = typeof payload.source_chat_jid === "string" && payload.source_chat_jid.trim()
-      ? payload.source_chat_jid.trim()
-      : DEFAULT_CHAT_JID;
-    const agentName = typeof payload.agent_name === "string" ? payload.agent_name.trim() : "";
-
-    try {
-      const branch = await (this.agentPool as AgentPool & {
-        createForkedChatBranch?: (chatJid: string, options?: { agentName?: string | null }) => Promise<unknown>;
-      }).createForkedChatBranch?.(sourceChatJid, {
-        agentName: agentName || null,
-      });
-      if (!branch) {
-        return this.json({ error: "Branch forking is not available." }, 501);
-      }
-      return this.json({ status: "ok", branch }, 201);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error || "Failed to fork branch.");
-      return this.json({ error: message || "Failed to fork branch." }, 400);
-    }
+    return await this.controlPlaneService.handleAgentBranchFork(req);
   }
 
   /** POST /agent/branch-rename — rename a registry-backed branch agent/display identity. */
   async handleAgentBranchRename(req: Request): Promise<Response> {
-    const parsed = await parseJsonObjectRequest(req);
-    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
-
-    const payload = parsed.payload as { chat_jid?: string; agent_name?: string };
-    const chatJid = typeof payload.chat_jid === "string" && payload.chat_jid.trim()
-      ? payload.chat_jid.trim()
-      : DEFAULT_CHAT_JID;
-    const hasAgentName = typeof payload.agent_name === "string";
-    if (!hasAgentName) {
-      return this.json({ error: "Missing agent_name" }, 400);
-    }
-
-    try {
-      const branch = await (this.agentPool as AgentPool & {
-        renameChatBranch?: (chatJid: string, options?: { agentName?: string | null }) => Promise<unknown>;
-      }).renameChatBranch?.(chatJid, {
-        agentName: payload.agent_name ?? null,
-      });
-      if (!branch) {
-        return this.json({ error: "Branch renaming is not available." }, 501);
-      }
-      return this.json({ status: "ok", branch }, 200);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error || "Failed to rename branch.");
-      return this.json({ error: message || "Failed to rename branch." }, 400);
-    }
+    return await this.controlPlaneService.handleAgentBranchRename(req);
   }
 
   /** POST /agent/branch-prune — archive a registry-backed branch agent and remove it from active discovery. */
   async handleAgentBranchPrune(req: Request): Promise<Response> {
-    const parsed = await parseJsonObjectRequest(req);
-    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
-
-    const payload = parsed.payload as { chat_jid?: string };
-    const chatJid = typeof payload.chat_jid === "string" && payload.chat_jid.trim()
-      ? payload.chat_jid.trim()
-      : "";
-    if (!chatJid) {
-      return this.json({ error: "Missing chat_jid" }, 400);
-    }
-
-    try {
-      const branch = await (this.agentPool as AgentPool & {
-        pruneChatBranch?: (chatJid: string) => Promise<unknown>;
-      }).pruneChatBranch?.(chatJid);
-      if (!branch) {
-        return this.json({ error: "Branch pruning is not available." }, 501);
-      }
-      return this.json({ status: "ok", branch }, 200);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error || "Failed to prune branch.");
-      return this.json({ error: message || "Failed to prune branch." }, 400);
-    }
+    return await this.controlPlaneService.handleAgentBranchPrune(req);
   }
 
   /** POST /agent/branch-restore — restore an archived branch agent back into active discovery. */
   async handleAgentBranchRestore(req: Request): Promise<Response> {
-    const parsed = await parseJsonObjectRequest(req);
-    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
-
-    const payload = parsed.payload as { chat_jid?: string; agent_name?: string };
-    const chatJid = typeof payload.chat_jid === "string" && payload.chat_jid.trim()
-      ? payload.chat_jid.trim()
-      : "";
-    if (!chatJid) {
-      return this.json({ error: "Missing chat_jid" }, 400);
-    }
-
-    try {
-      const branch = await (this.agentPool as AgentPool & {
-        restoreChatBranch?: (chatJid: string, options?: { agentName?: string | null }) => Promise<unknown>;
-      }).restoreChatBranch?.(chatJid, {
-        ...(typeof payload.agent_name === "string" ? { agentName: payload.agent_name } : {}),
-      });
-      if (!branch) {
-        return this.json({ error: "Branch restore is not available." }, 501);
-      }
-      return this.json({ status: "ok", branch }, 200);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error || "Failed to restore branch.");
-      return this.json({ error: message || "Failed to restore branch." }, 400);
-    }
+    return await this.controlPlaneService.handleAgentBranchRestore(req);
   }
 
   /**

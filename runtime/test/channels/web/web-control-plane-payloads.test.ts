@@ -2,12 +2,44 @@ import { describe, expect, test } from "bun:test";
 
 import "../../helpers.ts";
 import { WebChannel } from "../../../src/channels/web.ts";
+import { WebAgentControlPlaneService } from "../../../src/channels/web/agent-control-plane-service.js";
+import type { QueuedFollowupLifecycleService } from "../../../src/channels/web/queued-followup-lifecycle-service.js";
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+type QueueLifecycleStub = Pick<
+  QueuedFollowupLifecycleService,
+  "getQueuedFollowupCount" | "listQueuedStateItems" | "prependQueuedFollowupItem" | "removeQueuedFollowupForAction"
+>;
+
+function createControlPlaneChannel() {
+  const queuedFollowupLifecycle: QueueLifecycleStub = {
+    getQueuedFollowupCount: () => 0,
+    listQueuedStateItems: () => [],
+    prependQueuedFollowupItem: () => {},
+    removeQueuedFollowupForAction: async () => ({ removed: null, source: null }),
+  };
+
+  return {
+    json: jsonResponse,
+    controlPlaneService: new WebAgentControlPlaneService({
+      defaultChatJid: "web:default",
+      defaultAgentId: "default",
+      json: jsonResponse,
+      broadcastEvent: () => {},
+      queue: { enqueue: () => {} },
+      agentPool: { setSessionBinder: () => {} },
+      queuedFollowupLifecycle,
+      queuePendingSteering: () => {},
+      storeMessage: () => null,
+      processChat: () => {},
+    }),
+  };
 }
 
 describe("web control-plane payload guards", () => {
@@ -56,7 +88,7 @@ describe("web control-plane payload guards", () => {
   });
 
   test("queue remove returns typed 400s for invalid JSON and missing row ids", async () => {
-    const channel = { json: jsonResponse } as any;
+    const channel = createControlPlaneChannel();
 
     const invalidJson = new Request("https://example.com/agent/queue-remove", {
       method: "POST",
@@ -78,7 +110,7 @@ describe("web control-plane payload guards", () => {
   });
 
   test("queue steer rejects non-object JSON payloads", async () => {
-    const channel = { json: jsonResponse } as any;
+    const channel = createControlPlaneChannel();
     const req = new Request("https://example.com/agent/queue-steer", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -91,7 +123,7 @@ describe("web control-plane payload guards", () => {
   });
 
   test("branch payload handlers reject malformed JSON bodies consistently", async () => {
-    const channel = { json: jsonResponse } as any;
+    const channel = createControlPlaneChannel();
 
     const forkReq = new Request("https://example.com/agent/branch-fork", {
       method: "POST",
@@ -198,7 +230,7 @@ describe("web control-plane payload guards", () => {
   });
 
   test("autoresearch control-plane handlers reject malformed bodies before side effects", async () => {
-    const channel = { json: jsonResponse } as any;
+    const channel = createControlPlaneChannel();
 
     const stopReq = new Request("https://example.com/agent/autoresearch/stop", {
       method: "POST",

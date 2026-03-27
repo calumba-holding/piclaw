@@ -74,9 +74,10 @@ Extract `WebChannel` into a composition of focused services:
 - The recovery/runtime-state seam then landed behind `runtime/src/channels/web/runtime-state-service.ts`, moving resume/recovery context construction, pending steering, agent-status persistence, and panel-buffer delegation out of `WebChannel` while preserving the public API and recovery behavior.
 - The message-write/follow-up seam then landed behind `runtime/src/channels/web/message-write-service.ts`, moving write-context construction plus dashboard/follow-up placeholder coordination out of `WebChannel` while preserving payload shapes and interaction side effects.
 - The endpoint facade / handler-context seam then landed behind `runtime/src/channels/web/channel-endpoint-facade-service.ts`, centralizing lightweight endpoint wrappers and live identity snapshot reuse while preserving endpoint payloads and refresh behavior.
+- The agent control-plane seam then landed behind `runtime/src/channels/web/agent-control-plane-service.ts`, moving queue, branch-lifecycle, and autoresearch wrapper glue out of `WebChannel` while preserving payload shapes, status codes, and router-facing public methods.
 - Split the next bounded seam into:
-  - `kanban/20-doing/extract-webchannel-agent-control-plane-wrappers.md`
-- Rationale: queue, branch-lifecycle, and autoresearch control wrappers remain one of the larger cohesive request-side clusters still living on `WebChannel` after the first six extractions.
+  - `kanban/20-doing/extract-webchannel-terminal-and-vnc-http-wrappers.md`
+- Rationale: terminal/VNC HTTP wrapper glue remains one of the more cohesive transport/session clusters still living on `WebChannel` after the first seven extractions.
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-27
@@ -103,4 +104,5 @@ Extract `WebChannel` into a composition of focused services:
   - `kanban/40-review/extract-webchannel-recovery-and-runtime-state-wiring.md`
   - `kanban/40-review/extract-webchannel-message-write-and-followup-coordination.md`
   - `kanban/40-review/extract-webchannel-endpoint-facade-and-handler-contexts.md`
-  - `kanban/20-doing/extract-webchannel-agent-control-plane-wrappers.md`
+  - `kanban/40-review/extract-webchannel-agent-control-plane-wrappers.md`
+  - `kanban/20-doing/extract-webchannel-terminal-and-vnc-http-wrappers.md`
