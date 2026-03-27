@@ -19,6 +19,7 @@ import type { AgentToolResult, ExtensionAPI, ExtensionFactory } from "@mariozech
 import { WORKSPACE_DIR } from "../core/config.js";
 import { createMedia } from "../db/media.js";
 import { createLogger } from "../utils/logger.js";
+import { buildAutoresearchSubagentCommand } from "./autoresearch-launcher.js";
 import { clearAutoresearchSessionFiles, prepareDirectAutoresearchWorktree } from "./autoresearch-workdir.js";
 import { postMessagesToolMessage } from "./messages-crud.js";
 
@@ -412,6 +413,19 @@ function buildAutoresearchWidgetPayload(
   };
 }
 
+function clearAutoresearchStatusPanel(
+  broadcastEvent: (type: string, data: unknown) => void,
+  chatJid: string,
+): void {
+  autoresearchWidgetsByChat.delete(chatJid);
+  broadcastEvent("extension_ui_widget", {
+    chat_jid: chatJid,
+    key: "autoresearch",
+    content: [],
+    options: { surface: "status-panel", remove: true },
+  });
+}
+
 function emitAutoresearchStatus(
   broadcastEvent: (type: string, data: unknown) => void,
   exp: ActiveExperiment | null,
@@ -430,13 +444,7 @@ function emitAutoresearchStatus(
       report: report ?? null,
     });
     if (!widget) {
-      autoresearchWidgetsByChat.delete(exp.chatJid);
-      broadcastEvent("extension_ui_widget", {
-        chat_jid: exp.chatJid,
-        key: "autoresearch",
-        content: [],
-        options: { surface: "status-panel", remove: true },
-      });
+      clearAutoresearchStatusPanel(broadcastEvent, exp.chatJid);
       return;
     }
     autoresearchWidgetsByChat.set(exp.chatJid, widget);
@@ -444,6 +452,31 @@ function emitAutoresearchStatus(
   } catch {
     // best effort only
   }
+}
+
+function emitAutoresearchLaunchPlaceholder(
+  broadcastEvent: (type: string, data: unknown) => void,
+  params: { project_dir: string; prompt: string; model?: string; max_iterations?: number },
+  chatJid: string,
+): void {
+  const displayName = params.prompt.slice(0, 80) || basename(resolve(params.project_dir)) || "Experiment";
+  const summary = buildExperimentSummary([]);
+  summary.name = displayName;
+  const placeholder: ActiveExperiment = {
+    id: `launching-${Date.now().toString(36)}`,
+    tmuxSession: "",
+    projectDir: resolve(params.project_dir),
+    jsonlPath: join(SESSIONS_DIR, `.launching-${Date.now().toString(36)}.jsonl`),
+    model: params.model || null,
+    maxIterations: params.max_iterations ?? null,
+    startedAt: new Date().toISOString(),
+    pollInterval: null,
+    lastJsonlOffset: 0,
+    lastActivityAt: Date.now(),
+    chatJid,
+    displayName,
+  };
+  emitAutoresearchStatus(broadcastEvent, placeholder, "running", summary, null, []);
 }
 
 export function getAutoresearchWidgetPayload(chatJid?: string | null): ExtensionStatusWidgetPayload | null {
@@ -669,6 +702,12 @@ async function startAutoresearch(
   broadcastEvent: (type: string, data: unknown) => void,
   chatJid?: string,
 ): Promise<AgentToolResult<Record<string, unknown>>> {
+  const resolvedChatJid = chatJid || resolveStatusChatJid();
+  const failStart = (message: string, details: Record<string, unknown> = {}) => {
+    clearAutoresearchStatusPanel(broadcastEvent, resolvedChatJid);
+    return buildResult(message, details);
+  };
+
   // Prerequisites
   const piPath = spawnSync("which", ["pi"], { encoding: "utf8" }).stdout.trim();
   if (!piPath) return buildResult("❌ pi CLI not found. Install pi first.");
@@ -685,6 +724,8 @@ async function startAutoresearch(
 
   const projectDir = resolve(params.project_dir);
   if (!existsSync(projectDir)) return buildResult(`❌ Project directory does not exist: ${projectDir}`);
+
+  emitAutoresearchLaunchPlaceholder(broadcastEvent, params, resolvedChatJid);
 
   const useSandbox = params.sandbox !== false;
 
@@ -710,7 +751,7 @@ async function startAutoresearch(
       try {
         execSync(`cp -a ${JSON.stringify(projectDir + "/")} ${JSON.stringify(sandboxDir)}`, { stdio: "ignore" });
       } catch (err) {
-        return buildResult(`❌ Failed to copy project to sandbox: ${err instanceof Error ? err.message : String(err)}`);
+        return failStart(`❌ Failed to copy project to sandbox: ${err instanceof Error ? err.message : String(err)}`);
       }
       clearAutoresearchSessionFiles(sandboxDir);
     }
@@ -724,7 +765,7 @@ async function startAutoresearch(
       worktreeRoot = prepared.worktreeRoot;
       workDir = prepared.workDir;
     } catch (err) {
-      return buildResult(`❌ Failed to prepare direct autoresearch worktree ${branchName}: ${err instanceof Error ? err.message : String(err)}`);
+      return failStart(`❌ Failed to prepare direct autoresearch worktree ${branchName}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -749,7 +790,6 @@ async function startAutoresearch(
     );
   }
 
-  const resolvedChatJid = chatJid || resolveStatusChatJid();
   const displayName = params.prompt.slice(0, 80) || basename(workDir) || "Experiment";
   writeSessionMetadata(workDir, {
     chat_jid: resolvedChatJid,
@@ -762,18 +802,17 @@ async function startAutoresearch(
   // Build tmux command
   const tmuxSession = `${TMUX_SESSION_PREFIX}${id}`;
   const model = params.model || "";
-  const modelArgs = model ? `--model ${JSON.stringify(model)}` : "";
   const extPath = join(VENDOR_DIR, "extensions", "pi-autoresearch", "index.ts");
   const skillPath = join(VENDOR_DIR, "skills", "autoresearch-create");
-  const escapedPrompt = params.prompt.replace(/"/g, '\\"');
-  const piInvocation = hasExistingData
-    ? `"/autoresearch resume the experiment loop — read autoresearch.md for context"`
-    : `"/skill:autoresearch-create ${escapedPrompt}"`;
-  const continueFlag = hasExistingData ? "--continue" : "";
-  const piCommand = [
-    `cd ${JSON.stringify(workDir)}`,
-    `exec pi ${modelArgs} ${continueFlag} --extension ${JSON.stringify(extPath)} --skill ${JSON.stringify(skillPath)} --session-dir ${JSON.stringify(join(sessionDir, "sessions"))} ${piInvocation}`,
-  ].join(" && ");
+  const piCommand = buildAutoresearchSubagentCommand({
+    workDir,
+    model,
+    extPath,
+    skillPath,
+    sessionDir: join(sessionDir, "sessions"),
+    prompt: params.prompt,
+    hasExistingData,
+  });
 
   const tmuxResult = spawnSync("tmux", [
     "new-session", "-d",
@@ -783,7 +822,7 @@ async function startAutoresearch(
   ], { stdio: "ignore" });
 
   if (tmuxResult.status !== 0) {
-    return buildResult(`❌ Failed to create tmux session (exit ${tmuxResult.status}).`);
+    return failStart(`❌ Failed to create tmux session (exit ${tmuxResult.status}).`);
   }
 
 
