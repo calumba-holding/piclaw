@@ -50,9 +50,17 @@ interface ModelRegistryLike {
 
 // ── Config paths ────────────────────────────────────────────────
 
-const PI_AGENT_DIR = join(homedir(), ".pi", "agent");
-const AUTH_JSON = join(PI_AGENT_DIR, "auth.json");
-const MODELS_JSON = join(PI_AGENT_DIR, "models.json");
+function getPiAgentDir(): string {
+  return process.env.PICLAW_PI_AGENT_DIR?.trim() || join(homedir(), ".pi", "agent");
+}
+
+function getAuthJsonPath(): string {
+  return join(getPiAgentDir(), "auth.json");
+}
+
+function getModelsJsonPath(): string {
+  return join(getPiAgentDir(), "models.json");
+}
 
 function backupFile(path: string): void {
   if (!existsSync(path)) return;
@@ -134,7 +142,7 @@ function getProviderStatuses(authStorage: AuthStorageLike): ProviderStatus[] {
     if (cred?.type === "oauth") authType = "oauth";
     else if (cred?.type === "api_key") authType = "api_key";
     else if (def.isCustom) {
-      const models = readJsonFile(MODELS_JSON) as { providers?: Record<string, unknown> };
+      const models = readJsonFile(getModelsJsonPath()) as { providers?: Record<string, unknown> };
       if (models.providers?.[def.id]) authType = "custom";
     }
     return { def, authType };
@@ -253,7 +261,7 @@ function buildCard2OAuth(def: ProviderDef, authUrl: string, instructions: string
 }
 
 function buildCard2Config(def: ProviderDef): Record<string, unknown> {
-  const models = readJsonFile(MODELS_JSON) as { providers?: Record<string, Record<string, unknown>> };
+  const models = readJsonFile(getModelsJsonPath()) as { providers?: Record<string, Record<string, unknown>> };
   const existing = models.providers?.[def.id] || {};
 
   const body: unknown[] = [
@@ -514,7 +522,7 @@ async function handleStep2(
   if (method === "api_key") {
     const apiKey = String(data.api_key || "").trim();
     if (!apiKey) return { status: "error", message: "API key cannot be empty." };
-    backupFile(AUTH_JSON);
+    backupFile(getAuthJsonPath());
     authStorage.set(providerId, { type: "api_key", key: apiKey });
     authStorage.reload();
     // Show Card 3 with models for this provider, or activate directly when only one exists.
@@ -556,11 +564,11 @@ async function handleStep2(
     if (modelId && !allIds.includes(modelId)) allIds.unshift(modelId);
     const models = allIds.map((id) => ({ id, name: id, ...(contextWindow ? { contextWindow } : {}) }));
 
-    backupFile(MODELS_JSON);
-    const modelsJson = readJsonFile(MODELS_JSON) as { providers?: Record<string, unknown> };
+    backupFile(getModelsJsonPath());
+    const modelsJson = readJsonFile(getModelsJsonPath()) as { providers?: Record<string, unknown> };
     if (!modelsJson.providers) modelsJson.providers = {};
     modelsJson.providers[providerId] = { baseUrl, api: def.customApi || "openai-completions", ...(apiKey ? { apiKey } : {}), models };
-    writeJsonFile(MODELS_JSON, modelsJson);
+    writeJsonFile(getModelsJsonPath(), modelsJson);
 
     return {
       status: "success",
@@ -571,16 +579,16 @@ async function handleStep2(
   if (method === "logout") {
     const cred = authStorage.get(providerId);
     if (cred) {
-      backupFile(AUTH_JSON);
+      backupFile(getAuthJsonPath());
       authStorage.set(providerId, undefined as unknown as Record<string, unknown>);
       authStorage.reload();
     }
     if (def?.isCustom) {
-      const modelsJson = readJsonFile(MODELS_JSON) as { providers?: Record<string, unknown> };
+      const modelsJson = readJsonFile(getModelsJsonPath()) as { providers?: Record<string, unknown> };
       if (modelsJson.providers?.[providerId]) {
-        backupFile(MODELS_JSON);
+        backupFile(getModelsJsonPath());
         delete modelsJson.providers[providerId];
-        writeJsonFile(MODELS_JSON, modelsJson);
+        writeJsonFile(getModelsJsonPath(), modelsJson);
       }
     }
     return { status: "success", message: `✓ **${name}** removed. Backups created.` };
@@ -695,7 +703,7 @@ export async function handleLogout(
     const providerId = command.provider.trim().toLowerCase();
     const cred = authStorage.get(providerId);
     if (!cred) return { status: "error", message: `**${providerId}** is not logged in.` };
-    backupFile(AUTH_JSON);
+    backupFile(getAuthJsonPath());
     authStorage.set(providerId, undefined as unknown as Record<string, unknown>);
     authStorage.reload();
     return { status: "success", message: `✓ Logged out from **${providerId}**.` };

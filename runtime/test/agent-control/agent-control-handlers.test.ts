@@ -7,7 +7,7 @@
  */
 
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { existsSync, mkdirSync, readFileSync, rmSync, truncateSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, truncateSync, writeFileSync } from "fs";
 import { dirname, join, resolve } from "path";
 import { withChatContext } from "../../src/core/chat-context.js";
 import { getTestWorkspace, setEnv } from "../helpers.js";
@@ -270,6 +270,49 @@ test("agent control queue, compact, and abort commands", async () => {
   const queued = await applyControlCommand(session as any, registry, { type: "queue", message: "queued text", raw: "/queue queued text" });
   expect(queued.message).toContain("Queued follow-up");
   expect(queued.queued_followup).toBe(true);
+});
+
+test("login config writes stay inside the overridden pi-agent dir", async () => {
+  const ws = getTestWorkspace();
+  const piAgentDir = join(ws.workspace, ".pi-agent-test");
+  restoreEnv = setEnv({
+    PICLAW_WORKSPACE: ws.workspace,
+    PICLAW_STORE: ws.store,
+    PICLAW_DATA: ws.data,
+    PICLAW_PI_AGENT_DIR: piAgentDir,
+  });
+
+  mkdirSync(piAgentDir, { recursive: true });
+  writeFileSync(join(piAgentDir, "auth.json"), JSON.stringify({ openai: { type: "api_key", key: "old-key" } }, null, 2));
+
+  const applyControlCommand = await getControl();
+  const loginRegistry = createTestModelRegistry([{ provider: "openai", id: "gpt-test", name: "GPT Test", reasoning: true }]);
+  const session = new TestAgentControlSession(ws.workspace, loginRegistry);
+
+  const apiKeyResult = await applyControlCommand(session as any, loginRegistry, {
+    type: "login",
+    provider: `__step2 ${JSON.stringify({ provider: "openai", method: "api_key", api_key: "new-key" })}`,
+    raw: "/login __step2",
+  });
+  expect(apiKeyResult.status).toBe("success");
+  expect(apiKeyResult.model_label).toBe("openai/gpt-test");
+  expect(session.model?.provider).toBe("openai");
+  expect(session.model?.id).toBe("gpt-test");
+  const authBackups = readdirSync(piAgentDir).filter((name) => name.startsWith("auth.json.") && name.endsWith(".bak"));
+  expect(authBackups.length).toBeGreaterThan(0);
+
+  const configureResult = await applyControlCommand(session as any, loginRegistry, {
+    type: "login",
+    provider: `__step2 ${JSON.stringify({ provider: "ollama", method: "configure", baseUrl: "http://127.0.0.1:11434/v1", modelId: "llama3:latest", modelIds: "qwen3:latest", contextWindow: "128000" })}`,
+    raw: "/login __step2",
+  });
+  expect(configureResult.status).toBe("success");
+
+  const modelsPath = join(piAgentDir, "models.json");
+  expect(existsSync(modelsPath)).toBe(true);
+  const modelsJson = JSON.parse(readFileSync(modelsPath, "utf-8"));
+  expect(modelsJson.providers?.ollama?.baseUrl).toBe("http://127.0.0.1:11434/v1");
+  expect(modelsJson.providers?.ollama?.models?.map((entry: { id: string }) => entry.id)).toEqual(["llama3:latest", "qwen3:latest"]);
 });
 
 test("agent control cycle and agent identity commands", async () => {
