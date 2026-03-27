@@ -4,7 +4,7 @@ title: "Refactor: split AgentPool into session, tools, and turn modules"
 status: next
 priority: critical
 created: 2026-03-23
-updated: 2026-03-23
+updated: 2026-03-27
 tags:
   - refactor
   - modularity
@@ -18,9 +18,9 @@ blocked-by: []
 
 ## Summary
 
-`src/agent-pool.ts` is 1,438 lines with 8 exported interfaces, a large `AgentPool` class, and 9 standalone helper functions. It handles session lifecycle, tool creation, turn tracking, branch registration, forking, prompt timeouts, and provider usage — all in one file.
+`runtime/src/agent-pool.ts` is 1,632 lines with a large `AgentPool` class, multiple exported contracts, and standalone helper functions. It handles session lifecycle, tool creation, turn tracking, branch registration, forking, prompt timeouts, and provider usage — all in one file.
 
-The `agent-pool/` sub-directory already exists with 7 helper modules (attachments, logging, orphan-tool-results, provider-usage, session, slash-command, usage), but the main class still holds most of the logic.
+The `runtime/src/agent-pool/` sub-directory already exists with several helper modules, but the main class still holds most of the logic.
 
 ## Scope
 
@@ -48,6 +48,13 @@ Split into:
 
 - 18 import lines confirm the coupling surface
 - 17 `catch(e)` + 15 `catch {}` blocks — error handling needs attention during extraction
+
+## Updates
+
+### 2026-03-27
+- Repo-status audit refreshed the size callout to match the current file: `runtime/src/agent-pool.ts` is now 1,632 lines.
+- Ticket remains valid; the existing helper-module subdirectory is not enough because the central orchestration class still owns too much lifecycle and turn-state logic.
+- Quality: ★★★★☆ 7/10 (problem: 2, scope: 1, test: 1, deps: 2, risk: 1)
 
 ## Links
 

@@ -1,10 +1,10 @@
 ---
 id: timeline-launched-floating-generative-widget-pane
 title: Prototype a timeline-launched floating generative widget pane
-status: doing
+status: review
 priority: medium
 created: 2026-03-19
-updated: 2026-03-22
+updated: 2026-03-27
 target_release: next
 estimate: M
 risk: high
@@ -306,6 +306,17 @@ add focused coverage for:
 - [ ] Update history records implementation and validation evidence.
 
 ## Updates
+
+### 2026-03-27
+- Lane change: `20-doing` → `40-review`.
+- Repo-status audit confirmed the v1 floating-widget implementation is present across the shipped runtime/web path:
+  - SSE event allowlist in `runtime/src/channels/web/sse.ts`
+  - generated-widget event broadcast wiring in `runtime/src/channels/web/agent-events.ts`
+  - live widget session handling in `runtime/web/src/app.ts`
+  - floating overlay host in `runtime/web/src/components/floating-widget-pane.ts`
+  - timeline `generated_widget` receipt rendering in `runtime/web/src/components/post.ts` and `runtime/web/src/ui/generated-widget.ts`
+- The ticket remains in `review` rather than `done` because the remaining gap is validation, not implementation: dismiss/reopen interaction coverage, current-chat scoping verification, narrow/mobile validation, and a final review pass on any deferred phase-2/runtime follow-up split.
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 1, deps: 2, risk: 1)
 
 ### 2026-03-22
 - Continued the Phase 2/runtime slice rather than treating the pane as a static receipt only.

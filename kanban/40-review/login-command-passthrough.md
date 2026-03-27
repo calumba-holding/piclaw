@@ -1,10 +1,10 @@
 ---
 id: login-command-passthrough
 title: Pass /login command through to pi and effect successful logins
-status: doing
+status: review
 priority: medium
 created: 2026-03-11
-updated: 2026-03-18
+updated: 2026-03-27
 tags:
   - work-item
   - kanban
@@ -18,10 +18,9 @@ owner: pi
 
 ## Summary
 
-The `/login` slash command should be intercepted in the web chat flow and passed
-through to the pi coding agent's built-in login flow for backend provider
-authentication. Currently `/login` is not registered as a recognized command in
-piclaw's command parser, so it either gets sent as a chat message or ignored.
+Implement and verify the `/login` slash command handoff in the web chat flow so
+piclaw routes provider authentication through pi's built-in login/auth storage
+flow instead of treating `/login` as a normal chat message.
 
 This ticket is specifically about handing off to pi's provider-auth flow and
 surfacing whatever follow-up inputs, login URLs, or prompts that flow requires.
@@ -38,11 +37,11 @@ It is not about piclaw's own web/TOTP/passkey session login.
 
 ## Acceptance Criteria
 
-- [ ] `/login` recognized as a slash command in the web chat flow.
-- [ ] Command is forwarded to pi's built-in `/login` handler rather than being sent as a normal chat message.
-- [ ] Any follow-up provider-auth steps required by pi are surfaced correctly to the user.
+- [x] `/login` recognized as a slash command in the web chat flow.
+- [x] Command is forwarded to pi's built-in `/login` handler rather than being sent as a normal chat message.
+- [x] Any follow-up provider-auth steps required by pi are surfaced via the card-driven login flow.
 - [ ] After successful provider authentication, the user stays in the same chat view.
-- [ ] Scope remains limited to pi/provider-auth integration rather than piclaw's own web auth stack.
+- [x] Scope remains limited to pi/provider-auth integration rather than piclaw's own web auth stack.
 - [ ] Error cases handled gracefully for provider-auth failures or cancellations.
 
 ## Investigation Needed
@@ -52,6 +51,17 @@ It is not about piclaw's own web/TOTP/passkey session login.
 - How should provider-auth prompts/URLs be relayed through the web chat flow?
 
 ## Updates
+
+### 2026-03-27
+- Lane change: `20-doing` → `40-review`.
+- Repo-status audit found the implementation present in code:
+  - `/login` command registered in `runtime/src/agent-control/command-registry.ts`
+  - parser wiring in `runtime/src/agent-control/command-parsers.ts`
+  - card-driven provider-auth implementation in `runtime/src/agent-control/handlers/login.ts`
+  - web submission routing in `runtime/src/channels/web.ts`
+- Updated the ticket summary/criteria to match current reality instead of describing `/login` as entirely unimplemented.
+- Remaining review gap: run an end-to-end validation for at least one OAuth/manual-paste flow and one API-key flow, confirming same-chat UX and graceful failure behavior.
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 1, deps: 2, risk: 1)
 
 ### 2026-03-18 — Refinement complete (8 questions)
 

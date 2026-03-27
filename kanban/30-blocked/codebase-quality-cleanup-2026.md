@@ -4,7 +4,7 @@ title: "Master: codebase quality cleanup & refactoring (2026-Q1)"
 status: blocked
 priority: critical
 created: 2026-03-23
-updated: 2026-03-23
+updated: 2026-03-27
 tags:
   - master
   - refactor
@@ -14,9 +14,8 @@ owner: pi
 blocked-by:
   - split-webchannel-god-class
   - split-agentpool-god-class
-  - fix-failing-tests-stale-assertions
-  - audit-silent-catch-blocks
-  - add-tests-core-config-and-keychain
+  - finish-config-injection-and-mutable-identity-cleanup
+  - audit-exported-jsdoc-coverage-and-comment-quality
 ---
 
 # Master: codebase quality cleanup & refactoring (2026-Q1)
@@ -39,24 +38,31 @@ Tracking ticket for the major piclaw codebase cleanup and refactoring effort, ba
 | Silent catch ratio | 188:96 (2:1) — needs work |
 | God-class risk | 2 files > 1,400 lines — critical |
 
-## Blocking tickets (P0 + P1)
+## Current blocking tickets
 
-All must be completed before this ticket can close.
+These are the open tickets that still block this umbrella from closing.
 
-### P0 — Critical
-
-| Ticket | Status | Description |
-|---|---|---|
-| `split-webchannel-god-class` | next | Split 1,595-line WebChannel into composable services |
-| `split-agentpool-god-class` | next | Split 1,438-line AgentPool into session/tools/turn modules |
-
-### P1 — High
+### P0 — Critical structural refactors
 
 | Ticket | Status | Description |
 |---|---|---|
-| `fix-failing-tests-stale-assertions` | next | Fix 3 failing tests (extension count + terminal mocks) |
-| `audit-silent-catch-blocks` | review | Audit 188 silent catch {} blocks |
-| `add-tests-core-config-and-keychain` | next | Add tests for 0-3% coverage modules |
+| `split-webchannel-god-class` | next | Split 1,905-line WebChannel into composable services |
+| `split-agentpool-god-class` | next | Split 1,632-line AgentPool into session/tools/turn modules |
+
+### Active supporting quality work
+
+| Ticket | Status | Description |
+|---|---|---|
+| `finish-config-injection-and-mutable-identity-cleanup` | doing | Finish the remaining config-consumer cleanup and mutable-identity seam work after typed config extraction landed |
+| `audit-exported-jsdoc-coverage-and-comment-quality` | doing | Re-establish the exported JSDoc/comment-quality review gate on active seams |
+
+### Former blockers now resolved
+
+| Ticket | Current status | Outcome |
+|---|---|---|
+| `fix-failing-tests-stale-assertions` | done | Closed after verifying the stale failures no longer reproduced |
+| `audit-silent-catch-blocks` | done | Completed and moved out of the blocker chain |
+| `add-tests-core-config-and-keychain` | done | Coverage work landed and no longer blocks the umbrella |
 
 ## Follow-up work (P2/P3 — not blocking)
 
@@ -65,21 +71,30 @@ These are desirable but not required to close this ticket:
 | Priority | Ticket | Item |
 |---|---|---|
 | P2 | `adopt-pino-structured-logging` | Adopt structured logging and explicit error-handling guards |
-| P2 | `group-web-channel-flat-files` | Group 54 flat files into sub-directories |
-| P2 | `extract-typed-config-objects` | Extract 45 constants into typed config objects |
+| P2 | `group-web-channel-flat-files` | Group 56 flat files into sub-directories |
+| P2 | `extract-typed-config-objects` | Extract 45 constants into typed config objects *(done — follow-up now tracked by `finish-config-injection-and-mutable-identity-cleanup`)* |
 | P3 | — | Split `web/src/app.ts` (3,571 lines) |
 | P3 | — | Split `web/static/css/styles.css` (5,942 lines) |
 | P3 | — | Fix `ipc.ts → MediaService` dependency direction violation |
 
 ## Completion criteria
 
-- [ ] All 5 blocking tickets are in `50-done/`
+- [ ] All current blocker tickets are in `50-done/`
 - [ ] Full test suite passes (0 failures)
 - [ ] No file in `src/` exceeds 800 lines
 - [ ] No class exceeds 400 lines
 - [ ] Silent catch ratio is below 1:1 (more named than silent)
 - [ ] `core/` and `secure/` test coverage ≥ 50%
 - [ ] Re-run quality assessment and confirm grade improvement
+
+## Updates
+
+### 2026-03-27
+- Refreshed the blocker chain after repo-status audit.
+- Removed stale blockers that are already in `50-done/`: `fix-failing-tests-stale-assertions`, `audit-silent-catch-blocks`, and `add-tests-core-config-and-keychain`.
+- Repointed the active config-quality dependency to `finish-config-injection-and-mutable-identity-cleanup` and the documentation-quality dependency to `audit-exported-jsdoc-coverage-and-comment-quality`.
+- Updated the open refactor size callouts so the umbrella matches current repo reality (`WebChannel`: 1,905 lines; `AgentPool`: 1,632 lines).
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 1, deps: 2, risk: 1)
 
 ## Links
 
