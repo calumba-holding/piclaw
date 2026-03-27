@@ -70,9 +70,10 @@ Extract `WebChannel` into a composition of focused services:
   5. run `bun run typecheck`
   6. only then widen scope if still justified
 - Result: the server lifecycle + websocket gateway seam landed behind `runtime/src/channels/web/server-lifecycle-gateway-service.ts`, then was tightened further with `createWebServerLifecycleGateway(...)`, shrinking `runtime/src/channels/web.ts` from 1824 to 1649 lines while preserving existing auth/CSRF/upgrade behavior.
+- The SSE/session-broadcast seam then landed behind `runtime/src/channels/web/session-broadcast-service.ts`, removing the direct SSE hub / UI bridge wiring from `WebChannel` while preserving request routing and fanout semantics.
 - Split the next bounded seam into:
-  - `kanban/20-doing/extract-webchannel-sse-broadcast-and-session-wiring.md`
-- Rationale: SSE client lifecycle + broadcast/session wiring remains one of the larger orchestration responsibilities still living on `WebChannel` after the first two extractions.
+  - `kanban/20-doing/extract-webchannel-recovery-and-runtime-state-wiring.md`
+- Rationale: recovery orchestration and runtime-state glue remain one of the larger non-HTTP responsibility clusters still living on `WebChannel` after the first three extractions.
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-27
@@ -95,4 +96,5 @@ Extract `WebChannel` into a composition of focused services:
 - Child slices:
   - `kanban/40-review/extract-webchannel-queued-followup-service.md`
   - `kanban/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`
-  - `kanban/20-doing/extract-webchannel-sse-broadcast-and-session-wiring.md`
+  - `kanban/40-review/extract-webchannel-sse-broadcast-and-session-wiring.md`
+  - `kanban/20-doing/extract-webchannel-recovery-and-runtime-state-wiring.md`

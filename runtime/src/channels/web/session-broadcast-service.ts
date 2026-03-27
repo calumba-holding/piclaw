@@ -1,0 +1,52 @@
+/**
+ * web/session-broadcast-service.ts – WebChannel SSE/session broadcast seam.
+ *
+ * Centralizes the web channel's realtime browser wiring: SSE request handling,
+ * channel-wide event fanout, and agent-session binding into the UI bridge.
+ * This keeps `channels/web.ts` focused on HTTP endpoint orchestration while
+ * preserving the existing public surface (`sse`, `uiBridge`, `handleSse()`,
+ * and `broadcastEvent()`).
+ */
+
+import type { AgentSession } from "@mariozechner/pi-coding-agent";
+
+import type { AgentPool } from "../../agent-pool.js";
+import { bindWebUiSessionBinder } from "./agent-pool-binder.js";
+import { SseHub } from "./sse-hub.js";
+import { UiBridge, type UiBridgeChannel } from "./ui-bridge.js";
+
+type SessionBinder = (session: AgentSession, chatJid: string) => Promise<void> | void;
+type SessionBinderInstaller = (agentPool: AgentPool, binder: SessionBinder) => void;
+
+interface WebSessionBroadcastServiceOpts {
+  sse?: SseHub;
+  uiBridge?: UiBridge;
+  bindSessionBinder?: SessionBinderInstaller;
+}
+
+/**
+ * Owns the SSE hub and extension UI bridge used by WebChannel.
+ *
+ * The service installs the agent-pool session binder exactly once so every new
+ * web session gets the existing UI bridge behavior without `web.ts` needing to
+ * wire the pieces together manually.
+ */
+export class WebSessionBroadcastService implements UiBridgeChannel {
+  readonly sse: SseHub;
+  readonly uiBridge: UiBridge;
+
+  constructor(agentPool: AgentPool, opts: WebSessionBroadcastServiceOpts = {}) {
+    this.sse = opts.sse ?? new SseHub();
+    this.uiBridge = opts.uiBridge ?? new UiBridge(this);
+    const bindSessionBinder = opts.bindSessionBinder ?? bindWebUiSessionBinder;
+    bindSessionBinder(agentPool, (session, chatJid) => this.uiBridge.bindSession(session, chatJid));
+  }
+
+  handleSse(req: Request): Response {
+    return this.sse.handleRequest(req);
+  }
+
+  broadcastEvent(eventType: string, data: unknown): void {
+    this.sse.broadcast(eventType, data);
+  }
+}

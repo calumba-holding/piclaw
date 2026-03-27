@@ -31,8 +31,7 @@ import {
   handleAgentMessage as handleAgentMessageRequest,
   processChat as processAgentChat,
 } from "./web/handlers/agent.js";
-import { SseHub } from "./web/sse-hub.js";
-import { UiBridge } from "./web/ui-bridge.js";
+import { WebSessionBroadcastService } from "./web/session-broadcast-service.js";
 import { ResponseService } from "./web/http/response-service.js";
 import {
   createWebSession,
@@ -69,7 +68,6 @@ import {
   handleAgentStatusRequest,
 } from "./web/agent-status.js";
 import { AgentBuffers, type WebAgentBufferEntry } from "./web/agent-buffers.js";
-import { bindWebUiSessionBinder } from "./web/agent-pool-binder.js";
 import {
   handleHashtagRequest,
   handleSearchRequest,
@@ -169,8 +167,6 @@ export class WebChannel implements WebChannelLike {
   queue: AgentQueue;
   agentPool: AgentPool;
   state = new WebChannelState(STATE_KEY);
-  sse = new SseHub();
-  uiBridge: UiBridge;
   remoteInterop: RemoteInteropService;
   responses = new ResponseService();
   requestRouter: RequestRouterService;
@@ -189,6 +185,7 @@ export class WebChannel implements WebChannelLike {
   authGateway: WebAuthGateway;
   terminalService = new TerminalSessionService();
   vncService = new VncSessionService();
+  private readonly sessionBroadcast: WebSessionBroadcastService;
   private readonly serverLifecycleGateway: WebServerLifecycleGatewayService;
   private readonly webServerConfig = getWebServerConfig();
   private readonly webRuntimeConfig = getWebRuntimeConfig();
@@ -196,7 +193,7 @@ export class WebChannel implements WebChannelLike {
   constructor(opts: WebChannelOpts) {
     this.queue = opts.queue;
     this.agentPool = opts.agentPool;
-    this.uiBridge = new UiBridge(this);
+    this.sessionBroadcast = new WebSessionBroadcastService(this.agentPool);
     this.remoteInterop = new RemoteInteropService(this.agentPool);
     this.agentStatusStore = new AgentStatusStore(this.state);
     this.interactionBroadcaster = createInteractionBroadcaster(this, () => {
@@ -235,13 +232,18 @@ export class WebChannel implements WebChannelLike {
       assistantAvatarRaw: getIdentityConfig().assistantAvatar || null,
       userAvatarRaw: getIdentityConfig().userAvatar || null,
     });
-    bindWebUiSessionBinder(this.agentPool, (session, chatJid) =>
-      this.uiBridge.bindSession(session, chatJid)
-    );
     this.serverLifecycleGateway = createWebServerLifecycleGateway(this, {
       webServerConfig: this.webServerConfig,
       webRuntimeConfig: this.webRuntimeConfig,
     });
+  }
+
+  get sse(): WebSessionBroadcastService["sse"] {
+    return this.sessionBroadcast.sse;
+  }
+
+  get uiBridge(): WebSessionBroadcastService["uiBridge"] {
+    return this.sessionBroadcast.uiBridge;
   }
 
   get server(): Bun.Server<WebSocketSessionData> | null {
@@ -573,7 +575,7 @@ export class WebChannel implements WebChannelLike {
   }
 
   handleSse(req: Request): Response {
-    return this.sse.handleRequest(req);
+    return this.sessionBroadcast.handleSse(req);
   }
 
   handleTerminalSession(req: Request): Response {
@@ -628,7 +630,7 @@ export class WebChannel implements WebChannelLike {
   }
 
   broadcastEvent(eventType: string, data: unknown): void {
-    this.sse.broadcast(eventType, data);
+    this.sessionBroadcast.broadcastEvent(eventType, data);
   }
 
   async handlePost(req: Request, isReply: boolean): Promise<Response> {

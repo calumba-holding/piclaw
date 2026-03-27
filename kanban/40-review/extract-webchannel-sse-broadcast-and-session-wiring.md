@@ -1,7 +1,7 @@
 ---
 id: extract-webchannel-sse-broadcast-and-session-wiring
 title: Extract WebChannel SSE broadcast and session wiring seam
-status: doing
+status: review
 priority: high
 created: 2026-03-27
 updated: 2026-03-27
@@ -118,29 +118,45 @@ validation while keeping event semantics unchanged.
 
 ## Test Plan
 
-- [ ] Add or strengthen focused tests for:
+- [x] Add or strengthen focused tests for:
   - SSE request handling / connection lifecycle
   - event broadcast payloads and fanout behavior
   - session binding / interaction broadcast glue where practical
-- [ ] Re-run affected integration coverage from:
+- [x] Re-run affected integration coverage from:
   - `runtime/test/channels/web/web-channel.test.ts`
   - any targeted SSE/event tests already covering broadcast behavior
-- [ ] Run validation in repair-first order:
+- [x] Run validation in repair-first order:
   1. focused SSE/event tests
   2. targeted `web-channel` tests
   3. `bun run lint`
   4. `bun run typecheck`
-- [ ] Leave behind a stable validation command/script if a canonical slice entrypoint emerges.
+- [x] Leave behind a stable validation command/script if a canonical slice entrypoint emerges.
 
 ## Definition of Done
 
-- [ ] Extracted SSE/broadcast seam is mergeable back to `main`.
-- [ ] Focused and integration validation are green.
-- [ ] Ticket `## Updates` records commands, evidence, and files touched.
-- [ ] Parent WebChannel split ticket is updated to reflect the next chosen seam.
-- [ ] Any larger adjacent follow-up seams discovered are split explicitly instead of bundled.
+- [x] Extracted SSE/broadcast seam is mergeable back to `main`.
+- [x] Focused and integration validation are green.
+- [x] Ticket `## Updates` records commands, evidence, and files touched.
+- [x] Parent WebChannel split ticket is updated to reflect the next chosen seam.
+- [x] Any larger adjacent follow-up seams discovered are split explicitly instead of bundled.
 
 ## Updates
+
+### 2026-03-27
+- Lane change: `20-doing` → `40-review` after the slice landed on `main` via `landing/sse-session-broadcast`.
+- Landed `runtime/src/channels/web/session-broadcast-service.ts` and delegated the public `sse`, `uiBridge`, `handleSse()`, and `broadcastEvent()` surfaces through it without changing SSE payload shapes, event names, request routing behavior, or session binding semantics.
+- Added focused seam coverage in:
+  - `runtime/test/channels/web/session-broadcast-service.test.ts`
+  - `runtime/test/channels/web/web-session-broadcast-surface.test.ts`
+  - `runtime/test/channels/web/web-session-broadcast-routing.test.ts`
+- Validation evidence:
+  - `bun test runtime/test/channels/web/session-broadcast-service.test.ts runtime/test/channels/web/web-session-broadcast-surface.test.ts runtime/test/channels/web/web-session-broadcast-routing.test.ts runtime/test/channels/web/web-channel.test.ts`
+  - `bun run lint`
+  - `bun run typecheck`
+- Result: `runtime/src/channels/web.ts` lost the direct SSE hub / UI bridge wiring while preserving current request routing and fanout semantics.
+- Next bounded seam split out explicitly instead of widening scope in-place:
+  - `kanban/20-doing/extract-webchannel-recovery-and-runtime-state-wiring.md`
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-27
 - Created as the next bounded execution slice under `split-webchannel-god-class` after the queued follow-up and server lifecycle/websocket gateway seams landed.
@@ -151,6 +167,7 @@ validation while keeping event semantics unchanged.
 ## Links
 
 - `kanban/20-doing/split-webchannel-god-class.md`
+- `kanban/20-doing/extract-webchannel-recovery-and-runtime-state-wiring.md`
 - `kanban/40-review/extract-webchannel-queued-followup-service.md`
 - `kanban/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`
 - `/workspace/notes/piclaw-autoresearch-audit-checklist.md`
