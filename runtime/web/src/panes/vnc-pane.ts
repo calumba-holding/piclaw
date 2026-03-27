@@ -169,6 +169,8 @@ class VncPaneInstance implements PaneInstance {
     private directPasswordInputEl = null;
     private hasRenderedFrame = false;
     private frameTimeoutId = null;
+    private reconnectTimerId = null;
+    private reconnectAttempts = 0;
     private rawFallbackAttempted = false;
     private protocolRecovering = false;
     private pendingHandoffToken = null;
@@ -220,8 +222,27 @@ class VncPaneInstance implements PaneInstance {
             this.displayStageEl.style.background = visible ? '#0a0a0a' : '#000';
         }
         if (this.displayPlaceholderEl?.style) {
-            this.displayPlaceholderEl.style.display = visible ? 'block' : 'none';
+            this.displayPlaceholderEl.style.display = visible && !this.hasRenderedFrame ? 'block' : 'none';
         }
+    }
+
+    private clearReconnectTimer() {
+        if (this.reconnectTimerId) {
+            clearTimeout(this.reconnectTimerId);
+            this.reconnectTimerId = null;
+        }
+    }
+
+    private scheduleReconnect() {
+        if (this.disposed || !this.targetId) return;
+        this.clearReconnectTimer();
+        const delayMs = Math.min(8000, 1500 + (this.reconnectAttempts * 1000));
+        this.reconnectAttempts += 1;
+        this.reconnectTimerId = setTimeout(() => {
+            this.reconnectTimerId = null;
+            if (this.disposed || !this.targetId) return;
+            void this.connectSocket();
+        }, delayMs);
     }
 
     private updateMetrics() {
@@ -262,6 +283,8 @@ class VncPaneInstance implements PaneInstance {
     }
 
     private resetLiveSession() {
+        this.clearReconnectTimer();
+        this.reconnectAttempts = 0;
         this.protocol = null;
         try { this.socketBoundary?.dispose?.(); } catch { /* expected: socket boundary may already be torn down during session resets. */ }
         this.socketBoundary = null;
@@ -799,6 +822,7 @@ class VncPaneInstance implements PaneInstance {
 
     private async connectSocket(preferredEncodings = null) {
         if (!this.targetId || this.disposed) return;
+        this.clearReconnectTimer();
         if (this.protocolRecovering && preferredEncodings == null) {
             this.protocolRecovering = false;
         }
@@ -828,18 +852,16 @@ class VncPaneInstance implements PaneInstance {
             protocolOptions.encodings = selectedEncodings;
         }
 
+        const preserveRenderedFrame = Boolean(this.canvas && this.hasRenderedFrame);
         this.protocol = new VncRemoteDisplayProtocol(protocolOptions);
-        this.hasRenderedFrame = false;
+        this.hasRenderedFrame = preserveRenderedFrame;
         this.frameTimeoutId = null;
 
-        // Hide stale framebuffer from a previous connection until the first
-        // frame arrives. Without this the old canvas stays visible during
-        // the handshake, often at the wrong scale.
         if (this.canvas) {
-            this.canvas.style.display = 'none';
+            this.canvas.style.display = preserveRenderedFrame ? 'block' : 'none';
         }
         if (this.displayPlaceholderEl) {
-            this.displayPlaceholderEl.style.display = '';
+            this.displayPlaceholderEl.style.display = preserveRenderedFrame ? 'none' : '';
         }
 
         this.socketBoundary = new WebSocketRemoteDisplayBoundary({
@@ -849,6 +871,7 @@ class VncPaneInstance implements PaneInstance {
                 if (handoffToken && this.pendingHandoffToken === handoffToken) {
                     this.pendingHandoffToken = null;
                 }
+                this.reconnectAttempts = 0;
                 this.setStatus(`Connected to proxy for ${this.targetId}. Waiting for VNC/RFB data…`);
                 this.updateDisplayInfo('WebSocket proxy connected. Waiting for handshake…');
                 this.updateDisplayMeta();
@@ -867,6 +890,14 @@ class VncPaneInstance implements PaneInstance {
                     this.frameTimeoutId = null;
                 }
                 if (this.disposed) return;
+                const shouldReconnect = this.bytesIn > 0 || this.hasRenderedFrame || this.reconnectAttempts > 0;
+                if (shouldReconnect) {
+                    this.setStatus('Remote display connection lost. Reconnecting…');
+                    this.updateDisplayInfo('Remote display transport closed. Attempting to reconnect…');
+                    this.updateDisplayMeta('reconnecting');
+                    this.scheduleReconnect();
+                    return;
+                }
                 this.setStatus(this.bytesIn > 0
                     ? `Proxy closed after receiving ${this.bytesIn} byte(s).`
                     : 'Proxy closed.');
@@ -877,6 +908,14 @@ class VncPaneInstance implements PaneInstance {
             },
             onError: () => {
                 this.setSessionChromeVisible(true);
+                const shouldReconnect = this.bytesIn > 0 || this.hasRenderedFrame || this.reconnectAttempts > 0;
+                if (shouldReconnect) {
+                    this.setStatus('WebSocket proxy connection failed. Reconnecting…');
+                    this.updateDisplayInfo('WebSocket proxy connection failed. Attempting to reconnect…');
+                    this.updateDisplayMeta('socket-reconnecting');
+                    this.scheduleReconnect();
+                    return;
+                }
                 this.setStatus('WebSocket proxy connection failed.');
                 this.updateDisplayInfo('WebSocket proxy connection failed.');
                 this.updateDisplayMeta('socket-error');
