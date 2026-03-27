@@ -5,29 +5,48 @@ import { DEFAULT_WEB_USER_ID, getWebSession } from "../../../db.js";
 import { WebSocketTcpBridge } from "../remote-display/websocket-tcp-bridge.js";
 import { getSessionTokenFromRequest } from "../session-auth.js";
 
+/** Allowlisted or direct-connect VNC target metadata. */
 export interface VncTargetRecord {
+  /** Stable target identifier used in API payloads and websocket ownership checks. */
   id: string;
+  /** Human-readable label shown in the web UI target picker. */
   label: string;
+  /** TCP host or IP address used for the upstream VNC socket connection. */
   host: string;
+  /** TCP port used for the upstream VNC socket connection. */
   port: number;
+  /** Whether the target should be presented as read-only in the UI. */
   readOnly?: boolean;
 }
 
+/** Ownership metadata stored on VNC websocket sessions and handoff tokens. */
 export interface VncSessionOwner {
+  /** Discriminator used by shared websocket bridge owner records. */
   kind: "vnc";
+  /** Session or fallback token associated with the websocket owner. */
   token: string;
+  /** Web user id associated with the session owner. */
   userId: string;
+  /** Resolved VNC target id attached to the websocket session. */
   targetRef: string;
+  /** Optional handoff token used when reattaching an existing session. */
   handoffToken?: string | null;
 }
 
+/** Websocket data payload carried by VNC websocket sessions. */
 export type VncSocketData = VncSessionOwner;
 
+/** Construction options for the VNC websocket/session bridge service. */
 export interface VncSessionServiceOptions {
+  /** Optional explicit allowlist of VNC targets, overriding env-based target parsing. */
   targets?: VncTargetRecord[];
+  /** Whether host:port direct-connect targets may be used in addition to allowlisted targets. */
   allowDirectTargets?: boolean;
+  /** Maximum time to wait for the upstream TCP socket to connect before aborting. */
   connectTimeoutMs?: number;
+  /** Time-to-live for generated websocket handoff tokens in milliseconds. */
   handoffTtlMs?: number;
+  /** Optional socket factory override for tests or custom transports. */
   createSocket?: (target: VncTargetRecord) => Socket;
 }
 
@@ -82,7 +101,11 @@ function sanitizeDirectHost(host: string): string | null {
   return null;
 }
 
-/** Parse a direct-connect VNC reference like 192.168.1.10:5901 or [fd00::1]:5901. */
+/**
+ * Parse a direct-connect VNC reference like `192.168.1.10:5901` or `[fd00::1]:5901`.
+ * @param input Raw target reference supplied by the caller.
+ * @returns A normalized direct-connect target record when the reference is valid, otherwise null.
+ */
 export function parseDirectVncTargetReference(input: string | null | undefined): VncTargetRecord | null {
   const text = String(input || "").trim();
   if (!text) return null;
@@ -121,7 +144,11 @@ export function parseDirectVncTargetReference(input: string | null | undefined):
   };
 }
 
-/** Parse allowlisted VNC targets from JSON env/config text. */
+/**
+ * Parse allowlisted VNC targets from JSON env/config text.
+ * @param raw JSON text containing an object or array of VNC target definitions.
+ * @returns Normalized allowlisted targets, or an empty array when parsing fails.
+ */
 export function parseVncTargets(raw?: string | null): VncTargetRecord[] {
   const text = String(raw || "").trim();
   if (!text) return [];
@@ -171,6 +198,10 @@ export class VncSessionService {
   private readonly handoffTtlMs: number;
   private readonly bridge: WebSocketTcpBridge<VncSocketData, VncTargetRecord>;
 
+  /**
+   * Create a VNC websocket/session bridge service.
+   * @param options Optional target, timeout, and socket-factory overrides.
+   */
   constructor(options: VncSessionServiceOptions = {}) {
     const configured = options.targets || parseVncTargets(process.env.PICLAW_WEB_VNC_TARGETS || process.env.PICLAW_VNC_TARGETS || "");
     for (const target of configured) {
@@ -226,10 +257,18 @@ export class VncSessionService {
     return socket;
   }
 
+  /**
+   * Report whether direct host:port VNC targets are enabled.
+   * @returns True when direct-connect targets are permitted.
+   */
   isDirectConnectEnabled(): boolean {
     return this.allowDirectTargets;
   }
 
+  /**
+   * List sanitized allowlisted targets safe for UI exposure.
+   * @returns Allowlisted targets without host/port details.
+   */
   getTargets(): Array<Pick<VncTargetRecord, "id" | "label" | "readOnly">> {
     return Array.from(this.targets.values()).map((target) => ({
       id: target.id,
@@ -238,11 +277,21 @@ export class VncSessionService {
     }));
   }
 
+  /**
+   * Resolve an allowlisted VNC target by id.
+   * @param targetId Caller-supplied target identifier.
+   * @returns The matching allowlisted target, or null when not found.
+   */
   getTarget(targetId: string): VncTargetRecord | null {
     const normalized = sanitizeId(targetId);
     return this.targets.get(normalized) || null;
   }
 
+  /**
+   * Resolve either an allowlisted target id or an optional direct-connect reference.
+   * @param targetRef Target id or direct host:port reference.
+   * @returns The normalized target record when allowed and valid, otherwise null.
+   */
   resolveTargetReference(targetRef: string): VncTargetRecord | null {
     const allowlisted = this.getTarget(targetRef);
     if (allowlisted) return allowlisted;
@@ -250,6 +299,13 @@ export class VncSessionService {
     return parseDirectVncTargetReference(targetRef);
   }
 
+  /**
+   * Resolve websocket owner metadata for a request targeting a VNC endpoint.
+   * @param req Incoming HTTP request carrying session cookies or query auth.
+   * @param targetRef Target id or direct-connect reference being requested.
+   * @param allowUnauthenticated Whether fallback local-owner access is allowed.
+   * @returns Owner metadata for the request when authorized, otherwise null.
+   */
   resolveOwnerFromRequest(req: Request, targetRef: string, allowUnauthenticated = false): VncSessionOwner | null {
     const target = this.resolveTargetReference(targetRef);
     if (!target) return null;
@@ -275,6 +331,13 @@ export class VncSessionService {
       && left.targetRef === right.targetRef;
   }
 
+  /**
+   * Create a websocket handoff token for an existing VNC connection owned by the request.
+   * @param req Incoming HTTP request carrying session cookies or query auth.
+   * @param targetRef Target id or direct-connect reference being handed off.
+   * @param allowUnauthenticated Whether fallback local-owner access is allowed.
+   * @returns A handoff token payload when a matching live connection exists, otherwise null.
+   */
   createHandoffFromRequest(req: Request, targetRef: string, allowUnauthenticated = false): { token: string; expires_at: string } | null {
     const owner = this.resolveOwnerFromRequest(req, targetRef, allowUnauthenticated);
     if (!owner) return null;
@@ -289,6 +352,11 @@ export class VncSessionService {
     };
   }
 
+  /**
+   * Build the UI-facing VNC session metadata payload.
+   * @param targetRef Optional target id/reference to resolve and describe in the response.
+   * @returns Transport metadata, allowlist exposure, and optional target details for the UI.
+   */
   getSessionInfo(targetRef?: string | null) {
     const target = targetRef ? this.resolveTargetReference(targetRef) : null;
     const isDirectTarget = Boolean(target && !this.targets.has(target.id));
@@ -311,6 +379,11 @@ export class VncSessionService {
     };
   }
 
+  /**
+   * Attach a websocket client to a VNC bridge connection or handoff session.
+   * @param ws Connected websocket carrying VNC owner metadata in `ws.data`.
+   * @returns Nothing.
+   */
   attachClient(ws: ServerWebSocket<VncSocketData>): void {
     const target = this.resolveTargetReference(ws.data.targetRef);
     if (!target) {
@@ -335,14 +408,29 @@ export class VncSessionService {
     this.bridge.attachClient(ws, target);
   }
 
+  /**
+   * Forward an inbound websocket frame to the VNC bridge.
+   * @param ws Connected websocket carrying VNC owner metadata.
+   * @param message Raw websocket frame payload.
+   * @returns Nothing.
+   */
   handleMessage(ws: ServerWebSocket<VncSocketData>, message: string | Buffer | Uint8Array): void {
     this.bridge.handleMessage(ws, message);
   }
 
+  /**
+   * Detach a websocket client from the VNC bridge.
+   * @param ws Connected websocket to remove.
+   * @returns Nothing.
+   */
   detachClient(ws: ServerWebSocket<VncSocketData>): void {
     this.bridge.detachClient(ws);
   }
 
+  /**
+   * Shut down all active VNC bridge sessions managed by this service.
+   * @returns Nothing.
+   */
   shutdown(): void {
     this.bridge.shutdown();
   }

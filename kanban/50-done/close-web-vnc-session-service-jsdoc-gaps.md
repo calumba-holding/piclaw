@@ -1,10 +1,11 @@
 ---
 id: close-web-vnc-session-service-jsdoc-gaps
 title: Close exported JSDoc gaps in web VNC session service
-status: next
+status: done
 priority: medium
 created: 2026-03-27
 updated: 2026-03-27
+completed: 2026-03-27
 target_release: next
 estimate: M
 risk: low
@@ -34,13 +35,26 @@ Primary follow-up scope:
 
 ## Acceptance Criteria
 
-- [ ] Exported interfaces/types in scope have type-level and property-level JSDoc.
-- [ ] Exported functions in scope have purpose + `@param` / `@returns` docs where applicable.
-- [ ] Exported classes in scope have class-level docs and public method docs.
-- [ ] Runtime behavior remains unchanged (documentation-only unless typing cleanup is required).
-- [ ] Validation evidence (`eslint` targeted + lint + typecheck) is recorded in ticket updates.
+- [x] Exported interfaces/types in scope have type-level and property-level JSDoc.
+- [x] Exported functions in scope have purpose + `@param` / `@returns` docs where applicable.
+- [x] Exported classes in scope have class-level docs and public method docs.
+- [x] Runtime behavior remains unchanged (documentation-only unless typing cleanup is required).
+- [x] Validation evidence (`eslint` targeted + lint + typecheck) is recorded in ticket updates.
 
 ## Updates
+
+### 2026-03-27
+- Lane change: `10-next` → `50-done` after closing the remaining exported-doc gap cluster in `runtime/src/channels/web/vnc/vnc-session-service.ts`.
+- Added review-gate JSDoc coverage for:
+  - exported interfaces/types and their properties
+  - exported parsing helpers with explicit `@param` / `@returns`
+  - `VncSessionService` constructor and public methods
+- Runtime behavior remained unchanged; this was a docs-only pass.
+- Validation:
+  - `bun test --max-concurrency=1 runtime/test/channels/web/vnc-session-service.test.ts` (6 pass / 0 fail)
+  - `bun run lint` (pass)
+  - `bun run typecheck` (pass)
+- Quality: ★★★★★ 9/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 2)
 
 ### 2026-03-27
 - Created after reviewing the merged autoresearch JSDoc branch and confirming that remaining adjacent exported-doc gaps now cluster in `runtime/src/channels/web/vnc/vnc-session-service.ts`.
