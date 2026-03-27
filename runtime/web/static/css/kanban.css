@@ -197,7 +197,8 @@
 }
 .kanban-plugin__item:hover { border-color: var(--kb-text-muted); }
 .kanban-plugin__item.is-dragging { opacity: 0.5; cursor: grabbing; }
-.kanban-plugin__item.is-complete .kanban-plugin__item-title { text-decoration: line-through; color: var(--kb-text-muted); }
+.kanban-plugin__item.is-complete .kanban-plugin__item-title,
+.kanban-plugin__item.is-complete .kanban-plugin__item-title :is(p, li, blockquote) { text-decoration: line-through; color: var(--kb-text-muted); }
 
 .kanban-plugin__item-content-wrapper, .kanban-plugin__item-title-wrapper { background: var(--kb-bg); }
 .kanban-plugin__item-title-wrapper { display: flex; padding: 6px 8px; align-items: flex-start; gap: 6px; }
@@ -213,6 +214,47 @@
 .kanban-plugin__item-checkbox.is-checked { color: var(--kb-accent); background: var(--kb-tag-bg); border-color: var(--kb-accent); }
 
 .kanban-plugin__item-title { width: 100%; line-height: 1.3; word-break: break-word; white-space: pre-wrap; }
+.kanban-plugin__item-markdown { white-space: normal; }
+.kanban-plugin__item-markdown > :first-child { margin-top: 0; }
+.kanban-plugin__item-markdown > :last-child { margin-bottom: 0; }
+.kanban-plugin__item-markdown p,
+.kanban-plugin__item-markdown ul,
+.kanban-plugin__item-markdown ol,
+.kanban-plugin__item-markdown pre,
+.kanban-plugin__item-markdown blockquote { margin: 0 0 0.45rem 0; }
+.kanban-plugin__item-markdown ul,
+.kanban-plugin__item-markdown ol { padding-left: 1.1rem; }
+.kanban-plugin__item-markdown li + li { margin-top: 0.15rem; }
+.kanban-plugin__item-markdown code {
+  font-family: var(--font-family-mono, ui-monospace, monospace);
+  font-size: 0.92em;
+  padding: 0.08rem 0.28rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--kb-bg-hover) 82%, transparent);
+}
+.kanban-plugin__item-markdown pre {
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  background: color-mix(in srgb, var(--kb-bg-secondary) 88%, var(--kb-bg));
+  border: 1px solid color-mix(in srgb, var(--kb-border) 88%, transparent);
+}
+.kanban-plugin__item-markdown pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+.kanban-plugin__item-markdown a {
+  color: var(--kb-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.kanban-plugin__item-markdown a:hover { color: var(--kb-accent-hover); }
+.kanban-plugin__item-markdown blockquote {
+  padding-left: 0.65rem;
+  border-left: 2px solid color-mix(in srgb, var(--kb-border-focus) 45%, var(--kb-border));
+  color: var(--kb-text-muted);
+}
 
 .kanban-plugin__item-postfix-button-wrapper { display: flex; flex-shrink: 0; opacity: 0; transition: opacity 0.1s; }
 .kanban-plugin__item:hover .kanban-plugin__item-postfix-button-wrapper { opacity: 1; }

@@ -56,6 +56,7 @@ let _pendingContentVersion = 0;
 // Drag state
 let draggedCard: { card: CardData; fromLaneId: string; fromIndex: number } | null = null;
 let draggedLane: { laneId: string; fromIndex: number } | null = null;
+const _cardMarkdownCache = new Map<string, string>();
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -113,6 +114,55 @@ function escapeMarkdownLine(line: string): string {
 function unescapeMarkdownLine(line: string): string {
   if (line.startsWith('\\#') || line.startsWith('\\---')) return line.slice(1);
   return line;
+}
+
+function sanitizeMarkdownUrl(rawUrl: string): string {
+  const text = String(rawUrl || '').trim();
+  if (!text) return '#';
+  if (text.startsWith('#') || text.startsWith('/')) return text;
+  try {
+    const parsed = new URL(text, window.location.origin);
+    if (['http:', 'https:', 'mailto:', 'tel:'].includes(parsed.protocol)) {
+      return parsed.toString();
+    }
+  } catch {
+    // ignore invalid urls
+  }
+  return '#';
+}
+
+function renderBasicCardMarkdown(text: string): string {
+  return text.replace(/\n/g, '<br>');
+}
+
+function renderCardMarkdown(text: string): string {
+  const source = String(text || '');
+  const cached = _cardMarkdownCache.get(source);
+  if (cached) return cached;
+
+  const escaped = escapeHtml(source);
+  let html = renderBasicCardMarkdown(escaped);
+  const markedApi = (globalThis as any)?.marked;
+  try {
+    if (markedApi?.parse) {
+      html = String(markedApi.parse(escaped, {
+        gfm: true,
+        breaks: true,
+        headerIds: false,
+        mangle: false,
+      }) || '');
+    }
+  } catch {
+    html = renderBasicCardMarkdown(escaped);
+  }
+
+  html = html.replace(/<a\s+([^>]*?)href=(['"])(.*?)\2([^>]*)>/gi, (_match, before, quote, href, after) => {
+    const safeHref = sanitizeMarkdownUrl(href);
+    return `<a ${before}href=${quote}${safeHref}${quote}${after} target="_blank" rel="noopener noreferrer">`;
+  });
+
+  _cardMarkdownCache.set(source, html);
+  return html;
 }
 
 function parseMarkdown(md: string): BoardData {
@@ -260,7 +310,7 @@ function Card({ card, laneId, cardIndex, onUpdate, onDelete, onArchive }: any) {
                 value=${editTitle} onInput=${handleInput}
                 onBlur=${() => { if (isEditing) saveEdit(); }}
                 onKeyDown=${handleKeyDown} />
-            ` : html`<div class="kanban-plugin__item-title">${card.title}</div>`}
+            ` : html`<div class="kanban-plugin__item-title kanban-plugin__item-markdown" dangerouslySetInnerHTML=${{ __html: renderCardMarkdown(card.title) }}></div>`}
             <${ItemMenuButton} isEditing=${isEditing}
               onArchive=${() => onArchive(card)} onCancelEdit=${cancelEdit} />
           </div>
