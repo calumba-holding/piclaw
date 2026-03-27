@@ -213,7 +213,7 @@ test("agent pool can run a side prompt with the current model and thinking level
   const pool = new AgentPool({
     createSession: async () => new StubSession() as any,
     modelRegistry: {
-      getApiKey: async () => "test-key",
+      getApiKeyAndHeaders: async () => ({ ok: true, apiKey: "test-key" }),
       find: () => undefined,
       getAll: () => [],
       getAvailable: () => [],
@@ -604,7 +604,7 @@ test("agent pool can run a tool-capable side prompt through a separate side sess
     createSession: async () => new MainSession() as any,
     createSideSession: async () => new SideSession() as any,
     modelRegistry: {
-      getApiKey: async () => "test-key",
+      getApiKeyAndHeaders: async () => ({ ok: true, apiKey: "test-key" }),
       find: () => undefined,
       getAll: () => [],
       getAvailable: () => [],

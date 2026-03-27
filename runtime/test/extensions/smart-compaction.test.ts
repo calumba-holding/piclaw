@@ -128,7 +128,6 @@ describe("smart-compaction", () => {
       model: { provider: "test", id: "test-model", reasoning: false },
       modelRegistry: {
         getApiKeyAndHeaders: vi.fn().mockResolvedValue({ ok: true, apiKey: "test-key", headers: { "X-Test": "1" } }),
-        getApiKey: vi.fn().mockResolvedValue("test-key"),
         getAll: vi.fn().mockReturnValue([]),
       },
       sessionManager: { getSessionId: () => "test-session-1" },

@@ -103,7 +103,7 @@ function createFakeApi() {
         refresh: () => {},
         getAvailable: () => models,
         getAll: () => models,
-        getApiKey: async () => "key",
+        getApiKeyAndHeaders: async () => ({ ok: true, apiKey: "key" }),
         getApiKeyForProvider: async () => "key",
       } as any,
       compact: () => {},
@@ -229,7 +229,7 @@ describe("model-control extension", () => {
         refresh: () => {},
         getAvailable: () => [makeModel(), badModel],
         getAll: () => [makeModel(), badModel],
-        getApiKey: async () => "key",
+        getApiKeyAndHeaders: async () => ({ ok: true, apiKey: "key" }),
         getApiKeyForProvider: async () => "key",
       } as any,
     } as any);
