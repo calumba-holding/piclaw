@@ -1,7 +1,7 @@
 ---
 id: extract-webchannel-server-lifecycle-and-websocket-gateway
 title: Extract WebChannel server lifecycle and websocket gateway seam
-status: doing
+status: review
 priority: high
 created: 2026-03-27
 updated: 2026-03-27
@@ -120,27 +120,27 @@ focused validation while keeping endpoint and transport behavior unchanged.
 
 ## Test Plan
 
-- [ ] Add or strengthen focused tests for:
+- [x] Add or strengthen focused tests for:
   - websocket upgrade auth / CSRF behavior
   - fetch dispatch between websocket upgrades and normal request handling
   - startup/shutdown lifecycle side effects where practical
-- [ ] Re-run affected integration coverage from:
+- [x] Re-run affected integration coverage from:
   - `runtime/test/channels/web/web-channel.test.ts`
   - existing terminal/VNC/auth web tests if touched
-- [ ] Run validation in repair-first order:
+- [x] Run validation in repair-first order:
   1. focused lifecycle/gateway tests
   2. targeted `web-channel` tests
   3. `bun run lint`
   4. `bun run typecheck`
-- [ ] Leave behind a stable validation command/script if a canonical slice entrypoint emerges.
+- [x] Leave behind a stable validation command/script if a canonical slice entrypoint emerges.
 
 ## Definition of Done
 
-- [ ] Extracted server lifecycle/websocket seam is mergeable back to `main`.
-- [ ] Focused and integration validation are green.
-- [ ] Ticket `## Updates` records commands, evidence, and files touched.
-- [ ] Parent WebChannel split ticket is updated to reflect the next chosen seam.
-- [ ] Any larger adjacent follow-up seams discovered are split explicitly instead of bundled.
+- [x] Extracted server lifecycle/websocket seam is mergeable back to `main`.
+- [x] Focused and integration validation are green.
+- [x] Ticket `## Updates` records commands, evidence, and files touched.
+- [x] Parent WebChannel split ticket is updated to reflect the next chosen seam.
+- [x] Any larger adjacent follow-up seams discovered are split explicitly instead of bundled.
 
 ## Updates
 
@@ -148,10 +148,21 @@ focused validation while keeping endpoint and transport behavior unchanged.
 - Created as the next bounded execution slice under `split-webchannel-god-class` after the queued follow-up lifecycle extraction landed on `main`.
 - Chosen because `start()` / `stop()` / websocket upgrade handling remain a cohesive orchestration seam already layered over `authGateway`, `terminalService`, `vncService`, and request routing.
 - Intended for the same repair-first loop used on the previous seam: focused tests first, then extraction, then targeted `web-channel` validation, then lint/typecheck.
+- Landed `runtime/src/channels/web/server-lifecycle-gateway-service.ts` and delegated `WebChannel.start()`, `stop()`, and `handleFetch()` through it without changing public API, HTTP status codes, auth/CSRF checks, or websocket payload threading.
+- Added focused seam coverage in `runtime/test/channels/web/server-lifecycle-gateway-service.test.ts` for fetch dispatch, terminal/VNC upgrade auth + CSRF enforcement, TLS fallback, bind retry, and stop-side-effect cleanup.
+- Validation evidence:
+  - `bun test runtime/test/channels/web/server-lifecycle-gateway-service.test.ts runtime/test/channels/web/web-channel.test.ts runtime/test/channels/web/terminal-session-service.test.ts runtime/test/channels/web/vnc-session-service.test.ts runtime/test/channels/web/security-hardening.test.ts runtime/test/channels/web/auth.test.ts`
+  - `bun run lint`
+  - `bun run typecheck`
+- Follow-up refinement from the final kept autoresearch run: moved the remaining theme-init, workspace-watcher startup, and link-preview purge wiring behind `createWebServerLifecycleGateway(...)` so the extracted seam owns the real runtime lifecycle orchestration instead of only the first pass of upgrade handling.
+- Result: `runtime/src/channels/web.ts` shrank from 1824 to 1649 lines in this slice while staying mergeable.
+- Next bounded seam split out explicitly instead of widening scope in-place:
+  - `kanban/20-doing/extract-webchannel-sse-broadcast-and-session-wiring.md`
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ## Links
 
 - `kanban/20-doing/split-webchannel-god-class.md`
+- `kanban/20-doing/extract-webchannel-sse-broadcast-and-session-wiring.md`
 - `kanban/40-review/extract-webchannel-queued-followup-service.md`
 - `/workspace/notes/piclaw-autoresearch-audit-checklist.md`

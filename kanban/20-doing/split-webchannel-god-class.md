@@ -69,6 +69,10 @@ Extract `WebChannel` into a composition of focused services:
   4. run `bun run lint`
   5. run `bun run typecheck`
   6. only then widen scope if still justified
+- Result: the server lifecycle + websocket gateway seam landed behind `runtime/src/channels/web/server-lifecycle-gateway-service.ts`, then was tightened further with `createWebServerLifecycleGateway(...)`, shrinking `runtime/src/channels/web.ts` from 1824 to 1649 lines while preserving existing auth/CSRF/upgrade behavior.
+- Split the next bounded seam into:
+  - `kanban/20-doing/extract-webchannel-sse-broadcast-and-session-wiring.md`
+- Rationale: SSE client lifecycle + broadcast/session wiring remains one of the larger orchestration responsibilities still living on `WebChannel` after the first two extractions.
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-27
@@ -88,4 +92,7 @@ Extract `WebChannel` into a composition of focused services:
 - [Quality assessment](../docs/quality-assessment-2026-03-23.md)
 - Blocked by: nothing
 - Blocks: `codebase-quality-cleanup-2026` (master ticket)
-- Child slice: `kanban/20-doing/extract-webchannel-queued-followup-service.md`
+- Child slices:
+  - `kanban/40-review/extract-webchannel-queued-followup-service.md`
+  - `kanban/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`
+  - `kanban/20-doing/extract-webchannel-sse-broadcast-and-session-wiring.md`

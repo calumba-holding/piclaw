@@ -15,7 +15,6 @@
 
 import { AgentQueue } from "../queue.js";
 import type { AgentPool } from "../agent-pool.js";
-import { initTheme } from "@mariozechner/pi-coding-agent";
 import { WebauthnChallengeTracker } from "./web/webauthn-challenges.js";
 import { TotpFailureTracker } from "./web/totp-failure-tracker.js";
 import {
@@ -24,7 +23,6 @@ import {
   getWebServerConfig,
   setWebTotpSecret,
 } from "../core/config.js";
-import { startWorkspaceWatcher } from "./web/handlers/workspace.js";
 import type { WebChannelLike } from "./web/web-channel-contracts.js";
 import { RequestRouterService } from "./web/request-router-service.js";
 import { checkCsrfOrigin } from "./web/http/security.js";
@@ -47,7 +45,6 @@ import {
   getInflightMessageId,
   getMessageByRowId,
   getMessageThreadRootIdById,
-  purgeExpiredLinkPreviewImageCache,
 } from "../db.js";
 import type { InteractionRow } from "../db.js";
 import { WebChannelState } from "./web/channel-state.js";
@@ -122,8 +119,13 @@ import {
 } from "./web/channel-endpoint-context-factory.js";
 import { createInteractionBroadcaster, type InteractionBroadcaster } from "./web/interaction-broadcaster.js";
 import { WebAuthGateway } from "./web/auth-gateway.js";
-import { TerminalSessionService, type TerminalSocketData } from "./web/terminal/terminal-session-service.js";
-import { VncSessionService, type VncSocketData } from "./web/vnc/vnc-session-service.js";
+import {
+  createWebServerLifecycleGateway,
+  WebServerLifecycleGatewayService,
+  type WebSocketSessionData,
+} from "./web/server-lifecycle-gateway-service.js";
+import { TerminalSessionService } from "./web/terminal/terminal-session-service.js";
+import { VncSessionService } from "./web/vnc/vnc-session-service.js";
 import { RemoteInteropService } from "../remote/service.js";
 import { createLogger } from "../utils/logger.js";
 import { randomSessionToken, verifyTotp } from "./web/auth.js";
@@ -134,7 +136,6 @@ const log = createLogger("web");
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
 const STATE_KEY = "last_agent_timestamp_web";
-const LINK_PREVIEW_CACHE_PURGE_INTERVAL_MS = 12 * 60 * 60 * 1000;
 
 function getWebSessionTtlSeconds(): number {
   const rawTtl = getWebRuntimeConfig().sessionTtl;
@@ -164,12 +165,9 @@ export interface WebChannelOpts {
 }
 
 /** Web channel: HTTP/SSE server, API endpoints, and agent event bridge. */
-type WebSocketSessionData = TerminalSocketData | VncSocketData;
-
 export class WebChannel implements WebChannelLike {
   queue: AgentQueue;
   agentPool: AgentPool;
-  server: ReturnType<typeof Bun.serve> | null = null;
   state = new WebChannelState(STATE_KEY);
   sse = new SseHub();
   uiBridge: UiBridge;
@@ -178,7 +176,6 @@ export class WebChannel implements WebChannelLike {
   requestRouter: RequestRouterService;
   endpointContexts: WebChannelEndpointContexts;
   pendingLinkPreviews = new Set<number>();
-  workspaceWatcher: { close: () => Promise<void> } | null = null;
   workspaceVisible = false;
   workspaceShowHidden = false;
   queuedFollowupLifecycle = new QueuedFollowupLifecycleService();
@@ -192,7 +189,7 @@ export class WebChannel implements WebChannelLike {
   authGateway: WebAuthGateway;
   terminalService = new TerminalSessionService();
   vncService = new VncSessionService();
-  linkPreviewCachePurgeTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly serverLifecycleGateway: WebServerLifecycleGatewayService;
   private readonly webServerConfig = getWebServerConfig();
   private readonly webRuntimeConfig = getWebRuntimeConfig();
 
@@ -241,124 +238,22 @@ export class WebChannel implements WebChannelLike {
     bindWebUiSessionBinder(this.agentPool, (session, chatJid) =>
       this.uiBridge.bindSession(session, chatJid)
     );
+    this.serverLifecycleGateway = createWebServerLifecycleGateway(this, {
+      webServerConfig: this.webServerConfig,
+      webRuntimeConfig: this.webRuntimeConfig,
+    });
+  }
+
+  get server(): Bun.Server<WebSocketSessionData> | null {
+    return this.serverLifecycleGateway.server;
   }
 
   async start(): Promise<void> {
-    this.loadState();
-    try {
-      initTheme();
-    } catch (err) {
-      log.warn("Failed to initialize theme cache", {
-        operation: "start.init_theme",
-        err,
-      });
-    }
-    const tls = await this.loadTlsOptions();
-
-    // On Windows, the previous process may linger after a restart (no
-    // SIGKILL), leaving the port in TIME_WAIT.  Retry a few times with
-    // reusePort so the new instance can bind immediately.
-    const MAX_BIND_ATTEMPTS = 5;
-    const BIND_RETRY_MS = 1500;
-    let lastBindError: Error | null = null;
-
-    for (let attempt = 1; attempt <= MAX_BIND_ATTEMPTS; attempt++) {
-      try {
-        this.server = Bun.serve<WebSocketSessionData>({
-          hostname: this.webServerConfig.host,
-          port: this.webServerConfig.port,
-          reusePort: true,
-          idleTimeout: this.webServerConfig.idleTimeout,
-          // Hard limit on request body size. Individual endpoints enforce tighter
-          // limits (e.g., 10 MB for media uploads, 512 MB for workspace uploads,
-          // 100 KB for message content).
-          // This is the outermost safety net; Bun rejects bodies exceeding this
-          // before any handler code runs.
-          maxRequestBodySize: 512 * 1024 * 1024, // 512 MB hard cap
-          fetch: (req, server) => this.handleFetch(req, server),
-      websocket: {
-        open: (ws) => {
-          if (ws.data?.kind === "vnc") {
-            this.vncService.attachClient(ws as any);
-            return;
-          }
-          this.terminalService.attachClient(ws as any);
-        },
-        message: (ws, message) => {
-          if (ws.data?.kind === "vnc") {
-            this.vncService.handleMessage(ws as any, message as any);
-            return;
-          }
-          this.terminalService.handleMessage(ws as any, message as any);
-        },
-        close: (ws) => {
-          if (ws.data?.kind === "vnc") {
-            this.vncService.detachClient(ws as any);
-            return;
-          }
-          this.terminalService.detachClient(ws as any);
-        },
-      },
-      ...(tls ? { tls } : {}),
-    });
-        lastBindError = null;
-        break;
-      } catch (err: any) {
-        lastBindError = err;
-        if (err?.code === "EADDRINUSE" && attempt < MAX_BIND_ATTEMPTS) {
-          log.warn("Port busy; retrying web bind", {
-            operation: "start.bind_retry",
-            port: this.webServerConfig.port,
-            attempt,
-            maxAttempts: MAX_BIND_ATTEMPTS,
-            retryMs: BIND_RETRY_MS,
-          });
-          await new Promise((r) => setTimeout(r, BIND_RETRY_MS));
-          continue;
-        }
-        throw err;
-      }
-    }
-
-    if (lastBindError) throw lastBindError;
-
-    this.workspaceWatcher = startWorkspaceWatcher(this);
-    const purgeNow = () => {
-      const result = purgeExpiredLinkPreviewImageCache(new Date().toISOString(), 256);
-      if (result.purgedEntries > 0) {
-        log.info("Purged expired link-preview cache entries", {
-          operation: "start.purge_link_preview_cache",
-          purgedEntries: result.purgedEntries,
-          purgedMedia: result.purgedMedia,
-        });
-      }
-    };
-    purgeNow();
-    this.linkPreviewCachePurgeTimer = setInterval(purgeNow, LINK_PREVIEW_CACHE_PURGE_INTERVAL_MS);
-    const scheme = tls ? "https" : "http";
-    log.info("Web UI listening", {
-      operation: "start.listen",
-      scheme,
-      host: this.webServerConfig.host,
-      port: this.webServerConfig.port,
-    });
+    await this.serverLifecycleGateway.start();
   }
 
   async stop(): Promise<void> {
-    this.sse.closeAll();
-    this.uiBridge.stop();
-    this.terminalService.shutdown();
-    this.vncService.shutdown();
-    if (this.linkPreviewCachePurgeTimer) {
-      clearInterval(this.linkPreviewCachePurgeTimer);
-      this.linkPreviewCachePurgeTimer = null;
-    }
-    this.server?.stop(true);
-    this.server = null;
-    if (this.workspaceWatcher) {
-      await this.workspaceWatcher.close();
-      this.workspaceWatcher = null;
-    }
+    await this.serverLifecycleGateway.stop();
   }
 
   private getMessageWriteContext(): MessageWriteContext {
@@ -569,78 +464,8 @@ export class WebChannel implements WebChannelLike {
     return this.agentBuffers.getBuffer(turnId, panel);
   }
 
-  private async loadTlsOptions(): Promise<{ cert: string; key: string } | null> {
-    if (!this.webServerConfig.tlsCert || !this.webServerConfig.tlsKey) return null;
-    try {
-      const [cert, key] = await Promise.all([
-        Bun.file(this.webServerConfig.tlsCert).text(),
-        Bun.file(this.webServerConfig.tlsKey).text(),
-      ]);
-      return { cert, key };
-    } catch (error) {
-      log.error("Failed to load TLS cert/key", {
-        operation: "load_tls_options",
-        err: error,
-      });
-      return null;
-    }
-  }
-
   async handleFetch(req: Request, server?: Bun.Server<WebSocketSessionData>): Promise<Response | undefined> {
-    const pathname = new URL(req.url).pathname;
-    if (pathname === "/terminal/ws") {
-      return this.handleTerminalWebSocketUpgrade(req, server);
-    }
-    if (pathname === "/vnc/ws") {
-      return this.handleVncWebSocketUpgrade(req, server);
-    }
-    return this.handleRequest(req);
-  }
-
-  private handleTerminalWebSocketUpgrade(req: Request, server?: Bun.Server<WebSocketSessionData>): Response | undefined {
-    if (!this.webRuntimeConfig.terminalEnabled) {
-      return this.json({ error: "Web terminal is disabled." }, 404);
-    }
-    const authEnabled = this.authGateway.isAuthEnabled();
-    if (authEnabled && !this.authGateway.isAuthenticated(req)) {
-      return this.json({ error: "Unauthorized" }, 401);
-    }
-    if (!checkCsrfOrigin(req)) {
-      return this.json({ error: "Origin not allowed" }, 403);
-    }
-    const owner = this.terminalService.resolveOwnerFromRequest(req, !authEnabled);
-    if (!owner) {
-      return this.json({ error: "Unauthorized" }, 401);
-    }
-    if (!server?.upgrade(req, { data: owner })) {
-      return this.json({ error: "WebSocket upgrade failed" }, 400);
-    }
-    return undefined;
-  }
-
-  private handleVncWebSocketUpgrade(req: Request, server?: Bun.Server<WebSocketSessionData>): Response | undefined {
-    const url = new URL(req.url);
-    const targetId = url.searchParams.get("target")?.trim() || "";
-    const handoffToken = url.searchParams.get("handoff")?.trim() || "";
-    if (!targetId) {
-      return this.json({ error: "Missing VNC target." }, 400);
-    }
-    const authEnabled = this.authGateway.isAuthEnabled();
-    if (authEnabled && !this.authGateway.isAuthenticated(req)) {
-      return this.json({ error: "Unauthorized" }, 401);
-    }
-    if (!checkCsrfOrigin(req)) {
-      return this.json({ error: "Origin not allowed" }, 403);
-    }
-    const owner = this.vncService.resolveOwnerFromRequest(req, targetId, !authEnabled);
-    if (!owner) {
-      return this.json({ error: "Unauthorized or unknown/disallowed VNC target" }, 401);
-    }
-    owner.handoffToken = handoffToken || null;
-    if (!server?.upgrade(req, { data: owner })) {
-      return this.json({ error: "WebSocket upgrade failed" }, 400);
-    }
-    return undefined;
+    return this.serverLifecycleGateway.handleFetch(req, server);
   }
 
   async handleRequest(req: Request): Promise<Response> {
