@@ -51,37 +51,9 @@ import { QueuedFollowupLifecycleService } from "./web/queued-followup-lifecycle-
 import { storeWebMessage } from "./web/message-store.js";
 import type { SendMessageOptions } from "./web/message-write-flows.js";
 import { WebMessageWriteService } from "./web/message-write-service.js";
-import { deletePostResponse } from "./web/timeline-service.js";
-import { ensureAvatarCache, resolveAvatarUrl } from "./web/avatar-service.js";
-import {
-  handleAgentContextRequest,
-  handleAgentModelsRequest,
-  handleAgentStatusRequest,
-} from "./web/agent-status.js";
+import { ensureAvatarCache } from "./web/avatar-service.js";
 import type { WebAgentBufferEntry } from "./web/agent-buffers.js";
-import {
-  handleHashtagRequest,
-  handleSearchRequest,
-  handleThoughtRequest,
-  handleThreadRequest,
-  handleTimelineRequest,
-} from "./web/content-endpoints.js";
-import {
-  handleAgentsRequest,
-  handleAvatarRequest,
-} from "./web/identity-endpoints.js";
-import { createAgentsEndpointContext } from "./web/endpoint-contexts.js";
-import { handleManifestRequest } from "./web/manifest.js";
 import { WebChannelRuntimeStateService } from "./web/runtime-state-service.js";
-import {
-  handleInternalPostRequest,
-  handleUpdatePostRequest,
-} from "./web/post-mutations.js";
-import {
-  handleAgentRespondRequest,
-  handleThoughtVisibilityRequest,
-  handleWorkspaceVisibilityRequest,
-} from "./web/ui-endpoints.js";
 import {
   buildAdaptiveCardSubmissionText,
   buildAdaptiveCardSubmitBlock,
@@ -94,8 +66,10 @@ import {
 } from "./web/adaptive-card-actions.js";
 import {
   createWebChannelEndpointContexts,
+  createWebChannelIdentitySnapshot,
   type WebChannelEndpointContexts,
 } from "./web/channel-endpoint-context-factory.js";
+import { WebChannelEndpointFacadeService } from "./web/channel-endpoint-facade-service.js";
 import { createInteractionBroadcaster, type InteractionBroadcaster } from "./web/interaction-broadcaster.js";
 import { WebAuthGateway } from "./web/auth-gateway.js";
 import {
@@ -166,6 +140,7 @@ export class WebChannel implements WebChannelLike {
   private readonly runtimeState: WebChannelRuntimeStateService;
   private readonly serverLifecycleGateway: WebServerLifecycleGatewayService;
   private readonly messageWriteService: WebMessageWriteService;
+  private readonly endpointFacade: WebChannelEndpointFacadeService;
   private readonly webServerConfig = getWebServerConfig();
   private readonly webRuntimeConfig = getWebRuntimeConfig();
 
@@ -186,14 +161,15 @@ export class WebChannel implements WebChannelLike {
         stateKey: STATE_KEY,
       }
     );
+    const getIdentitySnapshot = () => createWebChannelIdentitySnapshot(getIdentityConfig());
     this.interactionBroadcaster = createInteractionBroadcaster(this, () => {
-      const identity = getIdentityConfig();
+      const identity = getIdentitySnapshot();
       return {
         agentName: identity.assistantName,
-        agentAvatar: resolveAvatarUrl("agent", identity.assistantAvatar),
-        userName: identity.userName || null,
-        userAvatar: resolveAvatarUrl("user", identity.userAvatar),
-        userAvatarBackground: identity.userAvatarBackground || null,
+        agentAvatar: identity.agentAvatarUrl,
+        userName: identity.userName,
+        userAvatar: identity.userAvatarUrl,
+        userAvatarBackground: identity.userAvatarBackground,
       };
     });
     this.authGateway = new WebAuthGateway(
@@ -228,13 +204,24 @@ export class WebChannel implements WebChannelLike {
     this.endpointContexts = createWebChannelEndpointContexts(this, {
       defaultChatJid: DEFAULT_CHAT_JID,
       defaultAgentId: DEFAULT_AGENT_ID,
-      agentName: getIdentityConfig().assistantName,
-      agentAvatar: resolveAvatarUrl("agent", getIdentityConfig().assistantAvatar),
-      userName: getIdentityConfig().userName || null,
-      userAvatar: resolveAvatarUrl("user", getIdentityConfig().userAvatar),
-      userAvatarBackground: getIdentityConfig().userAvatarBackground || null,
-      assistantAvatarRaw: getIdentityConfig().assistantAvatar || null,
-      userAvatarRaw: getIdentityConfig().userAvatar || null,
+      getIdentitySnapshot,
+    });
+    this.endpointFacade = new WebChannelEndpointFacadeService({
+      endpointContexts: this.endpointContexts,
+      defaultChatJid: DEFAULT_CHAT_JID,
+      getIdentitySnapshot,
+      ensureAvatarCache,
+      json: (payload, status = 200) => this.json(payload, status),
+      broadcastEvent: (eventType, data) => this.broadcastEvent(eventType, data),
+      handlePostRequest: (req, isReply, chatJid) => handlePostRequest(this, req, isReply, chatJid),
+      listActiveChats: () => this.agentPool.listActiveChats(),
+      listKnownChats: typeof (this.agentPool as AgentPool & {
+        listKnownChats?: (rootChatJid?: string | null, options?: { includeArchived?: boolean }) => unknown[];
+      }).listKnownChats === "function"
+        ? (rootChatJid, options) => (this.agentPool as AgentPool & {
+            listKnownChats: (rootChatJid?: string | null, options?: { includeArchived?: boolean }) => unknown[];
+          }).listKnownChats(rootChatJid, options)
+        : undefined,
     });
     this.serverLifecycleGateway = createWebServerLifecycleGateway(this, {
       webServerConfig: this.webServerConfig,
@@ -426,52 +413,27 @@ export class WebChannel implements WebChannelLike {
   }
 
   async handleAgents(): Promise<Response> {
-    // Read live identity values so /agent-name and /agent-avatar changes
-    // take effect immediately without a process restart.
-    const identity = getIdentityConfig();
-    const ctx = createAgentsEndpointContext({
-      agentPool: this.agentPool,
-      defaultChatJid: DEFAULT_CHAT_JID,
-      defaultAgentId: DEFAULT_AGENT_ID,
-      agentName: identity.assistantName,
-      agentAvatar: resolveAvatarUrl("agent", identity.assistantAvatar),
-      userName: identity.userName || null,
-      userAvatar: resolveAvatarUrl("user", identity.userAvatar),
-      userAvatarBackground: identity.userAvatarBackground || null,
-      json: (payload: unknown, status = 200) => this.json(payload, status),
-    });
-    return await handleAgentsRequest(ctx);
+    return await this.endpointFacade.handleAgents();
   }
 
   async handleManifest(req: Request): Promise<Response> {
-    const identity = getIdentityConfig();
-    return await handleManifestRequest(req, {
-      assistantName: identity.assistantName,
-      assistantAvatar: identity.assistantAvatar,
-      ensureAvatarCache,
-    });
+    return await this.endpointFacade.handleManifest(req);
   }
 
   async handleAvatar(kind: "agent" | "user", req: Request): Promise<Response> {
-    // Read live avatar values so /agent-avatar changes take effect immediately.
-    const identity = getIdentityConfig();
-    return await handleAvatarRequest(kind, req, {
-      assistantAvatar: identity.assistantAvatar || null,
-      userAvatar: identity.userAvatar || null,
-      json: (payload: unknown, status = 200) => this.json(payload, status),
-    });
+    return await this.endpointFacade.handleAvatar(kind, req);
   }
 
   async handleWorkspaceVisibility(req: Request): Promise<Response> {
-    return await handleWorkspaceVisibilityRequest(req, this.endpointContexts.ui());
+    return await this.endpointFacade.handleWorkspaceVisibility(req);
   }
 
   handleTimeline(limit: number, before?: number, chatJid?: string): Response {
-    return handleTimelineRequest(limit, before, chatJid, this.endpointContexts.content());
+    return this.endpointFacade.handleTimeline(limit, before, chatJid);
   }
 
   handleHashtag(tag: string, limit: number, offset: number, chatJid?: string): Response {
-    return handleHashtagRequest(tag, limit, offset, chatJid, this.endpointContexts.content());
+    return this.endpointFacade.handleHashtag(tag, limit, offset, chatJid);
   }
 
   handleSearch(
@@ -482,29 +444,23 @@ export class WebChannel implements WebChannelLike {
     searchScope?: "current" | "root" | "all",
     rootChatJid?: string,
   ): Response {
-    return handleSearchRequest(query, limit, offset, chatJid, searchScope, rootChatJid, this.endpointContexts.content());
+    return this.endpointFacade.handleSearch(query, limit, offset, chatJid, searchScope, rootChatJid);
   }
 
   handleThread(id: number | null, chatJid?: string): Response {
-    return handleThreadRequest(id, chatJid, this.endpointContexts.content());
+    return this.endpointFacade.handleThread(id, chatJid);
   }
 
   handleThought(panel: string | null, turnId: string | null): Response {
-    return handleThoughtRequest(panel, turnId, this.endpointContexts.content());
+    return this.endpointFacade.handleThought(panel, turnId);
   }
 
   async handleThoughtVisibility(req: Request): Promise<Response> {
-    return await handleThoughtVisibilityRequest(req, this.endpointContexts.ui());
+    return await this.endpointFacade.handleThoughtVisibility(req);
   }
 
   handleDeletePost(req: Request, id: number | null, cascade = false): Response {
-    const url = new URL(req.url);
-    const chatJid = url.searchParams.get("chat_jid")?.trim() || DEFAULT_CHAT_JID;
-    const result = deletePostResponse(chatJid, id, cascade);
-    if (result.deletedIds.length > 0) {
-      this.broadcastEvent("interaction_deleted", { chat_jid: chatJid, ids: result.deletedIds });
-    }
-    return this.json(result.body, result.status);
+    return this.endpointFacade.handleDeletePost(req, id, cascade);
   }
 
   /**
@@ -513,7 +469,7 @@ export class WebChannel implements WebChannelLike {
    * positive integer if provided. Uses parameterized queries (no SQL injection).
    */
   async handleUpdatePost(req: Request, id: number | null): Promise<Response> {
-    return await handleUpdatePostRequest(req, id, this.endpointContexts.postMutations());
+    return await this.endpointFacade.handleUpdatePost(req, id);
   }
 
   /**
@@ -522,7 +478,7 @@ export class WebChannel implements WebChannelLike {
    * Content is capped at 100 KB to prevent DB bloat.
    */
   async handleInternalPost(req: Request): Promise<Response> {
-    return await handleInternalPostRequest(req, this.endpointContexts.postMutations());
+    return await this.endpointFacade.handleInternalPost(req);
   }
 
   handleSse(req: Request): Response {
@@ -585,18 +541,16 @@ export class WebChannel implements WebChannelLike {
   }
 
   async handlePost(req: Request, isReply: boolean): Promise<Response> {
-    const url = new URL(req.url);
-    const chatJid = url.searchParams.get("chat_jid")?.trim() || DEFAULT_CHAT_JID;
-    return handlePostRequest(this, req, isReply, chatJid);
+    return await this.endpointFacade.handlePost(req, isReply);
   }
 
   handleAgentStatus(req: Request): Response {
-    return handleAgentStatusRequest(req, this.endpointContexts.agentStatus());
+    return this.endpointFacade.handleAgentStatus(req);
   }
 
   /** GET /agent/context — return context window usage for the compose box indicator. */
   async handleAgentContext(req: Request): Promise<Response> {
-    return await handleAgentContextRequest(req, this.endpointContexts.agentStatus());
+    return await this.endpointFacade.handleAgentContext(req);
   }
 
   /** GET /agent/autoresearch/status — current live autoresearch status-panel widget payload. */
@@ -835,27 +789,17 @@ export class WebChannel implements WebChannelLike {
 
   /** GET /agent/models — return available model labels and current selection. */
   async handleAgentModels(req: Request): Promise<Response> {
-    return await handleAgentModelsRequest(req, this.endpointContexts.agentStatus());
+    return await this.endpointFacade.handleAgentModels(req);
   }
 
   /** GET /agent/active-chats — enumerate live chat agents/branches currently in the pool. */
   async handleAgentActiveChats(_req: Request): Promise<Response> {
-    return this.json({ chats: this.agentPool.listActiveChats() }, 200);
+    return this.endpointFacade.handleAgentActiveChats();
   }
 
   /** GET /agent/branches — enumerate known branch/session records from the registry. */
   async handleAgentBranches(req: Request): Promise<Response> {
-    const url = new URL(req.url);
-    const rootChatJid = typeof url.searchParams.get("root_chat_jid") === "string"
-      ? url.searchParams.get("root_chat_jid")!.trim()
-      : "";
-    const includeArchived = ["1", "true", "yes", "on"].includes(
-      String(url.searchParams.get("include_archived") || "").trim().toLowerCase()
-    );
-    const chats = typeof (this.agentPool as AgentPool & { listKnownChats?: (rootChatJid?: string | null, options?: { includeArchived?: boolean }) => unknown[] }).listKnownChats === "function"
-      ? (this.agentPool as AgentPool & { listKnownChats: (rootChatJid?: string | null, options?: { includeArchived?: boolean }) => unknown[] }).listKnownChats(rootChatJid || null, { includeArchived })
-      : this.agentPool.listActiveChats();
-    return this.json({ chats }, 200);
+    return this.endpointFacade.handleAgentBranches(req);
   }
 
   /** POST /agent/branch-fork — create a first-class forked branch with its own session identity. */
@@ -1049,7 +993,7 @@ export class WebChannel implements WebChannelLike {
    * Validates request_id is a non-empty string of ≤ 256 chars.
    */
   async handleAgentRespond(req: Request): Promise<Response> {
-    return await handleAgentRespondRequest(req, this.endpointContexts.ui());
+    return await this.endpointFacade.handleAgentRespond(req);
   }
 
   async handleAdaptiveCardAction(req: Request): Promise<Response> {
