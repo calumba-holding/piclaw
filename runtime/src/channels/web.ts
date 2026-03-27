@@ -40,7 +40,6 @@ import {
   createWebSession,
   DEFAULT_WEB_USER_ID,
   deleteAllWebSessions,
-  deleteMessageByRowId,
   replaceMessageContent,
   getChatBranchByChatJid,
   getChatCursor,
@@ -48,14 +47,13 @@ import {
   getInflightMessageId,
   getMessageByRowId,
   getMessageThreadRootIdById,
-  getDeferredQueuedFollowups,
   purgeExpiredLinkPreviewImageCache,
-  setDeferredQueuedFollowups,
 } from "../db.js";
-import type { DeferredQueuedFollowupRecord, InteractionRow } from "../db.js";
+import type { InteractionRow } from "../db.js";
 import { WebChannelState } from "./web/channel-state.js";
 import { AgentStatusStore } from "./web/agent-status-store.js";
-import { FollowupPlaceholderStore, type QueuedFollowupItem } from "./web/followup-placeholders.js";
+import type { QueuedFollowupItem } from "./web/followup-placeholders.js";
+import { QueuedFollowupLifecycleService } from "./web/queued-followup-lifecycle-service.js";
 import { PendingSteeringStore } from "./web/pending-steering.js";
 import { storeWebMessage } from "./web/message-store.js";
 import {
@@ -183,7 +181,7 @@ export class WebChannel implements WebChannelLike {
   workspaceWatcher: { close: () => Promise<void> } | null = null;
   workspaceVisible = false;
   workspaceShowHidden = false;
-  followupPlaceholderStore = new FollowupPlaceholderStore();
+  queuedFollowupLifecycle = new QueuedFollowupLifecycleService();
   pendingSteeringStore = new PendingSteeringStore();
   agentStatusStore: AgentStatusStore;
   interactionBroadcaster: InteractionBroadcaster;
@@ -381,7 +379,7 @@ export class WebChannel implements WebChannelLike {
       },
       followups: {
         enqueue: (chatJid, rowId, queuedContent, threadId, queuedAt) =>
-          this.followupPlaceholderStore.enqueue(chatJid, rowId, queuedContent, threadId, queuedAt),
+          this.queuedFollowupLifecycle.enqueuePlaceholder(chatJid, rowId, queuedContent, threadId, queuedAt),
       },
     };
   }
@@ -412,39 +410,6 @@ export class WebChannel implements WebChannelLike {
     );
   }
 
-  private getDeferredQueuedFollowupItems(chatJid: string): QueuedFollowupItem[] {
-    return getDeferredQueuedFollowups(chatJid).map((item) => ({
-      rowId: item.rowId,
-      queuedContent: item.queuedContent,
-      threadId: item.threadId ?? null,
-      queuedAt: item.queuedAt,
-      mediaIds: item.mediaIds ? [...item.mediaIds] : undefined,
-      contentBlocks: Array.isArray(item.contentBlocks) ? [...item.contentBlocks] : undefined,
-      linkPreviews: Array.isArray(item.linkPreviews) ? [...item.linkPreviews] : undefined,
-      materializeRetries: item.materializeRetries ?? 0,
-    }));
-  }
-
-  private setDeferredQueuedFollowupItems(chatJid: string, items: QueuedFollowupItem[]): void {
-    const persisted: DeferredQueuedFollowupRecord[] = items.map((item) => ({
-      rowId: item.rowId,
-      queuedContent: item.queuedContent,
-      threadId: item.threadId ?? null,
-      queuedAt: item.queuedAt,
-      mediaIds: item.mediaIds ? [...item.mediaIds] : undefined,
-      contentBlocks: Array.isArray(item.contentBlocks) ? [...item.contentBlocks] : undefined,
-      linkPreviews: Array.isArray(item.linkPreviews) ? [...item.linkPreviews] : undefined,
-      materializeRetries: item.materializeRetries ?? 0,
-    }));
-    setDeferredQueuedFollowups(chatJid, persisted);
-  }
-
-  private allocateDeferredQueuedRowId(chatJid: string): number {
-    const queued = this.getDeferredQueuedFollowupItems(chatJid);
-    const minRowId = queued.reduce((min, item) => (item.rowId < min ? item.rowId : min), 0);
-    return minRowId <= -1 ? minRowId - 1 : -1;
-  }
-
   enqueueQueuedFollowupItem(
     chatJid: string,
     rowId: number,
@@ -453,82 +418,38 @@ export class WebChannel implements WebChannelLike {
     queuedAt?: string,
     extras?: { mediaIds?: number[]; contentBlocks?: unknown[]; linkPreviews?: unknown[] }
   ): number {
-    const resolvedRowId = Number.isFinite(rowId) && rowId !== 0 ? rowId : this.allocateDeferredQueuedRowId(chatJid);
-    const queued = this.getDeferredQueuedFollowupItems(chatJid);
-    queued.push({
-      rowId: resolvedRowId,
+    return this.queuedFollowupLifecycle.enqueueQueuedFollowupItem(
+      chatJid,
+      rowId,
       queuedContent,
-      threadId: threadId ?? null,
-      queuedAt: queuedAt ?? new Date().toISOString(),
-      mediaIds: extras?.mediaIds ? [...extras.mediaIds] : undefined,
-      contentBlocks: Array.isArray(extras?.contentBlocks) ? [...extras.contentBlocks] : undefined,
-      linkPreviews: Array.isArray(extras?.linkPreviews) ? [...extras.linkPreviews] : undefined,
-    });
-    this.setDeferredQueuedFollowupItems(chatJid, queued);
-    return resolvedRowId;
+      threadId,
+      queuedAt,
+      extras,
+    );
   }
 
   consumeQueuedFollowupItem(chatJid: string): QueuedFollowupItem | null {
-    const queued = this.getDeferredQueuedFollowupItems(chatJid);
-    const next = queued.shift() ?? null;
-    this.setDeferredQueuedFollowupItems(chatJid, queued);
-    return next;
+    return this.queuedFollowupLifecycle.consumeQueuedFollowupItem(chatJid);
   }
 
   prependQueuedFollowupItem(chatJid: string, item: QueuedFollowupItem): void {
-    const queued = this.getDeferredQueuedFollowupItems(chatJid);
-    queued.unshift({
-      rowId: item.rowId,
-      queuedContent: item.queuedContent,
-      threadId: item.threadId ?? null,
-      queuedAt: item.queuedAt,
-      mediaIds: item.mediaIds ? [...item.mediaIds] : undefined,
-      contentBlocks: Array.isArray(item.contentBlocks) ? [...item.contentBlocks] : undefined,
-      linkPreviews: Array.isArray(item.linkPreviews) ? [...item.linkPreviews] : undefined,
-      materializeRetries: item.materializeRetries ?? 0,
-    });
-    this.setDeferredQueuedFollowupItems(chatJid, queued);
+    this.queuedFollowupLifecycle.prependQueuedFollowupItem(chatJid, item);
   }
 
   consumeQueuedFollowupPlaceholder(chatJid: string): number | null {
-    return this.followupPlaceholderStore.consume(chatJid);
+    return this.queuedFollowupLifecycle.consumeQueuedFollowupPlaceholder(chatJid);
   }
 
   getQueuedFollowupCount(chatJid: string): number {
-    return this.getDeferredQueuedFollowupItems(chatJid).length + this.followupPlaceholderStore.count(chatJid);
+    return this.queuedFollowupLifecycle.getQueuedFollowupCount(chatJid);
   }
 
   getQueuedFollowupItems(chatJid: string): QueuedFollowupItem[] {
-    const rows = [
-      ...this.getDeferredQueuedFollowupItems(chatJid),
-      ...this.followupPlaceholderStore.peek(chatJid),
-    ];
-    // Deduplicate by rowId — the two stores use different ID spaces (negative
-    // for deferred, positive for placeholder), but guard against bugs that
-    // might put the same item in both stores.
-    const seen = new Set<number>();
-    return rows
-      .map((row) => ({
-        ...row,
-        queuedAt: row.queuedAt,
-      }))
-      .filter((row) => {
-        if (seen.has(row.rowId)) return false;
-        seen.add(row.rowId);
-        return true;
-      })
-      .sort((a, b) => String(a.queuedAt).localeCompare(String(b.queuedAt)));
+    return this.queuedFollowupLifecycle.getQueuedFollowupItems(chatJid);
   }
 
   removeQueuedFollowupItem(chatJid: string, rowId: number): QueuedFollowupItem | null {
-    const queued = this.getDeferredQueuedFollowupItems(chatJid);
-    const queuedIndex = queued.findIndex((item) => item.rowId === rowId);
-    if (queuedIndex >= 0) {
-      const [removed] = queued.splice(queuedIndex, 1);
-      this.setDeferredQueuedFollowupItems(chatJid, queued);
-      return removed ?? null;
-    }
-    return this.followupPlaceholderStore.remove(chatJid, rowId);
+    return this.queuedFollowupLifecycle.removeQueuedFollowupItem(chatJid, rowId);
   }
 
   queuePendingSteering(chatJid: string, timestamp: string | undefined): void {
@@ -967,18 +888,7 @@ export class WebChannel implements WebChannelLike {
   async handleAgentQueueState(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const chatJid = url.searchParams.get("chat_jid") ?? DEFAULT_CHAT_JID;
-    const queuedItems = this.getQueuedFollowupItems(chatJid);
-    const items = queuedItems
-      .map((queued) => {
-        const interaction = getMessageByRowId(chatJid, queued.rowId);
-        return {
-          row_id: queued.rowId,
-          content: queued.queuedContent,
-          timestamp: interaction?.timestamp ?? queued.queuedAt,
-          thread_id: interaction?.data?.thread_id ?? queued.threadId ?? null,
-        };
-      })
-      .filter((item) => typeof item.content === "string" && item.content.trim().length > 0);
+    const items = this.queuedFollowupLifecycle.listQueuedStateItems(chatJid);
 
     return this.json({
       count: items.length,
@@ -990,28 +900,10 @@ export class WebChannel implements WebChannelLike {
     chatJid: string,
     rowId: number,
   ): Promise<{ removed: QueuedFollowupItem | null; source: "deferred" | "placeholder" | null }> {
-    const queued = this.getDeferredQueuedFollowupItems(chatJid);
-    const queuedIndex = queued.findIndex((item) => item.rowId === Number(rowId));
-    const removedQueued = queuedIndex >= 0 ? (queued.splice(queuedIndex, 1)[0] ?? null) : null;
-    if (queuedIndex >= 0) {
-      this.setDeferredQueuedFollowupItems(chatJid, queued);
-    }
-    const removedPlaceholder = removedQueued ? null : this.followupPlaceholderStore.remove(chatJid, Number(rowId));
-    const removed = removedQueued ?? removedPlaceholder;
-    const source = removedQueued ? "deferred" : removedPlaceholder ? "placeholder" : null;
-    if (!removed || !source) return { removed: null, source: null };
-
-    // Remove any hidden backing row so queue artifacts stay out of the
-    // timeline even after the item is removed or converted into steering.
-    if (removed.rowId > 0) {
-      deleteMessageByRowId(chatJid, removed.rowId);
-    }
-
-    if (source === "placeholder") {
-      await this.agentPool.removeQueuedFollowupMessage(chatJid, removed.queuedContent);
-    }
-
-    return { removed, source };
+    return await this.queuedFollowupLifecycle.removeQueuedFollowupForAction(chatJid, Number(rowId), {
+      removeQueuedFollowupMessage: (queuedChatJid, queuedContent) =>
+        this.agentPool.removeQueuedFollowupMessage(queuedChatJid, queuedContent),
+    });
   }
 
   /** POST /agent/queue-remove — remove a queued follow-up row from UI + session queue. */
