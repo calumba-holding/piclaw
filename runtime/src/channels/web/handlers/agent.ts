@@ -10,12 +10,8 @@
 
 import type { WebChannelLike } from "../web-channel-contracts.js";
 import {
-  ASSISTANT_AVATAR,
-  ASSISTANT_NAME,
-  USER_AVATAR,
-  USER_AVATAR_BACKGROUND,
-  USER_NAME,
   getAgentRuntimeConfig,
+  getIdentityConfig,
   getRoutingConfig,
 } from "../../../core/config.js";
 import { parseControlCommand } from "../../../agent-control/index.js";
@@ -378,13 +374,14 @@ export async function handleAgentMessage(
     }
   };
 
+  const identity = getIdentityConfig();
   const withAgentProfile = createAgentProfileBuilder(
     chatJid,
-    ASSISTANT_NAME,
-    resolveAvatarUrl("agent", ASSISTANT_AVATAR),
-    USER_NAME || null,
-    resolveAvatarUrl("user", USER_AVATAR),
-    USER_AVATAR_BACKGROUND || null
+    identity.assistantName,
+    resolveAvatarUrl("agent", identity.assistantAvatar),
+    identity.userName || null,
+    resolveAvatarUrl("user", identity.userAvatar),
+    identity.userAvatarBackground || null
   );
 
   const emitCommandStatus = (payload: Record<string, unknown>) => {
@@ -437,14 +434,15 @@ export async function handleAgentMessage(
       getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(rootRowId, interaction.id);
       interaction.data.thread_id = rootRowId;
       threadId = rootRowId;
+      const currentIdentity = getIdentityConfig();
       broadcastInteractionUpdated(
         channel,
         interaction,
-        ASSISTANT_NAME,
-        resolveAvatarUrl("agent", ASSISTANT_AVATAR),
-        USER_NAME || null,
-        resolveAvatarUrl("user", USER_AVATAR),
-        USER_AVATAR_BACKGROUND || null
+        currentIdentity.assistantName,
+        resolveAvatarUrl("agent", currentIdentity.assistantAvatar),
+        currentIdentity.userName || null,
+        resolveAvatarUrl("user", currentIdentity.userAvatar),
+        currentIdentity.userAvatarBackground || null
       );
     }
 
@@ -740,7 +738,7 @@ export async function processChat(
   };
 
   const prevCursor = getChatCursor(chatJid);
-  const messages = getMessagesSince(chatJid, prevCursor, ASSISTANT_NAME);
+  const messages = getMessagesSince(chatJid, prevCursor, getIdentityConfig().assistantName);
 
   if (messages.length === 0) {
     log.info("processChat found no pending messages", {
@@ -800,13 +798,14 @@ export async function processChat(
   const PREVIEW_MAX_CHARS_PER_LINE = 160;
 
   const turnId = createUuid("turn");
+  const identity = getIdentityConfig();
   const withAgentProfile = createAgentProfileBuilder(
     chatJid,
-    ASSISTANT_NAME,
-    resolveAvatarUrl("agent", ASSISTANT_AVATAR),
-    USER_NAME || null,
-    resolveAvatarUrl("user", USER_AVATAR),
-    USER_AVATAR_BACKGROUND || null
+    identity.assistantName,
+    resolveAvatarUrl("agent", identity.assistantAvatar),
+    identity.userName || null,
+    resolveAvatarUrl("user", identity.userAvatar),
+    identity.userAvatarBackground || null
   );
   const emitter = createAgentEventEmitter(channel, withAgentProfile);
   const trackedEmitter = {
@@ -922,7 +921,7 @@ export async function processChat(
     // them before consuming deferred queued items. This preserves one-message-
     // per-turn ordering and prevents cross-thread batching.
     const cursorNow = getChatCursor(chatJid);
-    const remainingPersisted = getMessagesSince(chatJid, cursorNow, ASSISTANT_NAME);
+    const remainingPersisted = getMessagesSince(chatJid, cursorNow, getIdentityConfig().assistantName);
 
     log.info("finalizeSuccessfulRun advanced cursor", {
       operation: "process_chat.finalize_successful_run",

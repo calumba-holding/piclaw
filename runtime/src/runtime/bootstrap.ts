@@ -3,7 +3,7 @@
  */
 
 import {
-  ASSISTANT_NAME,
+  getIdentityConfig,
   getRoutingConfig,
   getRuntimeTimingConfig,
 } from "../core/config.js";
@@ -120,7 +120,7 @@ export interface RuntimeBootstrapDeps {
 export function createDefaultRuntimeBootstrapDeps(core: RuntimeBootstrapDefaultCoreServices): RuntimeBootstrapDeps {
   return {
     core,
-    assistantName: ASSISTANT_NAME,
+    assistantName: getIdentityConfig().assistantName,
     triggerPattern: getRoutingConfig().triggerPattern,
     pollIntervalMs: getRuntimeTimingConfig().pollIntervalMs,
     signalRegistrar: process,

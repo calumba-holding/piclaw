@@ -1,10 +1,11 @@
 ---
 id: finish-web-live-identity-getter-adoption
 title: "Finish web live-identity getter adoption"
-status: next
+status: done
 priority: medium
 created: 2026-03-27
 updated: 2026-03-27
+completed: 2026-03-27
 target_release: next
 estimate: S
 risk: low
@@ -46,19 +47,34 @@ web-facing call sites separately.
 
 ## Acceptance Criteria
 
-- [ ] `runtime/src/channels/web.ts` no longer depends on flat identity globals
+- [x] `runtime/src/channels/web.ts` no longer depends on flat identity globals
       where the getter/object seam is practical.
-- [ ] `runtime/src/channels/web/handlers/agent.ts` no longer depends on flat
+- [x] `runtime/src/channels/web/handlers/agent.ts` no longer depends on flat
       identity globals where the getter/object seam is practical.
-- [ ] Runtime payload shapes and existing user-visible behavior stay unchanged.
-- [ ] Relevant web/agent targeted tests still pass.
+- [x] Runtime payload shapes and existing user-visible behavior stay unchanged.
+- [x] Relevant web/agent targeted tests still pass.
 
 ## Validation
 
-- [ ] targeted web/agent tests
-- [ ] `./scripts/audit-extract-typed-config-objects.sh`
-- [ ] `bun run lint`
-- [ ] `bun run typecheck`
+- [x] targeted web/agent tests
+- [x] `./scripts/audit-extract-typed-config-objects.sh`
+- [x] `bun run lint`
+- [x] `bun run typecheck`
+
+## Updates
+
+### 2026-03-27
+- Rewired the remaining high-value web identity reads to the mutable getter seam:
+  - `runtime/src/channels/web.ts`
+  - `runtime/src/channels/web/handlers/agent.ts`
+  - `runtime/src/runtime/bootstrap.ts` (trivial bootstrap/banner follow-up)
+- Preserved existing payload shapes by only swapping identity reads, not endpoint contracts or event schemas.
+- Validation:
+  - targeted tests: `bun test runtime/test/channels/web/manifest.test.ts runtime/test/channels/web/identity-endpoints.test.ts runtime/test/channels/web/web-channel.test.ts runtime/test/channels/web/agent-message-handler.test.ts runtime/test/channels/web/webauthn-auth.test.ts runtime/test/config/config.test.ts runtime/test/config/config-coverage-import.test.ts`
+  - extraction audit: `./scripts/audit-extract-typed-config-objects.sh` → `typed_config_objects: 12`, `bare_constant_exports: 10`
+  - static checks: `bun run lint`, `bun run typecheck`
+  - full validation: `bun run quality`
+- After this slice, the remaining flat identity exports are compatibility surfaces in `runtime/src/core/config.ts` plus env-key names / alias handling, rather than live consumer dependencies.
 
 ## Links
 

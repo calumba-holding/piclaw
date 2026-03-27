@@ -19,11 +19,7 @@ import { initTheme } from "@mariozechner/pi-coding-agent";
 import { WebauthnChallengeTracker } from "./web/webauthn-challenges.js";
 import { TotpFailureTracker } from "./web/totp-failure-tracker.js";
 import {
-  ASSISTANT_AVATAR,
-  ASSISTANT_NAME,
-  USER_AVATAR,
-  USER_AVATAR_BACKGROUND,
-  USER_NAME,
+  getIdentityConfig,
   getWebRuntimeConfig,
   getWebServerConfig,
   setWebTotpSecret,
@@ -208,13 +204,16 @@ export class WebChannel implements WebChannelLike {
     this.uiBridge = new UiBridge(this);
     this.remoteInterop = new RemoteInteropService(this.agentPool);
     this.agentStatusStore = new AgentStatusStore(this.state);
-    this.interactionBroadcaster = createInteractionBroadcaster(this, () => ({
-      agentName: ASSISTANT_NAME,
-      agentAvatar: resolveAvatarUrl("agent", ASSISTANT_AVATAR),
-      userName: USER_NAME || null,
-      userAvatar: resolveAvatarUrl("user", USER_AVATAR),
-      userAvatarBackground: USER_AVATAR_BACKGROUND || null,
-    }));
+    this.interactionBroadcaster = createInteractionBroadcaster(this, () => {
+      const identity = getIdentityConfig();
+      return {
+        agentName: identity.assistantName,
+        agentAvatar: resolveAvatarUrl("agent", identity.assistantAvatar),
+        userName: identity.userName || null,
+        userAvatar: resolveAvatarUrl("user", identity.userAvatar),
+        userAvatarBackground: identity.userAvatarBackground || null,
+      };
+    });
     this.authGateway = new WebAuthGateway(
       {
         passkeyMode: this.webRuntimeConfig.passkeyMode || "",
@@ -233,13 +232,13 @@ export class WebChannel implements WebChannelLike {
     this.endpointContexts = createWebChannelEndpointContexts(this, {
       defaultChatJid: DEFAULT_CHAT_JID,
       defaultAgentId: DEFAULT_AGENT_ID,
-      agentName: ASSISTANT_NAME,
-      agentAvatar: resolveAvatarUrl("agent", ASSISTANT_AVATAR),
-      userName: USER_NAME || null,
-      userAvatar: resolveAvatarUrl("user", USER_AVATAR),
-      userAvatarBackground: USER_AVATAR_BACKGROUND || null,
-      assistantAvatarRaw: ASSISTANT_AVATAR || null,
-      userAvatarRaw: USER_AVATAR || null,
+      agentName: getIdentityConfig().assistantName,
+      agentAvatar: resolveAvatarUrl("agent", getIdentityConfig().assistantAvatar),
+      userName: getIdentityConfig().userName || null,
+      userAvatar: resolveAvatarUrl("user", getIdentityConfig().userAvatar),
+      userAvatarBackground: getIdentityConfig().userAvatarBackground || null,
+      assistantAvatarRaw: getIdentityConfig().assistantAvatar || null,
+      userAvatarRaw: getIdentityConfig().userAvatar || null,
     });
     bindWebUiSessionBinder(this.agentPool, (session, chatJid) =>
       this.uiBridge.bindSession(session, chatJid)
@@ -592,7 +591,7 @@ export class WebChannel implements WebChannelLike {
 
   private getRecoveryContext(): WebRecoveryContext {
     return {
-      assistantName: ASSISTANT_NAME,
+      assistantName: getIdentityConfig().assistantName,
       defaultAgentId: DEFAULT_AGENT_ID,
       enqueue: (task, key, laneKey) => this.queue.enqueue(task, key, laneKey),
       processChat: (chatJid, agentId, threadRootId) => this.processChat(chatJid, agentId, threadRootId),
@@ -728,33 +727,36 @@ export class WebChannel implements WebChannelLike {
   async handleAgents(): Promise<Response> {
     // Read live identity values so /agent-name and /agent-avatar changes
     // take effect immediately without a process restart.
+    const identity = getIdentityConfig();
     const ctx = createAgentsEndpointContext({
       agentPool: this.agentPool,
       defaultChatJid: DEFAULT_CHAT_JID,
       defaultAgentId: DEFAULT_AGENT_ID,
-      agentName: ASSISTANT_NAME,
-      agentAvatar: resolveAvatarUrl("agent", ASSISTANT_AVATAR),
-      userName: USER_NAME || null,
-      userAvatar: resolveAvatarUrl("user", USER_AVATAR),
-      userAvatarBackground: USER_AVATAR_BACKGROUND || null,
+      agentName: identity.assistantName,
+      agentAvatar: resolveAvatarUrl("agent", identity.assistantAvatar),
+      userName: identity.userName || null,
+      userAvatar: resolveAvatarUrl("user", identity.userAvatar),
+      userAvatarBackground: identity.userAvatarBackground || null,
       json: (payload: unknown, status = 200) => this.json(payload, status),
     });
     return await handleAgentsRequest(ctx);
   }
 
   async handleManifest(req: Request): Promise<Response> {
+    const identity = getIdentityConfig();
     return await handleManifestRequest(req, {
-      assistantName: ASSISTANT_NAME,
-      assistantAvatar: ASSISTANT_AVATAR,
+      assistantName: identity.assistantName,
+      assistantAvatar: identity.assistantAvatar,
       ensureAvatarCache,
     });
   }
 
   async handleAvatar(kind: "agent" | "user", req: Request): Promise<Response> {
     // Read live avatar values so /agent-avatar changes take effect immediately.
+    const identity = getIdentityConfig();
     return await handleAvatarRequest(kind, req, {
-      assistantAvatar: ASSISTANT_AVATAR || null,
-      userAvatar: USER_AVATAR || null,
+      assistantAvatar: identity.assistantAvatar || null,
+      userAvatar: identity.userAvatar || null,
       json: (payload: unknown, status = 200) => this.json(payload, status),
     });
   }
@@ -1867,7 +1869,7 @@ export class WebChannel implements WebChannelLike {
         isBot,
         mediaIds,
         agentId: DEFAULT_AGENT_ID,
-        agentName: ASSISTANT_NAME,
+        agentName: getIdentityConfig().assistantName,
       },
       {
         contentBlocks: options.contentBlocks,

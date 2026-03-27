@@ -1,10 +1,11 @@
 ---
 id: finish-config-injection-and-mutable-identity-cleanup
 title: "Finish config injection and mutable identity cleanup"
-status: doing
+status: done
 priority: medium
 created: 2026-03-27
 updated: 2026-03-27
+completed: 2026-03-27
 target_release: next
 estimate: M
 risk: medium
@@ -40,7 +41,7 @@ Primary targets:
 
 ## Acceptance Criteria
 
-- [ ] Remaining high-value consumers use typed config objects/getters or injected config parameters instead of flat globals where practical.
+- [x] Remaining high-value consumers use typed config objects/getters or injected config parameters instead of flat globals where practical.
 - [x] Mutable identity settings are isolated behind a clearer typed/configured seam instead of remaining an ad hoc flat-global exception.
 - [x] Existing behavior and env/CLI/config precedence are preserved.
 - [x] Existing tests still pass.
@@ -90,6 +91,12 @@ Primary targets:
   - config/keychain coverage audit: `./scripts/audit-core-config-keychain-coverage.sh` → `config_pct=100`, `keychain_pct=100`, `uncovered_lines=0` (`artifacts/add-tests-core-config-and-keychain/coverage-summary.md`)
   - static validation: `bun run lint`, `bun run typecheck`
 - Remaining broader web-surface consumers were split explicitly into `kanban/10-next/finish-web-live-identity-getter-adoption.md` instead of widening this slice into a larger web-channel refactor.
+- Follow-up web slice also landed on `main`:
+  - rewired `runtime/src/channels/web.ts` and `runtime/src/channels/web/handlers/agent.ts` to use `getIdentityConfig()` for live assistant/user identity reads;
+  - cleaned up the last trivial bootstrap consumer in `runtime/src/runtime/bootstrap.ts`.
+- End state:
+  - `./scripts/audit-extract-typed-config-objects.sh` remains at `typed_config_objects: 12`, `bare_constant_exports: 10`;
+  - the remaining flat identity exports are compatibility surfaces in `runtime/src/core/config.ts`, not active high-value runtime consumers.
 
 ## Links
 
