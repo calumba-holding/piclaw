@@ -294,15 +294,21 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
                 </div>
                 <div class="agent-series-chart-plot">
                     <svg class="agent-series-chart-svg" viewBox=${`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
-                        ${normalized.map((series) => html`
-                            <g key=${series?.key || series?.label}>
-                                <path
-                                    class="agent-series-chart-line"
-                                    d=${buildLinePath(series.points, width, height, minValue, maxValue, minRun, maxRun)}
-                                    style=${`--agent-series-color: ${series.color};`}
-                                ></path>
-                            </g>
-                        `)}
+                        ${normalized.map((series) => {
+                            const seriesKey = series?.key || series?.label || 'series';
+                            const lineHovered = hoveredSeriesPoint?.panelKey === panelKey && hoveredSeriesPoint?.seriesKey === seriesKey;
+                            return html`
+                                <g key=${seriesKey}>
+                                    <path
+                                        class=${`agent-series-chart-line${lineHovered ? ' is-hovered' : ''}`}
+                                        d=${buildLinePath(series.points, width, height, minValue, maxValue, minRun, maxRun)}
+                                        style=${`--agent-series-color: ${series.color};`}
+                                        onMouseEnter=${() => setHoveredSeriesPoint({ panelKey, seriesKey })}
+                                        onMouseLeave=${() => setHoveredSeriesPoint((prev) => prev?.panelKey === panelKey && prev?.seriesKey === seriesKey ? null : prev)}
+                                    ></path>
+                                </g>
+                            `;
+                        })}
                     </svg>
                     <div class="agent-series-chart-points-layer">
                         ${normalized.flatMap((series) => {
@@ -349,12 +355,15 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
                         const hovered = hoveredSeriesPoint?.panelKey === panelKey && hoveredSeriesPoint?.seriesKey === seriesKey
                             ? hoveredSeriesPoint
                             : null;
+                        const hoveredValue = hovered && Number.isFinite(hovered.value) ? hovered.value : latest;
+                        const hoveredUnit = hovered && typeof hovered.unit === 'string' ? hovered.unit : unit;
+                        const hoveredRun = hovered && Number.isFinite(hovered.run) ? hovered.run : null;
                         return html`
-                            <div key=${`${seriesKey}-legend`} class=${`agent-series-legend-item${hovered ? ' is-hovered' : ''}`}>
+                            <div key=${`${seriesKey}-legend`} class=${`agent-series-legend-item${hovered ? ' is-hovered' : ''}`} style=${`--agent-series-color: ${series.color};`}>
                                 <span class="agent-series-legend-swatch" style=${`--agent-series-color: ${series.color};`}></span>
                                 <span class="agent-series-legend-label">${series?.label || 'Series'}</span>
-                                ${hovered && html`<span class="agent-series-legend-run">run ${hovered.run}</span>`}
-                                <span class="agent-series-legend-value">${formatMetricValue(hovered ? hovered.value : latest, hovered?.unit || unit)}</span>
+                                ${hoveredRun !== null && html`<span class="agent-series-legend-run">run ${hoveredRun}</span>`}
+                                <span class="agent-series-legend-value">${formatMetricValue(hoveredValue, hoveredUnit)}</span>
                             </div>
                         `;
                     })}

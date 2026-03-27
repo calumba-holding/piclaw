@@ -5611,6 +5611,16 @@ body {
     stroke-linecap: round;
     stroke-linejoin: round;
     filter: drop-shadow(0 1px 2px color-mix(in srgb, var(--agent-series-color) 20%, transparent));
+    transition: stroke-width 0.15s ease, filter 0.15s ease, opacity 0.15s ease;
+}
+
+.agent-series-chart-line.is-hovered {
+    stroke-width: 3;
+    filter: drop-shadow(0 2px 4px color-mix(in srgb, var(--agent-series-color) 30%, transparent));
+}
+
+.agent-series-chart-svg:hover .agent-series-chart-line:not(.is-hovered) {
+    opacity: 0.72;
 }
 
 .agent-series-chart-point-hit {
@@ -5663,6 +5673,14 @@ body {
     background: color-mix(in srgb, var(--bg-secondary) 86%, var(--bg-primary));
     color: var(--text-secondary);
     font-size: 11px;
+    transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.agent-series-legend-item.is-hovered {
+    border-color: color-mix(in srgb, var(--agent-series-color, var(--accent-color)) 42%, var(--border-color));
+    background: color-mix(in srgb, var(--agent-series-color, var(--accent-color)) 12%, var(--bg-primary));
+    color: var(--text-primary);
+    transform: translateY(-1px);
 }
 
 .agent-series-legend-swatch {
