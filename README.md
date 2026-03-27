@@ -15,7 +15,7 @@ Inspired by [agentbox](https://github.com/rcarmo/agentbox) and [nanoclaw](https:
 - **Streaming web UI** — real-time chat with Markdown, KaTeX, Mermaid, and Adaptive Cards
 - **Persistent agent state** — SQLite-backed messages, media, tasks, token usage, and encrypted keychain
 - **Workspace-native workflow** — browse files, preview documents, upload attachments, edit code, and reference files in prompts
-- **Built-in tools** — Ghostty-based terminal, code editor, Office/PDF/CSV/image/video viewers, draw.io, kanban board and mindmap editors, VNC client
+- **Built-in tools** — Ghostty-based terminal, code editor, Office/PDF/CSV/image/video viewers, draw.io, kanban board and mindmap editors, VNC client, Chromium CDP browser automation, and Windows UI automation
 - **Agent control features** — steering, queued follow-ups, threading, side prompts, autoresearch experiment loops, and scheduled tasks
 - **Optional auth and channels** — passkeys/TOTP for the web UI, plus optional WhatsApp integration
 
@@ -230,6 +230,13 @@ Open the built-in editor from a text-file preview.
 - Line wrapping, numbers, active-line highlight
 - Syntax highlighting for JS/TS, Python, Go, JSON, CSS, HTML, YAML, SQL, XML/SVG, Markdown, and Shell
 - Lazy-loaded local bundle; no CDN dependency
+
+### Browser and desktop automation
+
+- **`cdp_browser`** — bundled Chromium/Edge/Chrome automation via the Chrome DevTools Protocol for tab listing, navigation, JS evaluation, DOM clicking, and screenshots
+- **`win_*` tools** — bundled Windows-only desktop automation via `bun:ffi` + IAccessible for window enumeration, screenshots, tree inspection, clicking, typing, and graceful/forced close
+
+The Windows desktop tools are safe to ship cross-platform because they no-op off Windows, while `cdp_browser` works across Linux, macOS, and Windows when a Chromium-based browser is available.
 
 ### Viewers
 

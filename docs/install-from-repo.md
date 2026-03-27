@@ -26,9 +26,9 @@ A `postinstall` script runs automatically after `bun add` to download the
 draw.io viewer (~35 MB), which is too large to commit to git.
 
 All other vendored assets — Mermaid, CodeMirror, KaTeX, Ghostty, fonts,
-Office viewer, VNC decoder, web bundles, etc. — are committed to git and
-available immediately after install. No devDependencies or build tools
-are required for a working runtime.
+Office viewer, VNC decoder, web bundles, bundled browser automation
+extensions, etc. — are committed to git and available immediately after
+install. No devDependencies or build tools are required for a working runtime.
 
 If `postinstall` was skipped (e.g. `--ignore-scripts`), run manually:
 
@@ -66,10 +66,13 @@ After install, the goal is that:
 - the CLI runs without a manual build
 - bundled web assets are already present
 - bundled extensions/viewers required by normal runtime behavior are included
+- bundled automation extensions such as `cdp_browser` are available after install
+- Windows-only `win_*` desktop automation extensions are included but remain inert on non-Windows hosts
 
 ## Notes
 
 - This path is Bun-first. npm parity is not part of the initial scope.
 - The published GHCR image remains the main documented production runtime.
+- The Bun repo-install path now ships the bundled `cdp-browser` and `win-ui` extensions in the package tree alongside the existing optional extensions.
 - Build, pack, and install commands should be run from the repo root; `runtime/` is not a separate package.
 - If repo-install behavior differs slightly from the published package layout, those differences should stay small and documented.
