@@ -75,6 +75,28 @@ import { describeBranchRestoreResult, formatBranchPickerLabel, getBranchHandleDr
 
 const BTW_SESSION_KEY = 'piclaw_btw_session';
 
+function getCurrentAppAssetVersion() {
+    try {
+        const direct = new URL(import.meta.url).searchParams.get('v');
+        if (direct && direct.trim()) return direct.trim();
+    } catch {
+        /* expected: import.meta.url may be unavailable in some bundle/debug contexts. */
+    }
+    try {
+        const script = Array.from(document.querySelectorAll('script[type="module"][src]'))
+            .find((node) => String(node.getAttribute('src') || '').includes('/static/dist/app.bundle.js'));
+        const src = script?.getAttribute('src') || '';
+        if (!src) return null;
+        const resolved = new URL(src, window.location.origin);
+        const fallback = resolved.searchParams.get('v');
+        return fallback && fallback.trim() ? fallback.trim() : null;
+    } catch {
+        return null;
+    }
+}
+
+const CURRENT_APP_ASSET_VERSION = getCurrentAppAssetVersion();
+
 const RENAME_BRANCH_FORM_GUARD_MS = 900;
 const RENAME_BRANCH_FORM_LOCK_KEY = '__piclawRenameBranchFormLock__';
 
@@ -518,6 +540,8 @@ function MainApp({ locationParams, navigate }) {
     }, [hasDockPanes, dockVisible]);
 
     const [userProfile, setUserProfile] = useState({ name: 'You', avatar_url: null, avatar_background: null });
+    const staleUiVersionRef = useRef(null);
+    const staleUiReloadScheduledRef = useRef(false);
     const hasConnectedOnceRef = useRef(false);
     const wasAgentActiveRef = useRef(false); // tracks active→idle transition for timeline refresh
     const agentStatusRef = useRef(null);
@@ -1436,6 +1460,41 @@ function MainApp({ locationParams, navigate }) {
         return () => clearInterval(interval);
     }, [reconcileSilentTurn]);
 
+    const handleUiVersionDrift = useCallback((serverVersion) => {
+        const normalizedServerVersion = typeof serverVersion === 'string' && serverVersion.trim() ? serverVersion.trim() : null;
+        if (!normalizedServerVersion || !CURRENT_APP_ASSET_VERSION || normalizedServerVersion === CURRENT_APP_ASSET_VERSION) {
+            return false;
+        }
+        if (staleUiVersionRef.current === normalizedServerVersion) {
+            return true;
+        }
+        staleUiVersionRef.current = normalizedServerVersion;
+
+        const composeDraft = typeof document !== 'undefined'
+            ? String(document.querySelector('.compose-box textarea')?.value || '').trim()
+            : '';
+        const canAutoReload = !tabStore.hasUnsaved()
+            && !composeDraft
+            && !isAgentRunningRef.current
+            && !pendingRequestRef.current;
+
+        if (canAutoReload && !staleUiReloadScheduledRef.current) {
+            staleUiReloadScheduledRef.current = true;
+            showIntentToast('Updating UI…', 'Reloading to apply the latest interface after restart.', 'info', 2500);
+            window.setTimeout(() => {
+                try {
+                    window.location.reload();
+                } catch {
+                    staleUiReloadScheduledRef.current = false;
+                }
+            }, 350);
+            return true;
+        }
+
+        showIntentToast('New UI available', 'Reload this page to apply the latest interface update.', 'warning', 8000);
+        return true;
+    }, [isAgentRunningRef, pendingRequestRef, showIntentToast]);
+
     const handleConnectionStatusChange = useCallback((status) => {
         setConnectionStatus(status);
         if (status !== 'connected') {
@@ -2308,6 +2367,9 @@ function MainApp({ locationParams, navigate }) {
 
         // Handle agent status updates
         if (eventType === 'connected') {
+            if (handleUiVersionDrift(data?.app_asset_version)) {
+                return;
+            }
             setAgentStatus(null);
             setAgentDraft({ text: '', totalLines: 0 });
             setAgentPlan('');
@@ -2721,6 +2783,7 @@ function MainApp({ locationParams, navigate }) {
         refreshQueueState,
         setFollowupQueueItems,
         refreshContextUsage,
+        handleUiVersionDrift,
     ]);
 
     useEffect(() => {

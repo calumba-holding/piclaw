@@ -51,12 +51,20 @@ function readAssetVersion(relPaths: string[]): string {
   return "dev";
 }
 
+export function getAppAssetVersion(): string {
+  return readAssetVersion(APP_VERSION_FILES);
+}
+
+export function getLoginAssetVersion(): string {
+  return readAssetVersion(LOGIN_VERSION_FILES);
+}
+
 function renderHtmlTemplate(relPath: string, html: string): string {
   if (relPath === "index.html") {
-    return html.replaceAll(APP_ASSET_VERSION_PLACEHOLDER, readAssetVersion(APP_VERSION_FILES));
+    return html.replaceAll(APP_ASSET_VERSION_PLACEHOLDER, getAppAssetVersion());
   }
   if (relPath === "login.html") {
-    return html.replaceAll(LOGIN_ASSET_VERSION_PLACEHOLDER, readAssetVersion(LOGIN_VERSION_FILES));
+    return html.replaceAll(LOGIN_ASSET_VERSION_PLACEHOLDER, getLoginAssetVersion());
   }
   return html;
 }
