@@ -144,9 +144,13 @@ export async function deletePost(postId, cascade = false, chatJid = null) {
  */
 export async function sendAgentMessage(agentId, content, threadId = null, mediaIds = [], mode = null, chatJid = null) {
     const query = chatJid ? `?chat_jid=${encodeURIComponent(chatJid)}` : '';
+    const payload = { content, thread_id: threadId, media_ids: mediaIds };
+    if (mode === 'auto' || mode === 'queue' || mode === 'steer') {
+        payload.mode = mode;
+    }
     return request(`/agent/${agentId}/message${query}`, {
         method: 'POST',
-        body: JSON.stringify({ content, thread_id: threadId, media_ids: mediaIds, mode }),
+        body: JSON.stringify(payload),
     });
 }
 

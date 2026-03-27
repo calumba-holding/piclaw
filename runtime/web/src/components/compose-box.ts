@@ -817,7 +817,7 @@ export function ComposeBox({
         if (mode === 'queue' || mode === 'steer' || mode === 'auto') {
             return mode;
         }
-        return isAgentActive ? 'queue' : null;
+        return isAgentActive ? 'queue' : undefined;
     };
 
     const handleSubmit = async (overrideContent, submitMode, submitOptions = {}) => {
