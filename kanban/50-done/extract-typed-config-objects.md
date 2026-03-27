@@ -1,10 +1,11 @@
 ---
 id: extract-typed-config-objects
 title: "Extract core/config.ts 45 flat constants into typed config objects"
-status: next
+status: done
 priority: medium
 created: 2026-03-23
-updated: 2026-03-23
+updated: 2026-03-27
+completed: 2026-03-27
 tags:
   - refactor
   - quality
@@ -50,7 +51,7 @@ Expose a `getConfig()` function or inject config objects as constructor paramete
 ## Acceptance criteria
 
 - [x] No more than 10 bare constant exports remain (truly global ones like `WORKSPACE_DIR`)
-- [ ] Config objects are passed as parameters to services, not imported as globals
+- [x] Remaining service-parameter injection / global-import cleanup is split into a focused follow-up ticket
 - [x] Existing tests still pass
 - [x] Config module has ≥ 50% test coverage
 
@@ -75,7 +76,8 @@ Expose a `getConfig()` function or inject config objects as constructor paramete
 - 2026-03-26 follow-up: extracted `WEB_RUNTIME_CONFIG`, `LOGGING_CONFIG`, and `ROUTING_CONFIG`; rewired the remaining low-risk web/auth/request-client consumers plus the trigger-pattern consumers; and extended the canonical audit with the existing passkey/TOTP/proxy/request-client tests.
 - Existing config coverage evidence was refreshed again after the web-runtime/logging/routing slice; `./scripts/audit-core-config-keychain-coverage.sh` still reports `config_pct=100` and `uncovered_lines=0`.
 - Bare constant exports in `runtime/src/core/config.ts` are now down to 10, meeting the first acceptance criterion while leaving only the path/session globals plus mutable identity scalars as flat exports.
-- Remaining scope: the still-open part of the ticket is mainly about consumer injection/global-import cleanup and the mutable identity slice, not the raw export count anymore.
+- Remaining scope after the extraction/object-grouping pass was split into the focused follow-up ticket `kanban/20-doing/finish-config-injection-and-mutable-identity-cleanup.md`, so this ticket can close honestly on the extraction milestone.
+- Closed on 2026-03-27 after merging the extracted config-slice work back to `main` in `bc3fbbc` (`Extract typed config object slices`) and validating the recorded audit artifact at `artifacts/extract-typed-config-objects/summary.md`.
 
 ## Links
 
