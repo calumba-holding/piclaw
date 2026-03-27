@@ -19,6 +19,7 @@ import { writeFileSync, readFileSync, existsSync, copyFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { createLogger } from "../../utils/logger.js";
+import { handleModel } from "./model.js";
 
 const log = createLogger("agent-control.login");
 
@@ -499,7 +500,9 @@ async function handleStep1Method(
 
 /** Card 2 auth form submitted → execute auth, show Card 3 or completion. */
 async function handleStep2(
+  session: AgentSession,
   authStorage: AuthStorageLike,
+  modelRegistry: ModelRegistry,
   registry: ModelRegistryLike,
   data: Record<string, unknown>,
 ): Promise<AgentControlResult> {
@@ -514,8 +517,8 @@ async function handleStep2(
     backupFile(AUTH_JSON);
     authStorage.set(providerId, { type: "api_key", key: apiKey });
     authStorage.reload();
-    // Show Card 3 with models for this provider
-    return showCard3OrComplete(def, providerId, name, registry);
+    // Show Card 3 with models for this provider, or activate directly when only one exists.
+    return await showCard3OrComplete(session, modelRegistry, def, providerId, name, registry);
   }
 
   if (method === "oauth_check") {
@@ -533,7 +536,7 @@ async function handleStep2(
     authStorage.reload();
     const cred = authStorage.get(providerId);
     if (cred?.type === "oauth") {
-      return showCard3OrComplete(def, providerId, name, registry);
+      return await showCard3OrComplete(session, modelRegistry, def, providerId, name, registry);
     }
     return { status: "error", message: `OAuth for **${name}** didn't complete yet. Try clicking "Check & Continue" again after completing login in your browser.` };
   }
@@ -586,13 +589,29 @@ async function handleStep2(
   return { status: "error", message: `Unknown method: ${method}` };
 }
 
+async function activateProviderModel(
+  session: AgentSession,
+  modelRegistry: ModelRegistry,
+  providerId: string,
+  modelId: string,
+): Promise<AgentControlResult> {
+  return handleModel(session, modelRegistry, {
+    type: "model",
+    provider: providerId,
+    modelId,
+    raw: `/model ${providerId}/${modelId}`,
+  });
+}
+
 /** Show Card 3 (model picker) or auto-complete if only one model. */
-function showCard3OrComplete(
+async function showCard3OrComplete(
+  session: AgentSession,
+  modelRegistry: ModelRegistry,
   def: ProviderDef | undefined,
   providerId: string,
   name: string,
   registry: ModelRegistryLike,
-): AgentControlResult {
+): Promise<AgentControlResult> {
   // Custom providers need a restart before models appear in the registry
   if (def?.isCustom) {
     return {
@@ -606,11 +625,7 @@ function showCard3OrComplete(
     return { status: "success", message: `✓ **${name}** authenticated, but no models found for this provider. Use \`/model\` to check available models.` };
   }
   if (models.length === 1) {
-    // Auto-select the single model
-    return {
-      status: "success",
-      message: `✓ **${name}** authenticated. One model available: **${models[0].name || models[0].id}**.\n\nUse \`/model ${models[0].provider}/${models[0].id}\` to activate it.`,
-    };
+    return activateProviderModel(session, modelRegistry, models[0].provider, models[0].id);
   }
 
   return {
@@ -621,15 +636,17 @@ function showCard3OrComplete(
 }
 
 /** Card 3 submitted → activate model. */
-function handleStep3(data: Record<string, unknown>): AgentControlResult {
+async function handleStep3(
+  session: AgentSession,
+  modelRegistry: ModelRegistry,
+  data: Record<string, unknown>,
+): Promise<AgentControlResult> {
   const providerId = String(data.provider || "").trim();
   const modelId = String(data.model || "").trim();
+  if (!providerId) return { status: "error", message: "No provider selected." };
   if (!modelId) return { status: "error", message: "No model selected." };
 
-  return {
-    status: "success",
-    message: `✓ Use \`/model ${providerId}/${modelId}\` to switch to this model.`,
-  };
+  return activateProviderModel(session, modelRegistry, providerId, modelId);
 }
 
 // ── Command handlers ────────────────────────────────────────────
@@ -654,11 +671,11 @@ export async function handleLogin(
   }
   if (command.provider?.startsWith("__step2 ")) {
     const json = command.provider.slice(8);
-    try { return await handleStep2(authStorage, registry, JSON.parse(json)); } catch { return { status: "error", message: "Invalid data." }; }
+    try { return await handleStep2(session, authStorage, modelRegistry, registry, JSON.parse(json)); } catch { return { status: "error", message: "Invalid data." }; }
   }
   if (command.provider?.startsWith("__step3 ")) {
     const json = command.provider.slice(8);
-    try { return handleStep3(JSON.parse(json)); } catch { return { status: "error", message: "Invalid data." }; }
+    try { return await handleStep3(session, modelRegistry, JSON.parse(json)); } catch { return { status: "error", message: "Invalid data." }; }
   }
 
   // No args → show Card 1

@@ -1176,6 +1176,30 @@ export class WebChannel implements WebChannelLike {
       }
       this.sendMessage(chatJid, authResult.message, sendOpts);
 
+      if (authResult.status === "success" && authResult.model_label) {
+        let nextModel: string | null = authResult.model_label ?? null;
+        let thinkingLevel: string | null = authResult.thinking_level ?? null;
+        let supportsThinking: boolean | undefined = undefined;
+        try {
+          const modelState = await this.agentPool.getAvailableModels(chatJid);
+          if (!nextModel) nextModel = modelState.current ?? null;
+          if (thinkingLevel == null) thinkingLevel = modelState.thinking_level ?? null;
+          supportsThinking = modelState.supports_thinking;
+        } catch {
+          if (typeof this.agentPool.getCurrentModelLabel === "function") {
+            nextModel = await this.agentPool.getCurrentModelLabel(chatJid).catch(() => null);
+          }
+        }
+
+        this.broadcastEvent("model_changed", {
+          chat_jid: chatJid,
+          model: nextModel ?? null,
+          thinking_level: thinkingLevel ?? null,
+          supports_thinking: supportsThinking,
+        });
+        this.skipFailedOnModelSwitch(chatJid);
+      }
+
       return this.json({
         status: "ok",
         card_updated: Boolean(updatedCardInteraction),
