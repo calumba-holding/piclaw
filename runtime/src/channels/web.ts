@@ -49,14 +49,8 @@ import type { InteractionRow } from "../db.js";
 import type { QueuedFollowupItem } from "./web/followup-placeholders.js";
 import { QueuedFollowupLifecycleService } from "./web/queued-followup-lifecycle-service.js";
 import { storeWebMessage } from "./web/message-store.js";
-import {
-  queueFollowupPlaceholderMessage,
-  replaceQueuedFollowupPlaceholderMessage,
-  sendWebMessage,
-  type MessageWriteContext,
-  type SendMessageOptions,
-} from "./web/message-write-flows.js";
-import { postDashboardWidget as postDashboardWidgetMessage } from "./web/dashboard-widget.js";
+import type { SendMessageOptions } from "./web/message-write-flows.js";
+import { WebMessageWriteService } from "./web/message-write-service.js";
 import { deletePostResponse } from "./web/timeline-service.js";
 import { ensureAvatarCache, resolveAvatarUrl } from "./web/avatar-service.js";
 import {
@@ -171,6 +165,7 @@ export class WebChannel implements WebChannelLike {
   private readonly sessionBroadcast: WebSessionBroadcastService;
   private readonly runtimeState: WebChannelRuntimeStateService;
   private readonly serverLifecycleGateway: WebServerLifecycleGatewayService;
+  private readonly messageWriteService: WebMessageWriteService;
   private readonly webServerConfig = getWebServerConfig();
   private readonly webRuntimeConfig = getWebRuntimeConfig();
 
@@ -215,6 +210,20 @@ export class WebChannel implements WebChannelLike {
         failureTracker: this.totpFailureTracker,
       }
     );
+    this.messageWriteService = new WebMessageWriteService({
+      defaultAgentId: DEFAULT_AGENT_ID,
+      storeMessage: (chatJid, content, isBot, mediaIds, options) =>
+        this.storeMessage(chatJid, content, isBot, mediaIds, options),
+      replaceMessageContent: (chatJid, rowId, text, mediaIds, contentBlocks, isTerminalAgentReply) =>
+        replaceMessageContent(chatJid, rowId, text, { contentBlocks, mediaIds, isTerminalAgentReply }) ?? null,
+      setMessageThreadToSelf: (messageId) => {
+        getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(messageId, messageId);
+      },
+      broadcastAgentResponse: (interaction) => this.interactionBroadcaster.broadcastAgentResponse(interaction),
+      broadcastInteractionUpdated: (interaction) => this.interactionBroadcaster.broadcastInteractionUpdated(interaction),
+      enqueueFollowupPlaceholder: (chatJid, rowId, queuedContent, threadId, queuedAt) =>
+        this.queuedFollowupLifecycle.enqueuePlaceholder(chatJid, rowId, queuedContent, threadId, queuedAt),
+    });
     this.requestRouter = new RequestRouterService(this);
     this.endpointContexts = createWebChannelEndpointContexts(this, {
       defaultChatJid: DEFAULT_CHAT_JID,
@@ -253,53 +262,19 @@ export class WebChannel implements WebChannelLike {
     await this.serverLifecycleGateway.stop();
   }
 
-  private getMessageWriteContext(): MessageWriteContext {
-    return {
-      defaultAgentId: DEFAULT_AGENT_ID,
-      store: {
-        storeMessage: (chatJid, content, isBot, mediaIds, options) =>
-          this.storeMessage(chatJid, content, isBot, mediaIds, options),
-        replaceMessageContent: (chatJid, rowId, text, mediaIds, contentBlocks, isTerminalAgentReply) =>
-          replaceMessageContent(chatJid, rowId, text, { contentBlocks, mediaIds, isTerminalAgentReply }) ?? null,
-        setMessageThreadToSelf: (messageId) => {
-          getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(messageId, messageId);
-        },
-      },
-      broadcaster: {
-        broadcastAgentResponse: (interaction) => this.interactionBroadcaster.broadcastAgentResponse(interaction),
-        broadcastInteractionUpdated: (interaction) => this.interactionBroadcaster.broadcastInteractionUpdated(interaction),
-      },
-      followups: {
-        enqueue: (chatJid, rowId, queuedContent, threadId, queuedAt) =>
-          this.queuedFollowupLifecycle.enqueuePlaceholder(chatJid, rowId, queuedContent, threadId, queuedAt),
-      },
-    };
-  }
-
   async sendMessage(chatJid: string, text: string, options?: SendMessageOptions): Promise<void> {
-    sendWebMessage(chatJid, text, options, this.getMessageWriteContext());
+    await this.messageWriteService.sendMessage(chatJid, text, options);
   }
 
   async postDashboardWidget(
     chatJid: string,
     options?: { threadId?: number | null; text?: string; widgetId?: string }
   ): Promise<void> {
-    await postDashboardWidgetMessage(this, {
-      chatJid,
-      threadId: options?.threadId,
-      text: options?.text,
-      widgetId: options?.widgetId,
-    });
+    await this.messageWriteService.postDashboardWidget(chatJid, options);
   }
 
   queueFollowupPlaceholder(chatJid: string, text: string, threadId?: number, queuedContent?: string): InteractionRow | null {
-    return queueFollowupPlaceholderMessage(
-      chatJid,
-      text,
-      threadId,
-      (queuedContent || "").trim() || text,
-      this.getMessageWriteContext()
-    );
+    return this.messageWriteService.queueFollowupPlaceholder(chatJid, text, threadId, queuedContent);
   }
 
   enqueueQueuedFollowupItem(
@@ -369,15 +344,14 @@ export class WebChannel implements WebChannelLike {
     threadId?: number,
     isTerminalAgentReply?: boolean
   ): InteractionRow | null {
-    return replaceQueuedFollowupPlaceholderMessage(
+    return this.messageWriteService.replaceQueuedFollowupPlaceholder(
       chatJid,
       rowId,
       text,
       mediaIds,
       contentBlocks,
       threadId,
-      this.getMessageWriteContext(),
-      isTerminalAgentReply
+      isTerminalAgentReply,
     );
   }
 

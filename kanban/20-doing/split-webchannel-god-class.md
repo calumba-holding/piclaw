@@ -72,9 +72,10 @@ Extract `WebChannel` into a composition of focused services:
 - Result: the server lifecycle + websocket gateway seam landed behind `runtime/src/channels/web/server-lifecycle-gateway-service.ts`, then was tightened further with `createWebServerLifecycleGateway(...)`, shrinking `runtime/src/channels/web.ts` from 1824 to 1649 lines while preserving existing auth/CSRF/upgrade behavior.
 - The SSE/session-broadcast seam then landed behind `runtime/src/channels/web/session-broadcast-service.ts`, removing the direct SSE hub / UI bridge wiring from `WebChannel` while preserving request routing and fanout semantics.
 - The recovery/runtime-state seam then landed behind `runtime/src/channels/web/runtime-state-service.ts`, moving resume/recovery context construction, pending steering, agent-status persistence, and panel-buffer delegation out of `WebChannel` while preserving the public API and recovery behavior.
+- The message-write/follow-up seam then landed behind `runtime/src/channels/web/message-write-service.ts`, moving write-context construction plus dashboard/follow-up placeholder coordination out of `WebChannel` while preserving payload shapes and interaction side effects.
 - Split the next bounded seam into:
-  - `kanban/20-doing/extract-webchannel-message-write-and-followup-coordination.md`
-- Rationale: message-write context construction and follow-up placeholder coordination remain one of the larger cohesive non-routing clusters still living on `WebChannel` after the first four extractions.
+  - `kanban/20-doing/extract-webchannel-endpoint-facade-and-handler-contexts.md`
+- Rationale: endpoint-wrapper and handler-context glue remain one of the larger cohesive non-transport clusters still living on `WebChannel` after the first five extractions.
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-27
@@ -99,4 +100,5 @@ Extract `WebChannel` into a composition of focused services:
   - `kanban/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`
   - `kanban/40-review/extract-webchannel-sse-broadcast-and-session-wiring.md`
   - `kanban/40-review/extract-webchannel-recovery-and-runtime-state-wiring.md`
-  - `kanban/20-doing/extract-webchannel-message-write-and-followup-coordination.md`
+  - `kanban/40-review/extract-webchannel-message-write-and-followup-coordination.md`
+  - `kanban/20-doing/extract-webchannel-endpoint-facade-and-handler-contexts.md`
