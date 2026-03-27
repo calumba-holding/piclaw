@@ -19,6 +19,17 @@ describe("web http agent dispatch", () => {
     expect(await response?.text()).toBe("main:t1");
   });
 
+  test("dispatches dynamic /agent/:id/message routes before exact matches", async () => {
+    const channel = {
+      handleAgentMessage: async (_req: Request, path: string) => new Response(path, { status: 202 }),
+    } as any;
+
+    const req = new Request("https://example.com/agent/roster/message", { method: "POST" });
+    const response = await handleAgentRoutes(channel, req, "/agent/roster/message", new URL(req.url));
+    expect(response?.status).toBe(202);
+    expect(await response?.text()).toBe("/agent/roster/message");
+  });
+
   test("dispatches remaining agent endpoints", async () => {
     const channel = {
       handleThoughtVisibility: async () => new Response("thought-vis", { status: 201 }),
