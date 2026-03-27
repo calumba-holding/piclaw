@@ -1,44 +1,44 @@
 bun test v1.3.11 (af24e281)
 
 runtime/test/config/config-coverage-import.test.ts:
-(pass) plain import covers config module init branches with isolated argv and env [7.00ms]
+(pass) plain import covers config module init branches with isolated argv and env [22.00ms]
 
 runtime/test/config/config.test.ts:
-(pass) loads config-file aliases for pushover and identity fields [27.00ms]
-(pass) CLI web flags override env values and invalid CLI numbers fall back to env [178.01ms]
-(pass) config and env fallback chains handle booleans and session settings [82.00ms]
-(pass) tool output config getter groups retention env settings [2.00ms]
-(pass) pushover config getter groups aliased config file settings [2.00ms]
-(pass) whatsapp config getter groups the configured phone number [2.00ms]
-(pass) session storage config getter groups size and auto-rotate settings [3.00ms]
+(pass) loads config-file aliases for pushover and identity fields [48.00ms]
+(pass) CLI web flags override env values and invalid CLI numbers fall back to env [100.00ms]
+(pass) config and env fallback chains handle booleans and session settings [94.00ms]
+(pass) tool output config getter groups retention env settings [54.00ms]
+(pass) pushover config getter groups aliased config file settings [6.00ms]
+(pass) whatsapp config getter groups the configured phone number [4.00ms]
+(pass) session storage config getter groups size and auto-rotate settings [6.00ms]
 (pass) agent runtime config getter groups foreground and background timeout settings [2.00ms]
-(pass) runtime timing config getter groups poll intervals and timezone [1.00ms]
+(pass) runtime timing config getter groups poll intervals and timezone [12.00ms]
 (pass) logging config getter resolves the configured log level [2.00ms]
 (pass) web server config getter groups host/port/idle-timeout/tls settings [2.00ms]
-(pass) web runtime config getter groups auth/session/proxy settings [2.00ms]
-(pass) remote interop env flags and metadata load into the typed remote config object [95.00ms]
-(pass) typed remote interop config getter returns the frozen shared object [2.00ms]
+(pass) web runtime config getter groups auth/session/proxy settings [7.00ms]
+(pass) remote interop env flags and metadata load into the typed remote config object [74.00ms]
+(pass) typed remote interop config getter returns the frozen shared object [7.00ms]
 (pass) in-process module init handles deprecated env warnings, argv parsing, and string coercions [3.00ms]
-(pass) runtime setters trim values, escape trigger regexes, and persist TOTP secrets [4.00ms]
+(pass) runtime setters trim values, escape trigger regexes, and persist TOTP secrets [5.00ms]
 
 runtime/test/remote/remote-interop.test.ts:
-{"ts":"2026-03-27T00:32:58.628Z","level":"info","module":"db.connection","message":"Opened database connection","operation":"init_database.open","mode":"memory","path":":memory:","reusedConnection":false}
-(pass) remote interop > pair request rejects localhost callback [71.00ms]
+{"ts":"2026-03-27T08:12:51.283Z","level":"info","module":"db.connection","message":"Opened database connection","operation":"init_database.open","mode":"memory","path":":memory:","reusedConnection":false}
+(pass) remote interop > pair request rejects localhost callback [69.00ms]
 (pass) remote interop > pair request requires protocol version [4.00ms]
-(pass) remote interop > pair request rejects unsupported protocol [2.00ms]
+(pass) remote interop > pair request rejects unsupported protocol [8.00ms]
 (pass) remote interop > pair request requires JSON content type [3.00ms]
 (pass) remote interop > pair request rejects oversized content-length [2.00ms]
-(pass) remote interop > pair request rate limit [9.00ms]
-(pass) remote interop > pair confirm rate limit [4.00ms]
-(pass) remote interop > pair request returns 409 when pending [3.00ms]
-(pass) remote interop > pair request + confirm establishes peer [4.00ms]
-(pass) remote interop > pair confirm rejects invalid callback proof [3.00ms]
-(pass) remote interop > signed ping enforces nonce replay [3.00ms]
-(pass) remote interop > ping rate limit [73.00ms]
-(pass) remote interop > proposal requires JSON content type [5.00ms]
-(pass) remote interop > proposal creates remote request entry [4.00ms]
-(pass) remote interop > execute requires JSON content type [3.00ms]
-(pass) remote interop > execute is blocked without short-circuit enablement [4.00ms]
+(pass) remote interop > pair request rate limit [15.00ms]
+(pass) remote interop > pair confirm rate limit [68.00ms]
+(pass) remote interop > pair request returns 409 when pending [7.00ms]
+(pass) remote interop > pair request + confirm establishes peer [10.00ms]
+(pass) remote interop > pair confirm rejects invalid callback proof [10.00ms]
+(pass) remote interop > signed ping enforces nonce replay [7.00ms]
+(pass) remote interop > ping rate limit [84.00ms]
+(pass) remote interop > proposal requires JSON content type [11.00ms]
+(pass) remote interop > proposal creates remote request entry [9.00ms]
+(pass) remote interop > execute requires JSON content type [63.00ms]
+(pass) remote interop > execute is blocked without short-circuit enablement [7.00ms]
 
 runtime/test/remote/ssrf.test.ts:
 (pass) validateCallbackUrl > rejects localhost hostnames
@@ -49,93 +49,95 @@ runtime/test/remote/ssrf.test.ts:
 
  38 pass
  0 fail
- 156 expect() calls
-Ran 38 tests across 4 files. [661.00ms]
+ 166 expect() calls
+Ran 38 tests across 4 files. [931.00ms]
 bun test v1.3.11 (af24e281)
 
 runtime/test/agent-pool/agent-pool-slash-command.test.ts:
-{"ts":"2026-03-27T00:32:58.900Z","level":"info","module":"agent-pool.slash-command","message":"Executing slash command","operation":"execute_slash_command","chatJid":"web:default","rawText":"/ext"}
-{"ts":"2026-03-27T00:32:58.902Z","level":"info","module":"agent-pool.slash-command","message":"Slash command completed","operation":"execute_slash_command.complete","chatJid":"web:default","durationMs":2,"outputChars":11}
-(pass) executeSlashCommand runs known extension command [2.00ms]
-{"ts":"2026-03-27T00:32:58.902Z","level":"info","module":"agent-pool.slash-command","message":"Executing slash command","operation":"execute_slash_command","chatJid":"web:default","rawText":"/unknown"}
-(pass) executeSlashCommand rejects unknown command
-{"ts":"2026-03-27T00:32:58.902Z","level":"info","module":"agent-pool.slash-command","message":"Executing slash command","operation":"execute_slash_command","chatJid":"web:default","rawText":"/skill:demo"}
-{"ts":"2026-03-27T00:32:58.902Z","level":"info","module":"agent-pool.slash-command","message":"Slash command completed","operation":"execute_slash_command.complete","chatJid":"web:default","durationMs":0,"outputChars":11}
-{"ts":"2026-03-27T00:32:58.902Z","level":"info","module":"agent-pool.slash-command","message":"Executing slash command","operation":"execute_slash_command","chatJid":"web:default","rawText":"/skill:missing"}
-(pass) executeSlashCommand validates skill commands [1.00ms]
+{"ts":"2026-03-27T08:12:51.693Z","level":"info","module":"agent-pool.slash-command","message":"Executing slash command","operation":"execute_slash_command","chatJid":"web:default","rawText":"/ext"}
+{"ts":"2026-03-27T08:12:51.696Z","level":"info","module":"agent-pool.slash-command","message":"Slash command completed","operation":"execute_slash_command.complete","chatJid":"web:default","durationMs":3,"outputChars":11}
+(pass) executeSlashCommand runs known extension command [3.00ms]
+{"ts":"2026-03-27T08:12:51.696Z","level":"info","module":"agent-pool.slash-command","message":"Executing slash command","operation":"execute_slash_command","chatJid":"web:default","rawText":"/unknown"}
+(pass) executeSlashCommand rejects unknown command [1.00ms]
+{"ts":"2026-03-27T08:12:51.696Z","level":"info","module":"agent-pool.slash-command","message":"Executing slash command","operation":"execute_slash_command","chatJid":"web:default","rawText":"/skill:demo"}
+{"ts":"2026-03-27T08:12:51.697Z","level":"info","module":"agent-pool.slash-command","message":"Slash command completed","operation":"execute_slash_command.complete","chatJid":"web:default","durationMs":1,"outputChars":11}
+{"ts":"2026-03-27T08:12:51.697Z","level":"info","module":"agent-pool.slash-command","message":"Executing slash command","operation":"execute_slash_command","chatJid":"web:default","rawText":"/skill:missing"}
+(pass) executeSlashCommand validates skill commands
 
 runtime/test/agent-pool/session-auto-rotation.test.ts:
-{"ts":"2026-03-27T00:32:59.994Z","level":"info","module":"agent-pool","message":"Creating new session","operation":"get_or_create.create_main_session","chatJid":"web:default"}
-{"ts":"2026-03-27T00:32:59.995Z","level":"warn","module":"agent-pool","message":"Falling back to volatile branch record","operation":"ensure_branch_registration","chatJid":"web:default","err":{"name":"Error","message":"Database not initialized","stack":"Error: Database not initialized\n    at getDb (/workspace/piclaw/runtime/src/db/connection.ts:672:15)\n    at getChatBranchByChatJid (/workspace/piclaw/runtime/src/db/chat-branches.ts:93:14)\n    at ensureBranchRegistration (/workspace/piclaw/runtime/src/agent-pool.ts:853:24)\n    at getOrCreate (/workspace/piclaw/runtime/src/agent-pool.ts:1309:12)\n    at async runAgent (/workspace/piclaw/runtime/src/agent-pool.ts:408:34)\n    at async <anonymous> (/workspace/piclaw/runtime/test/agent-pool/session-auto-rotation.test.ts:136:29)\n    at processTicksAndRejections (native:7:39)"}}
-{"ts":"2026-03-27T00:32:59.995Z","level":"info","module":"agent-pool","message":"Session ready","operation":"get_or_create.create_main_session","chatJid":"web:default","poolSize":1}
-{"ts":"2026-03-27T00:32:59.997Z","level":"info","module":"agent-pool","message":"Auto-rotated oversized session","operation":"maybe_auto_rotate_session","chatJid":"web:default","previousSize":2097340,"nextSize":1412}
-{"ts":"2026-03-27T00:32:59.997Z","level":"info","module":"agent-pool","message":"Prompting session","operation":"run_agent.prompt","chatJid":"web:default","promptLength":5}
-{"ts":"2026-03-27T00:33:00.783Z","level":"info","module":"agent-pool","message":"Agent run completed","operation":"run_agent.complete","chatJid":"web:default","durationMs":788,"outputChars":13,"turns":1}
-{"ts":"2026-03-27T00:33:00.786Z","level":"info","module":"agent-pool","message":"Disposed session","operation":"shutdown.dispose_main_session","chatJid":"web:default"}
-(pass) agent pool auto-rotates oversized persisted sessions before prompting [987.03ms]
+AJV validation disabled due to CSP restrictions
+{"ts":"2026-03-27T08:12:52.788Z","level":"info","module":"agent-pool","message":"Creating new session","operation":"get_or_create.create_main_session","chatJid":"web:default"}
+{"ts":"2026-03-27T08:12:52.789Z","level":"warn","module":"agent-pool","message":"Falling back to volatile branch record","operation":"ensure_branch_registration","chatJid":"web:default","err":{"name":"Error","message":"Database not initialized","stack":"Error: Database not initialized\n    at getDb (/workspace/piclaw/runtime/src/db/connection.ts:672:15)\n    at getChatBranchByChatJid (/workspace/piclaw/runtime/src/db/chat-branches.ts:93:14)\n    at ensureBranchRegistration (/workspace/piclaw/runtime/src/agent-pool.ts:856:24)\n    at getOrCreate (/workspace/piclaw/runtime/src/agent-pool.ts:1312:12)\n    at async runAgent (/workspace/piclaw/runtime/src/agent-pool.ts:410:34)\n    at async <anonymous> (/workspace/piclaw/runtime/test/agent-pool/session-auto-rotation.test.ts:136:29)\n    at processTicksAndRejections (native:7:39)"}}
+{"ts":"2026-03-27T08:12:52.789Z","level":"info","module":"agent-pool","message":"Session ready","operation":"get_or_create.create_main_session","chatJid":"web:default","poolSize":1}
+{"ts":"2026-03-27T08:12:52.792Z","level":"info","module":"agent-pool","message":"Auto-rotated oversized session","operation":"maybe_auto_rotate_session","chatJid":"web:default","previousSize":2097340,"nextSize":1412}
+{"ts":"2026-03-27T08:12:52.792Z","level":"info","module":"agent-pool","message":"Prompting session","operation":"run_agent.prompt","chatJid":"web:default","promptLength":5}
+{"ts":"2026-03-27T08:12:53.434Z","level":"info","module":"agent-pool","message":"Agent run completed","operation":"run_agent.complete","chatJid":"web:default","durationMs":646,"outputChars":13,"turns":1}
+{"ts":"2026-03-27T08:12:53.484Z","level":"info","module":"agent-pool","message":"Disposed session","operation":"shutdown.dispose_main_session","chatJid":"web:default"}
+(pass) agent pool auto-rotates oversized persisted sessions before prompting [866.03ms]
 
  4 pass
  0 fail
  19 expect() calls
-Ran 4 tests across 2 files. [1.98s]
+Ran 4 tests across 2 files. [1.88s]
 bun test v1.3.11 (af24e281)
 
 runtime/test/ipc/ipc.test.ts:
-{"ts":"2026-03-27T00:33:00.900Z","level":"info","module":"db.connection","message":"Opened database connection","operation":"init_database.open","mode":"memory","path":":memory:","reusedConnection":false}
-{"ts":"2026-03-27T00:33:00.919Z","level":"info","module":"ipc","message":"IPC watcher started","operation":"start_ipc_watcher"}
-(pass) IPC message sends to web chat [1.00ms]
+{"ts":"2026-03-27T08:12:53.609Z","level":"info","module":"db.connection","message":"Opened database connection","operation":"init_database.open","mode":"memory","path":":memory:","reusedConnection":false}
+{"ts":"2026-03-27T08:12:53.626Z","level":"info","module":"ipc","message":"IPC watcher started","operation":"start_ipc_watcher"}
+(pass) IPC message sends to web chat
 (pass) IPC message falls back to PICLAW_CHAT_JID when chatJid is omitted
-(pass) IPC message with media attaches files and supports inline rendering hints [1.00ms]
-(pass) IPC string inline hint is parsed for SVG media [1.00ms]
+(pass) IPC message with media attaches files and supports inline rendering hints
+(pass) IPC string inline hint is parsed for SVG media
 (pass) IPC message with missing media file still posts with warning
-(pass) IPC media messages respect noNudge flag
+(pass) IPC media messages respect noNudge flag [1.00ms]
 (pass) IPC media-only warning still posts warning text
-(pass) IPC media-only message can post with no text [1.00ms]
-(pass) IPC injected SVG text is indexed and searchable via FTS [2.00ms]
+(pass) IPC media-only message can post with no text
+(pass) IPC injected SVG text is indexed and searchable via FTS [3.00ms]
 (pass) IPC schedule_task creates a due agent task [1.00ms]
-(pass) IPC schedule_task creates a due shell task [1.00ms]
+(pass) IPC schedule_task creates a due shell task
 (pass) IPC schedule_task rejects unsafe shell command
-{"ts":"2026-03-27T00:33:00.991Z","level":"info","module":"ipc","message":"Processing resume_pending IPC task","operation":"process_task_command.resume_pending","chatJid":"web:default"}
-(pass) IPC resume_pending triggers resumePending handler
-{"ts":"2026-03-27T00:33:01.983Z","level":"error","module":"ipc","message":"Failed to process IPC payload","operation":"process_ipc_dir","kind":"task","file":"bad_1774571580991.json","err":{"name":"SyntaxError","message":"JSON Parse error: Expected '}'","stack":"SyntaxError: JSON Parse error: Expected '}'\n    at <parse> (:0)\n    at parse (unknown)\n    at processIpcDir (/workspace/piclaw/runtime/src/ipc.ts:194:27)\n    at <anonymous> (/workspace/piclaw/runtime/src/ipc.ts:270:13)\n    at processTicksAndRejections (native:7:39)"}}
-(pass) IPC renames malformed task files [1011.03ms]
-(pass) IPC update_task with invalid model reports error [1.00ms]
-(pass) IPC update_task ignores invalid schedule values
+{"ts":"2026-03-27T08:12:53.634Z","level":"info","module":"ipc","message":"Processing resume_pending IPC task","operation":"process_task_command.resume_pending","chatJid":"web:default"}
+(pass) IPC resume_pending triggers resumePending handler [1.00ms]
+{"ts":"2026-03-27T08:12:54.627Z","level":"error","module":"ipc","message":"Failed to process IPC payload","operation":"process_ipc_dir","kind":"task","file":"bad_1774599173634.json","err":{"name":"SyntaxError","message":"JSON Parse error: Expected '}'","stack":"SyntaxError: JSON Parse error: Expected '}'\n    at <parse> (:0)\n    at parse (unknown)\n    at processIpcDir (/workspace/piclaw/runtime/src/ipc.ts:194:27)\n    at <anonymous> (/workspace/piclaw/runtime/src/ipc.ts:270:13)\n    at processTicksAndRejections (native:7:39)"}}
+(pass) IPC renames malformed task files [1007.03ms]
+(pass) IPC update_task with invalid model reports error
+(pass) IPC update_task ignores invalid schedule values [1.00ms]
 (pass) IPC cleanup_tasks removes completed tasks and logs
 (pass) IPC-related exported symbols keep JSDoc coverage [1.00ms]
 
 runtime/test/runtime/bootstrap.test.ts:
+AJV validation disabled due to CSP restrictions
 (pass) runtime bootstrap > bootstrapRuntime wires runtime services in production order [1.00ms]
 (pass) runtime bootstrap > createDefaultRuntimeBootstrapDeps preserves provided runtime core
 
 runtime/test/runtime/scheduler.test.ts:
-(pass) computeNextRun handles cron and interval [30.00ms]
-(pass) computeNextRun handles invalid cron and timezone [8.00ms]
+(pass) computeNextRun handles cron and interval [15.00ms]
+(pass) computeNextRun handles invalid cron and timezone [3.00ms]
 (pass) runScheduledTask logs run and updates task [2.00ms]
-(pass) runScheduledTask switches and restores models
-(pass) runScheduledTask stops when model switch fails [60.00ms]
+(pass) runScheduledTask switches and restores models [1.00ms]
+(pass) runScheduledTask stops when model switch fails [1.00ms]
 (pass) runScheduledTask logs restore-model failures [1.00ms]
-{"ts":"2026-03-27T00:33:03.487Z","level":"info","module":"scheduler","message":"Scheduler loop started","operation":"start_scheduler_loop"}
-(pass) startSchedulerLoop returns stop function and stop is idempotent [4.00ms]
+{"ts":"2026-03-27T08:12:56.024Z","level":"info","module":"scheduler","message":"Scheduler loop started","operation":"start_scheduler_loop"}
+(pass) startSchedulerLoop returns stop function and stop is idempotent [10.00ms]
 
  27 pass
  0 fail
  85 expect() calls
-Ran 27 tests across 3 files. [2.69s]
+Ran 27 tests across 3 files. [2.52s]
 bun test v1.3.11 (af24e281)
 
 runtime/test/agent-control/passkey-totp-handler.test.ts:
-{"ts":"2026-03-27T00:33:03.534Z","level":"info","module":"db.connection","message":"Opened database connection","operation":"init_database.open","mode":"memory","path":":memory:","reusedConnection":false}
-(pass) handlePasskey returns help, list, and delete validation errors [66.00ms]
-(pass) handlePasskey enrol requires configured TOTP secret [3.00ms]
-(pass) handleTotp validates action and returns a single-card setup flow without committing immediately [15.00ms]
-(pass) handleTotp reuses the active secret for secondary-device setup and stages reset without committing [15.00ms]
+{"ts":"2026-03-27T08:12:56.121Z","level":"info","module":"db.connection","message":"Opened database connection","operation":"init_database.open","mode":"memory","path":":memory:","reusedConnection":false}
+(pass) handlePasskey returns help, list, and delete validation errors [19.00ms]
+(pass) handlePasskey enrol requires configured TOTP secret [2.00ms]
+(pass) handleTotp validates action and returns a single-card setup flow without committing immediately [84.00ms]
+(pass) handleTotp reuses the active secret for secondary-device setup and stages reset without committing [73.00ms]
 
 runtime/test/utils/request-client.test.ts:
 (pass) request-client helpers > ignores forwarded IP headers when trustProxy is false
 (pass) request-client helpers > uses forwarded IP headers when trustProxy is true
 (pass) request-client helpers > prefers request URL + host when trustProxy is false
-(pass) request-client helpers > uses forwarded host/proto/port when trustProxy is true
+(pass) request-client helpers > uses forwarded host/proto/port when trustProxy is true [1.00ms]
 (pass) request-client helpers > uses standard Forwarded header when trustProxy is true
 
 runtime/test/channels/web/proxy-sensitive-flows.test.ts:
@@ -160,11 +162,11 @@ runtime/test/channels/web/proxy-sensitive-flows.test.ts:
 runtime/test/channels/web/totp-card.test.ts:
 (pass) totp card token round-trips signed state
 (pass) totp card token rejects tampering and expiry
-(pass) totp adaptive card renders a larger QR code for easier scanning [4.00ms]
+(pass) totp adaptive card renders a larger QR code for easier scanning [3.00ms]
 
 runtime/test/channels/web/totp-auth.test.ts:
 (pass) totp auth verify handler > returns 404 when auth or totp is disabled
-(pass) totp auth verify handler > validates JSON body and code presence
+(pass) totp auth verify handler > validates JSON body and code presence [1.00ms]
 (pass) totp auth verify handler > rejects when lockout is active
 (pass) totp auth verify handler > records invalid totp failures and returns 401
 (pass) totp auth verify handler > issues a session cookie with the compatibility success envelope on valid totp [1.00ms]
@@ -172,4 +174,4 @@ runtime/test/channels/web/totp-auth.test.ts:
  34 pass
  0 fail
  91 expect() calls
-Ran 34 tests across 5 files. [199.00ms]
+Ran 34 tests across 5 files. [233.00ms]

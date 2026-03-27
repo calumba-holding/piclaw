@@ -74,6 +74,7 @@ test("loads config-file aliases for pushover and identity fields", () => {
 
     const snapshot = loadConfigInSubprocess(ws, [
       "PUSHOVER_CONFIG",
+      "IDENTITY_CONFIG",
       "ASSISTANT_NAME",
       "ASSISTANT_AVATAR",
       "USER_NAME",
@@ -88,6 +89,13 @@ test("loads config-file aliases for pushover and identity fields", () => {
       device: "device-1",
       priority: 2,
       sound: "ping",
+    });
+    expect(snapshot.IDENTITY_CONFIG).toEqual({
+      assistantName: "Config Bot",
+      assistantAvatar: "/assistant.png",
+      userName: "Casey",
+      userAvatar: "/user.png",
+      userAvatarBackground: "#123456",
     });
     expect(snapshot.ASSISTANT_NAME).toBe("Config Bot");
     expect(snapshot.ASSISTANT_AVATAR).toBe("/assistant.png");
@@ -541,6 +549,14 @@ test("in-process module init handles deprecated env warnings, argv parsing, and 
       try {
         const cfg = await importFresh<typeof import("../../src/core/config.js")>("../src/core/config.js");
 
+        expect(cfg.IDENTITY_CONFIG).toEqual({
+          assistantName: "Legacy Pi",
+          assistantAvatar: "",
+          userName: "",
+          userAvatar: "",
+          userAvatarBackground: "",
+        });
+        expect(cfg.getIdentityConfig()).toBe(cfg.IDENTITY_CONFIG);
         expect(cfg.ASSISTANT_NAME).toBe("Legacy Pi");
         expect(cfg.WEB_SERVER_CONFIG).toEqual({
           port: 9001,
@@ -614,6 +630,15 @@ test("runtime setters trim values, escape trigger regexes, and persist TOTP secr
       cfg.setUserAvatar("  /user.svg  ");
       cfg.setUserAvatarBackground("  #abcdef  ");
 
+      expect(cfg.IDENTITY_CONFIG).toEqual({
+        assistantName: "Pi (Test) Bot",
+        assistantAvatar: "/assistant.svg",
+        userName: "Jordan",
+        userAvatar: "/user.svg",
+        userAvatarBackground: "#abcdef",
+      });
+      expect(cfg.getIdentityConfig()).toBe(cfg.IDENTITY_CONFIG);
+      expect(Object.isSealed(cfg.IDENTITY_CONFIG)).toBe(true);
       expect(cfg.ASSISTANT_NAME).toBe("Pi (Test) Bot");
       expect(cfg.ASSISTANT_AVATAR).toBe("/assistant.svg");
       expect(cfg.USER_NAME).toBe("Jordan");

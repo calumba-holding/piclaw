@@ -14,7 +14,7 @@
  *     passed to the IPC watcher and task scheduler.
  */
 
-import { ASSISTANT_NAME } from "../core/config.js";
+import { getIdentityConfig } from "../core/config.js";
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("pushover");
@@ -54,7 +54,7 @@ export class PushoverChannel {
     const body: Record<string, string> = {
       token: this.opts.appToken,
       user: this.opts.userKey,
-      title: ASSISTANT_NAME,
+      title: getIdentityConfig().assistantName,
       message: text,
       html: "1",
     };

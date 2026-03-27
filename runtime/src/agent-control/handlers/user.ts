@@ -11,8 +11,7 @@
 import type { AgentSession } from "@mariozechner/pi-coding-agent";
 import type { AgentControlCommand, AgentControlResult } from "../agent-control-types.js";
 import {
-  USER_AVATAR,
-  USER_NAME,
+  getIdentityConfig,
   setUserAvatar,
   setUserAvatarBackground,
   setUserName,
@@ -35,7 +34,7 @@ type UserGithubCommand = Extract<AgentControlCommand, { type: "user_github" }>;
 /** Handle /user-name: update the user display name. */
 export async function handleUserName(_session: AgentSession, command: UserNameCommand): Promise<AgentControlResult> {
   if (!command.name) {
-    const current = USER_NAME || "(default)";
+    const current = getIdentityConfig().userName || "(default)";
     return { status: "success", message: `User name: ${current}` };
   }
 
@@ -43,7 +42,7 @@ export async function handleUserName(_session: AgentSession, command: UserNameCo
   const normalized = trimmed.toLowerCase();
   const nextName = CLEAR_VALUES.includes(normalized) ? null : trimmed;
   const updated = updateUserConfig({ name: nextName });
-  const effective = updated.name || USER_NAME || "";
+  const effective = updated.name || getIdentityConfig().userName || "";
   setUserName(effective);
 
   return {
@@ -55,7 +54,7 @@ export async function handleUserName(_session: AgentSession, command: UserNameCo
 /** Handle /user-avatar: update the user avatar URL. */
 export async function handleUserAvatar(_session: AgentSession, command: UserAvatarCommand): Promise<AgentControlResult> {
   if (!command.avatar) {
-    const current = USER_AVATAR || "(default)";
+    const current = getIdentityConfig().userAvatar || "(default)";
     return { status: "success", message: `User avatar: ${current}` };
   }
 
@@ -66,7 +65,7 @@ export async function handleUserAvatar(_session: AgentSession, command: UserAvat
     avatar: nextAvatar,
     avatarBackground: nextAvatar === null ? null : undefined,
   });
-  const effective = updated.avatar || USER_AVATAR || "";
+  const effective = updated.avatar || getIdentityConfig().userAvatar || "";
   setUserAvatar(effective);
 
   if (nextAvatar === null) {

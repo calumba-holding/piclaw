@@ -71,6 +71,14 @@ test("plain import covers config module init branches with isolated argv and env
 
       try {
         const cfg = await importFresh<typeof import("../../src/core/config.js")>("../src/core/config.js");
+        expect(cfg.IDENTITY_CONFIG).toEqual({
+          assistantName: "Legacy Pi",
+          assistantAvatar: "",
+          userName: "",
+          userAvatar: "",
+          userAvatarBackground: "",
+        });
+        expect(cfg.getIdentityConfig()).toBe(cfg.IDENTITY_CONFIG);
         expect(cfg.ASSISTANT_NAME).toBe("Legacy Pi");
         expect(cfg.WEB_SERVER_CONFIG).toEqual({
           port: 9001,
@@ -136,6 +144,20 @@ test("plain import covers config module init branches with isolated argv and env
         expect(cfg.getWhatsAppConfig()).toBe(cfg.WHATSAPP_CONFIG);
 
         const configPath = join(ws.workspace, ".piclaw", "config.json");
+        cfg.setAssistantName("  Pi (Coverage) Bot  ");
+        cfg.setAssistantAvatar("  /assistant.svg  ");
+        cfg.setUserName("  Casey  ");
+        cfg.setUserAvatar("  /user.svg  ");
+        cfg.setUserAvatarBackground("  #123456  ");
+        expect(cfg.IDENTITY_CONFIG).toEqual({
+          assistantName: "Pi (Coverage) Bot",
+          assistantAvatar: "/assistant.svg",
+          userName: "Casey",
+          userAvatar: "/user.svg",
+          userAvatarBackground: "#123456",
+        });
+        expect(cfg.getIdentityConfig()).toBe(cfg.IDENTITY_CONFIG);
+
         expect(cfg.setWebTotpSecret("  fresh-secret  ")).toBe("fresh-secret");
         expect(cfg.WEB_RUNTIME_CONFIG.totpSecret).toBe("fresh-secret");
         expect(cfg.getRoutingConfig()).toBe(cfg.ROUTING_CONFIG);

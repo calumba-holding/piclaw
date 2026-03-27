@@ -13,7 +13,7 @@ Normalization excludes raw LCOV entries for blank lines, punctuation-only struct
 
 | Module | Lines hit | Lines found | Line coverage | Excluded lines |
 | --- | ---: | ---: | ---: | ---: |
-| `src/core/config.ts` | 405 | 405 | 100% | 42 |
+| `src/core/config.ts` | 451 | 451 | 100% | 55 |
 | `src/secure/keychain.ts` | 151 | 151 | 100% | 33 |
 
 - Combined uncovered lines: 0

@@ -10,7 +10,7 @@
 import { statSync } from "fs";
 import type { AgentSession } from "@mariozechner/pi-coding-agent";
 import type { AgentControlCommand, AgentControlResult } from "../agent-control-types.js";
-import { ASSISTANT_AVATAR, ASSISTANT_NAME, setAssistantAvatar, setAssistantName } from "../../core/config.js";
+import { getIdentityConfig, setAssistantAvatar, setAssistantName } from "../../core/config.js";
 import { ensureAvatarCache } from "../../channels/web/avatar-service.js";
 import { updateAssistantConfig } from "../agent-control-helpers.js";
 
@@ -20,7 +20,7 @@ type AgentAvatarCommand = Extract<AgentControlCommand, { type: "agent_avatar" }>
 /** Handle /agent-name: update the assistant display name. */
 export async function handleAgentName(_session: AgentSession, command: AgentNameCommand): Promise<AgentControlResult> {
   if (!command.name) {
-    return { status: "success", message: `Agent name: ${ASSISTANT_NAME}` };
+    return { status: "success", message: `Agent name: ${getIdentityConfig().assistantName}` };
   }
 
   const trimmed = command.name.trim();
@@ -40,7 +40,7 @@ export async function handleAgentName(_session: AgentSession, command: AgentName
 /** Handle /agent-avatar: update the assistant avatar URL. */
 export async function handleAgentAvatar(_session: AgentSession, command: AgentAvatarCommand): Promise<AgentControlResult> {
   if (!command.avatar) {
-    const current = ASSISTANT_AVATAR || "(default)";
+    const current = getIdentityConfig().assistantAvatar || "(default)";
     return { status: "success", message: `Agent avatar: ${current}` };
   }
 

@@ -38,7 +38,8 @@ import {
 import { streamSimple, type AssistantMessageEvent, type AssistantMessageEventStream, type Model, type Api, type Usage } from "@mariozechner/pi-ai";
 
 import { applyControlCommand, type AgentControlCommand, type AgentControlResult } from "./agent-control/index.js";
-import { ASSISTANT_NAME, SESSIONS_DIR, WORKSPACE_DIR, getAgentRuntimeConfig, getSessionStorageConfig } from "./core/config.js";import { detectChannel } from "./router.js";
+import { SESSIONS_DIR, WORKSPACE_DIR, getAgentRuntimeConfig, getIdentityConfig, getSessionStorageConfig } from "./core/config.js";
+import { detectChannel } from "./router.js";
 import { createTrackedBashOperations } from "./tools/tracked-bash.js";
 import { getAttachmentRegistry, type AttachmentInfo } from "./agent-pool/attachments.js";
 import { writeAgentLog } from "./agent-pool/logging.js";
@@ -210,7 +211,7 @@ function deriveAgentHandle(chatJid: string, sessionName?: string | null): string
   // Use configured assistant name for the root "default" branch
   // instead of the generic "default" derived from web:default.
   if (jidTail === "default") {
-    const configHandle = normalizeAgentHandlePart(ASSISTANT_NAME || "");
+    const configHandle = normalizeAgentHandlePart(getIdentityConfig().assistantName || "");
     if (configHandle) return configHandle;
   }
 

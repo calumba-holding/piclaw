@@ -31,184 +31,249 @@
       "source": "  }"
     },
     {
-      "line": 185,
+      "line": 133,
+      "reason": "structural_only",
+      "source": "});"
+    },
+    {
+      "line": 201,
       "reason": "structural_only",
       "source": "]);"
     },
     {
-      "line": 193,
+      "line": 209,
       "reason": "structural_only",
       "source": "]);"
     },
     {
-      "line": 199,
+      "line": 215,
       "reason": "structural_only",
       "source": "]);"
     },
     {
-      "line": 205,
+      "line": 221,
       "reason": "structural_only",
       "source": "]);"
     },
     {
-      "line": 214,
+      "line": 230,
       "reason": "structural_only",
       "source": "]);"
     },
     {
-      "line": 222,
+      "line": 238,
       "reason": "structural_only",
       "source": "]);"
     },
     {
-      "line": 229,
+      "line": 245,
       "reason": "structural_only",
       "source": "]);"
     },
     {
-      "line": 236,
+      "line": 252,
       "reason": "structural_only",
       "source": "]);"
     },
     {
-      "line": 244,
+      "line": 260,
       "reason": "structural_only",
       "source": "]);"
     },
     {
-      "line": 251,
+      "line": 267,
       "reason": "structural_only",
       "source": "]);"
     },
     {
-      "line": 256,
+      "line": 272,
       "reason": "structural_only",
       "source": "]);"
     },
     {
-      "line": 270,
+      "line": 286,
       "reason": "structural_only",
       "source": "  }"
     },
     {
-      "line": 290,
+      "line": 312,
       "reason": "structural_only",
-      "source": ");"
+      "source": "  ),"
     },
     {
-      "line": 353,
+      "line": 313,
       "reason": "structural_only",
-      "source": ");"
+      "source": "});"
     },
     {
-      "line": 372,
+      "line": 360,
+      "reason": "structural_only",
+      "source": "});"
+    },
+    {
+      "line": 401,
+      "reason": "structural_only",
+      "source": "  ),"
+    },
+    {
+      "line": 409,
+      "reason": "structural_only",
+      "source": "  ),"
+    },
+    {
+      "line": 410,
+      "reason": "structural_only",
+      "source": "});"
+    },
+    {
+      "line": 431,
       "reason": "structural_only",
       "source": "      }"
     },
     {
-      "line": 375,
+      "line": 434,
       "reason": "structural_only",
       "source": "      }"
     },
     {
-      "line": 376,
+      "line": 435,
       "reason": "structural_only",
       "source": "    }"
     },
     {
-      "line": 377,
+      "line": 436,
       "reason": "structural_only",
       "source": "  }"
     },
     {
-      "line": 432,
+      "line": 483,
       "reason": "structural_only",
-      "source": ");"
+      "source": "});"
     },
     {
-      "line": 439,
+      "line": 521,
       "reason": "structural_only",
-      "source": ");"
+      "source": "  ),"
     },
     {
-      "line": 518,
+      "line": 527,
+      "reason": "structural_only",
+      "source": "  ),"
+    },
+    {
+      "line": 544,
+      "reason": "structural_only",
+      "source": "});"
+    },
+    {
+      "line": 590,
+      "reason": "structural_only",
+      "source": "});"
+    },
+    {
+      "line": 604,
       "reason": "structural_only",
       "source": "]);"
     },
     {
-      "line": 523,
+      "line": 609,
       "reason": "structural_only",
       "source": "]);"
     },
     {
-      "line": 594,
+      "line": 631,
+      "reason": "structural_only",
+      "source": "});"
+    },
+    {
+      "line": 655,
+      "reason": "structural_only",
+      "source": "});"
+    },
+    {
+      "line": 706,
       "reason": "blank",
       "source": ""
     },
     {
-      "line": 607,
+      "line": 719,
       "reason": "structural_only",
       "source": "  ];"
     },
     {
-      "line": 608,
+      "line": 720,
       "reason": "blank",
       "source": ""
     },
     {
-      "line": 611,
+      "line": 723,
       "reason": "structural_only",
       "source": "  }"
     },
     {
-      "line": 612,
+      "line": 724,
       "reason": "blank",
       "source": ""
     },
     {
-      "line": 615,
+      "line": 727,
       "reason": "structural_only",
       "source": "  }"
     },
     {
-      "line": 616,
+      "line": 728,
       "reason": "blank",
       "source": ""
     },
     {
-      "line": 621,
+      "line": 733,
       "reason": "structural_only",
       "source": "  }"
     },
     {
-      "line": 622,
+      "line": 734,
       "reason": "blank",
       "source": ""
     },
     {
-      "line": 624,
+      "line": 736,
       "reason": "blank",
       "source": ""
     },
     {
-      "line": 630,
+      "line": 742,
       "reason": "structural_only",
       "source": "  }"
     },
     {
-      "line": 631,
+      "line": 743,
       "reason": "blank",
       "source": ""
     },
     {
-      "line": 645,
+      "line": 763,
       "reason": "structural_only",
-      "source": ");"
+      "source": "  ),"
     },
     {
-      "line": 674,
+      "line": 764,
       "reason": "structural_only",
-      "source": ");"
+      "source": "});"
+    },
+    {
+      "line": 789,
+      "reason": "structural_only",
+      "source": "});"
+    },
+    {
+      "line": 817,
+      "reason": "structural_only",
+      "source": "  ),"
+    },
+    {
+      "line": 819,
+      "reason": "structural_only",
+      "source": "});"
     }
   ],
   "src/secure/keychain.ts": [

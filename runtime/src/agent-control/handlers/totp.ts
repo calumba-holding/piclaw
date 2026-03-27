@@ -9,7 +9,7 @@
 
 import type { AgentSession } from "@mariozechner/pi-coding-agent";
 import type { AgentControlCommand, AgentControlResult } from "../agent-control-types.js";
-import { ASSISTANT_NAME, USER_NAME, getWebRuntimeConfig } from "../../core/config.js";
+import { getIdentityConfig, getWebRuntimeConfig } from "../../core/config.js";
 import { getChatChannel } from "../../core/chat-context.js";
 import { verifyTotp } from "../../channels/web/auth.js";
 import {
@@ -74,8 +74,9 @@ export async function handleTotp(_session: AgentSession, command: TotpCommand): 
     }
   }
 
-  const issuer = ASSISTANT_NAME || "Piclaw";
-  const label = USER_NAME ? `${issuer}:${USER_NAME}` : issuer;
+  const identity = getIdentityConfig();
+  const issuer = identity.assistantName || "Piclaw";
+  const label = identity.userName ? `${issuer}:${identity.userName}` : issuer;
   const flow: TotpCardFlow = isReset ? "reset" : hasSecret ? "secondary" : "setup";
   const candidateSecret = flow === "secondary" ? currentSecret : createCandidateSecret(issuer, label);
   const token = createTotpCardToken({

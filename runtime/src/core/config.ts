@@ -317,44 +317,67 @@ export function getLoggingConfig(): Readonly<LoggingConfig> {
   return LOGGING_CONFIG;
 }
 
+/** Typed mutable identity settings grouped for runtime consumers that need live values. */
+export interface IdentityConfig {
+  assistantName: string;
+  assistantAvatar: string;
+  userName: string;
+  userAvatar: string;
+  userAvatarBackground: string;
+}
+
+/** Grouped mutable identity settings. Legacy flat exports below stay in sync for compatibility. */
+export const IDENTITY_CONFIG: IdentityConfig = Object.seal({
+  assistantName:
+    process.env.PICLAW_ASSISTANT_NAME ||
+    envConfig.PICLAW_ASSISTANT_NAME ||
+    process.env.ASSISTANT_NAME ||
+    envConfig.ASSISTANT_NAME ||
+    configAssistantName ||
+    "PiClaw",
+  assistantAvatar:
+    process.env.PICLAW_ASSISTANT_AVATAR ||
+    envConfig.PICLAW_ASSISTANT_AVATAR ||
+    process.env.ASSISTANT_AVATAR ||
+    envConfig.ASSISTANT_AVATAR ||
+    configAssistantAvatar ||
+    "",
+  userName:
+    process.env.PICLAW_USER_NAME ||
+    envConfig.PICLAW_USER_NAME ||
+    configUserName ||
+    "",
+  userAvatar:
+    process.env.PICLAW_USER_AVATAR ||
+    envConfig.PICLAW_USER_AVATAR ||
+    configUserAvatar ||
+    "",
+  userAvatarBackground:
+    process.env.PICLAW_USER_AVATAR_BACKGROUND ||
+    envConfig.PICLAW_USER_AVATAR_BACKGROUND ||
+    configUserAvatarBackground ||
+    "",
+});
+
+/** Return grouped mutable identity settings for runtime wiring and tests. */
+export function getIdentityConfig(): Readonly<IdentityConfig> {
+  return IDENTITY_CONFIG;
+}
+
 /** Display name of the assistant. Updated by setAssistantName(). */
-export let ASSISTANT_NAME =
-  process.env.PICLAW_ASSISTANT_NAME ||
-  envConfig.PICLAW_ASSISTANT_NAME ||
-  process.env.ASSISTANT_NAME ||
-  envConfig.ASSISTANT_NAME ||
-  configAssistantName ||
-  "PiClaw";
+export let ASSISTANT_NAME = IDENTITY_CONFIG.assistantName;
 
 /** URL or path to the assistant's avatar image. Updated by setAssistantAvatar(). */
-export let ASSISTANT_AVATAR =
-  process.env.PICLAW_ASSISTANT_AVATAR ||
-  envConfig.PICLAW_ASSISTANT_AVATAR ||
-  process.env.ASSISTANT_AVATAR ||
-  envConfig.ASSISTANT_AVATAR ||
-  configAssistantAvatar ||
-  "";
+export let ASSISTANT_AVATAR = IDENTITY_CONFIG.assistantAvatar;
 
 /** Display name for the human user in the web UI. */
-export let USER_NAME =
-  process.env.PICLAW_USER_NAME ||
-  envConfig.PICLAW_USER_NAME ||
-  configUserName ||
-  "";
+export let USER_NAME = IDENTITY_CONFIG.userName;
 
 /** URL or path to the user's avatar image. */
-export let USER_AVATAR =
-  process.env.PICLAW_USER_AVATAR ||
-  envConfig.PICLAW_USER_AVATAR ||
-  configUserAvatar ||
-  "";
+export let USER_AVATAR = IDENTITY_CONFIG.userAvatar;
 
 /** CSS background colour for the user avatar circle. */
-export let USER_AVATAR_BACKGROUND =
-  process.env.PICLAW_USER_AVATAR_BACKGROUND ||
-  envConfig.PICLAW_USER_AVATAR_BACKGROUND ||
-  configUserAvatarBackground ||
-  "";
+export let USER_AVATAR_BACKGROUND = IDENTITY_CONFIG.userAvatarBackground;
 
 // ---------------------------------------------------------------------------
 // Agent timeout settings – how long a single agent turn may run.
@@ -628,7 +651,7 @@ export interface RoutingConfig {
 
 /** Grouped routing settings. `triggerPattern` stays mutable with assistant renames. */
 export const ROUTING_CONFIG: RoutingConfig = Object.seal({
-  triggerPattern: new RegExp(`(?:^|\\s)@${escapeRegex(ASSISTANT_NAME)}\\b`, "i"),
+  triggerPattern: new RegExp(`(?:^|\\s)@${escapeRegex(IDENTITY_CONFIG.assistantName)}\\b`, "i"),
 });
 
 /** Return grouped routing settings for runtime wiring and tests. */
@@ -642,28 +665,33 @@ export function getRoutingConfig(): Readonly<RoutingConfig> {
 
 /** Update the assistant's display name and re-derive the trigger pattern. */
 export function setAssistantName(name: string): void {
-  ASSISTANT_NAME = name.trim() || "PiClaw";
-  ROUTING_CONFIG.triggerPattern = new RegExp(`(?:^|\\s)@${escapeRegex(ASSISTANT_NAME)}\\b`, "i");
+  IDENTITY_CONFIG.assistantName = name.trim() || "PiClaw";
+  ASSISTANT_NAME = IDENTITY_CONFIG.assistantName;
+  ROUTING_CONFIG.triggerPattern = new RegExp(`(?:^|\\s)@${escapeRegex(IDENTITY_CONFIG.assistantName)}\\b`, "i");
 }
 
 /** Update the assistant's avatar URL/path. */
 export function setAssistantAvatar(avatar: string): void {
-  ASSISTANT_AVATAR = avatar.trim();
+  IDENTITY_CONFIG.assistantAvatar = avatar.trim();
+  ASSISTANT_AVATAR = IDENTITY_CONFIG.assistantAvatar;
 }
 
 /** Update the human user's display name. */
 export function setUserName(name: string): void {
-  USER_NAME = name.trim();
+  IDENTITY_CONFIG.userName = name.trim();
+  USER_NAME = IDENTITY_CONFIG.userName;
 }
 
 /** Update the human user's avatar URL/path. */
 export function setUserAvatar(avatar: string): void {
-  USER_AVATAR = avatar.trim();
+  IDENTITY_CONFIG.userAvatar = avatar.trim();
+  USER_AVATAR = IDENTITY_CONFIG.userAvatar;
 }
 
 /** Update the human user's avatar background colour. */
 export function setUserAvatarBackground(background: string): void {
-  USER_AVATAR_BACKGROUND = background.trim();
+  IDENTITY_CONFIG.userAvatarBackground = background.trim();
+  USER_AVATAR_BACKGROUND = IDENTITY_CONFIG.userAvatarBackground;
 }
 
 /**

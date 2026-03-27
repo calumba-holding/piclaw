@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-03-26T23:14:37.562Z",
+  "generatedAt": "2026-03-27T08:12:52.905Z",
   "command": "./scripts/audit-core-config-keychain-coverage.sh",
   "normalization": {
     "excluded_reasons": [
@@ -10,11 +10,11 @@
   },
   "config": {
     "file": "src/core/config.ts",
-    "lf": 405,
-    "lh": 405,
+    "lf": 451,
+    "lh": 451,
     "uncovered": 0,
     "line_pct": 100,
-    "excluded_lines": 42
+    "excluded_lines": 55
   },
   "keychain": {
     "file": "src/secure/keychain.ts",

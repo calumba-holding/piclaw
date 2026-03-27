@@ -23,7 +23,7 @@ import {
   storeWebauthnCredential,
   updateWebauthnCredentialCounter,
 } from "../../db.js";
-import { ASSISTANT_NAME, USER_NAME, getWebRuntimeConfig } from "../../core/config.js";
+import { getIdentityConfig, getWebRuntimeConfig } from "../../core/config.js";
 import { okJson } from "./http/http-utils.js";
 import { randomSessionToken } from "./auth.js";
 import {
@@ -191,13 +191,14 @@ export async function handleWebauthnRegisterStart(req: Request, ctx: WebauthnAut
   const { rpId } = resolveWebauthnRpInfo(req);
   const existing = getWebauthnCredentialsForRpId(enrollment.user_id, rpId);
   const excludeCredentials = existing.map((cred) => ({ id: cred.credential_id }));
+  const identity = getIdentityConfig();
 
   const options = await generateRegistrationOptions({
-    rpName: ASSISTANT_NAME || "PiClaw",
+    rpName: identity.assistantName || "PiClaw",
     rpID: rpId,
     userID: new TextEncoder().encode(enrollment.user_id),
-    userName: USER_NAME || enrollment.user_id,
-    userDisplayName: USER_NAME || "User",
+    userName: identity.userName || enrollment.user_id,
+    userDisplayName: identity.userName || "User",
     attestationType: "none",
     excludeCredentials,
   });

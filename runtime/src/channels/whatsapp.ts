@@ -29,7 +29,7 @@ import makeWASocket, {
 } from "@whiskeysockets/baileys";
 import qrcode from "qrcode-terminal";
 
-import { ASSISTANT_NAME, STORE_DIR, getWhatsAppConfig } from "../core/config.js";
+import { STORE_DIR, getIdentityConfig, getWhatsAppConfig } from "../core/config.js";
 import type { OnChatMetadata, OnInboundMessage } from "../types.js";
 import { createUuid } from "../utils/ids.js";
 import { createLogger } from "../utils/logger.js";
@@ -211,7 +211,8 @@ export class WhatsAppChannel {
         const sender = msg.key.participant || msg.key.remoteJid || "";
         const senderName = msg.pushName || sender.split("@")[0];
         const fromMe = msg.key.fromMe || false;
-        const isBotMessage = content.startsWith(`${ASSISTANT_NAME}:`);
+        const assistantName = getIdentityConfig().assistantName;
+        const isBotMessage = content.startsWith(`${assistantName}:`);
         const msgId = msg.key.id || createUuid("fallback");
 
         this.opts.onChatMetadata(chatJid, timestamp);
@@ -238,7 +239,7 @@ export class WhatsAppChannel {
   }
 
   async sendMessage(jid: string, text: string): Promise<void> {
-    const prefixed = `${ASSISTANT_NAME}: ${text}`;
+    const prefixed = `${getIdentityConfig().assistantName}: ${text}`;
     if (!this.connected) {
       this.outgoingQueue.push({ jid, text: prefixed });
       return;
