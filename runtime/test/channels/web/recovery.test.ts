@@ -6,6 +6,7 @@ import {
   type WebRecoveryStore,
 } from "../../../src/channels/web/recovery.js";
 import { AgentQueue } from "../../../src/queue.js";
+import { waitFor } from "../../helpers.js";
 
 describe("web recovery helpers", () => {
   test("recoverInflightRuns preserves terminal/partial output and replays interrupted no-output runs", async () => {
@@ -307,7 +308,7 @@ describe("web recovery helpers", () => {
 
     recoverInflightRuns(ctx, store);
     resumePendingChats(ctx, undefined, store);
-    await Bun.sleep(20);
+    await waitFor(() => processed.length === 1, 250, 1);
 
     expect(processed).toEqual(["web:1"]);
 

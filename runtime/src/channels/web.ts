@@ -46,11 +46,8 @@ import {
   getMessageThreadRootIdById,
 } from "../db.js";
 import type { InteractionRow } from "../db.js";
-import { WebChannelState } from "./web/channel-state.js";
-import { AgentStatusStore } from "./web/agent-status-store.js";
 import type { QueuedFollowupItem } from "./web/followup-placeholders.js";
 import { QueuedFollowupLifecycleService } from "./web/queued-followup-lifecycle-service.js";
-import { PendingSteeringStore } from "./web/pending-steering.js";
 import { storeWebMessage } from "./web/message-store.js";
 import {
   queueFollowupPlaceholderMessage,
@@ -67,7 +64,7 @@ import {
   handleAgentModelsRequest,
   handleAgentStatusRequest,
 } from "./web/agent-status.js";
-import { AgentBuffers, type WebAgentBufferEntry } from "./web/agent-buffers.js";
+import type { WebAgentBufferEntry } from "./web/agent-buffers.js";
 import {
   handleHashtagRequest,
   handleSearchRequest,
@@ -81,17 +78,7 @@ import {
 } from "./web/identity-endpoints.js";
 import { createAgentsEndpointContext } from "./web/endpoint-contexts.js";
 import { handleManifestRequest } from "./web/manifest.js";
-import {
-  getThreadRootId as getThreadRootIdForChat,
-  resumeChat as resumeWebChat,
-  skipFailedOnModelSwitch as skipFailedOnModelSwitchForChat,
-  type ResumeChatContext,
-} from "./web/chat-run-control.js";
-import {
-  recoverInflightRuns as recoverWebInflightRuns,
-  resumePendingChats as resumeWebPendingChats,
-  type WebRecoveryContext,
-} from "./web/recovery.js";
+import { WebChannelRuntimeStateService } from "./web/runtime-state-service.js";
 import {
   handleInternalPostRequest,
   handleUpdatePostRequest,
@@ -166,7 +153,6 @@ export interface WebChannelOpts {
 export class WebChannel implements WebChannelLike {
   queue: AgentQueue;
   agentPool: AgentPool;
-  state = new WebChannelState(STATE_KEY);
   remoteInterop: RemoteInteropService;
   responses = new ResponseService();
   requestRouter: RequestRouterService;
@@ -175,17 +161,15 @@ export class WebChannel implements WebChannelLike {
   workspaceVisible = false;
   workspaceShowHidden = false;
   queuedFollowupLifecycle = new QueuedFollowupLifecycleService();
-  pendingSteeringStore = new PendingSteeringStore();
-  agentStatusStore: AgentStatusStore;
   interactionBroadcaster: InteractionBroadcaster;
   lastCommandInteractionId: number | null = null;
   webauthnChallenges = new WebauthnChallengeTracker();
   totpFailureTracker = new TotpFailureTracker();
-  agentBuffers = new AgentBuffers();
   authGateway: WebAuthGateway;
   terminalService = new TerminalSessionService();
   vncService = new VncSessionService();
   private readonly sessionBroadcast: WebSessionBroadcastService;
+  private readonly runtimeState: WebChannelRuntimeStateService;
   private readonly serverLifecycleGateway: WebServerLifecycleGatewayService;
   private readonly webServerConfig = getWebServerConfig();
   private readonly webRuntimeConfig = getWebRuntimeConfig();
@@ -195,7 +179,18 @@ export class WebChannel implements WebChannelLike {
     this.agentPool = opts.agentPool;
     this.sessionBroadcast = new WebSessionBroadcastService(this.agentPool);
     this.remoteInterop = new RemoteInteropService(this.agentPool);
-    this.agentStatusStore = new AgentStatusStore(this.state);
+    this.runtimeState = new WebChannelRuntimeStateService(
+      {
+        getAssistantName: () => getIdentityConfig().assistantName,
+        getChatCursor: (chatJid) => getChatCursor(chatJid),
+        enqueue: (task, key, laneKey) => this.queue.enqueue(task, key, laneKey),
+        processChat: (chatJid, agentId, threadRootId) => this.processChat(chatJid, agentId, threadRootId),
+      },
+      {
+        defaultAgentId: DEFAULT_AGENT_ID,
+        stateKey: STATE_KEY,
+      }
+    );
     this.interactionBroadcaster = createInteractionBroadcaster(this, () => {
       const identity = getIdentityConfig();
       return {
@@ -350,19 +345,19 @@ export class WebChannel implements WebChannelLike {
   }
 
   queuePendingSteering(chatJid: string, timestamp: string | undefined): void {
-    this.pendingSteeringStore.queue(chatJid, timestamp);
+    this.runtimeState.queuePendingSteering(chatJid, timestamp);
   }
 
   consumePendingSteering(chatJid: string): string | null {
-    return this.pendingSteeringStore.consumeLatest(chatJid);
+    return this.runtimeState.consumePendingSteering(chatJid);
   }
 
   updateAgentStatus(chatJid: string, status: Record<string, unknown>): void {
-    this.agentStatusStore.update(chatJid, status);
+    this.runtimeState.updateAgentStatus(chatJid, status);
   }
 
   getAgentStatus(chatJid: string): Record<string, unknown> | null {
-    return this.agentStatusStore.get(chatJid);
+    return this.runtimeState.getAgentStatus(chatJid);
   }
 
   replaceQueuedFollowupPlaceholder(
@@ -387,33 +382,15 @@ export class WebChannel implements WebChannelLike {
   }
 
   getThreadRootId(chatJid: string, messageId: string): number | null {
-    return getThreadRootIdForChat(chatJid, messageId);
-  }
-
-  private getResumeChatContext(): ResumeChatContext {
-    return {
-      defaultAgentId: DEFAULT_AGENT_ID,
-      enqueue: (task, key, laneKey) => this.queue.enqueue(task, key, laneKey),
-      processChat: (chatJid, agentId, threadRootId) => this.processChat(chatJid, agentId, threadRootId),
-      getChatCursor: (chatJid) => getChatCursor(chatJid),
-    };
+    return this.runtimeState.getThreadRootId(chatJid, messageId);
   }
 
   resumeChat(chatJid: string, threadRootId?: number | null): void {
-    resumeWebChat(chatJid, threadRootId, this.getResumeChatContext());
+    this.runtimeState.resumeChat(chatJid, threadRootId);
   }
 
   skipFailedOnModelSwitch(chatJid: string): void {
-    skipFailedOnModelSwitchForChat(chatJid);
-  }
-
-  private getRecoveryContext(): WebRecoveryContext {
-    return {
-      assistantName: getIdentityConfig().assistantName,
-      defaultAgentId: DEFAULT_AGENT_ID,
-      enqueue: (task, key, laneKey) => this.queue.enqueue(task, key, laneKey),
-      processChat: (chatJid, agentId, threadRootId) => this.processChat(chatJid, agentId, threadRootId),
-    };
+    this.runtimeState.skipFailedOnModelSwitch(chatJid);
   }
 
   /**
@@ -426,7 +403,7 @@ export class WebChannel implements WebChannelLike {
    * Called once at startup before the queue starts processing.
    */
   recoverInflightRuns(): void {
-    recoverWebInflightRuns(this.getRecoveryContext());
+    this.runtimeState.recoverInflightRuns();
   }
 
   /**
@@ -435,35 +412,35 @@ export class WebChannel implements WebChannelLike {
    * Called after a restart via the resume_pending IPC.
    */
   resumePendingChats(chatJid?: string): void {
-    resumeWebPendingChats(this.getRecoveryContext(), chatJid);
+    this.runtimeState.resumePendingChats(chatJid);
   }
 
   loadState(): void {
-    this.agentStatusStore.load();
+    this.runtimeState.loadState();
   }
 
   saveState(): void {
-    this.state.save();
+    this.runtimeState.saveState();
   }
 
   setPanelExpanded(turnId: string, panel: "thought" | "draft", expanded: boolean): void {
-    this.agentBuffers.setPanelExpanded(turnId, panel, expanded);
+    this.runtimeState.setPanelExpanded(turnId, panel, expanded);
   }
 
   isPanelExpanded(turnId: string, panel: "thought" | "draft"): boolean {
-    return this.agentBuffers.isPanelExpanded(turnId, panel);
+    return this.runtimeState.isPanelExpanded(turnId, panel);
   }
 
   updateThoughtBuffer(turnId: string, text: string, totalLines: number): void {
-    this.agentBuffers.updateBuffer(turnId, "thought", text, totalLines);
+    this.runtimeState.updateThoughtBuffer(turnId, text, totalLines);
   }
 
   updateDraftBuffer(turnId: string, text: string, totalLines: number): void {
-    this.agentBuffers.updateBuffer(turnId, "draft", text, totalLines);
+    this.runtimeState.updateDraftBuffer(turnId, text, totalLines);
   }
 
   getBuffer(turnId: string, panel: "thought" | "draft"): WebAgentBufferEntry | undefined {
-    return this.agentBuffers.getBuffer(turnId, panel);
+    return this.runtimeState.getBuffer(turnId, panel);
   }
 
   async handleFetch(req: Request, server?: Bun.Server<WebSocketSessionData>): Promise<Response | undefined> {

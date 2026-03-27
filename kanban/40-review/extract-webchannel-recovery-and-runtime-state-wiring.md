@@ -1,7 +1,7 @@
 ---
 id: extract-webchannel-recovery-and-runtime-state-wiring
 title: Extract WebChannel recovery and runtime-state wiring seam
-status: doing
+status: review
 priority: high
 created: 2026-03-27
 updated: 2026-03-27
@@ -120,29 +120,48 @@ validation while keeping behavior and public surfaces unchanged.
 
 ## Test Plan
 
-- [ ] Add or strengthen focused tests for:
+- [x] Add or strengthen focused tests for:
   - recovery/resume context wiring
   - agent-status / pending-steering delegation
   - panel-buffer delegation and state load/save behavior where practical
-- [ ] Re-run affected integration coverage from:
+- [x] Re-run affected integration coverage from:
   - `runtime/test/channels/web/web-channel.test.ts`
   - existing recovery/state web tests if touched
-- [ ] Run validation in repair-first order:
+- [x] Run validation in repair-first order:
   1. focused recovery/state tests
   2. targeted `web-channel` tests
   3. `bun run lint`
   4. `bun run typecheck`
-- [ ] Leave behind a stable validation command/script if a canonical slice entrypoint emerges.
+- [x] Leave behind a stable validation command/script if a canonical slice entrypoint emerges.
 
 ## Definition of Done
 
-- [ ] Extracted recovery/runtime-state seam is mergeable back to `main`.
-- [ ] Focused and integration validation are green.
-- [ ] Ticket `## Updates` records commands, evidence, and files touched.
-- [ ] Parent WebChannel split ticket is updated to reflect the next chosen seam.
-- [ ] Any larger adjacent follow-up seams discovered are split explicitly instead of bundled.
+- [x] Extracted recovery/runtime-state seam is mergeable back to `main`.
+- [x] Focused and integration validation are green.
+- [x] Ticket `## Updates` records commands, evidence, and files touched.
+- [x] Parent WebChannel split ticket is updated to reflect the next chosen seam.
+- [x] Any larger adjacent follow-up seams discovered are split explicitly instead of bundled.
 
 ## Updates
+
+### 2026-03-27
+- Lane change: `20-doing` → `40-review` after landing the slice on `main`.
+- Landed `runtime/src/channels/web/runtime-state-service.ts` and delegated WebChannel's recovery/runtime-state methods through it without changing resume behavior, inflight-run recovery semantics, queued steering behavior, agent-status persistence, or panel-buffer behavior.
+- Added focused seam coverage in:
+  - `runtime/test/channels/web/runtime-state-service.test.ts`
+  - `runtime/test/channels/web/web-channel-recovery-state.test.ts`
+- Tightened existing recovery coverage by replacing fixed sleeps with `waitFor(...)` polling in:
+  - `runtime/test/channels/web/recovery.test.ts`
+  - `runtime/test/channels/web/web-channel-recovery-state.test.ts`
+- Moved the targeted load-state and inflight-recovery integration scenarios out of the giant `runtime/test/channels/web/web-channel.test.ts` file into the focused `web-channel-recovery-state.test.ts` slice.
+- Validation evidence:
+  - `bun test runtime/test/channels/web/runtime-state-service.test.ts runtime/test/channels/web/recovery.test.ts runtime/test/channels/web/web-channel-recovery-state.test.ts runtime/test/channels/web/web-channel.test.ts`
+  - `bun run lint`
+  - `bun run typecheck`
+- Result: `runtime/src/channels/web.ts` dropped from 1651 to 1628 lines while preserving the public WebChannel API.
+- Next bounded seam split out explicitly instead of widening scope in-place:
+  - `kanban/20-doing/extract-webchannel-message-write-and-followup-coordination.md`
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-27
 - Created as the next bounded execution slice under `split-webchannel-god-class` after the SSE/session-broadcast seam landed.
@@ -153,6 +172,7 @@ validation while keeping behavior and public surfaces unchanged.
 ## Links
 
 - `kanban/20-doing/split-webchannel-god-class.md`
+- `kanban/20-doing/extract-webchannel-message-write-and-followup-coordination.md`
 - `kanban/40-review/extract-webchannel-queued-followup-service.md`
 - `kanban/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`
 - `kanban/40-review/extract-webchannel-sse-broadcast-and-session-wiring.md`
