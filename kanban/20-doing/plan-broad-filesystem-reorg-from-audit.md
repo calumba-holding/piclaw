@@ -118,6 +118,7 @@ Potentially in scope, pending plan decisions:
 - `docs/broad-filesystem-reorg-map-2026-03-28.md`
 - `docs/stage1-broad-filesystem-reorg-steplist-2026-03-28.md`
 - `docs/stage1-broad-filesystem-reorg-autoresearch-prompt-2026-03-28.md`
+- `docs/stage1-board-rename-reference-inventory-2026-03-28.md`
 - `kanban/20-doing/execute-stage1-board-rename-and-boundary-framing.md`
 - `kanban/40-review/audit-project-filesystem-layout.md`
 - `docs/filesystem-layout-audit-2026-03-28.md`

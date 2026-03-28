@@ -85,6 +85,11 @@ as the implementation map/steplist for this batch.
 - The detailed step order and guardrails live in:
   - `docs/stage1-broad-filesystem-reorg-steplist-2026-03-28.md`
   - `docs/stage1-broad-filesystem-reorg-autoresearch-prompt-2026-03-28.md`
+  - `docs/stage1-board-rename-reference-inventory-2026-03-28.md`
+- Baseline inventory captured for Stage 1 planning:
+  - total `kanban/` / `piclaw/kanban` refs across the repo: 419
+  - narrowed non-board/artifact path-sensitive refs scanned via `README.md docs runtime scripts skel package.json Makefile .github supervisor entrypoint.sh Dockerfile docker-compose.yml`: 53
+  - narrowed `kanban-management` / `.kanban.md` / editor-semantic refs in that same surface: 34
 - Immediate goal: keep the batch broad enough to reshape the repo honestly, but still bounded enough to validate and review.
 
 ## Links
