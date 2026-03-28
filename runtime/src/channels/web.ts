@@ -25,10 +25,7 @@ import {
 import type { WebChannelLike } from "./web/web-channel-contracts.js";
 import { RequestRouterService } from "./web/request-router-service.js";
 import { handlePost as handlePostRequest } from "./web/handlers/posts.js";
-import {
-  handleAgentMessage as handleAgentMessageRequest,
-  processChat as processAgentChat,
-} from "./web/handlers/agent.js";
+import { processChat as processAgentChat } from "./web/handlers/agent.js";
 import { WebSessionBroadcastService } from "./web/session-broadcast-service.js";
 import { ResponseService } from "./web/http/response-service.js";
 import {
@@ -73,6 +70,7 @@ import {
   WebAgentPeerMessageRelayService,
   type WebAgentPeerMessageRelayChannelLike,
 } from "./web/agent-peer-message-relay-service.js";
+import { getWebAgentMessageEntryService } from "./web/agent-message-entry-service.js";
 import { TerminalSessionService } from "./web/terminal/terminal-session-service.js";
 import { VncSessionService } from "./web/vnc/vnc-session-service.js";
 import { RemoteInteropService } from "../remote/service.js";
@@ -602,11 +600,7 @@ export class WebChannel implements WebChannelLike {
     return await getAdaptiveCardSidePromptService(this).handleAgentSidePromptStream(req);
   }
 
-  async handleAgentMessage(req: Request, pathname: string): Promise<Response> {
-    const url = new URL(req.url);
-    const chatJid = url.searchParams.get("chat_jid")?.trim() || DEFAULT_CHAT_JID;
-    return handleAgentMessageRequest(this, req, pathname, chatJid, DEFAULT_AGENT_ID);
-  }
+  handleAgentMessage(req: Request, pathname: string): Promise<Response> { return getWebAgentMessageEntryService(this, { defaultChatJid: DEFAULT_CHAT_JID, defaultAgentId: DEFAULT_AGENT_ID }).handleAgentMessage(req, pathname); }
 
   async processChat(chatJid: string, agentId: string, threadRootId?: number | null): Promise<void> {
     return processAgentChat(this, chatJid, agentId, threadRootId ?? undefined);

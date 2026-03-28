@@ -19,15 +19,18 @@ describe("web http agent dispatch", () => {
     expect(await response?.text()).toBe("main:t1");
   });
 
-  test("dispatches dynamic /agent/:id/message routes before exact matches", async () => {
+  test("dispatches dynamic /agent/:id/message routes before exact matches and preserves the routed request", async () => {
     const channel = {
-      handleAgentMessage: async (_req: Request, path: string) => new Response(path, { status: 202 }),
+      handleAgentMessage: async (req: Request, path: string) => {
+        const url = new URL(req.url);
+        return new Response(`${path}:${url.searchParams.get("chat_jid") ?? ""}`, { status: 202 });
+      },
     } as any;
 
-    const req = new Request("https://example.com/agent/roster/message", { method: "POST" });
+    const req = new Request("https://example.com/agent/roster/message?chat_jid=web%3Abranch", { method: "POST" });
     const response = await handleAgentRoutes(channel, req, "/agent/roster/message", new URL(req.url));
     expect(response?.status).toBe(202);
-    expect(await response?.text()).toBe("/agent/roster/message");
+    expect(await response?.text()).toBe("/agent/roster/message:web:branch");
   });
 
   test("dispatches remaining agent endpoints", async () => {
