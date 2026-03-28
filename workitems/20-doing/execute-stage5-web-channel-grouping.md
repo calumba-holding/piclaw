@@ -62,19 +62,19 @@ as the implementation map/steplist for this batch.
 
 ## Acceptance Criteria
 
-- [ ] The flat root under `runtime/src/channels/web/` is materially smaller
-- [ ] The clearest capability slices have dedicated directories
-- [ ] Imports/tests/docs are updated consistently
-- [ ] Validation for the touched surfaces is green
-- [ ] Remaining root files are a deliberate remainder rather than accidental sprawl
+- [x] The flat root under `runtime/src/channels/web/` is materially smaller
+- [x] The clearest capability slices have dedicated directories
+- [x] Imports/tests/docs are updated consistently
+- [x] Validation for the touched surfaces is green
+- [x] Remaining root files are a deliberate remainder rather than accidental sprawl
 
 ## Test / Validation Plan
 
-- [ ] Search for stale old web-channel paths/imports after the move
-- [ ] Run directly affected focused tests
-- [ ] Run `bun run lint`
-- [ ] Run `bun run typecheck`
-- [ ] Run affected import-boundary checks if needed
+- [x] Search for stale old web-channel paths/imports after the move
+- [x] Run directly affected focused tests
+- [x] Run `bun run lint`
+- [x] Run `bun run typecheck`
+- [x] Run affected import-boundary checks if needed
 
 ## Updates
 
@@ -85,6 +85,21 @@ as the implementation map/steplist for this batch.
   - `docs/stage5-web-channel-grouping-inventory-2026-03-28.md`
   - `docs/stage5-web-channel-grouping-steplist-2026-03-28.md`
   - `docs/stage5-web-channel-grouping-autoresearch-prompt-2026-03-28.md`
+- First manual tranche landed the clearest capability directories:
+  - `runtime/src/channels/web/auth/`
+  - `runtime/src/channels/web/sse/`
+  - `runtime/src/channels/web/cards/`
+  - `runtime/src/channels/web/media/`
+  - `runtime/src/channels/web/theming/`
+  - `runtime/src/channels/web/messaging/`
+- The flat root under `runtime/src/channels/web/` dropped from 73 files to 47 files.
+- Matching direct module tests were regrouped under `runtime/test/channels/web/` where straightforward.
+- Validation run for the tranche:
+  - focused web/IPC tests
+  - `bun run lint`
+  - `bun run typecheck`
+  - `bun run check:import-boundaries`
+- Stage 5 is meaningfully advanced, but a second tranche is still available if the project wants to push the flat root lower than 47 files.
 
 ## Links
 

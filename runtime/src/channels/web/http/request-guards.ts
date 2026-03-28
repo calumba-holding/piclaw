@@ -7,7 +7,7 @@ import {
   redirectToLoginResponse,
   serveLoginPageResponse,
   type AuthEndpointsContext,
-} from "../auth-endpoints.js";
+} from "../auth/auth-endpoints.js";
 import { getClientKey } from "./client.js";
 import { isRateLimited } from "./rate-limit.js";
 import {

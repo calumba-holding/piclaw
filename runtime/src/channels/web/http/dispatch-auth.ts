@@ -10,7 +10,7 @@ import {
   handleWebauthnRegisterStartEndpoint,
   redirectToLoginResponse,
   type AuthEndpointsContext,
-} from "../auth-endpoints.js";
+} from "../auth/auth-endpoints.js";
 import type { RouteFlags } from "./route-flags.js";
 
 /** Channel contract required by auth-route HTTP dispatcher. */

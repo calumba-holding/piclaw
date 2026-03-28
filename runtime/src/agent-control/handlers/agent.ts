@@ -11,7 +11,7 @@ import { statSync } from "fs";
 import type { AgentSession } from "@mariozechner/pi-coding-agent";
 import type { AgentControlCommand, AgentControlResult } from "../agent-control-types.js";
 import { getIdentityConfig, setAssistantAvatar, setAssistantName } from "../../core/config.js";
-import { ensureAvatarCache } from "../../channels/web/avatar-service.js";
+import { ensureAvatarCache } from "../../channels/web/media/avatar-service.js";
 import { updateAssistantConfig } from "../agent-control-helpers.js";
 
 type AgentNameCommand = Extract<AgentControlCommand, { type: "agent_name" }>;

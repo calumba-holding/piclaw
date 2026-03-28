@@ -4,7 +4,7 @@ title: "Group channels/web/ 56 flat files into sub-directories"
 status: next
 priority: medium
 created: 2026-03-23
-updated: 2026-03-27
+updated: 2026-03-28
 tags:
   - refactor
   - modularity
@@ -70,6 +70,8 @@ runtime/src/channels/web/vnc/        1 file,    296 lines
   - `docs/stage5-web-channel-grouping-autoresearch-prompt-2026-03-28.md`
   - `workitems/20-doing/execute-stage5-web-channel-grouping.md`
 - Recommended first tranche is no longer “move everything blindly”, but to group the clearest semantic slices first: `auth/`, `sse/`, `cards/`, `media/`, `theming/`, and `messaging/`.
+- The first manual tranche has now landed those six capability directories and reduced the flat root from 73 files to 47 files.
+- The ticket remains open because the original end-state target (15 or fewer files at the `web/` root) still needs a later second tranche.
 
 ## Links
 

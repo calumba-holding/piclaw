@@ -3,9 +3,9 @@
  */
 
 import { getDb, replaceMessageContent } from "../../db.js";
-import { resolveAvatarUrl } from "./avatar-service.js";
+import { resolveAvatarUrl } from "./media/avatar-service.js";
 import type { WebChannelLike } from "./web-channel-contracts.js";
-import type { AuthEndpointsContext } from "./auth-endpoints.js";
+import type { AuthEndpointsContext } from "./auth/auth-endpoints.js";
 import {
   createAgentStatusContext,
   createAgentsEndpointContext,

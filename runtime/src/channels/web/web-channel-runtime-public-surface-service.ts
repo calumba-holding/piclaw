@@ -1,10 +1,10 @@
 import type { InteractionRow } from "../../db.js";
 import type { WebAgentBufferEntry } from "./agent-buffers.js";
 import type { QueuedFollowupItem } from "./followup-placeholders.js";
-import type { SendMessageOptions } from "./message-write-flows.js";
-import type { WebMessageProcessingStorageService } from "./message-processing-storage-service.js";
+import type { SendMessageOptions } from "./messaging/message-write-flows.js";
+import type { WebMessageProcessingStorageService } from "./messaging/message-processing-storage-service.js";
 import type { WebChannelRuntimeFollowupFacadeService } from "./runtime-followup-facade-service.js";
-import type { WebSessionBroadcastService } from "./session-broadcast-service.js";
+import type { WebSessionBroadcastService } from "./sse/session-broadcast-service.js";
 
 type WebChannelRuntimePublicSurfaceFollowupFacade = Pick<
   WebChannelRuntimeFollowupFacadeService,

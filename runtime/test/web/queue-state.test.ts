@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import "../../test/helpers.js";
+import "../helpers.js";
 
 import { resolveQueueActionChatJid, shouldClearQueuedSteerState } from "../../web/src/ui/queue-state.ts";
 

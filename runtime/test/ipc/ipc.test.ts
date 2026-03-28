@@ -530,7 +530,7 @@ test("IPC cleanup_tasks removes completed tasks and logs", async () => {
 test("IPC-related exported symbols keep JSDoc coverage", () => {
   const files = [
     new URL("../../src/ipc.ts", import.meta.url),
-    new URL("../../src/channels/web/media-service.ts", import.meta.url),
+    new URL("../../src/channels/web/media/media-service.ts", import.meta.url),
   ];
 
   for (const fileUrl of files) {

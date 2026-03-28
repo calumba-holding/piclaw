@@ -7,18 +7,18 @@
  */
 
 import type { AgentPool } from "../../agent-pool.js";
-import type { SendMessageOptions } from "./message-write-flows.js";
+import type { SendMessageOptions } from "./messaging/message-write-flows.js";
 import type { WorkspaceDispatchChannel } from "./http/dispatch-workspace.js";
 import type { MediaDispatchChannel } from "./http/dispatch-media.js";
 import type { RequestGuardsChannel } from "./http/request-guards.js";
-import type { AuthEndpointsContext } from "./auth-endpoints.js";
+import type { AuthEndpointsContext } from "./auth/auth-endpoints.js";
 import type { InteractionRow } from "../../db.js";
 import type { WebAgentBufferEntry } from "./agent-buffers.js";
 import type { QueuedFollowupItem } from "./followup-placeholders.js";
-import type { UiBridge } from "./ui-bridge.js";
-import type { TotpAuthContext } from "./totp-auth.js";
-import type { WebauthnAuthContext } from "./webauthn-auth.js";
-import type { WebauthnEnrolPageContext } from "./webauthn-enrol-page.js";
+import type { UiBridge } from "./theming/ui-bridge.js";
+import type { TotpAuthContext } from "./auth/totp-auth.js";
+import type { WebauthnAuthContext } from "./auth/webauthn-auth.js";
+import type { WebauthnEnrolPageContext } from "./auth/webauthn-enrol-page.js";
 
 interface AuthGatewayLike {
   isAuthEnabled(): boolean;

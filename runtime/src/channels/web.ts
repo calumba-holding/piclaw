@@ -19,12 +19,12 @@ import { WebauthnChallengeTracker } from "./web/webauthn-challenges.js";
 import { TotpFailureTracker } from "./web/totp-failure-tracker.js";
 import type { WebChannelLike } from "./web/web-channel-contracts.js";
 import type { RequestRouterService } from "./web/request-router-service.js";
-import type { WebSessionBroadcastService } from "./web/session-broadcast-service.js";
+import type { WebSessionBroadcastService } from "./web/sse/session-broadcast-service.js";
 import { ResponseService } from "./web/http/response-service.js";
 import type { InteractionRow } from "../db.js";
 import type { QueuedFollowupItem } from "./web/followup-placeholders.js";
 import { QueuedFollowupLifecycleService } from "./web/queued-followup-lifecycle-service.js";
-import type { SendMessageOptions } from "./web/message-write-flows.js";
+import type { SendMessageOptions } from "./web/messaging/message-write-flows.js";
 import type { WebMessageWriteService } from "./web/message-write-service.js";
 import type { WebAgentBufferEntry } from "./web/agent-buffers.js";
 import type { WebChannelRuntimeStateService } from "./web/runtime-state-service.js";
@@ -32,7 +32,7 @@ import type { WebChannelEndpointContexts } from "./web/channel-endpoint-context-
 import type { WebChannelEndpointFacadeService } from "./web/channel-endpoint-facade-service.js";
 import type { WebAgentControlPlaneService } from "./web/agent-control-plane-service.js";
 import type { InteractionBroadcaster } from "./web/interaction-broadcaster.js";
-import type { WebAuthGateway } from "./web/auth-gateway.js";
+import type { WebAuthGateway } from "./web/auth/auth-gateway.js";
 import type {
   WebServerLifecycleGatewayService,
   WebSocketSessionData,
@@ -40,7 +40,7 @@ import type {
 import type { WebTerminalVncHttpService } from "./web/terminal-vnc-http-service.js";
 import type {
   WebAdaptiveCardSidePromptService,
-} from "./web/adaptive-card-side-prompt-service.js";
+} from "./web/cards/adaptive-card-side-prompt-service.js";
 import type {
   WebAgentPeerMessageRelayService,
 } from "./web/agent-peer-message-relay-service.js";
@@ -68,7 +68,7 @@ import {
 import { TerminalSessionService } from "./web/terminal/terminal-session-service.js";
 import { VncSessionService } from "./web/vnc/vnc-session-service.js";
 import type { RemoteInteropService } from "../remote/service.js";
-import type { WebMessageProcessingStorageService } from "./web/message-processing-storage-service.js";
+import type { WebMessageProcessingStorageService } from "./web/messaging/message-processing-storage-service.js";
 import type { WebChannelRuntimeFollowupFacadeService } from "./web/runtime-followup-facade-service.js";
 import { initializeWebChannelConstructor } from "./web/web-channel-constructor-factory.js";
 const DEFAULT_CHAT_JID = "web:default";

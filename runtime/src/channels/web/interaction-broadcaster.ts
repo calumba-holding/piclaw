@@ -7,7 +7,7 @@ import {
   broadcastAgentResponse,
   broadcastInteractionUpdated,
   type InteractionBroadcastChannel,
-} from "./interaction-service.js";
+} from "./cards/interaction-service.js";
 
 /** Display profile metadata applied to broadcasted interaction payloads. */
 export interface InteractionBroadcasterProfile {

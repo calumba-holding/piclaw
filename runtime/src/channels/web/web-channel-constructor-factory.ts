@@ -11,7 +11,7 @@ import { handlePost as handlePostRequest } from "./handlers/posts.js";
 import {
   WebAdaptiveCardSidePromptService,
   type WebAdaptiveCardSidePromptServiceOptions,
-} from "./adaptive-card-side-prompt-service.js";
+} from "./cards/adaptive-card-side-prompt-service.js";
 import {
   createWebAgentControlPlaneService,
   type WebAgentControlPlaneService,
@@ -21,8 +21,8 @@ import {
   type WebAgentPeerMessageRelayChannelLike,
   type WebAgentPeerMessageRelayService,
 } from "./agent-peer-message-relay-service.js";
-import { ensureAvatarCache } from "./avatar-service.js";
-import { WebAuthGateway } from "./auth-gateway.js";
+import { ensureAvatarCache } from "./media/avatar-service.js";
+import { WebAuthGateway } from "./auth/auth-gateway.js";
 import {
   createWebChannelEndpointContexts,
   createWebChannelIdentitySnapshot,
@@ -38,7 +38,7 @@ import { createInteractionBroadcaster } from "./interaction-broadcaster.js";
 import {
   createWebMessageProcessingStorageService,
   type WebMessageProcessingStorageService,
-} from "./message-processing-storage-service.js";
+} from "./messaging/message-processing-storage-service.js";
 import { WebMessageWriteService, type WebMessageWriteServiceDeps } from "./message-write-service.js";
 import { QueuedFollowupLifecycleService } from "./queued-followup-lifecycle-service.js";
 import { RequestRouterService } from "./request-router-service.js";
@@ -53,7 +53,7 @@ import {
   type WebServerLifecycleGatewayChannel,
   type WebServerLifecycleGatewayService,
 } from "./server-lifecycle-gateway-service.js";
-import { WebSessionBroadcastService } from "./session-broadcast-service.js";
+import { WebSessionBroadcastService } from "./sse/session-broadcast-service.js";
 import { TerminalSessionService } from "./terminal/terminal-session-service.js";
 import {
   createWebTerminalVncHttpService,

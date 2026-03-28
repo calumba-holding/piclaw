@@ -4,7 +4,7 @@
 
 import type { AgentPool } from "../../agent-pool.js";
 import { getAgentsResponse } from "./agents-service.js";
-import { buildAvatarResponse } from "./avatar-service.js";
+import { buildAvatarResponse } from "./media/avatar-service.js";
 
 /** Context contract for serving the agent/user identity payload endpoint. */
 export interface AgentsEndpointContext {

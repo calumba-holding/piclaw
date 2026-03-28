@@ -10,7 +10,7 @@
  */
 
 import { expect, test, describe, mock } from "bun:test";
-import "../../test/helpers.js";
+import "../helpers.js";
 
 // ── Inline types (browser modules can't be imported in bun test) ────
 

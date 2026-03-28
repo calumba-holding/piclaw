@@ -11,7 +11,7 @@ import type { AgentSession } from "@mariozechner/pi-coding-agent";
 import type { AgentControlCommand, AgentControlResult } from "../agent-control-types.js";
 import { getIdentityConfig, getWebRuntimeConfig } from "../../core/config.js";
 import { getChatChannel } from "../../core/chat-context.js";
-import { verifyTotp } from "../../channels/web/auth.js";
+import { verifyTotp } from "../../channels/web/auth/auth.js";
 import {
   buildTotpAdaptiveCard,
   createTotpCardToken,

@@ -14,7 +14,7 @@ import {
   sendWebMessage,
   type MessageWriteContext,
   type SendMessageOptions,
-} from "./message-write-flows.js";
+} from "./messaging/message-write-flows.js";
 
 export interface WebMessageWriteServiceDeps {
   defaultAgentId: string;

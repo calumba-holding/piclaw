@@ -2,8 +2,8 @@ import {
   createWebAdaptiveCardSidePromptService,
   type WebAdaptiveCardSidePromptChannelLike,
   type WebAdaptiveCardSidePromptService,
-} from "./adaptive-card-side-prompt-service.js";
-import { getWebAgentMessageEntryService, type WebAgentMessageEntryService } from "./agent-message-entry-service.js";
+} from "./cards/adaptive-card-side-prompt-service.js";
+import { getWebAgentMessageEntryService, type WebAgentMessageEntryService } from "./messaging/agent-message-entry-service.js";
 import {
   createWebAgentPeerMessageRelayService,
   type WebAgentPeerMessageRelayChannelLike,

@@ -21,6 +21,26 @@ Measured on 2026-03-28:
 This means the existing `group-web-channel-flat-files` ticket is still valid,
 but its older 56-file number is stale.
 
+## Execution update — first manual tranche landed
+
+The first manual Stage 5 tranche has now landed in code.
+
+Moved source clusters:
+
+- `auth/`
+- `sse/`
+- `cards/`
+- `media/`
+- `theming/`
+- `messaging/`
+
+Current post-move flat-root count:
+
+- `runtime/src/channels/web/` — **47 flat files**
+
+That is a meaningful reduction from the 73-file starting point, while still
+leaving a deliberate second-tranche remainder for later grouping.
+
 ## Stable existing grouped areas
 
 Already-grouped subtrees that should remain conceptually separate from the flat
@@ -45,7 +65,6 @@ Likely auth-focused files:
 - `auth-gateway.ts`
 - `auth-runtime.ts`
 - `auth.ts`
-- `login-command.ts`
 - `totp-auth.ts`
 - `webauthn-auth.ts`
 - `webauthn-enrol-page.ts`

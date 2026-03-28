@@ -2,7 +2,7 @@
  * channels/web/internal-secret.ts – internal secret request verification.
  */
 
-import { safeEqual } from "./auth.js";
+import { safeEqual } from "./auth/auth.js";
 
 /** Validate internal-secret header/bearer auth for trusted internal routes. */
 export function isInternalSecretRequestAuthorized(req: Request, secret: string): boolean {

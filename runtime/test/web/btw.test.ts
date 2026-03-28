@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import "../../test/helpers.js";
+import "../helpers.js";
 
 import { buildBtwInjectionText, parseBtwCommand, resolveBtwChatJid, shouldShowBtwAnswer, shouldShowBtwControls } from "../../web/src/ui/btw.ts";
 

@@ -4,7 +4,7 @@ import type { WebChannelEndpointFacadeService } from "./channel-endpoint-facade-
 import type { ResponseService } from "./http/response-service.js";
 import type { RequestRouterService } from "./request-router-service.js";
 import type { WebServerLifecycleGatewayService, WebSocketSessionData } from "./server-lifecycle-gateway-service.js";
-import type { WebSessionBroadcastService } from "./session-broadcast-service.js";
+import type { WebSessionBroadcastService } from "./sse/session-broadcast-service.js";
 import type { WebTerminalVncHttpService } from "./terminal-vnc-http-service.js";
 
 type WebChannelHttpSurfaceEndpointFacade = Pick<

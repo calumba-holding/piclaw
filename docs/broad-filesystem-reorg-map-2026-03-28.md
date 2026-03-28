@@ -368,6 +368,21 @@ Avoid indefinite dual-path support.
 - opened `workitems/20-doing/execute-stage5-web-channel-grouping.md` as the active next batch
 - current recommendation is to group the clearest semantic clusters first (`auth`, `sse`, `cards`, `media`, `theming`, `messaging`) rather than forcing the entire flat root into one move sweep
 
+### Stage 5 execution update — 2026-03-28
+
+- manually landed the first clear semantic tranche under:
+  - `runtime/src/channels/web/auth/`
+  - `runtime/src/channels/web/sse/`
+  - `runtime/src/channels/web/cards/`
+  - `runtime/src/channels/web/media/`
+  - `runtime/src/channels/web/theming/`
+  - `runtime/src/channels/web/messaging/`
+- updated direct module tests to mirror the new grouped layout where straightforward under `runtime/test/channels/web/`
+- rewrote affected imports across runtime source and tests
+- reduced the flat root under `runtime/src/channels/web/` from 73 files to 47 files
+- validated the tranche with focused tests, `bun run lint`, `bun run typecheck`, and `bun run check:import-boundaries`
+- left a deliberate second-tranche remainder rather than forcing ambiguous orchestration/control files into the same move batch
+
 ## First-batch recommendation
 
 If we start executing immediately, the best first batch is:

@@ -22,7 +22,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSyn
 import { basename, join } from "path";
 import { CronExpressionParser } from "cron-parser";
 import { DATA_DIR, getRuntimeTimingConfig } from "./core/config.js";
-import { MediaService } from "./channels/web/media-service.js";
+import { MediaService } from "./channels/web/media/media-service.js";
 import { createTask, deleteTask, getTaskById, updateTask } from "./db.js";
 import type { ScheduledTask } from "./types.js";
 import { createUuid } from "./utils/ids.js";

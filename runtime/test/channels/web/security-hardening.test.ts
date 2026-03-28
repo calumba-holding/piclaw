@@ -53,7 +53,7 @@ describe("parsePostPayload", () => {
 });
 
 // ── Agent message content length validation ──
-import { parseAgentMessageRequest } from "../../../src/channels/web/agent-message-service.js";
+import { parseAgentMessageRequest } from "../../../src/channels/web/messaging/agent-message-service.js";
 
 describe("parseAgentMessageRequest", () => {
   test("rejects content exceeding 100 KB", async () => {
@@ -103,7 +103,7 @@ describe("parseAgentMessageRequest", () => {
 });
 
 // ── Media upload validation ──
-import { MediaService } from "../../../src/channels/web/media-service.js";
+import { MediaService } from "../../../src/channels/web/media/media-service.js";
 
 describe("MediaService.createFromFile", () => {
   const service = new MediaService();
@@ -203,7 +203,7 @@ describe("MediaService.createFromFile", () => {
 });
 
 // ── SSE client cap ──
-import { broadcastEvent, handleSse, requiresChatScopedDelivery, type SseClientContainer, type PendingClient } from "../../../src/channels/web/sse.js";
+import { broadcastEvent, handleSse, requiresChatScopedDelivery, type SseClientContainer, type PendingClient } from "../../../src/channels/web/sse/sse.js";
 
 describe("SSE client cap", () => {
   test("rejects connections when at capacity (50)", () => {
