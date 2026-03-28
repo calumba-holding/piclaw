@@ -17,66 +17,44 @@ import { AgentQueue } from "../queue.js";
 import type { AgentPool } from "../agent-pool.js";
 import { WebauthnChallengeTracker } from "./web/webauthn-challenges.js";
 import { TotpFailureTracker } from "./web/totp-failure-tracker.js";
-import {
-  getIdentityConfig,
-  getWebRuntimeConfig,
-  getWebServerConfig,
-} from "../core/config.js";
 import type { WebChannelLike } from "./web/web-channel-contracts.js";
-import { RequestRouterService } from "./web/request-router-service.js";
-import { handlePost as handlePostRequest } from "./web/handlers/posts.js";
-import { WebSessionBroadcastService } from "./web/session-broadcast-service.js";
+import type { RequestRouterService } from "./web/request-router-service.js";
+import type { WebSessionBroadcastService } from "./web/session-broadcast-service.js";
 import { ResponseService } from "./web/http/response-service.js";
-import {
-  replaceMessageContent,
-  getChatCursor,
-  getDb,
-} from "../db.js";
 import type { InteractionRow } from "../db.js";
 import type { QueuedFollowupItem } from "./web/followup-placeholders.js";
 import { QueuedFollowupLifecycleService } from "./web/queued-followup-lifecycle-service.js";
 import type { SendMessageOptions } from "./web/message-write-flows.js";
-import { WebMessageWriteService } from "./web/message-write-service.js";
-import { ensureAvatarCache } from "./web/avatar-service.js";
+import type { WebMessageWriteService } from "./web/message-write-service.js";
 import type { WebAgentBufferEntry } from "./web/agent-buffers.js";
-import { WebChannelRuntimeStateService } from "./web/runtime-state-service.js";
-import {
-  createWebChannelEndpointContexts,
-  createWebChannelIdentitySnapshot,
-  type WebChannelEndpointContexts,
-} from "./web/channel-endpoint-context-factory.js";
-import { WebChannelEndpointFacadeService } from "./web/channel-endpoint-facade-service.js";
-import {
-  createWebAgentControlPlaneService,
-  WebAgentControlPlaneService,
-} from "./web/agent-control-plane-service.js";
-import { createInteractionBroadcaster, type InteractionBroadcaster } from "./web/interaction-broadcaster.js";
-import { WebAuthGateway } from "./web/auth-gateway.js";
-import {
-  createWebServerLifecycleGateway,
+import type { WebChannelRuntimeStateService } from "./web/runtime-state-service.js";
+import type { WebChannelEndpointContexts } from "./web/channel-endpoint-context-factory.js";
+import type { WebChannelEndpointFacadeService } from "./web/channel-endpoint-facade-service.js";
+import type { WebAgentControlPlaneService } from "./web/agent-control-plane-service.js";
+import type { InteractionBroadcaster } from "./web/interaction-broadcaster.js";
+import type { WebAuthGateway } from "./web/auth-gateway.js";
+import type {
   WebServerLifecycleGatewayService,
-  type WebSocketSessionData,
+  WebSocketSessionData,
 } from "./web/server-lifecycle-gateway-service.js";
-import { createWebTerminalVncHttpService, WebTerminalVncHttpService } from "./web/terminal-vnc-http-service.js";
+import type { WebTerminalVncHttpService } from "./web/terminal-vnc-http-service.js";
 import {
   createWebAdaptiveCardSidePromptService,
-  WebAdaptiveCardSidePromptService,
   type WebAdaptiveCardSidePromptChannelLike,
+  type WebAdaptiveCardSidePromptService,
 } from "./web/adaptive-card-side-prompt-service.js";
 import {
   createWebAgentPeerMessageRelayService,
-  WebAgentPeerMessageRelayService,
   type WebAgentPeerMessageRelayChannelLike,
+  type WebAgentPeerMessageRelayService,
 } from "./web/agent-peer-message-relay-service.js";
 import { getWebAgentMessageEntryService } from "./web/agent-message-entry-service.js";
 import { TerminalSessionService } from "./web/terminal/terminal-session-service.js";
 import { VncSessionService } from "./web/vnc/vnc-session-service.js";
-import { RemoteInteropService } from "../remote/service.js";
-import {
-  createWebMessageProcessingStorageService,
-  WebMessageProcessingStorageService,
-} from "./web/message-processing-storage-service.js";
-import { WebChannelRuntimeFollowupFacadeService } from "./web/runtime-followup-facade-service.js";
+import type { RemoteInteropService } from "../remote/service.js";
+import type { WebMessageProcessingStorageService } from "./web/message-processing-storage-service.js";
+import type { WebChannelRuntimeFollowupFacadeService } from "./web/runtime-followup-facade-service.js";
+import { initializeWebChannelConstructor } from "./web/web-channel-constructor-factory.js";
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
 const STATE_KEY = "last_agent_timestamp_web";
@@ -106,141 +84,40 @@ export interface WebChannelOpts {
 
 /** Web channel: HTTP/SSE server, API endpoints, and agent event bridge. */
 export class WebChannel implements WebChannelLike {
-  queue: AgentQueue;
-  agentPool: AgentPool;
-  remoteInterop: RemoteInteropService;
+  queue!: AgentQueue;
+  agentPool!: AgentPool;
+  remoteInterop!: RemoteInteropService;
   responses = new ResponseService();
-  requestRouter: RequestRouterService;
-  endpointContexts: WebChannelEndpointContexts;
+  requestRouter!: RequestRouterService;
+  endpointContexts!: WebChannelEndpointContexts;
   pendingLinkPreviews = new Set<number>();
   workspaceVisible = false;
   workspaceShowHidden = false;
   queuedFollowupLifecycle = new QueuedFollowupLifecycleService();
-  interactionBroadcaster: InteractionBroadcaster;
+  interactionBroadcaster!: InteractionBroadcaster;
   lastCommandInteractionId: number | null = null;
   webauthnChallenges = new WebauthnChallengeTracker();
   totpFailureTracker = new TotpFailureTracker();
-  authGateway: WebAuthGateway;
+  authGateway!: WebAuthGateway;
   terminalService = new TerminalSessionService();
   vncService = new VncSessionService();
-  private readonly sessionBroadcast: WebSessionBroadcastService;
-  private readonly runtimeState: WebChannelRuntimeStateService;
-  private readonly serverLifecycleGateway: WebServerLifecycleGatewayService;
-  private readonly terminalVncHttpService: WebTerminalVncHttpService;
-  private readonly adaptiveCardSidePromptService: WebAdaptiveCardSidePromptService;
-  private readonly peerMessageRelayService: WebAgentPeerMessageRelayService;
-  private readonly messageProcessingStorageService: WebMessageProcessingStorageService;
-  private readonly messageWriteService: WebMessageWriteService;
-  private readonly runtimeFollowupFacade: WebChannelRuntimeFollowupFacadeService;
-  private readonly endpointFacade: WebChannelEndpointFacadeService;
-  private readonly controlPlaneService: WebAgentControlPlaneService;
-  private readonly webServerConfig = getWebServerConfig();
-  private readonly webRuntimeConfig = getWebRuntimeConfig();
+  private readonly sessionBroadcast!: WebSessionBroadcastService;
+  private readonly runtimeState!: WebChannelRuntimeStateService;
+  private readonly serverLifecycleGateway!: WebServerLifecycleGatewayService;
+  private readonly terminalVncHttpService!: WebTerminalVncHttpService;
+  private readonly adaptiveCardSidePromptService!: WebAdaptiveCardSidePromptService;
+  private readonly peerMessageRelayService!: WebAgentPeerMessageRelayService;
+  private readonly messageProcessingStorageService!: WebMessageProcessingStorageService;
+  private readonly messageWriteService!: WebMessageWriteService;
+  private readonly runtimeFollowupFacade!: WebChannelRuntimeFollowupFacadeService;
+  private readonly endpointFacade!: WebChannelEndpointFacadeService;
+  private readonly controlPlaneService!: WebAgentControlPlaneService;
 
   constructor(opts: WebChannelOpts) {
-    this.queue = opts.queue;
-    this.agentPool = opts.agentPool;
-    this.sessionBroadcast = new WebSessionBroadcastService(this.agentPool);
-    this.remoteInterop = new RemoteInteropService(this.agentPool);
-    this.runtimeState = new WebChannelRuntimeStateService(
-      {
-        getAssistantName: () => getIdentityConfig().assistantName,
-        getChatCursor: (chatJid) => getChatCursor(chatJid),
-        enqueue: (task, key, laneKey) => this.queue.enqueue(task, key, laneKey),
-        processChat: (chatJid, agentId, threadRootId) => this.processChat(chatJid, agentId, threadRootId),
-      },
-      {
-        defaultAgentId: DEFAULT_AGENT_ID,
-        stateKey: STATE_KEY,
-      }
-    );
-    const getIdentitySnapshot = () => createWebChannelIdentitySnapshot(getIdentityConfig());
-    this.interactionBroadcaster = createInteractionBroadcaster(this, () => {
-      const identity = getIdentitySnapshot();
-      return {
-        agentName: identity.assistantName,
-        agentAvatar: identity.agentAvatarUrl,
-        userName: identity.userName,
-        userAvatar: identity.userAvatarUrl,
-        userAvatarBackground: identity.userAvatarBackground,
-      };
-    });
-    this.authGateway = new WebAuthGateway(
-      {
-        passkeyMode: this.webRuntimeConfig.passkeyMode || "",
-        totpSecret: this.webRuntimeConfig.totpSecret || "",
-        internalSecret: this.webRuntimeConfig.internalSecret || "",
-        sessionTtlSeconds: this.webRuntimeConfig.sessionTtl,
-        hasTls: Boolean(this.webServerConfig.tlsCert && this.webServerConfig.tlsKey),
-      },
-      {
-        json: (payload, status = 200) => this.json(payload, status),
-        challenges: this.webauthnChallenges,
-        failureTracker: this.totpFailureTracker,
-      }
-    );
-    this.messageProcessingStorageService = createWebMessageProcessingStorageService(this, {
-      defaultAgentId: DEFAULT_AGENT_ID,
-      getAssistantName: () => getIdentityConfig().assistantName,
-    });
-    this.messageWriteService = new WebMessageWriteService({
-      defaultAgentId: DEFAULT_AGENT_ID,
-      storeMessage: (chatJid, content, isBot, mediaIds, options) =>
-        this.storeMessage(chatJid, content, isBot, mediaIds, options),
-      replaceMessageContent: (chatJid, rowId, text, mediaIds, contentBlocks, isTerminalAgentReply) =>
-        replaceMessageContent(chatJid, rowId, text, { contentBlocks, mediaIds, isTerminalAgentReply }) ?? null,
-      setMessageThreadToSelf: (messageId) => {
-        getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(messageId, messageId);
-      },
-      broadcastAgentResponse: (interaction) => this.interactionBroadcaster.broadcastAgentResponse(interaction),
-      broadcastInteractionUpdated: (interaction) => this.interactionBroadcaster.broadcastInteractionUpdated(interaction),
-      enqueueFollowupPlaceholder: (chatJid, rowId, queuedContent, threadId, queuedAt) =>
-        this.queuedFollowupLifecycle.enqueuePlaceholder(chatJid, rowId, queuedContent, threadId, queuedAt),
-    });
-    this.runtimeFollowupFacade = new WebChannelRuntimeFollowupFacadeService({
-      getMessageWriteService: () => this.messageWriteService,
-      getQueuedFollowupLifecycle: () => this.queuedFollowupLifecycle,
-      getRuntimeState: () => this.runtimeState,
-    });
-    this.requestRouter = new RequestRouterService(this);
-    this.endpointContexts = createWebChannelEndpointContexts(this, {
+    initializeWebChannelConstructor(this, opts, {
       defaultChatJid: DEFAULT_CHAT_JID,
       defaultAgentId: DEFAULT_AGENT_ID,
-      getIdentitySnapshot,
-    });
-    this.endpointFacade = new WebChannelEndpointFacadeService({
-      endpointContexts: this.endpointContexts,
-      defaultChatJid: DEFAULT_CHAT_JID,
-      getIdentitySnapshot,
-      ensureAvatarCache,
-      json: (payload, status = 200) => this.json(payload, status),
-      broadcastEvent: (eventType, data) => this.broadcastEvent(eventType, data),
-      handlePostRequest: (req, isReply, chatJid) => handlePostRequest(this, req, isReply, chatJid),
-      listActiveChats: () => this.agentPool.listActiveChats(),
-      listKnownChats: typeof (this.agentPool as AgentPool & {
-        listKnownChats?: (rootChatJid?: string | null, options?: { includeArchived?: boolean }) => unknown[];
-      }).listKnownChats === "function"
-        ? (rootChatJid, options) => (this.agentPool as AgentPool & {
-            listKnownChats: (rootChatJid?: string | null, options?: { includeArchived?: boolean }) => unknown[];
-          }).listKnownChats(rootChatJid, options)
-        : undefined,
-    });
-    this.controlPlaneService = createWebAgentControlPlaneService(this, {
-      defaultChatJid: DEFAULT_CHAT_JID,
-      defaultAgentId: DEFAULT_AGENT_ID,
-    });
-    this.serverLifecycleGateway = createWebServerLifecycleGateway(this, {
-      webServerConfig: this.webServerConfig,
-      webRuntimeConfig: this.webRuntimeConfig,
-    });
-    this.terminalVncHttpService = createWebTerminalVncHttpService(this, { webRuntimeConfig: this.webRuntimeConfig });
-    this.adaptiveCardSidePromptService = createWebAdaptiveCardSidePromptService(this, {
-      defaultChatJid: DEFAULT_CHAT_JID,
-      defaultAgentId: DEFAULT_AGENT_ID,
-      webRuntimeConfig: this.webRuntimeConfig,
-    });
-    this.peerMessageRelayService = createWebAgentPeerMessageRelayService(this, {
-      defaultAgentId: DEFAULT_AGENT_ID,
+      stateKey: STATE_KEY,
     });
   }
 

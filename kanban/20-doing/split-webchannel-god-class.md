@@ -81,10 +81,14 @@ Extract `WebChannel` into a composition of focused services:
 - The agent-message entry seam then landed behind `runtime/src/channels/web/agent-message-entry-service.ts`, moving `chat_jid` parsing/defaulting and `/agent/:agentId/message` forwarding out of `WebChannel` while preserving router-facing behavior.
 - The message-processing/storage seam then landed behind `runtime/src/channels/web/message-processing-storage-service.ts`, moving `processChat()` and `storeMessage()` adapter glue out of `WebChannel` while preserving runtime/handler-facing behavior.
 - The runtime/follow-up facade seam then landed behind `runtime/src/channels/web/runtime-followup-facade-service.ts`, moving the remaining queued-followup, runtime-state, panel/buffer, and queued-placeholder facade methods out of `WebChannel` while preserving public method signatures and runtime semantics.
+- The constructor wiring seam then landed behind `runtime/src/channels/web/web-channel-constructor-factory.ts`, moving collaborator assembly and final constructor bootstrapping out of `WebChannel` while preserving initialization order, auth/session setup, endpoint/control-plane wiring, and runtime behavior.
 - Split the next bounded seam into:
-  - `kanban/20-doing/extract-webchannel-constructor-wiring-factory.md`
-- Rationale: the constructor still owns a large collaborator-assembly block even after most request/runtime seams have been extracted.
+  - `kanban/20-doing/extract-webchannel-request-router-and-http-surface-wrappers.md`
+- Rationale: the remaining request-router and HTTP wrapper methods still make up most of the residual `WebChannel` surface once constructor assembly is extracted.
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
+- Result: the constructor wiring seam landed behind `runtime/src/channels/web/web-channel-constructor-factory.ts`, shrinking the live `WebChannel` constructor from 106 lines to 29 lines while preserving auth/session, endpoint/control-plane, server lifecycle, and adaptive side-prompt wiring behavior.
+- Validation for this slice: focused constructor-wiring seam tests plus targeted `web-channel` coverage passed; `bun run check:stale-dist` passed; `bun run lint` / `bun run typecheck` could not complete in this worktree because the expected local ESLint/TypeScript toolchain is unavailable.
+- Next bounded seam to queue after this slice: a request-router / HTTP wrapper cleanup ticket, kept separate so this constructor extraction stays mergeable and behavior-preserving.
 
 ### 2026-03-27
 - Lane change: `10-next` → `20-doing`.
@@ -117,4 +121,5 @@ Extract `WebChannel` into a composition of focused services:
   - `kanban/40-review/extract-webchannel-agent-message-entry-wrapper.md`
   - `kanban/40-review/extract-webchannel-message-processing-and-storage-adapters.md`
   - `kanban/40-review/extract-webchannel-runtime-and-followup-facades.md`
-  - `kanban/20-doing/extract-webchannel-constructor-wiring-factory.md`
+  - `kanban/40-review/extract-webchannel-constructor-wiring-factory.md`
+  - `kanban/20-doing/extract-webchannel-request-router-and-http-surface-wrappers.md`

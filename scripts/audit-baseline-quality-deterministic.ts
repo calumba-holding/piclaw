@@ -225,6 +225,7 @@ const groupDefinitions: GroupDefinition[] = [
         "http-dispatch-content.test.ts",
         "http-dispatch-media.test.ts",
         "http-dispatch-shell.test.ts",
+        "web-channel-constructor-wiring-factory.test.ts",
         "http-dispatch-workspace.test.ts",
         "http-rate-limit.test.ts",
         "http-route-classification.test.ts",
