@@ -10,13 +10,15 @@ describe("web http shell dispatch", () => {
     expect(response).toBeNull();
   });
 
-  test("dispatches index/manifest/static/docs/sse/terminal-session", async () => {
+  test("dispatches index/manifest/static/docs/sse/terminal-session/vnc routes", async () => {
     const channel = {
       serveStatic: (rel: string) => new Response(`static:${rel}`),
       handleManifest: () => new Response("manifest"),
       serveDocsStatic: (rel: string) => new Response(`docs:${rel}`),
       handleSse: () => new Response("sse"),
       handleTerminalSession: () => new Response("terminal-session"),
+      handleVncSession: () => new Response("vnc-session"),
+      handleVncHandoff: async () => new Response("vnc-handoff"),
       handleAvatar: async () => new Response("avatar", { status: 200 }),
     } as any;
 
@@ -36,6 +38,8 @@ describe("web http shell dispatch", () => {
 
     expect(await (await handleShellRoutes(channel, new Request("https://e/sse/stream", { method: "GET" }), "/sse/stream", buildRouteFlags(), async () => new Response()))?.text()).toBe("sse");
     expect(await (await handleShellRoutes(channel, new Request("https://e/terminal/session", { method: "GET" }), "/terminal/session", buildRouteFlags(), async () => new Response()))?.text()).toBe("terminal-session");
+    expect(await (await handleShellRoutes(channel, new Request("https://e/vnc/session?target=desk", { method: "GET" }), "/vnc/session", buildRouteFlags(), async () => new Response()))?.text()).toBe("vnc-session");
+    expect(await (await handleShellRoutes(channel, new Request("https://e/vnc/handoff?target=desk", { method: "POST" }), "/vnc/handoff", buildRouteFlags(), async () => new Response()))?.text()).toBe("vnc-handoff");
     expect(await handleShellRoutes(channel, new Request("https://e/agents", { method: "GET" }), "/agents", buildRouteFlags(), async () => new Response())).toBeNull();
   });
 

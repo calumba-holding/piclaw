@@ -25,7 +25,6 @@ import {
 } from "../core/config.js";
 import type { WebChannelLike } from "./web/web-channel-contracts.js";
 import { RequestRouterService } from "./web/request-router-service.js";
-import { checkCsrfOrigin } from "./web/http/security.js";
 import { handlePost as handlePostRequest } from "./web/handlers/posts.js";
 import {
   handleAgentMessage as handleAgentMessageRequest,
@@ -79,6 +78,7 @@ import {
   WebServerLifecycleGatewayService,
   type WebSocketSessionData,
 } from "./web/server-lifecycle-gateway-service.js";
+import { createWebTerminalVncHttpService, WebTerminalVncHttpService } from "./web/terminal-vnc-http-service.js";
 import { TerminalSessionService } from "./web/terminal/terminal-session-service.js";
 import { VncSessionService } from "./web/vnc/vnc-session-service.js";
 import { RemoteInteropService } from "../remote/service.js";
@@ -141,6 +141,7 @@ export class WebChannel implements WebChannelLike {
   private readonly sessionBroadcast: WebSessionBroadcastService;
   private readonly runtimeState: WebChannelRuntimeStateService;
   private readonly serverLifecycleGateway: WebServerLifecycleGatewayService;
+  private readonly terminalVncHttpService: WebTerminalVncHttpService;
   private readonly messageWriteService: WebMessageWriteService;
   private readonly endpointFacade: WebChannelEndpointFacadeService;
   private readonly controlPlaneService: WebAgentControlPlaneService;
@@ -234,6 +235,7 @@ export class WebChannel implements WebChannelLike {
       webServerConfig: this.webServerConfig,
       webRuntimeConfig: this.webRuntimeConfig,
     });
+    this.terminalVncHttpService = createWebTerminalVncHttpService(this, { webRuntimeConfig: this.webRuntimeConfig });
   }
 
   get sse(): WebSessionBroadcastService["sse"] {
@@ -492,56 +494,9 @@ export class WebChannel implements WebChannelLike {
     return this.sessionBroadcast.handleSse(req);
   }
 
-  handleTerminalSession(req: Request): Response {
-    if (!this.webRuntimeConfig.terminalEnabled) {
-      return this.json({ enabled: false, error: "Web terminal is disabled." }, 200);
-    }
-    const authEnabled = this.authGateway.isAuthEnabled();
-    if (authEnabled && !this.authGateway.isAuthenticated(req)) {
-      return this.json({ error: "Unauthorized" }, 401);
-    }
-    const owner = this.terminalService.resolveOwnerFromRequest(req, !authEnabled);
-    if (!owner) {
-      return this.json({ error: "Unauthorized" }, 401);
-    }
-    return this.json(this.terminalService.getSessionInfo(owner));
-  }
-
-  handleVncSession(req: Request): Response {
-    const url = new URL(req.url);
-    const targetId = url.searchParams.get("target")?.trim() || "";
-    const authEnabled = this.authGateway.isAuthEnabled();
-    if (authEnabled && !this.authGateway.isAuthenticated(req)) {
-      return this.json({ error: "Unauthorized" }, 401);
-    }
-    if (targetId && !this.vncService.resolveTargetReference(targetId)) {
-      return this.json({ error: "Unknown or disallowed VNC target", ...this.vncService.getSessionInfo() }, 404);
-    }
-    return this.json(this.vncService.getSessionInfo(targetId || null), 200);
-  }
-
-  async handleVncHandoff(req: Request): Promise<Response> {
-    const url = new URL(req.url);
-    const targetId = url.searchParams.get("target")?.trim() || "";
-    if (!targetId) {
-      return this.json({ error: "Missing VNC target." }, 400);
-    }
-    const authEnabled = this.authGateway.isAuthEnabled();
-    if (authEnabled && !this.authGateway.isAuthenticated(req)) {
-      return this.json({ error: "Unauthorized" }, 401);
-    }
-    if (!checkCsrfOrigin(req)) {
-      return this.json({ error: "Origin not allowed" }, 403);
-    }
-    if (!this.vncService.resolveTargetReference(targetId)) {
-      return this.json({ error: "Unknown or disallowed VNC target", ...this.vncService.getSessionInfo() }, 404);
-    }
-    const handoff = this.vncService.createHandoffFromRequest(req, targetId, !authEnabled);
-    if (!handoff) {
-      return this.json({ error: "No live VNC session is available to transfer." }, 409);
-    }
-    return this.json({ ok: true, handoff }, 200);
-  }
+  handleTerminalSession(req: Request): Response { return this.terminalVncHttpService.handleTerminalSession(req); }
+  handleVncSession(req: Request): Response { return this.terminalVncHttpService.handleVncSession(req); }
+  handleVncHandoff(req: Request): Promise<Response> { return this.terminalVncHttpService.handleVncHandoff(req); }
 
   broadcastEvent(eventType: string, data: unknown): void {
     this.sessionBroadcast.broadcastEvent(eventType, data);

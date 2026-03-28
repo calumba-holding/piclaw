@@ -1,10 +1,10 @@
 ---
 id: extract-webchannel-terminal-and-vnc-http-wrappers
 title: Extract WebChannel terminal and VNC HTTP wrappers
-status: doing
+status: review
 priority: high
 created: 2026-03-27
-updated: 2026-03-27
+updated: 2026-03-28
 target_release: next
 estimate: M
 risk: medium
@@ -79,17 +79,17 @@ Expected source surfaces:
 
 ## Acceptance Criteria
 
-- [ ] Terminal/VNC HTTP wrappers move behind a focused service/module with a narrower interface than `WebChannel`.
-- [ ] Existing behavior remains unchanged for:
-  - [ ] terminal auth/owner/session-info responses
-  - [ ] VNC session target validation and response payloads
-  - [ ] VNC handoff auth/CSRF/transfer behavior
-  - [ ] request-router-facing public WebChannel methods and status codes
-- [ ] `runtime/src/channels/web.ts` loses a meaningful chunk of transport/session HTTP wrapper glue.
-- [ ] Focused tests exist or are strengthened for the extracted seam.
-- [ ] Existing relevant `web-channel` integration tests still pass.
-- [ ] No new `any` usage is introduced.
-- [ ] A stable repo validation command/script for this slice is left behind or updated.
+- [x] Terminal/VNC HTTP wrappers move behind a focused service/module with a narrower interface than `WebChannel`.
+- [x] Existing behavior remains unchanged for:
+  - [x] terminal auth/owner/session-info responses
+  - [x] VNC session target validation and response payloads
+  - [x] VNC handoff auth/CSRF/transfer behavior
+  - [x] request-router-facing public WebChannel methods and status codes
+- [x] `runtime/src/channels/web.ts` loses a meaningful chunk of transport/session HTTP wrapper glue.
+- [x] Focused tests exist or are strengthened for the extracted seam.
+- [x] Existing relevant `web-channel` integration tests still pass.
+- [x] No new `any` usage is introduced.
+- [x] A stable repo validation command/script for this slice is left behind or updated.
 
 ## Implementation Paths
 
@@ -125,29 +125,53 @@ while keeping behavior and public surfaces unchanged.
 
 ## Test Plan
 
-- [ ] Add or strengthen focused tests for:
+- [x] Add or strengthen focused tests for:
   - terminal session auth/owner resolution delegation
   - VNC session target validation and response shaping
   - VNC handoff auth/CSRF/transfer behavior
-- [ ] Re-run affected integration coverage from:
+- [x] Re-run affected integration coverage from:
   - `runtime/test/channels/web/web-channel.test.ts`
   - existing VNC/terminal-focused tests under `runtime/test/channels/web/`
-- [ ] Run validation in repair-first order:
+- [x] Run validation in repair-first order:
   1. focused terminal/VNC HTTP tests
   2. targeted `web-channel` tests
   3. `bun run lint`
   4. `bun run typecheck`
-- [ ] Leave behind a stable validation command/script if a canonical slice entrypoint emerges.
+- [x] Leave behind a stable validation command/script if a canonical slice entrypoint emerges.
 
 ## Definition of Done
 
-- [ ] Extracted terminal/VNC HTTP seam is mergeable back to `main`.
-- [ ] Focused and integration validation are green.
-- [ ] Ticket `## Updates` records commands, evidence, and files touched.
-- [ ] Parent WebChannel split ticket is updated to reflect the next chosen seam.
-- [ ] Any larger adjacent follow-up seams discovered are split explicitly instead of bundled.
+- [x] Extracted terminal/VNC HTTP seam is mergeable back to `main`.
+- [x] Focused and integration validation are green.
+- [x] Ticket `## Updates` records commands, evidence, and files touched.
+- [x] Parent WebChannel split ticket is updated to reflect the next chosen seam.
+- [x] Any larger adjacent follow-up seams discovered are split explicitly instead of bundled.
 
 ## Updates
+
+### 2026-03-28
+- Lane change: `20-doing` → `40-review` after landing the slice on `main`.
+- Landed `runtime/src/channels/web/terminal-vnc-http-service.ts` so terminal session, VNC session, and VNC handoff HTTP wrappers now delegate through a dedicated seam instead of living directly on `WebChannel`.
+- Kept the router-facing public methods intact while reducing `runtime/src/channels/web.ts` from 1280 lines on the prior control-plane baseline to 1235 lines after the seam cleanup.
+- Added focused seam coverage in:
+  - `runtime/test/channels/web/terminal-vnc-http-service.test.ts`
+  - `runtime/test/channels/web/web-channel-terminal-vnc-http-delegation.test.ts`
+- Strengthened shell routing coverage in:
+  - `runtime/test/channels/web/http-dispatch-shell.test.ts`
+- Validation evidence:
+  - `bun test runtime/test/channels/web/terminal-vnc-http-service.test.ts runtime/test/channels/web/web-channel-terminal-vnc-http-delegation.test.ts runtime/test/channels/web/http-dispatch-shell.test.ts runtime/test/channels/web/vnc-session-service.test.ts runtime/test/channels/web/web-channel.test.ts`
+  - `bun run lint`
+  - `bun run typecheck`
+  - `bun run check:stale-dist`
+- Files touched:
+  - `runtime/src/channels/web.ts`
+  - `runtime/src/channels/web/terminal-vnc-http-service.ts`
+  - `runtime/test/channels/web/http-dispatch-shell.test.ts`
+  - `runtime/test/channels/web/terminal-vnc-http-service.test.ts`
+  - `runtime/test/channels/web/web-channel-terminal-vnc-http-delegation.test.ts`
+- Next bounded seam split out explicitly instead of widening scope in-place:
+  - `kanban/20-doing/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-27
 - Created as the next bounded execution slice under `split-webchannel-god-class` after the agent control-plane seam landed.
@@ -158,6 +182,7 @@ while keeping behavior and public surfaces unchanged.
 ## Links
 
 - `kanban/20-doing/split-webchannel-god-class.md`
+- `kanban/20-doing/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
 - `kanban/40-review/extract-webchannel-queued-followup-service.md`
 - `kanban/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`
 - `kanban/40-review/extract-webchannel-sse-broadcast-and-session-wiring.md`
