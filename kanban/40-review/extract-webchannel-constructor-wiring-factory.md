@@ -134,7 +134,7 @@ and exposing the public runtime API.
   - `kanban/40-review/extract-webchannel-constructor-wiring-factory.md`
   - `kanban/20-doing/split-webchannel-god-class.md`
 - Next bounded seam split out explicitly instead of widening scope in-place:
-  - `kanban/20-doing/extract-webchannel-request-router-and-http-surface-wrappers.md`
+  - `kanban/40-review/extract-webchannel-request-router-and-http-surface-wrappers.md`
 
 ## Links
 

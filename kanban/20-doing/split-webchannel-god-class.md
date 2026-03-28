@@ -18,7 +18,7 @@ blocked-by: []
 
 ## Summary
 
-`runtime/src/channels/web.ts` is 1,905 lines in a single `WebChannel` class. It owns HTTP server setup, TLS, auth, WebSocket upgrades (terminal + VNC), SSE, request routing, queued follow-ups, and recovery — all in one monolith.
+`runtime/src/channels/web.ts` started at 1,905 lines in a single `WebChannel` class and is now down to 569 lines after the landed child slices, but it still owns HTTP server setup, auth/session coordination, request entrypoints, and a shrinking set of compatibility shims in one coordinator.
 
 This is the single biggest obstacle to maintainability in the codebase.
 
@@ -54,6 +54,56 @@ Extract `WebChannel` into a composition of focused services:
 
 ## Updates
 
+### 2026-03-28
+- The request-router / HTTP wrapper seam landed on branch `autoresearch/exp-mnadojwr-yrg9` via `76edacdc` (`Extracted a focused WebChannel HTTP surface service...`).
+- Result:
+  - added `runtime/src/channels/web/web-channel-http-surface-service.ts`
+  - rewired the remaining request-router / endpoint-facade / control-plane / session-broadcast / terminal-VNC / response-service HTTP wrappers in `runtime/src/channels/web.ts` through a local compatibility helper
+  - preserved `WebChannel.prototype` compatibility for bare-stub tests by resolving the extracted service through a cast helper instead of changing the public wrapper signatures
+- Evidence:
+  - direct wrapper references to `requestRouter`, `endpointFacade`, `controlPlaneService`, `responses`, `remoteInterop`, `terminalVncHttpService`, and `serverLifecycleGateway` in `runtime/src/channels/web.ts` dropped from 44 before the slice to 3 after it
+  - added focused seam tests:
+    - `runtime/test/channels/web/web-channel-http-surface-service.test.ts`
+    - `runtime/test/channels/web/web-channel-http-surface-delegation.test.ts`
+  - validation passed:
+    - `./autoresearch.sh` (focused `http-dispatch-*`, `web-response-service`, `web-channel`, `server-lifecycle-gateway-service`, `security-hardening`, and new HTTP-surface tests)
+    - `bun run lint`
+    - `bun run typecheck`
+    - `bun run check:stale-dist`
+- Current shape after this seam: `runtime/src/channels/web.ts` is now mostly runtime/follow-up compatibility delegates plus a few special-case HTTP helper shims (`adaptive-card`, peer-message relay, and agent-message entry), rather than direct request-router/response glue.
+- The runtime/session/storage public-delegate seam then landed on the same branch via `ab1333ef` (`Extracted a WebChannel runtime public surface service...`).
+- Result:
+  - added `runtime/src/channels/web/web-channel-runtime-public-surface-service.ts`
+  - rewired the remaining `runtimeFollowupFacade`, `messageProcessingStorageService`, and `sessionBroadcast` public delegates in `runtime/src/channels/web.ts` through a second local compatibility helper
+  - preserved `WebChannel.prototype` compatibility for bare-stub tests and existing post-construction collaborator monkeypatching by having the extracted service read collaborator properties dynamically from the channel object
+- Evidence:
+  - direct references to `runtimeFollowupFacade`, `messageProcessingStorageService`, and `sessionBroadcast` in `runtime/src/channels/web.ts` dropped from 32 before the slice to 0 after it
+  - added focused seam tests:
+    - `runtime/test/channels/web/web-channel-runtime-public-surface-service.test.ts`
+    - `runtime/test/channels/web/web-channel-runtime-public-surface-delegation.test.ts`
+  - validation passed:
+    - `./autoresearch.sh` (focused runtime-followup/message-processing/session-broadcast/web-channel coverage plus new runtime-public-surface tests)
+    - `bun run lint`
+    - `bun run typecheck`
+    - `bun run check:stale-dist`
+- Current shape after these seams: `runtime/src/channels/web.ts` is now primarily constructor/identity/bootstrap glue plus a small set of special-case wrappers (`start`/`stop`/`server`, adaptive-card/side-prompt, peer-message relay, and agent-message entry) rather than large clusters of direct transport/runtime delegation.
+- The lifecycle/special-wrapper seam then landed on the same branch via `951bd7fd` (`Extracted a lifecycle/special-wrapper surface service...`).
+- Result:
+  - added `runtime/src/channels/web/web-channel-lifecycle-special-surface-service.ts`
+  - rewired the remaining lifecycle/server, adaptive-card/side-prompt, peer-message relay, and agent-message entry wrappers in `runtime/src/channels/web.ts` through a third local compatibility helper
+  - preserved `WebChannel.prototype` compatibility for bare-stub tests by resolving the extracted service through a cast helper rather than changing the public wrapper signatures
+- Evidence:
+  - added focused seam tests:
+    - `runtime/test/channels/web/web-channel-lifecycle-special-surface-service.test.ts`
+    - `runtime/test/channels/web/web-channel-lifecycle-special-surface-delegation.test.ts`
+  - validation passed:
+    - focused lifecycle/special-wrapper delegation coverage
+    - `bun run lint`
+    - `bun run typecheck`
+    - `bun run check:stale-dist`
+- Current shape after these three seams: `runtime/src/channels/web.ts` is down to about 569 lines and is now mostly constructor/bootstrap wiring plus a thin compatibility shell.
+- Next bounded seam to queue if we continue shrinking the class: re-audit the residual bootstrap/compatibility shell and decide whether one final coordinator-shell slice is worth landing, rather than forcing another extraction prematurely.
+
 ### 2026-03-27
 - The first bounded child slice (`kanban/20-doing/extract-webchannel-queued-followup-service.md`) landed on `main` via `d55e920` (`Extract queued followup lifecycle service`) and moved to review.
 - Chose the next extraction seam as server lifecycle + websocket gateway wiring and split it into:
@@ -83,7 +133,7 @@ Extract `WebChannel` into a composition of focused services:
 - The runtime/follow-up facade seam then landed behind `runtime/src/channels/web/runtime-followup-facade-service.ts`, moving the remaining queued-followup, runtime-state, panel/buffer, and queued-placeholder facade methods out of `WebChannel` while preserving public method signatures and runtime semantics.
 - The constructor wiring seam then landed behind `runtime/src/channels/web/web-channel-constructor-factory.ts`, moving collaborator assembly and final constructor bootstrapping out of `WebChannel` while preserving initialization order, auth/session setup, endpoint/control-plane wiring, and runtime behavior.
 - Split the next bounded seam into:
-  - `kanban/20-doing/extract-webchannel-request-router-and-http-surface-wrappers.md`
+  - `kanban/40-review/extract-webchannel-request-router-and-http-surface-wrappers.md`
 - Rationale: the remaining request-router and HTTP wrapper methods still make up most of the residual `WebChannel` surface once constructor assembly is extracted.
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 - Result: the constructor wiring seam landed behind `runtime/src/channels/web/web-channel-constructor-factory.ts`, shrinking the live `WebChannel` constructor from 106 lines to 29 lines while preserving auth/session, endpoint/control-plane, server lifecycle, and adaptive side-prompt wiring behavior.
@@ -122,4 +172,6 @@ Extract `WebChannel` into a composition of focused services:
   - `kanban/40-review/extract-webchannel-message-processing-and-storage-adapters.md`
   - `kanban/40-review/extract-webchannel-runtime-and-followup-facades.md`
   - `kanban/40-review/extract-webchannel-constructor-wiring-factory.md`
-  - `kanban/20-doing/extract-webchannel-request-router-and-http-surface-wrappers.md`
+  - `kanban/40-review/extract-webchannel-request-router-and-http-surface-wrappers.md`
+  - `kanban/40-review/extract-webchannel-runtime-session-and-storage-public-delegates.md`
+  - `kanban/40-review/extract-webchannel-lifecycle-and-special-wrapper-surface.md`

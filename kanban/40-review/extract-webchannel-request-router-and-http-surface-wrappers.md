@@ -1,7 +1,7 @@
 ---
 id: extract-webchannel-request-router-and-http-surface-wrappers
 title: Extract WebChannel request-router and HTTP surface wrappers
-status: doing
+status: review
 priority: high
 created: 2026-03-28
 updated: 2026-03-28
@@ -65,16 +65,16 @@ Expected source surfaces:
 
 ## Acceptance Criteria
 
-- [ ] Remaining request-router / HTTP surface wrappers move behind a focused service/module with a narrower interface than `WebChannel`.
-- [ ] Existing behavior remains unchanged for:
-  - [ ] request dispatch and fetch handling
-  - [ ] endpoint-facade HTTP wrapper behavior
-  - [ ] static/docs/json helper behavior
-  - [ ] public `WebChannel` signatures relied on by handlers/tests
-- [ ] `runtime/src/channels/web.ts` loses another meaningful chunk of wrapper glue.
-- [ ] Focused tests exist or are strengthened for the extracted seam.
-- [ ] Existing relevant `web-channel` tests still pass.
-- [ ] No new `any` usage is introduced.
+- [x] Remaining request-router / HTTP surface wrappers move behind a focused service/module with a narrower interface than `WebChannel`.
+- [x] Existing behavior remains unchanged for:
+  - [x] request dispatch and fetch handling
+  - [x] endpoint-facade HTTP wrapper behavior
+  - [x] static/docs/json helper behavior
+  - [x] public `WebChannel` signatures relied on by handlers/tests
+- [x] `runtime/src/channels/web.ts` loses another meaningful chunk of wrapper glue.
+- [x] Focused tests exist or are strengthened for the extracted seam.
+- [x] Existing relevant `web-channel` tests still pass.
+- [x] No new `any` usage is introduced.
 
 ## Recommended Path
 
@@ -83,12 +83,12 @@ Extract a dedicated HTTP/routing wrapper seam while keeping the public
 
 ## Test Plan
 
-- [ ] Add or strengthen focused tests for wrapper delegation and helper behavior.
-- [ ] Re-run affected integration coverage from:
+- [x] Add or strengthen focused tests for wrapper delegation and helper behavior.
+- [x] Re-run affected integration coverage from:
   - `runtime/test/channels/web/http-dispatch-*.test.ts`
   - `runtime/test/channels/web/web-channel.test.ts`
   - `runtime/test/channels/web/web-response-service.test.ts`
-- [ ] Run validation in repair-first order:
+- [x] Run validation in repair-first order:
   1. focused HTTP/routing wrapper tests
   2. targeted `web-channel` tests
   3. `bun run lint`
@@ -97,10 +97,10 @@ Extract a dedicated HTTP/routing wrapper seam while keeping the public
 
 ## Definition of Done
 
-- [ ] Extracted request-router / HTTP surface seam is mergeable back to `main`.
-- [ ] Focused and integration validation are green.
-- [ ] Ticket `## Updates` records commands, evidence, and files touched.
-- [ ] Parent WebChannel split ticket is updated to reflect the next chosen seam.
+- [x] Extracted request-router / HTTP surface seam is mergeable back to `main`.
+- [x] Focused and integration validation are green.
+- [x] Ticket `## Updates` records commands, evidence, and files touched.
+- [x] Parent WebChannel split ticket is updated to reflect the next chosen seam.
 
 ## Updates
 
@@ -109,6 +109,30 @@ Extract a dedicated HTTP/routing wrapper seam while keeping the public
 - Chosen because the remaining request-router and HTTP wrapper methods still make up most of the residual `WebChannel` surface once constructor assembly is extracted.
 - Intended for the same repair-first loop: focused seam tests first, then extraction, then targeted `web-channel` validation, then lint/typecheck.
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
+- Landed on branch `autoresearch/exp-mnadojwr-yrg9` in commit `76edacdc`.
+- Extracted the remaining request-router/HTTP wrapper glue behind `runtime/src/channels/web/web-channel-http-surface-service.ts` and rewired `runtime/src/channels/web.ts` through a local `getHttpSurfaceService(...)` compatibility helper so `WebChannel.prototype` calls on bare stubs still work.
+- Added focused seam coverage in:
+  - `runtime/test/channels/web/web-channel-http-surface-service.test.ts`
+  - `runtime/test/channels/web/web-channel-http-surface-delegation.test.ts`
+- Evidence of glue removal from `runtime/src/channels/web.ts`: direct wrapper references to `requestRouter`, `endpointFacade`, `controlPlaneService`, `responses`, `remoteInterop`, `terminalVncHttpService`, and `serverLifecycleGateway` dropped from 44 matches before the slice to 3 after it (`git show HEAD^:runtime/src/channels/web.ts | rg ... -c` vs `rg ... runtime/src/channels/web.ts -c`).
+- Validation (repair-first order) is green via `./autoresearch.sh`, which covers:
+  - `runtime/test/channels/web/http-dispatch-agent.test.ts`
+  - `runtime/test/channels/web/http-dispatch-auth.test.ts`
+  - `runtime/test/channels/web/http-dispatch-content.test.ts`
+  - `runtime/test/channels/web/http-dispatch-media.test.ts`
+  - `runtime/test/channels/web/http-dispatch-shell.test.ts`
+  - `runtime/test/channels/web/http-dispatch-workspace.test.ts`
+  - `runtime/test/channels/web/web-response-service.test.ts`
+  - `runtime/test/channels/web/web-channel.test.ts`
+  - `runtime/test/channels/web/server-lifecycle-gateway-service.test.ts`
+  - `runtime/test/channels/web/security-hardening.test.ts`
+  - `runtime/test/channels/web/web-channel-http-surface-service.test.ts`
+  - `runtime/test/channels/web/web-channel-http-surface-delegation.test.ts`
+- `autoresearch.checks.sh` also passed:
+  - `bun run lint`
+  - `bun run typecheck`
+  - `bun run check:stale-dist`
+- Result: mergeable slice ready for review; routing behavior, status codes, auth/CSRF behavior, and JSON/static/docs semantics remained unchanged across the focused coverage above.
 
 ## Links
 
