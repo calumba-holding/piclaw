@@ -76,6 +76,14 @@ const outputs = new Map<string, number>();
 const cacheReads = new Map<string, number>();
 const cacheWrites = new Map<string, number>();
 const costs = new Map<string, number>();
+const normalTotals = new Map<string, number>();
+const normalCacheReads = new Map<string, number>();
+const normalCacheWrites = new Map<string, number>();
+const autoresearchTotals = new Map<string, number>();
+const autoresearchCacheReads = new Map<string, number>();
+const autoresearchCacheWrites = new Map<string, number>();
+
+type UsageBucket = "normal" | "autoresearch";
 
 const pad = (n: number) => n.toString().padStart(2, "0");
 const formatKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -166,9 +174,21 @@ for (let i = 0; i < targetDays; i += 1) {
   cacheReads.set(key, 0);
   cacheWrites.set(key, 0);
   costs.set(key, 0);
+  normalTotals.set(key, 0);
+  normalCacheReads.set(key, 0);
+  normalCacheWrites.set(key, 0);
+  autoresearchTotals.set(key, 0);
+  autoresearchCacheReads.set(key, 0);
+  autoresearchCacheWrites.set(key, 0);
 }
 
 const inRange = (d: Date) => d >= start && d <= now;
+
+function classifyUsageBucket(sourceValue: unknown): UsageBucket {
+  return typeof sourceValue === "string" && sourceValue.trim() === "autoresearch"
+    ? "autoresearch"
+    : "normal";
+}
 
 function addTokens(
   ts: Date,
@@ -177,7 +197,8 @@ function addTokens(
   cacheRead: number,
   cacheWrite: number,
   totalTokens: number,
-  costTotal: number
+  costTotal: number,
+  bucket: UsageBucket = "normal"
 ) {
   if (!ts || Number.isNaN(ts.getTime()) || !inRange(ts)) return;
   const key = formatKey(ts);
@@ -189,6 +210,13 @@ function addTokens(
   cacheReads.set(key, (cacheReads.get(key) || 0) + cacheRead);
   cacheWrites.set(key, (cacheWrites.get(key) || 0) + cacheWrite);
   costs.set(key, (costs.get(key) || 0) + costTotal);
+
+  const bucketTotals = bucket === "autoresearch" ? autoresearchTotals : normalTotals;
+  const bucketCacheReads = bucket === "autoresearch" ? autoresearchCacheReads : normalCacheReads;
+  const bucketCacheWrites = bucket === "autoresearch" ? autoresearchCacheWrites : normalCacheWrites;
+  bucketTotals.set(key, (bucketTotals.get(key) || 0) + totalTokens);
+  bucketCacheReads.set(key, (bucketCacheReads.get(key) || 0) + cacheRead);
+  bucketCacheWrites.set(key, (bucketCacheWrites.get(key) || 0) + cacheWrite);
 }
 
 function addUsage(record: any) {
@@ -225,7 +253,12 @@ function addUsage(record: any) {
       (typeof costObj.cacheRead === "number" ? costObj.cacheRead : 0) +
       (typeof costObj.cacheWrite === "number" ? costObj.cacheWrite : 0);
 
-  addTokens(ts, input, output, cacheRead, cacheWrite, totalTokens, costTotal);
+  const sourceValue =
+    typeof record?.source === "string"
+      ? record.source
+      : (typeof msg?.metadata?.source === "string" ? msg.metadata.source : null);
+
+  addTokens(ts, input, output, cacheRead, cacheWrite, totalTokens, costTotal, classifyUsageBucket(sourceValue));
 }
 
 function scanFile(filePath: string) {
@@ -274,10 +307,13 @@ function loadFromDb(): boolean {
     db.exec("PRAGMA busy_timeout = 5000;");
     const startIso = start.toISOString();
     const endIso = now.toISOString();
+    const tokenUsageColumns = db.prepare("PRAGMA table_info(token_usage)").all() as Array<{ name?: string }>;
+    const hasSourceColumn = tokenUsageColumns.some((column) => column.name === "source");
     const rows = db
       .query(
         `SELECT run_at, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, total_tokens,
-                cost_input, cost_output, cost_cache_read, cost_cache_write, cost_total
+                cost_input, cost_output, cost_cache_read, cost_cache_write, cost_total,
+                ${hasSourceColumn ? "source" : "NULL AS source"}
          FROM token_usage
          WHERE run_at >= ? AND run_at <= ?`
       )
@@ -299,7 +335,7 @@ function loadFromDb(): boolean {
           (typeof row.cost_cache_read === "number" ? row.cost_cache_read : 0) +
           (typeof row.cost_cache_write === "number" ? row.cost_cache_write : 0);
 
-      addTokens(ts, input, output, cacheRead, cacheWrite, totalTokens, costTotal);
+      addTokens(ts, input, output, cacheRead, cacheWrite, totalTokens, costTotal, classifyUsageBucket(row.source));
     }
     return true;
   } catch (err) {
@@ -322,6 +358,12 @@ if (useSessions || !loadedFromDb) {
 const values = dayKeys.map((key) => totals.get(key) || 0);
 const cachedValues = dayKeys.map((key) => (cacheReads.get(key) || 0) + (cacheWrites.get(key) || 0));
 const uncachedValues = values.map((total, idx) => Math.max(total - cachedValues[idx], 0));
+const normalValues = dayKeys.map((key) => normalTotals.get(key) || 0);
+const normalCachedValues = dayKeys.map((key) => (normalCacheReads.get(key) || 0) + (normalCacheWrites.get(key) || 0));
+const normalUncachedValues = normalValues.map((total, idx) => Math.max(total - normalCachedValues[idx], 0));
+const autoresearchValues = dayKeys.map((key) => autoresearchTotals.get(key) || 0);
+const autoresearchCachedValues = dayKeys.map((key) => (autoresearchCacheReads.get(key) || 0) + (autoresearchCacheWrites.get(key) || 0));
+const autoresearchUncachedValues = autoresearchValues.map((total, idx) => Math.max(total - autoresearchCachedValues[idx], 0));
 const rawMaxValue = Math.max(0, ...values);
 const sumValue = values.reduce((a, b) => a + b, 0);
 const sumInput = dayKeys.reduce((acc, key) => acc + (inputs.get(key) || 0), 0);
@@ -331,6 +373,14 @@ const sumCacheWrite = dayKeys.reduce((acc, key) => acc + (cacheWrites.get(key) |
 const sumCost = dayKeys.reduce((acc, key) => acc + (costs.get(key) || 0), 0);
 const cachedTotal = sumCacheRead + sumCacheWrite;
 const cachedPct = sumValue > 0 ? Math.round((cachedTotal / sumValue) * 1000) / 10 : 0;
+const normalTotal = normalValues.reduce((acc, value) => acc + value, 0);
+const normalCachedTotal = normalCachedValues.reduce((acc, value) => acc + value, 0);
+const normalUncachedTotal = normalUncachedValues.reduce((acc, value) => acc + value, 0);
+const autoresearchTotal = autoresearchValues.reduce((acc, value) => acc + value, 0);
+const autoresearchCachedTotal = autoresearchCachedValues.reduce((acc, value) => acc + value, 0);
+const autoresearchUncachedTotal = autoresearchUncachedValues.reduce((acc, value) => acc + value, 0);
+void uncachedValues;
+void sumCost;
 
 const niceNumber = (value: number, round: boolean): number => {
   if (value === 0) return 0;
@@ -364,13 +414,13 @@ const buildTicks = (min: number, max: number, tickCount: number) => {
 };
 
 const width = 680;
-const height = 240;
-const padding = { left: 48, right: 16, top: 28, bottom: 42 };
+const height = 252;
+const padding = { left: 48, right: 16, top: 40, bottom: 42 };
 const chartWidth = width - padding.left - padding.right;
 const chartHeight = height - padding.top - padding.bottom;
 const step = chartWidth / targetDays;
 const gap = Math.min(12, step * 0.2);
-const barWidth = step - gap;
+const barWidth = Math.max(12, step - gap);
 const { max: maxAxis, ticks: yTicks } = buildTicks(0, Math.max(1, rawMaxValue), 5);
 const scaleY = (value: number) => padding.top + (chartHeight - (value / maxAxis) * chartHeight);
 
@@ -378,22 +428,47 @@ const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const label = (key: string) => key.slice(5);
 const labelLong = (d: Date) => `${dayNames[d.getDay()]} ${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-const bars = values.map((value, i) => {
-  const x = padding.left + i * step + gap / 2;
-  const cached = cachedValues[i] || 0;
-  const uncached = uncachedValues[i] || 0;
-  const cachedHeight = Math.round((cached / maxAxis) * chartHeight);
-  const uncachedHeight = Math.round((uncached / maxAxis) * chartHeight);
-  const cachedY = padding.top + (chartHeight - cachedHeight);
-  const uncachedY = padding.top + (chartHeight - cachedHeight - uncachedHeight);
-  const rects = [] as string[];
-  if (cachedHeight > 0) {
-    rects.push(`<rect class="bar bar-cached" x="${x.toFixed(1)}" y="${cachedY.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${cachedHeight.toFixed(1)}" rx="4" />`);
-  }
-  if (uncachedHeight > 0) {
-    rects.push(`<rect class="bar bar-uncached" x="${x.toFixed(1)}" y="${uncachedY.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${uncachedHeight.toFixed(1)}" rx="4" />`);
+function buildCombinedStackRects(x: number, dayIndex: number, dayKey: string): string {
+  const segments = [
+    {
+      value: normalCachedValues[dayIndex] || 0,
+      className: "bar-normal-cached",
+      title: `${dayKey} • normal cached ${formatCompact(normalCachedValues[dayIndex] || 0)}`,
+    },
+    {
+      value: autoresearchCachedValues[dayIndex] || 0,
+      className: "bar-autoresearch-cached",
+      title: `${dayKey} • autoresearch cached ${formatCompact(autoresearchCachedValues[dayIndex] || 0)}`,
+    },
+    {
+      value: normalUncachedValues[dayIndex] || 0,
+      className: "bar-normal-uncached",
+      title: `${dayKey} • normal uncached ${formatCompact(normalUncachedValues[dayIndex] || 0)}`,
+    },
+    {
+      value: autoresearchUncachedValues[dayIndex] || 0,
+      className: "bar-autoresearch-uncached",
+      title: `${dayKey} • autoresearch uncached ${formatCompact(autoresearchUncachedValues[dayIndex] || 0)}`,
+    },
+  ];
+
+  let cumulative = 0;
+  const rects: string[] = [];
+  for (const segment of segments) {
+    if (!segment.value) continue;
+    const y0 = padding.top + (chartHeight - (cumulative / maxAxis) * chartHeight);
+    const next = cumulative + segment.value;
+    const y1 = padding.top + (chartHeight - (next / maxAxis) * chartHeight);
+    const heightPx = Math.max(1, y0 - y1);
+    rects.push(`<rect class="bar ${segment.className}" x="${x.toFixed(1)}" y="${y1.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${heightPx.toFixed(1)}" rx="4"><title>${segment.title}</title></rect>`);
+    cumulative = next;
   }
   return rects.join("\n  ");
+}
+
+const bars = dayKeys.map((key, i) => {
+  const x = padding.left + i * step + gap / 2;
+  return buildCombinedStackRects(x, i, key);
 });
 
 const labels = dayKeys.map((key, i) => {
@@ -434,23 +509,29 @@ const title = `Tokens last ${targetDays} days • total ${formatCompact(sumValue
 const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${title}">
   <style>
-    svg { --text: #0f1419; --grid: #e8ebed; --tick: #cbd5e1; --bar-uncached: #1d9bf0; --bar-cached: #2ecc71; --muted: #536471; }
+    svg { --text: #0f1419; --grid: #e8ebed; --tick: #cbd5e1; --normal-uncached: #1d9bf0; --normal-cached: #2ecc71; --autoresearch-uncached: #8b5cf6; --autoresearch-cached: #f59e0b; --muted: #536471; }
     @media (prefers-color-scheme: dark) {
-      svg { --text: #e7e9ea; --grid: #2f3336; --tick: #4b5563; --bar-uncached: #1d9bf0; --bar-cached: #27ae60; --muted: #71767b; }
+      svg { --text: #e7e9ea; --grid: #2f3336; --tick: #4b5563; --normal-uncached: #4aa8ff; --normal-cached: #34d399; --autoresearch-uncached: #a78bfa; --autoresearch-cached: #fbbf24; --muted: #71767b; }
     }
     .title { font: 600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: var(--text); }
     .label { font: 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; fill: var(--muted); }
     .axis { stroke: var(--grid); stroke-width: 1.2; }
     .grid { stroke: var(--grid); stroke-width: 1; stroke-dasharray: 4 4; opacity: 0.8; vector-effect: non-scaling-stroke; }
     .tick { stroke: var(--tick); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
-    .bar-uncached { fill: var(--bar-uncached); }
-    .bar-cached { fill: var(--bar-cached); }
+    .bar-normal-uncached { fill: var(--normal-uncached); }
+    .bar-normal-cached { fill: var(--normal-cached); }
+    .bar-autoresearch-uncached { fill: var(--autoresearch-uncached); }
+    .bar-autoresearch-cached { fill: var(--autoresearch-cached); }
   </style>
   <text class="title" x="${padding.left}" y="18">${title}</text>
-  <rect x="${width - padding.right - 140}" y="6" width="10" height="10" fill="var(--bar-uncached)" rx="2" />
-  <text class="label" x="${width - padding.right - 124}" y="15">uncached</text>
-  <rect x="${width - padding.right - 70}" y="6" width="10" height="10" fill="var(--bar-cached)" rx="2" />
-  <text class="label" x="${width - padding.right - 54}" y="15">cached</text>
+  <rect x="${width - padding.right - 310}" y="6" width="10" height="10" fill="var(--normal-uncached)" rx="2" />
+  <text class="label" x="${width - padding.right - 294}" y="15">normal uncached</text>
+  <rect x="${width - padding.right - 155}" y="6" width="10" height="10" fill="var(--normal-cached)" rx="2" />
+  <text class="label" x="${width - padding.right - 139}" y="15">normal cached</text>
+  <rect x="${width - padding.right - 310}" y="20" width="10" height="10" fill="var(--autoresearch-uncached)" rx="2" />
+  <text class="label" x="${width - padding.right - 294}" y="29">autoresearch uncached</text>
+  <rect x="${width - padding.right - 155}" y="20" width="10" height="10" fill="var(--autoresearch-cached)" rx="2" />
+  <text class="label" x="${width - padding.right - 139}" y="29">autoresearch cached</text>
   ${bars.join("\n  ")}
   ${yGrid}
   ${axisX}
@@ -469,12 +550,10 @@ if (outputSvg) {
 const summaryLines = [
   `Token usage (all chats) — last ${targetDays} days, total ${formatCompact(sumValue)}`,
   `Input ${formatCompact(sumInput)} • Output ${formatCompact(sumOutput)} • Cache read ${formatCompact(sumCacheRead)} • Cache write ${formatCompact(sumCacheWrite)} (${cachedPct}% cached)`,
+  `Normal ${formatCompact(normalTotal)} tokens • cached ${formatCompact(normalCachedTotal)} • uncached ${formatCompact(normalUncachedTotal)}`,
+  `Autoresearch ${formatCompact(autoresearchTotal)} tokens • cached ${formatCompact(autoresearchCachedTotal)} • uncached ${formatCompact(autoresearchUncachedTotal)}`,
   ...dayDates.map((d, i) => {
-    const key = dayKeys[i];
-    const total = values[i];
-    const cached = (cacheReads.get(key) || 0) + (cacheWrites.get(key) || 0);
-    const uncached = Math.max(total - cached, 0);
-    return `• ${labelLong(d)}: ${formatCompact(total)} tokens (cached ${formatCompact(cached)}, uncached ${formatCompact(uncached)})`;
+    return `• ${labelLong(d)}: ${formatCompact(values[i])} tokens (normal ${formatCompact(normalValues[i] || 0)}: cached ${formatCompact(normalCachedValues[i] || 0)}, uncached ${formatCompact(normalUncachedValues[i] || 0)}; autoresearch ${formatCompact(autoresearchValues[i] || 0)}: cached ${formatCompact(autoresearchCachedValues[i] || 0)}, uncached ${formatCompact(autoresearchUncachedValues[i] || 0)})`;
   }),
 ];
 

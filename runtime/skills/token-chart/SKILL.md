@@ -37,5 +37,6 @@ Generate a 7-day token usage chart (all chats) and post it to the web UI timelin
 - Styling is handled by the web UI CSS (token-chart image selector).
 - Numbers are formatted using K/M in labels and summaries.
 - Uses the `token_usage` table by default; pass `--source sessions` (or `--sessions-dir`) to read session JSONL files.
+- The default chart combines normal usage and `source = "autoresearch"` usage into a single per-day stacked bar, with cached segments below uncached ones.
 - `--mode provider-model` draws an alternative chart grouping tokens by provider/model.
 - Use this on demand (not scheduled yet).
