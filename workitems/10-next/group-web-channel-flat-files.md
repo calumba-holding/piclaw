@@ -19,7 +19,7 @@ blocked-by:
 
 ## Summary
 
-`runtime/src/channels/web/` has 56 files (7,030 lines) sitting at the root level with no sub-grouping, plus 5 existing sub-directories. The flat layout makes it hard to reason about module boundaries.
+`runtime/src/channels/web/` now has 73 files sitting at the root level with no sub-grouping, plus 6 existing sub-directories. The flat layout makes it hard to reason about module boundaries.
 
 ## Current structure
 
@@ -61,6 +61,15 @@ runtime/src/channels/web/vnc/        1 file,    296 lines
 - Repo-status audit refreshed the current layout counts to match the repo as it stands now.
 - Ticket remains valid and explicitly downstream of `split-webchannel-god-class`; the flat root has grown to 56 files rather than shrinking.
 - Quality: ★★★☆☆ 6/10 (problem: 2, scope: 1, test: 1, deps: 1, risk: 1)
+
+### 2026-03-28
+- Broad filesystem reorg sequencing now treats this as the active Stage 5 candidate.
+- Current measured structure is worse than the older snapshot: 73 flat files at the web root, with grouped planning captured in:
+  - `docs/stage5-web-channel-grouping-inventory-2026-03-28.md`
+  - `docs/stage5-web-channel-grouping-steplist-2026-03-28.md`
+  - `docs/stage5-web-channel-grouping-autoresearch-prompt-2026-03-28.md`
+  - `workitems/20-doing/execute-stage5-web-channel-grouping.md`
+- Recommended first tranche is no longer “move everything blindly”, but to group the clearest semantic slices first: `auth/`, `sse/`, `cards/`, `media/`, `theming/`, and `messaging/`.
 
 ## Links
 

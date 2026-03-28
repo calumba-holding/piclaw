@@ -359,6 +359,15 @@ Avoid indefinite dual-path support.
 - kept `.pi/extensions/`, `.pi/skills/`, and `.pi/agent/extensions/` stable as compatibility-sensitive convention paths
 - updated loader, build, vendor, docs, and test references to the grouped packaged-runtime layout
 
+### Stage 5 preparation update — 2026-03-28
+
+- refreshed the current `runtime/src/channels/web/` flat-root count to 73 files, so the older 56-file snapshot is no longer the planning baseline
+- captured the current grouping inventory in `docs/stage5-web-channel-grouping-inventory-2026-03-28.md`
+- prepared the execution order in `docs/stage5-web-channel-grouping-steplist-2026-03-28.md`
+- prepared an execution brief in `docs/stage5-web-channel-grouping-autoresearch-prompt-2026-03-28.md`
+- opened `workitems/20-doing/execute-stage5-web-channel-grouping.md` as the active next batch
+- current recommendation is to group the clearest semantic clusters first (`auth`, `sse`, `cards`, `media`, `theming`, `messaging`) rather than forcing the entire flat root into one move sweep
+
 ## First-batch recommendation
 
 If we start executing immediately, the best first batch is:

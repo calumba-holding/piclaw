@@ -124,6 +124,11 @@ Potentially in scope, pending plan decisions:
   - `docs/stage4-extension-skill-namespacing-steplist-2026-03-28.md`
   - `docs/stage4-extension-skill-namespacing-autoresearch-prompt-2026-03-28.md`
   - `workitems/40-review/execute-stage4-extension-and-skill-namespacing.md`
+- Stage 5 is now explicit enough for implementation or autoresearch, with execution inputs captured in:
+  - `docs/stage5-web-channel-grouping-inventory-2026-03-28.md`
+  - `docs/stage5-web-channel-grouping-steplist-2026-03-28.md`
+  - `docs/stage5-web-channel-grouping-autoresearch-prompt-2026-03-28.md`
+  - `workitems/20-doing/execute-stage5-web-channel-grouping.md`
 
 ## Links
 
@@ -142,4 +147,5 @@ Potentially in scope, pending plan decisions:
 - `workitems/40-review/namespace-internal-extensions-and-skills-paths.md`
 - `workitems/40-review/execute-stage4-extension-and-skill-namespacing.md`
 - `workitems/10-next/group-web-channel-flat-files.md`
+- `workitems/20-doing/execute-stage5-web-channel-grouping.md`
 - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
