@@ -55,6 +55,13 @@ Extract `WebChannel` into a composition of focused services:
 ## Updates
 
 ### 2026-03-28
+- Stabilization review: after landing the HTTP surface, runtime/session/storage public-surface, and lifecycle/special-wrapper seams, `runtime/src/channels/web.ts` is now functioning primarily as a compatibility shell over extracted services rather than as a behavior-heavy god-class.
+- Current measured shape at this stopping point:
+  - `runtime/src/channels/web.ts`: 568 lines
+  - delegate calls to extracted helpers: 42 HTTP-surface, 32 runtime-public-surface, 8 lifecycle-special-surface
+  - remaining content is mostly field storage, constructor bootstrapping, and public API compatibility methods that intentionally remain on `WebChannel`
+- Decision: treat the refactor as **effectively stabilized for now**. Do not force another extraction slice merely to chase line count; only reopen this umbrella if a new behavior-based seam appears or downstream cleanup like `kanban/10-next/group-web-channel-flat-files.md` becomes the clearer next move.
+- Operational takeaway: the highest-value follow-up has shifted from more `WebChannel` seam-splitting to filesystem/module-layout cleanup and normal web UX/auth backlog work.
 - The request-router / HTTP wrapper seam landed on branch `autoresearch/exp-mnadojwr-yrg9` via `76edacdc` (`Extracted a focused WebChannel HTTP surface service...`).
 - Result:
   - added `runtime/src/channels/web/web-channel-http-surface-service.ts`

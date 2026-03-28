@@ -1,7 +1,7 @@
 ---
 id: audit-project-filesystem-layout
 title: Audit project filesystem layout and propose cleanup slices
-status: doing
+status: review
 priority: medium
 created: 2026-03-28
 updated: 2026-03-28
@@ -79,12 +79,12 @@ Review at minimum:
 
 ## Acceptance Criteria
 
-- [ ] Current repo/file-system layout is summarized in a way that a maintainer can follow quickly.
-- [ ] High-friction layout problems are listed with concrete examples.
-- [ ] Acceptable/currently-okay layout decisions are explicitly called out to avoid churn.
-- [ ] Recommended follow-up actions are grouped into small, reviewable slices.
-- [ ] Any large/expensive relocation ideas are separated from low-risk cleanup opportunities.
-- [ ] Results are recorded in a durable artifact (ticket update, note, or doc) with file-path evidence.
+- [x] Current repo/file-system layout is summarized in a way that a maintainer can follow quickly.
+- [x] High-friction layout problems are listed with concrete examples.
+- [x] Acceptable/currently-okay layout decisions are explicitly called out to avoid churn.
+- [x] Recommended follow-up actions are grouped into small, reviewable slices.
+- [x] Any large/expensive relocation ideas are separated from low-risk cleanup opportunities.
+- [x] Results are recorded in a durable artifact (ticket update, note, or doc) with file-path evidence.
 
 ## Implementation Paths
 
@@ -121,17 +121,17 @@ into bounded follow-up tickets.
 
 ## Test / Validation Plan
 
-- [ ] Capture a tree/inventory snapshot of the current repo layout.
-- [ ] Cross-check major layout claims against actual paths in the repo.
-- [ ] Record before/after notes or a dedicated audit artifact with path examples.
-- [ ] If any tiny corrective change is made during the audit, run the minimum affected validation and record it.
+- [x] Capture a tree/inventory snapshot of the current repo layout.
+- [x] Cross-check major layout claims against actual paths in the repo.
+- [x] Record before/after notes or a dedicated audit artifact with path examples.
+- [x] If any tiny corrective change is made during the audit, run the minimum affected validation and record it. *(No code/runtime changes were made in this audit slice beyond docs/ticket artifacts.)*
 
 ## Definition of Done
 
-- [ ] Audit findings are recorded with concrete filesystem/path evidence.
-- [ ] Recommended follow-up layout work is broken into explicit tickets where needed.
-- [ ] The ticket clearly distinguishes immediate issues from acceptable current structure.
-- [ ] The board has a clearer path for future repo-layout cleanup without bundling it into unrelated refactors.
+- [x] Audit findings are recorded with concrete filesystem/path evidence.
+- [x] Recommended follow-up layout work is broken into explicit tickets where needed.
+- [x] The ticket clearly distinguishes immediate issues from acceptable current structure.
+- [x] The board has a clearer path for future repo-layout cleanup without bundling it into unrelated refactors.
 
 ## Updates
 
@@ -139,9 +139,41 @@ into bounded follow-up tickets.
 - Created from request to audit the project filesystem layout and started directly in `20-doing`.
 - Intentionally framed as an audit/planning ticket first so repo-structure cleanup can be driven by evidence rather than by generic “reorganize files” churn.
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 1, deps: 2, risk: 1)
+- Lane change: `20-doing` → `40-review` after completing the audit artifact and follow-up split.
+- Recorded the audit findings in `docs/filesystem-layout-audit-2026-03-28.md`, including:
+  - a top-level inventory snapshot
+  - runtime subtree boundary notes
+  - high-friction layout problems with path examples
+  - acceptable current decisions to keep
+  - low-risk vs high-cost follow-up actions
+- Main findings:
+  - the repo-root vs `runtime/` ownership boundary is valid but under-documented
+  - paired domains like `docs/` vs `runtime/docs/`, `scripts/` vs `runtime/scripts/`, and `artifacts/` vs `runtime/artifacts/` are the highest-friction confusion point
+  - generated/transient runtime output (`runtime/dist/`, `runtime/.cache/`, `runtime/coverage/`, `runtime/reports/`, `runtime/tmp/`, `runtime/node_modules/`) is interleaved with maintained implementation directories and should get a clearer containment policy
+  - existing tickets already cover two known structural follow-ons and should be reused rather than duplicated:
+    - `kanban/10-next/group-web-channel-flat-files.md`
+    - `kanban/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
+- Split two new bounded follow-up tickets from the audit:
+  - `kanban/10-next/clarify-root-vs-runtime-ownership-boundaries.md`
+  - `kanban/10-next/rationalize-runtime-generated-output-layout.md`
+- Validation/evidence capture for the audit used repo tree/path inspection only; no runtime code changes were made in this slice.
+- Final outcome of this audit slice:
+  - audit completed and recorded in `docs/filesystem-layout-audit-2026-03-28.md`
+  - two existing downstream structure tickets explicitly reused:
+    - `kanban/10-next/group-web-channel-flat-files.md`
+    - `kanban/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
+  - two new bounded follow-up tickets created:
+    - `kanban/10-next/clarify-root-vs-runtime-ownership-boundaries.md`
+    - `kanban/10-next/rationalize-runtime-generated-output-layout.md`
+  - broad move/rename churn intentionally deferred
 
 ## Links
 
+- `docs/filesystem-layout-audit-2026-03-28.md`
+- `kanban/10-next/clarify-root-vs-runtime-ownership-boundaries.md`
+- `kanban/10-next/rationalize-runtime-generated-output-layout.md`
+- `kanban/10-next/group-web-channel-flat-files.md`
+- `kanban/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
 - `README.md`
 - `docs/quality-assessment-2026-03-23.md`
 - `runtime/src/`
