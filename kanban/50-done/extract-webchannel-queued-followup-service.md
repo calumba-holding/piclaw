@@ -1,10 +1,11 @@
 ---
 id: extract-webchannel-queued-followup-service
 title: Extract WebChannel queued follow-up lifecycle into a service
-status: review
+status: done
 priority: high
 created: 2026-03-27
 updated: 2026-03-27
+completed: 2026-03-27
 target_release: next
 estimate: M
 risk: medium
@@ -129,6 +130,11 @@ keep the rest of `WebChannel` untouched in this slice.
 - [ ] Any larger or adjacent follow-up seams discovered are split explicitly instead of bundled.
 
 ## Updates
+
+### 2026-03-27
+- Lane change: `40-review` → `50-done` after board review confirmed the slice landed on `main`, the recorded validation evidence was sufficient, and no additional rework was required beyond the documented review pass.
+- Completion rationale: bounded seam extraction accepted as complete with focused tests, targeted integration coverage, and lint/typecheck evidence already recorded below.
+- Quality: ★★★★★ 9/10 (problem: 2, scope: 2, test: 2, deps: 2, risk: 1)
 
 ### 2026-03-27
 - Lane change: `20-doing` → `40-review` after the slice landed on `main` via `d55e920` (`Extract queued followup lifecycle service`).
