@@ -7,7 +7,7 @@ broad filesystem reorg.
 
 Work the Stage 4 extension/skill namespacing batch from:
 
-- `workitems/20-doing/execute-stage4-extension-and-skill-namespacing.md`
+- `workitems/40-review/execute-stage4-extension-and-skill-namespacing.md`
 - `docs/stage4-extension-skill-namespacing-inventory-2026-03-28.md`
 - `docs/stage4-extension-skill-namespacing-steplist-2026-03-28.md`
 - `docs/broad-filesystem-reorg-map-2026-03-28.md`

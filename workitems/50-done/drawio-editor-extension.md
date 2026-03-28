@@ -22,8 +22,8 @@ Integrate draw.io as a self-hosted diagram editor extension using the extension 
 
 ## Architecture
 
-- **Vendor script**: `scripts/vendor-drawio.ts` downloads draw.io WAR from GitHub releases, extracts minimal webapp files (~35MB) to `extensions/drawio-editor/vendor/`
-- **Extension**: `extensions/drawio-editor/index.ts` registers `/drawio/*` HTTP route, serves the wrapper page and vendored assets
+- **Vendor script**: `scripts/vendor-drawio.ts` downloads draw.io WAR from GitHub releases, extracts minimal webapp files (~35MB) to `extensions/viewers/drawio-editor/vendor/`
+- **Extension**: `extensions/viewers/drawio-editor/index.ts` registers `/drawio/*` HTTP route, serves the wrapper page and vendored assets
 - **Wrapper page**: `/drawio/edit?path=...` embeds draw.io in an iframe using the [embed mode postMessage protocol](https://www.drawio.com/doc/faq/embed-mode)
 - **Load/Save**: Wrapper fetches diagram XML from `GET /workspace/raw?path=...`, saves via `PUT /workspace/file` with `{ path, content }`
 - **Web UI pane**: `web/src/panes/drawio-pane.ts` handles `.drawio` files in the workspace browser with preview card + tab embedding

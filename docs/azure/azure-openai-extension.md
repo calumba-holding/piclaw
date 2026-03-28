@@ -174,7 +174,7 @@ include: ["reasoning.encrypted_content"]
 
 ## Files and paths
 
-- **Extension source**: `runtime/extensions/azure-openai.ts` (bundled inside the package)
+- **Extension source**: `runtime/extensions/integrations/azure-openai.ts` (bundled inside the package)
 - **Token cache**: `${AOAI_TOKEN_CACHE_DIR}/aoai-token.json`
 
 ## Model-switch regression test (web)

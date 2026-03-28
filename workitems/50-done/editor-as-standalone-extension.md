@@ -153,8 +153,8 @@ active tab's path from the tab store and expose it to the compose box:
 - Markdown preview pane (commit `02ea119`), preview flicker fix + resizable
   splitter (commit `6f678ff`), editor flicker fix (commits `25616c7`, `f42193a`).
 - All 11/11 acceptance criteria met. All 16 bonus criteria met.
-- **Moved to extensions/editor/** (commit `04646f8`): editor-extension.ts and
-  vendor/codemirror now live in `extensions/editor/`. Deprecated editor-pane.ts
+- **Moved to extensions/viewers/editor/** (commit `04646f8`): editor-extension.ts and
+  vendor/codemirror now live in `extensions/viewers/editor/`. Deprecated editor-pane.ts
   and components/editor.ts removed (-654 lines).
 - **CLOSED** — shipped in v1.2.0.
 

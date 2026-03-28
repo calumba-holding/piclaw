@@ -35,63 +35,70 @@ Interpretation:
 
 ### 2. `runtime/extensions/`
 
-Current top-level entries: **8**
+Current top-level entries after Stage 4: **5 grouped categories**
 
-Directories:
+- `browser/`
+- `platform/`
+- `viewers/`
+- `integrations/`
+- `experimental/`
 
-- `cdp-browser/`
-- `drawio-editor/`
-- `editor/`
-- `office-viewer/`
-- `win-ui/`
+Contained packaged entries now group as:
 
-Files:
-
-- `azure-openai.harness.ts`
-- `azure-openai.ts`
-- `context-mode.ts`
+- `browser/cdp-browser/`
+- `platform/windows/win-ui/`
+- `viewers/drawio-editor/`
+- `viewers/editor/`
+- `viewers/office-viewer/`
+- `integrations/azure-openai.ts`
+- `integrations/context-mode.ts`
+- `experimental/azure-openai.harness.ts`
 
 Observed loader behavior from `runtime/src/agent-pool/session.ts`:
 
 `additionalExtensionPaths` currently points at a hard-coded mixed set:
 
-- `runtime/extensions/azure-openai.ts` *(env-gated by `AOAI_BASE_URL`)*
-- `runtime/extensions/context-mode.ts`
-- `runtime/extensions/cdp-browser/index.ts`
-- `runtime/extensions/win-ui/index.ts`
-- `runtime/extensions/office-viewer/index.ts`
+- `runtime/extensions/integrations/azure-openai.ts` *(env-gated by `AOAI_BASE_URL`)*
+- `runtime/extensions/integrations/context-mode.ts`
+- `runtime/extensions/browser/cdp-browser/index.ts`
+- `runtime/extensions/platform/windows/win-ui/index.ts`
+- `runtime/extensions/viewers/office-viewer/index.ts`
 
 Notably packaged-but-not-auto-loaded from that list:
 
-- `drawio-editor/`
-- `editor/`
-- `azure-openai.harness.ts`
+- `viewers/drawio-editor/`
+- `viewers/editor/`
+- `experimental/azure-openai.harness.ts`
 
 Interpretation:
 
-- `runtime/extensions/` is currently a mixed filesystem surface
-- it combines shipped browser/viewer extensions, optional runtime helpers,
-  and at least one harness-only file
-- the current flat layout hides those category differences
+- `runtime/extensions/` remains the packaged filesystem-backed extension surface
+- Stage 4 made the category differences explicit rather than flat
+- it now groups browser automation, Windows-specific platform extensions, viewer/editor surfaces, runtime helpers, and harness-only entries without changing the role of `runtime/src/extensions/`
 
 ### 3. `runtime/skills/`
 
-Current top-level entries: **7**
+Current top-level entries after Stage 4: **3 grouped categories**
 
-- `graphite-power-chart/`
-- `playwright/`
-- `proxmox-management/`
-- `reload/`
-- `schedule/`
-- `send-message/`
-- `token-chart/`
+- `builtin/`
+- `operator/`
+- `integrations/`
+
+Contained packaged entries now group as:
+
+- `builtin/reload/`
+- `builtin/schedule/`
+- `builtin/send-message/`
+- `operator/graphite-power-chart/`
+- `operator/proxmox-management/`
+- `operator/token-chart/`
+- `integrations/playwright/`
 
 Interpretation:
 
-- packaged runtime skills are filesystem-backed and currently flat
-- the tree does not distinguish bundled/core/operator/integration categories
-- the surface is smaller and simpler than `runtime/extensions/`, but still a
-  candidate for grouping
+- packaged runtime skills remain filesystem-backed
+- Stage 4 made builtin/operator/integration categories explicit rather than flat
+- the packaged skill tree is now easier to scan without changing public `.pi/skills/` conventions
 
 ### 4. `skel/.pi/extensions/`
 
@@ -184,15 +191,16 @@ casually inside a repo-layout batch.
 
 ### Preferred grouping direction
 
-A workable direction is:
+The landed Stage 4 direction is:
 
 ```text
 runtime/extensions/
-├── packaged/
-│   ├── browser/
-│   ├── viewers/
-│   ├── integrations/
-│   └── experimental/
+├── browser/
+├── platform/
+│   └── windows/
+├── viewers/
+├── integrations/
+└── experimental/
 ```
 
 and
@@ -222,4 +230,6 @@ convention rename unless loader/discovery behavior proves it is necessary.
 - `skel/.pi/extensions/`
 - `skel/.pi/agent/extensions/`
 - `skel/.pi/skills/`
-- `workitems/10-next/namespace-internal-extensions-and-skills-paths.md`
+- `workitems/40-review/namespace-internal-extensions-and-skills-paths.md`
+- `runtime/extensions/README.md`
+- `runtime/skills/README.md`

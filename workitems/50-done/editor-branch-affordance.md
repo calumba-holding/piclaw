@@ -59,7 +59,7 @@ The shipped behavior is therefore repo-contextual and editor-local:
 - The editor now refreshes the branch affordance when the edited path changes.
 
 ## Relevant Files
-- `piclaw/extensions/editor/editor-extension.ts`
+- `piclaw/extensions/viewers/editor/editor-extension.ts`
 - `piclaw/web/static/css/styles.css`
 - `piclaw/web/src/components/compose-box.ts`
 - `piclaw/web/src/app.ts`
@@ -109,7 +109,7 @@ The shipped behavior is therefore repo-contextual and editor-local:
 
 ## Links
 
-- `piclaw/extensions/editor/editor-extension.ts`
+- `piclaw/extensions/viewers/editor/editor-extension.ts`
 - `piclaw/web/static/css/styles.css`
 - `piclaw/web/src/components/compose-box.ts`
 - `piclaw/web/src/app.ts`

@@ -51,7 +51,7 @@ function createFakeApi(): { api: ExtensionAPI; state: FakeState } {
 
 describe("bundled optional extensions", () => {
   test("cdp-browser registers the cdp_browser tool and cdp-tabs command", async () => {
-    const { default: registerCdpBrowser } = await import("../../extensions/cdp-browser/index.ts");
+    const { default: registerCdpBrowser } = await import("../../extensions/browser/cdp-browser/index.ts");
     const fake = createFakeApi();
 
     registerCdpBrowser(fake.api);
@@ -62,7 +62,7 @@ describe("bundled optional extensions", () => {
   });
 
   test("win-ui stays a safe no-op off Windows", async () => {
-    const { default: registerWinUi } = await import("../../extensions/win-ui/index.ts");
+    const { default: registerWinUi } = await import("../../extensions/platform/windows/win-ui/index.ts");
     const fake = createFakeApi();
 
     registerWinUi(fake.api);

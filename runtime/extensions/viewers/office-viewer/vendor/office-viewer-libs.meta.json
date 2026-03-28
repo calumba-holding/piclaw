@@ -36,53 +36,53 @@
     {
       "package_name": "docx-preview",
       "package_path": "dist/docx-preview.min.js",
-      "output_file": "extensions/office-viewer/vendor/docx-preview.min.js",
+      "output_file": "extensions/viewers/office-viewer/vendor/docx-preview.min.js",
       "sha256": "a011a499016a269eb048b8558a3eefc94bc33568ef434235943948ff24a40005",
       "size_bytes": 74315
     },
     {
       "package_name": "xlsx",
       "package_path": "dist/xlsx.full.min.js",
-      "output_file": "extensions/office-viewer/vendor/xlsx.full.min.js",
+      "output_file": "extensions/viewers/office-viewer/vendor/xlsx.full.min.js",
       "sha256": "c9506197caf809a075b6dee1da0d36fb19da7158ffe8a88e7b0c96c5d8623c99",
       "size_bytes": 881727
     },
     {
       "package_name": "chart.js",
       "package_path": "dist/chart.umd.min.js",
-      "output_file": "extensions/office-viewer/vendor/chart.umd.min.js",
+      "output_file": "extensions/viewers/office-viewer/vendor/chart.umd.min.js",
       "sha256": "48444a82d4edcb5bec0f1965faacdde18d9c17db3063d042abada2f705c9f54a",
       "size_bytes": 208522
     },
     {
       "package_name": "pptxviewjs",
       "package_path": "dist/PptxViewJS.min.js",
-      "output_file": "extensions/office-viewer/vendor/PptxViewJS.min.js",
+      "output_file": "extensions/viewers/office-viewer/vendor/PptxViewJS.min.js",
       "sha256": "a67648e689a27195ba9d77a6422653c314e765ca1712c7b7321c046f1f5b4295",
       "size_bytes": 618170
     },
     {
       "package_name": "jszip",
       "package_path": "dist/jszip.min.js",
-      "output_file": "extensions/office-viewer/vendor/jszip.min.js",
+      "output_file": "extensions/viewers/office-viewer/vendor/jszip.min.js",
       "sha256": "acc7e41455a80765b5fd9c7ee1b8078a6d160bbbca455aeae854de65c947d59e",
       "size_bytes": 97630
     },
     {
       "package_name": "@fontsource-variable/inter",
       "package_path": "files/inter-latin-wght-normal.woff2",
-      "output_file": "extensions/office-viewer/vendor/inter-latin.woff2",
+      "output_file": "extensions/viewers/office-viewer/vendor/inter-latin.woff2",
       "sha256": "3100e775e8616cd2611beecfa23a4263d7037586789b43f035236a2e6fbd4c62",
       "size_bytes": 48256
     },
     {
       "package_name": "@fontsource-variable/inter",
       "package_path": "files/inter-latin-ext-wght-normal.woff2",
-      "output_file": "extensions/office-viewer/vendor/inter-latin-ext.woff2",
+      "output_file": "extensions/viewers/office-viewer/vendor/inter-latin-ext.woff2",
       "sha256": "34b9c504cab7a73e37b746343a449132e56cf7b5481af2cb81dc74dcff25c956",
       "size_bytes": 85068
     }
   ],
-  "metadata_file": "extensions/office-viewer/vendor/office-viewer-libs.meta.json",
+  "metadata_file": "extensions/viewers/office-viewer/vendor/office-viewer-libs.meta.json",
   "total_size_bytes": 2013688
 }

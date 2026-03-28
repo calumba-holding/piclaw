@@ -19,7 +19,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import { dirname, relative, resolve } from "node:path";
 
 const PROJECT_DIR = process.cwd();
-const OUTPUT_DIR = "extensions/office-viewer/vendor";
+const OUTPUT_DIR = "extensions/viewers/office-viewer/vendor";
 const METADATA_FILE = resolve(PROJECT_DIR, OUTPUT_DIR, "office-viewer-libs.meta.json");
 const LOG_PREFIX = "[vendor:office-viewer-libs]";
 

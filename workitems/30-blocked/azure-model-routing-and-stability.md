@@ -50,7 +50,7 @@ Use the Azure harness to close the remaining Azure-model issues:
 
 ### 2026-03-11 (late)
 - v1.2.0 released without Azure routing changes (non-harness work shipped).
-- Harness artifacts remain untracked: `extensions/azure-openai.harness.ts`, `scripts/azure-openai-harness.ts`.
+- Harness artifacts remain untracked: `extensions/experimental/azure-openai.harness.ts`, `scripts/azure-openai-harness.ts`.
 - Matrix test results in `/workspace/tmp/aoai-matrix-20260310/`.
 - ~50% complete. Remaining: port proven guardrails into real provider code.
 - Identified need: refactor extension to support N providers from config instead of hardcoded primary/secondary blocks. Current `azure-openai-2` East US provider was added as a copy-paste block — should become data-driven (array of `{ resource, region, modelIds, api }`) so adding a third region or swapping models is config-only.
@@ -75,7 +75,7 @@ Use the Azure harness to close the remaining Azure-model issues:
 - Promoted from next to doing.
 - Renamed to a clearer slug filename.
 - Harness created at `piclaw/scripts/azure-openai-harness.ts`.
-- Harness provider copy created at `piclaw/extensions/azure-openai.harness.ts`.
+- Harness provider copy created at `piclaw/extensions/experimental/azure-openai.harness.ts`.
 - Notes captured in `notes/azure-openai-harness.md`.
 - Current findings:
   - Stable controls: `gpt-5-4`, `gpt-5-4-pro`, `gpt-5-3-codex`, `gpt-4o-mini`
@@ -146,5 +146,5 @@ Payload captures for failing runs:
 - `notes/azure-openai-harness.md`
 - `notes/azure-openai-harness/azure-openai-harness.ts`
 - `piclaw/scripts/azure-openai-harness.ts`
-- `piclaw/extensions/azure-openai.harness.ts`
-- `piclaw/extensions/azure-openai.ts`
+- `piclaw/extensions/experimental/azure-openai.harness.ts`
+- `piclaw/extensions/integrations/azure-openai.ts`

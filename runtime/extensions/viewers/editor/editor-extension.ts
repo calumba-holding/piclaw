@@ -55,8 +55,8 @@ import {
     githubLight,
     githubDark,
 } from './vendor/codemirror.js';
-import { getWorkspaceBranch, getWorkspaceFile, updateWorkspaceFile } from '../../web/src/api.js';
-import type { WebPaneExtension, PaneContext, PaneInstance, PaneCapability } from '../../web/src/panes/pane-types.js';
+import { getWorkspaceBranch, getWorkspaceFile, updateWorkspaceFile } from '../../../web/src/api.js';
+import type { WebPaneExtension, PaneContext, PaneInstance, PaneCapability } from '../../../web/src/panes/pane-types.js';
 import { frontmatterExtension } from './markdown/frontmatter.js';
 import { footnoteExtension } from './markdown/footnote.js';
 import { hashtagExtension } from './markdown/tag.js';

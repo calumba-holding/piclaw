@@ -105,8 +105,8 @@ Implication:
 
 #### Hard blocker: local reload/service assumptions
 Files:
-- `runtime/skills/reload/restart-piclaw.sh`
-- `runtime/skills/reload/SKILL.md`
+- `runtime/skills/builtin/reload/restart-piclaw.sh`
+- `runtime/skills/builtin/reload/SKILL.md`
 - `entrypoint.sh`
 - `supervisor/`
 
@@ -268,7 +268,7 @@ unsupported and keep focus on Linux/macOS first.
 - `runtime/src/tools/context-tools.ts`
 - `runtime/src/utils/process-tracker.ts`
 - `runtime/src/agent-control/handlers/operations.ts`
-- `runtime/skills/reload/*`
+- `runtime/skills/builtin/reload/*`
 - `scripts/smoke-install-from-repo.sh`
 - `scripts/docker/install-agent-runtime.sh`
 
@@ -287,7 +287,7 @@ unsupported and keep focus on Linux/macOS first.
   - `docs/install-from-repo.md`: “Windows also works in practice, but remains a secondary / not-officially-supported target for now.”
 - Windows-specific operational evidence also exists outside the narrow Linux-first core:
   - local PowerShell extension at `/workspace/.pi/agent/extensions/powershell.ts`
-  - prior `win-ui` Windows GUI automation extension lineage in commit `2b7df10` (`skel/.pi/extensions/win-ui/index.ts`)
+  - prior `win-ui` Windows GUI automation extension lineage in commit `2b7df10` (`skel/.pi/extensions/platform/windows/win-ui/index.ts`)
   - follow-up Windows send-keys hardening in commit `e36ad59`
 - Final answer for this ticket: **yes, Windows local install is viable**, with an honest support boundary: experimental/YOLO, web/chat-first, and not a promise of full Linux parity.
 - No extra follow-up ticket is required from this audit beyond the already-existing general direct-install/documentation work.

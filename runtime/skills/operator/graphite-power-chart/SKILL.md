@@ -13,13 +13,13 @@ The script lives alongside this skill for easy adaptation to other data sources.
 
 ### Power chart for the server closet UPS (default 12h)
 ```bash
-bun /workspace/piclaw/runtime/skills/graphite-power-chart/graphite-power-chart.ts \
+bun /workspace/piclaw/runtime/skills/operator/graphite-power-chart/graphite-power-chart.ts \
   --device server_closet_ups_power --ipc
 ```
 
 ### Temperature chart (explicit metric + unit)
 ```bash
-bun /workspace/piclaw/runtime/skills/graphite-power-chart/graphite-power-chart.ts \
+bun /workspace/piclaw/runtime/skills/operator/graphite-power-chart/graphite-power-chart.ts \
   --metric zigbee.server_closet_temperature.temperature \
   --label Temperature --unit "°C" \
   --ipc
@@ -27,7 +27,7 @@ bun /workspace/piclaw/runtime/skills/graphite-power-chart/graphite-power-chart.t
 
 ### Override the window and resampling
 ```bash
-bun /workspace/piclaw/runtime/skills/graphite-power-chart/graphite-power-chart.ts \
+bun /workspace/piclaw/runtime/skills/operator/graphite-power-chart/graphite-power-chart.ts \
   --device server_closet_ups_power --hours 24 --resample 10min --ipc
 ```
 

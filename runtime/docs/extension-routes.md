@@ -170,7 +170,7 @@ Response shape:
 [
   {
     "prefix": "/drawio",
-    "extensionPath": "/workspace/.pi/extensions/drawio-editor"
+    "extensionPath": "/workspace/.pi/extensions/viewers/drawio-editor"
   }
 ]
 ```
@@ -183,8 +183,8 @@ This is useful for:
 
 ## Current reference implementations
 
-- `extensions/office-viewer/index.ts`
-- `extensions/drawio-editor/index.ts`
+- `extensions/viewers/office-viewer/index.ts`
+- `extensions/viewers/drawio-editor/index.ts`
 - `src/channels/web/http/editor-vendor-route.ts`
 - `src/channels/web/http/csv-viewer-route.ts`
 - `src/channels/web/http/extension-routes.ts`

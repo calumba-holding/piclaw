@@ -58,7 +58,7 @@ test("generic vendored dependency build script writes codemirror bundle + metada
   expect(meta.manifest_id).toBe("codemirror-editor");
   expect(meta.package_name).toBe("codemirror");
   expect(meta.package_version).toBe(installed.version);
-  expect(meta.source_entry).toBe("extensions/editor/vendor/codemirror-entry.ts");
+  expect(meta.source_entry).toBe("extensions/viewers/editor/vendor/codemirror-entry.ts");
   expect(meta.output_file.endsWith("codemirror.js")).toBe(true);
   expect(meta.size_bytes).toBe(bundle.byteLength);
   expect(meta.sha256).toBe(createHash("sha256").update(bundle).digest("hex"));

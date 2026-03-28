@@ -79,5 +79,5 @@ service running, so PDF export is effectively broken.
 ## Links
 
 - `workitems/40-review/drawio-editor-extension.md`
-- `piclaw/extensions/drawio-editor/index.ts`
+- `piclaw/extensions/viewers/drawio-editor/index.ts`
 - `piclaw/web/src/panes/drawio-pane.ts`

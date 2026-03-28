@@ -43,7 +43,7 @@ function run(label: string, cmd: string[], cwd = ROOT): boolean {
 }
 
 // Draw.io viewer (~35 MB, .gitignored — downloads from GitHub releases)
-const drawioIndex = resolve(ROOT, "runtime/extensions/drawio-editor/vendor/index.html");
+const drawioIndex = resolve(ROOT, "runtime/extensions/viewers/drawio-editor/vendor/index.html");
 if (!existsSync(drawioIndex)) {
   run("Vendoring draw.io", ["bun", "run", "build:vendor:drawio"]);
 } else {

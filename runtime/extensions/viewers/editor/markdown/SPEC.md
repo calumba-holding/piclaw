@@ -55,10 +55,10 @@ These need `@lezer/markdown` `MarkdownConfig` extensions:
 
 ## File Structure
 
-All new files under `extensions/editor/`:
+All new files under `extensions/viewers/editor/`:
 
 ```
-extensions/editor/
+extensions/viewers/editor/
 ├── editor-extension.ts          # Modified: add live preview compartment + toggle
 ├── markdown/
 │   ├── live-preview.ts          # Core engine: cursor-aware decoration builder

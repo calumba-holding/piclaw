@@ -104,11 +104,11 @@ Use **Path A**: define a reusable script-first workflow, then optionally expose 
 - Selected Mermaid as the first manifest-backed adopter.
 - Initial audited vendored/runtime asset inventory now includes:
   - `web/static/js/vendor/beautiful-mermaid.js`
-  - `extensions/editor/vendor/codemirror.js`
+  - `extensions/viewers/editor/vendor/codemirror.js`
   - `web/static/js/vendor/preact-htm.js`
   - `web/static/js/marked.min.js`
   - `web/static/js/vendor/katex.min.js`
-- CodeMirror was selected as the second concrete migration target because it already has an in-tree source entry (`extensions/editor/vendor/codemirror-entry.ts`) and pinned package dependencies, making it a clean manifest-backed adopter.
+- CodeMirror was selected as the second concrete migration target because it already has an in-tree source entry (`extensions/viewers/editor/vendor/codemirror-entry.ts`) and pinned package dependencies, making it a clean manifest-backed adopter.
 - Added `vendor-manifests/codemirror-editor.json` and wired CodeMirror into the shared vendor workflow and top-level `build:vendor` / `make vendor` path.
 - Added direct exact package pins for the audited runtime vendor inputs so provenance is explicit instead of purely transitive / opaque:
   - `marked@17.0.4` (upgraded during this pass)

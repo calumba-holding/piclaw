@@ -60,10 +60,11 @@ At minimum, classify each current `runtime/extensions/` entry as one of:
 
 Expected examples from current inventory:
 
-- browser/desktop automation: `cdp-browser/`, `win-ui/`
-- viewer/editor web surface: `drawio-editor/`, `editor/`, `office-viewer/`
-- integration/helper: `azure-openai.ts`, `context-mode.ts`
-- experimental/harness-only: `azure-openai.harness.ts`
+- browser automation: `browser/cdp-browser/`
+- Windows-specific platform extension: `platform/windows/win-ui/`
+- viewer/editor web surface: `viewers/drawio-editor/`, `viewers/editor/`, `viewers/office-viewer/`
+- integration/helper: `integrations/azure-openai.ts`, `integrations/context-mode.ts`
+- experimental/harness-only: `experimental/azure-openai.harness.ts`
 
 ### Step 3 — classify packaged runtime skills by role
 
@@ -77,15 +78,16 @@ The exact labels can change, but the grouped intent should be explicit.
 
 ### Step 4 — choose the concrete grouped target shape
 
-Example direction:
+Landed direction:
 
 ```text
 runtime/extensions/
-├── packaged/
-│   ├── browser/
-│   ├── viewers/
-│   ├── integrations/
-│   └── experimental/
+├── browser/
+├── platform/
+│   └── windows/
+├── viewers/
+├── integrations/
+└── experimental/
 ```
 
 ```text
@@ -138,6 +140,24 @@ Capture explicitly whether:
 - `.pi/extensions/`, `.pi/skills/`, and `.pi/agent/extensions/` were kept as
   stable public convention paths
 - only packaged runtime surfaces moved
+
+## Stage 4 implementation result
+
+The bounded Stage 4 landing should leave the repo in this state:
+
+- `runtime/extensions/` grouped into:
+  - `browser/`
+  - `platform/windows/`
+  - `viewers/`
+  - `integrations/`
+  - `experimental/`
+- `runtime/skills/` grouped into:
+  - `builtin/`
+  - `operator/`
+  - `integrations/`
+- `runtime/src/extensions/` left unchanged in role as the built-in code-factory surface
+- `.pi/extensions/`, `.pi/skills/`, and `.pi/agent/extensions/` preserved as compatibility-sensitive convention paths
+- loader/docs/package-path references updated to the grouped packaged-runtime layout
 
 ## Guardrails
 

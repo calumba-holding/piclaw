@@ -1,7 +1,7 @@
 /**
- * extensions/azure-openai.harness.ts – Harness-only copy of the Azure OpenAI provider.
+ * extensions/experimental/azure-openai.harness.ts – Harness-only copy of the Azure OpenAI provider.
  *
- * Seeded from `extensions/azure-openai.ts` so endpoint experiments can be run
+ * Seeded from `extensions/integrations/azure-openai.ts` so endpoint experiments can be run
  * directly from Bun without reloading the live piclaw process.
  *
  * Safe to modify for harness tests.
@@ -24,7 +24,7 @@ import {
   convertResponsesMessages,
   convertResponsesTools,
   processResponsesStream,
-} from "../src/extensions/azure-openai-api.js";
+} from "../../src/extensions/azure-openai-api.js";
 import { streamSimpleOpenAICompletions } from "@mariozechner/pi-ai";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

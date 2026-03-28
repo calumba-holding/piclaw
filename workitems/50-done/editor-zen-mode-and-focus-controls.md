@@ -203,7 +203,7 @@ Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 ## Links
 
 - `piclaw/piclaw/web/src/app.ts`
-- `piclaw/piclaw/extensions/editor/editor-extension.ts`
+- `piclaw/piclaw/extensions/viewers/editor/editor-extension.ts`
 - `piclaw/piclaw/web/static/css/styles.css`
 - `piclaw/piclaw/web/src/components/tab-strip.ts`
 - `piclaw/piclaw/web/src/panes/terminal-pane.ts`

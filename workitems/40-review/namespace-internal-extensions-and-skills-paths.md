@@ -1,7 +1,7 @@
 ---
 id: namespace-internal-extensions-and-skills-paths
 title: Namespace internal extensions and packaged skills paths more clearly
-status: next
+status: review
 priority: medium
 created: 2026-03-28
 updated: 2026-03-28
@@ -61,10 +61,10 @@ matter.
 
 ## Acceptance Criteria
 
-- [ ] Built-in/internal/project-local extension and skill path categories are clearly defined
-- [ ] The chosen namespacing/grouping is documented
-- [ ] Loader/discovery/docs references are updated consistently
-- [ ] Validation covers the affected extension/skill path surfaces
+- [x] Built-in/internal/project-local extension and skill path categories are clearly defined
+- [x] The chosen namespacing/grouping is documented
+- [x] Loader/discovery/docs references are updated consistently
+- [x] Validation covers the affected extension/skill path surfaces
 
 ## Updates
 
@@ -73,14 +73,18 @@ matter.
   - `docs/stage4-extension-skill-namespacing-inventory-2026-03-28.md`
   - `docs/stage4-extension-skill-namespacing-steplist-2026-03-28.md`
   - `docs/stage4-extension-skill-namespacing-autoresearch-prompt-2026-03-28.md`
-  - `workitems/20-doing/execute-stage4-extension-and-skill-namespacing.md`
+  - `workitems/40-review/execute-stage4-extension-and-skill-namespacing.md`
 - The current recommendation is to scope Stage 4 to packaged runtime namespacing first and treat `.pi/...` convention paths as compatibility-sensitive unless loader/discovery evidence proves a rename is necessary.
+- Stage 4 then landed as a packaged-runtime namespacing batch:
+  - `runtime/extensions/` grouped into `browser/`, `platform/windows/`, `viewers/`, `integrations/`, and `experimental/`
+  - `runtime/skills/` grouped into `builtin/`, `operator/`, and `integrations/`
+  - `.pi/extensions/`, `.pi/skills/`, and `.pi/agent/extensions/` intentionally preserved as stable convention paths
 
 ## Links
 
 - `docs/broad-filesystem-reorg-map-2026-03-28.md`
 - `workitems/20-doing/plan-broad-filesystem-reorg-from-audit.md`
-- `workitems/20-doing/execute-stage4-extension-and-skill-namespacing.md`
+- `workitems/40-review/execute-stage4-extension-and-skill-namespacing.md`
 - `docs/stage4-extension-skill-namespacing-inventory-2026-03-28.md`
 - `docs/stage4-extension-skill-namespacing-steplist-2026-03-28.md`
 - `docs/stage4-extension-skill-namespacing-autoresearch-prompt-2026-03-28.md`

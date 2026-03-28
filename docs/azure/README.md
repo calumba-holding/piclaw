@@ -117,7 +117,7 @@ Ensure ports 80/443 are open and DNS points to the VM.
 
 If you want managed‑identity Azure OpenAI + Foundry providers:
 
-- The extension is bundled at `runtime/extensions/azure-openai.ts` inside the package — no manual copy needed.
+- The extension is bundled at `runtime/extensions/integrations/azure-openai.ts` inside the package — no manual copy needed.
 - Configure:
   - `AOAI_BASE_URL` (Responses API base URL)
   - `AOAI_MODEL_ID` / `AOAI_MODEL_NAME` / `AOAI_MODEL_IDS`

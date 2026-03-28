@@ -1,7 +1,7 @@
 /**
  * extensions/azure-openai-api.ts – Stable extension-facing API for Azure OpenAI helpers.
  *
- * Centralizes imports used by `extensions/azure-openai.ts` so the extension entrypoint
+ * Centralizes imports used by `extensions/integrations/azure-openai.ts` so the extension entrypoint
  * does not depend directly on fragile deep implementation paths.
  */
 

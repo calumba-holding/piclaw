@@ -18,7 +18,7 @@ const DRAWIO_VERSION = "v29.6.1";
 const WAR_URL = `https://github.com/jgraph/drawio/releases/download/${DRAWIO_VERSION}/draw.war`;
 const CACHE_DIR = resolve(process.cwd(), "generated", "cache", "vendor", "drawio", DRAWIO_VERSION);
 const WAR_PATH = resolve(CACHE_DIR, "draw.war");
-const OUTPUT_DIR = "extensions/drawio-editor/vendor";
+const OUTPUT_DIR = "extensions/viewers/drawio-editor/vendor";
 const METADATA_FILE = resolve(process.cwd(), OUTPUT_DIR, "drawio.meta.json");
 
 /** Files/directories to copy from the extracted WAR. */

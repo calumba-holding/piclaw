@@ -110,7 +110,7 @@ Potentially in scope, pending plan decisions:
   - `docs/stage1-broad-filesystem-reorg-steplist-2026-03-28.md`
   - `workitems/40-review/execute-stage1-board-rename-and-boundary-framing.md`
 - Additional reorg finding folded into the plan: internal extension and packaged skill paths also need clearer namespacing, tracked via:
-  - `workitems/10-next/namespace-internal-extensions-and-skills-paths.md`
+  - `workitems/40-review/namespace-internal-extensions-and-skills-paths.md`
 - Stage 1 was executed and landed on `main` via `75f7dedb` (`Rename kanban board paths to workitems`).
 - Stage 2 was executed and landed on `main` via `d11c585b` (`Contain runtime generated output under runtime/generated`), with the implementation and validation captured in:
   - `docs/stage2-runtime-generated-layout-inventory-2026-03-28.md`
@@ -119,11 +119,11 @@ Potentially in scope, pending plan decisions:
 - Stage 3 boundary clarification was then landed as a bounded policy/docs batch, with the implementation captured in:
   - `docs/repo-runtime-boundaries-2026-03-28.md`
   - `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
-- Stage 4 is now explicit enough for implementation or autoresearch, with execution inputs captured in:
+- Stage 4 was executed and landed as a packaged-runtime namespacing batch, with the implementation and validation captured in:
   - `docs/stage4-extension-skill-namespacing-inventory-2026-03-28.md`
   - `docs/stage4-extension-skill-namespacing-steplist-2026-03-28.md`
   - `docs/stage4-extension-skill-namespacing-autoresearch-prompt-2026-03-28.md`
-  - `workitems/20-doing/execute-stage4-extension-and-skill-namespacing.md`
+  - `workitems/40-review/execute-stage4-extension-and-skill-namespacing.md`
 
 ## Links
 
@@ -139,7 +139,7 @@ Potentially in scope, pending plan decisions:
 - `docs/filesystem-layout-audit-2026-03-28.md`
 - `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
 - `workitems/40-review/rationalize-runtime-generated-output-layout.md`
-- `workitems/10-next/namespace-internal-extensions-and-skills-paths.md`
-- `workitems/20-doing/execute-stage4-extension-and-skill-namespacing.md`
+- `workitems/40-review/namespace-internal-extensions-and-skills-paths.md`
+- `workitems/40-review/execute-stage4-extension-and-skill-namespacing.md`
 - `workitems/10-next/group-web-channel-flat-files.md`
 - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`

@@ -50,7 +50,7 @@ test("token chart outputs chart first and summary lines", () => {
 
   const proc = Bun.spawnSync([
     "bun",
-    "/workspace/piclaw/runtime/skills/token-chart/token-chart.ts",
+    "/workspace/piclaw/runtime/skills/operator/token-chart/token-chart.ts",
     "--days",
     "2",
     "--sessions-dir",
@@ -78,7 +78,7 @@ test("token chart handles empty sessions directory", () => {
 
   const proc = Bun.spawnSync([
     "bun",
-    "/workspace/piclaw/runtime/skills/token-chart/token-chart.ts",
+    "/workspace/piclaw/runtime/skills/operator/token-chart/token-chart.ts",
     "--days",
     "1",
     "--sessions-dir",
@@ -136,7 +136,7 @@ test("token chart combines normal and autoresearch into one daily stack when rea
 
   const proc = Bun.spawnSync([
     "bun",
-    "/workspace/piclaw/runtime/skills/token-chart/token-chart.ts",
+    "/workspace/piclaw/runtime/skills/operator/token-chart/token-chart.ts",
     "--days",
     "1",
     "--source",
@@ -187,7 +187,7 @@ test("token chart ignores malformed JSONL lines", () => {
 
   const proc = Bun.spawnSync([
     "bun",
-    "/workspace/piclaw/runtime/skills/token-chart/token-chart.ts",
+    "/workspace/piclaw/runtime/skills/operator/token-chart/token-chart.ts",
     "--days",
     "1",
     "--sessions-dir",

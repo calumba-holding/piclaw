@@ -33,7 +33,7 @@ test("token chart --ipc writes JSON message safely", () => {
 
   const proc = Bun.spawnSync([
     "bun",
-    "/workspace/piclaw/runtime/skills/token-chart/token-chart.ts",
+    "/workspace/piclaw/runtime/skills/operator/token-chart/token-chart.ts",
     "--days",
     "1",
     "--sessions-dir",

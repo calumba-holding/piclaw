@@ -52,7 +52,7 @@ Recommended stance:
 - Upstream docs in installed `@mariozechner/pi-coding-agent` confirm
   `before_provider_request` is a supported extension event.
 - PiClaw codebase already mutates OpenAI-family payloads in Azure extension
-  (`extensions/azure-openai.ts`, sets `text.verbosity = "medium"` under specific conditions).
+  (`extensions/integrations/azure-openai.ts`, sets `text.verbosity = "medium"` under specific conditions).
 - PiClaw web stack already exposes model state via `/agent/models` and model popup in compose.
 
 ## Scope
@@ -129,7 +129,7 @@ Recommended stance:
 
 - `https://www.npmjs.com/package/pi-verbosity-control`
 - `piclaw/node_modules/@mariozechner/pi-coding-agent/docs/extensions.md`
-- `piclaw/extensions/azure-openai.ts`
+- `piclaw/extensions/integrations/azure-openai.ts`
 - `piclaw/src/agent-pool.ts`
 - `piclaw/src/extensions/model-control.ts`
 - `piclaw/web/src/components/compose-box.ts`

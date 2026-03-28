@@ -102,6 +102,6 @@ Discussion prompts:
 - TabStore: framework-agnostic tab state with MRU fallback, pin, dirty tracking, view state.
 - TabStrip UI: active highlight, dirty dot, close/middle-click, context menu, keyboard shortcuts.
 - Content area: vertical split with tabbed panes + optional dock + draggable splitter.
-- Editor moved to `extensions/editor/` as self-contained pane extension.
+- Editor moved to `extensions/viewers/editor/` as self-contained pane extension.
 - All design questions resolved through implementation. No further discussion needed.
 - **CLOSED** — shipped in v1.2.0.

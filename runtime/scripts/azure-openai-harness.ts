@@ -2,7 +2,7 @@
 /**
  * azure-openai-harness.ts — Standalone Azure OpenAI/Foundry endpoint harness.
  *
- * Uses `extensions/azure-openai.harness.ts`, a copy of the live extension that can
+ * Uses `extensions/experimental/azure-openai.harness.ts`, a copy of the live extension that can
  * be modified independently for experiments. Re-run this script after edits — no
  * piclaw rebuild or reload required.
  *
@@ -129,7 +129,7 @@ type HarnessReport = {
 };
 
 const SETTINGS_PATH = "/home/agent/.pi/agent/settings.json";
-const HARNESS_EXTENSION_PATH = resolve(import.meta.dir, "../extensions/azure-openai.harness.ts");
+const HARNESS_EXTENSION_PATH = resolve(import.meta.dir, "../extensions/experimental/azure-openai.harness.ts");
 const BUNDLED_HARNESS_EXTENSION_PATH = resolve("/workspace/tmp/azure-openai.harness.bundle.mjs");
 const DEFAULT_OUT_DIR = "/workspace/tmp";
 const DEFAULT_CASES: HarnessCaseName[] = ["smoke", "json", "tool", "history"];
@@ -144,8 +144,8 @@ const DEFAULT_COOLDOWN_MS = 3_000;
 const PAYLOAD_CAPTURE_DIR = resolve("/workspace/tmp/azure-openai-harness-payloads");
 
 type HarnessExtensionModule = {
-  registerAzureProviders: typeof import("../extensions/azure-openai.harness.ts").registerAzureProviders;
-  resolveAzureProviderToken: typeof import("../extensions/azure-openai.harness.ts").resolveAzureProviderToken;
+  registerAzureProviders: typeof import("../extensions/experimental/azure-openai.harness.ts").registerAzureProviders;
+  resolveAzureProviderToken: typeof import("../extensions/experimental/azure-openai.harness.ts").resolveAzureProviderToken;
 };
 
 function parseCsv(value: string | undefined): string[] | undefined {

@@ -11,7 +11,7 @@ import { dirname, extname, resolve } from "node:path";
 import { existsSync, realpathSync, statSync } from "node:fs";
 import { registerExtensionRoute } from "./extension-routes.js";
 
-const EXT_DIR = resolve(import.meta.dir, "..", "..", "..", "..", "extensions", "editor");
+const EXT_DIR = resolve(import.meta.dir, "..", "..", "..", "..", "extensions", "viewers", "editor");
 const VENDOR_DIR = resolve(EXT_DIR, "vendor");
 const ROUTE_PREFIX = "/editor-vendor";
 

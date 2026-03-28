@@ -317,7 +317,7 @@ Verify no leaked listeners or DOM nodes after pane lifecycle:
 
 | ID | Placement | Priority | Location | Description |
 |---|---|---|---|---|
-| `editor` | tabs | 1 | `extensions/editor/editor-extension.ts` | CodeMirror 6 editor — handles all text files (fallback). Lazy-loaded as `editor.bundle.js` (889 KB). |
+| `editor` | tabs | 1 | `extensions/viewers/editor/editor-extension.ts` | CodeMirror 6 editor — handles all text files (fallback). Lazy-loaded as `editor.bundle.js` (889 KB). |
 | `drawio` | tabs | 10 | `web/src/panes/drawio-pane.ts` | Self-hosted draw.io editor for `.drawio` files. Uses iframe + extension route; workspace preview promotes via **Edit in Tab**. |
 | `office-viewer` | tabs | 10 | `web/src/panes/office-viewer-pane.ts` | Built-in JS viewer (`/office-viewer/*`) for `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.odp` with zoom/fit/search and format-specific controls; workspace preview promotes via **Open in Tab**. |
 | `csv-viewer` | tabs | 10 | `web/src/panes/csv-viewer-pane.ts` | Lightweight table viewer for `.csv` and `.tsv` files; workspace preview promotes via **Open in Tab**. |
@@ -330,10 +330,10 @@ Verify no leaked listeners or DOM nodes after pane lifecycle:
 
 ### Editor extension architecture
 
-The editor lives in `extensions/editor/` as a self-contained pane extension:
+The editor lives in `extensions/viewers/editor/` as a self-contained pane extension:
 
 ```
-extensions/editor/
+extensions/viewers/editor/
   editor-extension.ts       — StandaloneEditorInstance + WebPaneExtension registration
   vendor/
     codemirror-entry.ts     — CodeMirror re-export entry point

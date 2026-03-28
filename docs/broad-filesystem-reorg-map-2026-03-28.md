@@ -343,13 +343,21 @@ Avoid indefinite dual-path support.
   - `artifacts/README.md`
 - kept Stage 3 intentionally bounded to policy clarification and local directory guidance rather than another relocation sweep
 
-### Stage 4 preparation update — 2026-03-28
+### Stage 4 execution update — 2026-03-28
 
-- captured the current extension/skill surface inventory in `docs/stage4-extension-skill-namespacing-inventory-2026-03-28.md`
-- prepared the execution order in `docs/stage4-extension-skill-namespacing-steplist-2026-03-28.md`
-- prepared an execution brief in `docs/stage4-extension-skill-namespacing-autoresearch-prompt-2026-03-28.md`
-- opened `workitems/20-doing/execute-stage4-extension-and-skill-namespacing.md` as the active next batch
-- Stage 4 is intentionally scoped to packaged runtime namespacing first; public `.pi/...` convention paths are treated as compatibility-sensitive unless loader/discovery evidence proves otherwise
+- grouped packaged runtime extensions under:
+  - `runtime/extensions/browser/`
+  - `runtime/extensions/platform/windows/`
+  - `runtime/extensions/viewers/`
+  - `runtime/extensions/integrations/`
+  - `runtime/extensions/experimental/`
+- grouped packaged runtime skills under:
+  - `runtime/skills/builtin/`
+  - `runtime/skills/operator/`
+  - `runtime/skills/integrations/`
+- kept `runtime/src/extensions/` unchanged in role as the built-in code-factory surface
+- kept `.pi/extensions/`, `.pi/skills/`, and `.pi/agent/extensions/` stable as compatibility-sensitive convention paths
+- updated loader, build, vendor, docs, and test references to the grouped packaged-runtime layout
 
 ## First-batch recommendation
 
@@ -369,6 +377,6 @@ output paths.
 - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
 - `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
 - `workitems/40-review/rationalize-runtime-generated-output-layout.md`
-- `workitems/10-next/namespace-internal-extensions-and-skills-paths.md`
-- `workitems/20-doing/execute-stage4-extension-and-skill-namespacing.md`
+- `workitems/40-review/namespace-internal-extensions-and-skills-paths.md`
+- `workitems/40-review/execute-stage4-extension-and-skill-namespacing.md`
 - `workitems/10-next/group-web-channel-flat-files.md`

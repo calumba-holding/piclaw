@@ -21,7 +21,7 @@ The new `registerRoute()` capability (shipped in `f2bed40`) lets workspace exten
 ## Candidates
 
 ### 1. Editor extension → dynamic vendor serving
-**Current**: `extensions/editor/vendor/codemirror.js` (868KB) is bundled at build time into `static/dist/editor.bundle.js`. Changes to CodeMirror require a full rebuild.
+**Current**: `extensions/viewers/editor/vendor/codemirror.js` (868KB) is bundled at build time into `static/dist/editor.bundle.js`. Changes to CodeMirror require a full rebuild.
 **Improvement**: Editor vendor assets are served from `/editor-vendor/*`, and the browser editor bundle imports `codemirror.js` from that route instead of baking it into `static/dist/editor.bundle.js`. Benefits:
 - Hot-swap CodeMirror versions without rebuilding the editor bundle
 - Extension is more self-contained (vendor + logic + pane)
@@ -68,7 +68,7 @@ The new `registerRoute()` capability (shipped in `f2bed40`) lets workspace exten
 
 - **office-viewer**: Already uses `registerRoute()` — reference implementation ✓
 - **drawio-editor**: New extension using `registerRoute("/drawio", ...)` ✓
-- **editor vendor route**: `/editor-vendor/*` now serves CodeMirror directly from `extensions/editor/vendor`, and `editor.bundle.js` imports it externally ✓
+- **editor vendor route**: `/editor-vendor/*` now serves CodeMirror directly from `extensions/viewers/editor/vendor`, and `editor.bundle.js` imports it externally ✓
 - **CSV viewer route**: `/csv-viewer/*` now serves a same-origin CSV/TSV table viewer, and the web pane registry routes `.csv`/`.tsv` files to it ✓
 - **Route introspection**: `GET /api/extension-routes` returns JSON array of registered routes ✓
 - **Route docs**: `docs/extension-routes.md` documents the author-facing API and security expectations ✓
@@ -79,4 +79,4 @@ The new `registerRoute()` capability (shipped in `f2bed40`) lets workspace exten
 ## Links
 - Commit: `f2bed40` (extension route system + office viewer)
 - File: `src/channels/web/http/extension-routes.ts`
-- Office viewer reference impl: `.pi/extensions/office-viewer/index.ts`
+- Office viewer reference impl: `.pi/extensions/viewers/office-viewer/index.ts`

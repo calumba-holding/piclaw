@@ -58,18 +58,21 @@ piclaw/
 │   ├── tool-output.ts           # Stored tool output management
 │   ├── ipc.ts                   # IPC file watcher
 │   └── types.ts                 # Shared type definitions
-├── extensions/                  # Bundled extensions (server + web)
-│   ├── azure-openai.ts          # Azure OpenAI/Foundry provider (optional)
-│   ├── context-mode.ts          # Tool output + exec_batch extension
-│   ├── drawio-editor/           # Self-hosted draw.io editor extension
-│   │   ├── index.ts             # Route registration, save endpoint, wrapper page
-│   │   └── vendor/              # Vendored draw.io runtime + resources
-│   ├── editor/                  # Standalone editor web pane extension
-│   │   ├── editor-extension.ts  # StandaloneEditorInstance + registration
-│   │   └── vendor/              # Vendored CodeMirror bundle
-│   └── office-viewer/           # Lightweight JS Office document viewer extension
-│       ├── index.ts             # Route registration + asset serving
-│       └── vendor/              # Vendored JS viewer assets (docx-preview/xlsx/pptxviewjs/jszip/chart.js)
+├── extensions/                  # Packaged filesystem-backed runtime extensions
+│   ├── browser/                 # Browser automation extensions
+│   │   └── cdp-browser/         # Chromium CDP browser control extension
+│   ├── platform/                # Platform-specific packaged extensions
+│   │   └── windows/
+│   │       └── win-ui/          # Windows desktop automation extension
+│   ├── integrations/            # Packaged integration/helper extensions
+│   │   ├── azure-openai.ts      # Azure OpenAI/Foundry provider (optional)
+│   │   └── context-mode.ts      # Tool output + exec_batch extension
+│   ├── viewers/                 # Route-backed viewers and editor surfaces
+│   │   ├── drawio-editor/       # Self-hosted draw.io editor extension
+│   │   ├── editor/              # Standalone editor web pane extension
+│   │   └── office-viewer/       # Lightweight JS Office document viewer extension
+│   └── experimental/            # Harness-only or experimental entries
+│       └── azure-openai.harness.ts
 └── web/
     ├── src/
     │   ├── app.ts               # Main Preact app
@@ -126,14 +129,14 @@ In addition to the inline factories, piclaw ships **optional extensions** under 
 
 | Extension | Gate | Purpose |
 |-----------|------|---------|
-| `azure-openai.ts` | `AOAI_BASE_URL` must be set | Azure OpenAI + Foundry provider with managed-identity or API-key auth |
-| `context-mode.ts` | Always loaded | Tool-output storage, search handles, and `exec_batch` tool |
-| `cdp-browser/` | Always loaded | Cross-platform Chromium CDP browser control tool (`cdp_browser`) |
-| `win-ui/` | Always loaded (runtime no-op off Windows) | Windows desktop automation via bun:ffi + IAccessible (`win_*` tools) |
-| `drawio-editor/` | Always loaded | Self-hosted draw.io editor with extension route, save endpoint, and workspace export |
-| `office-viewer/` | Always loaded | Lightweight JS Office document viewer with extension route |
+| `integrations/azure-openai.ts` | `AOAI_BASE_URL` must be set | Azure OpenAI + Foundry provider with managed-identity or API-key auth |
+| `integrations/context-mode.ts` | Always loaded | Tool-output storage, search handles, and `exec_batch` tool |
+| `browser/cdp-browser/` | Always loaded | Cross-platform Chromium CDP browser control tool (`cdp_browser`) |
+| `platform/windows/win-ui/` | Always loaded (runtime no-op off Windows) | Windows desktop automation via bun:ffi + IAccessible (`win_*` tools) |
+| `viewers/drawio-editor/` | Always loaded | Self-hosted draw.io editor with extension route, save endpoint, and workspace export |
+| `viewers/office-viewer/` | Always loaded | Lightweight JS Office document viewer with extension route |
 
-These extensions are **experimental** — their API surface and loading mechanism may change between releases. They use relative imports (`../src/...`) to reference piclaw internals and require a `node_modules` symlink next to the `extensions/` directory (created automatically at startup) for jiti to resolve deep package imports.
+These packaged runtime extensions use relative imports into `runtime/src/...` where needed and require a `node_modules` symlink next to the `extensions/` directory (created automatically at startup) so jiti can resolve deep package imports. `runtime/src/extensions/` remains a separate built-in factory surface and should not be confused with the filesystem-backed packaged extension tree.
 
 ### Web pane extensions
 
@@ -141,7 +144,7 @@ The web UI uses a separate **pane extension** system for content-area components
 
 | Extension | Placement | Location |
 |-----------|-----------|----------|
-| `editor` | tabs | `extensions/editor/editor-extension.ts` |
+| `editor` | tabs | `extensions/viewers/editor/editor-extension.ts` |
 | `drawio` | tabs | `web/src/panes/drawio-pane.ts` |
 | `office-viewer` | tabs | `web/src/panes/office-viewer-pane.ts` |
 | `csv-viewer` | tabs | `web/src/panes/csv-viewer-pane.ts` |
@@ -210,7 +213,7 @@ Page load
 - Chat context (chat JID + channel) is tracked in AsyncLocalStorage; tools/extensions read from the scoped context (defaults to `web:default` / `web`) rather than env variables.
 - Workspace tree responses are cached briefly (1s) and rate-limited to prevent bursty UI reloads (HTTP 429 when exceeded).
 - The **workspace explorer** is a responsive sidebar (visible on desktop/tablet ≥1024px landscape) that shows a file tree of `/workspace`, supports file previews, drag-and-drop upload, inline file creation, inline rename, drag-and-drop move, and file reference pills for prompts.
-- The **code editor** is a standalone pane extension (`extensions/editor/`) using CodeMirror 6 directly (no Preact wrapper). It opens in the tabbed content area when a file is clicked in the explorer. Supports syntax highlighting for 12 languages, search/replace, line wrapping, dirty tracking, Cmd+S save, vim mode, whitespace toggle, and accent-aware theming. The editor bundle is lazy-loaded on first file open. Backend endpoints: `GET /workspace/file?mode=edit` (full content up to 256 KB) and `PUT /workspace/file` (save).
+- The **code editor** is a standalone pane extension (`extensions/viewers/editor/`) using CodeMirror 6 directly (no Preact wrapper). It opens in the tabbed content area when a file is clicked in the explorer. Supports syntax highlighting for 12 languages, search/replace, line wrapping, dirty tracking, Cmd+S save, vim mode, whitespace toggle, and accent-aware theming. The editor bundle is lazy-loaded on first file open. Backend endpoints: `GET /workspace/file?mode=edit` (full content up to 256 KB) and `PUT /workspace/file` (save).
 - **Adaptive Cards** are rendered in the web timeline from `content_blocks` using the vendored Microsoft `adaptivecards` SDK. Action handling routes through `POST /agent/card-action`; submissions are also persisted as `adaptive_card_submission` blocks so the timeline can render compact receipts instead of raw text fallbacks. Finished cards are re-rendered with their submitted values populated, inputs locked read-only, and a concise state banner. Agent-owned cards should be posted through the internal `send_adaptive_card` tool (or equivalent agent-response message path) rather than a local slash command.
 - The **tab strip** provides multi-file editing with dirty indicators, pin support, MRU-based tab switching, context menus (Close / Close Others / Close All / Pin / Preview), and keyboard shortcuts (Ctrl+Tab, Ctrl+W).
 - Operational remote surfaces:

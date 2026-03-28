@@ -12,22 +12,22 @@ Generate a 7-day token usage chart (all chats) and post it to the web UI timelin
 
 1. Run the standard chart script (default mode):
    ```bash
-   bun /workspace/piclaw/runtime/skills/token-chart/token-chart.ts
+   bun /workspace/piclaw/runtime/skills/operator/token-chart/token-chart.ts
    ```
 
 2. Run the **alternative provider+model mode** (stacked series by provider + model):
    ```bash
-   bun /workspace/piclaw/runtime/skills/token-chart/token-chart.ts --mode provider-model
+   bun /workspace/piclaw/runtime/skills/operator/token-chart/token-chart.ts --mode provider-model
    ```
 
 3. Post safely to the web chat (JSON-encoded, no Pushover nudge):
    ```bash
-   bun /workspace/piclaw/runtime/skills/token-chart/token-chart.ts --ipc
+   bun /workspace/piclaw/runtime/skills/operator/token-chart/token-chart.ts --ipc
    ```
 
 4. If you explicitly want a Pushover nudge as well:
    ```bash
-   bun /workspace/piclaw/runtime/skills/token-chart/token-chart.ts --ipc --nudge
+   bun /workspace/piclaw/runtime/skills/operator/token-chart/token-chart.ts --ipc --nudge
    ```
 
 ## Notes

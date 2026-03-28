@@ -13,27 +13,27 @@
   "package_repositories": {
     "codemirror": "https://github.com/codemirror/basic-setup.git"
   },
-  "source_entry": "extensions/editor/vendor/codemirror-entry.ts",
-  "output_file": "extensions/editor/vendor/codemirror.js",
+  "source_entry": "extensions/viewers/editor/vendor/codemirror-entry.ts",
+  "output_file": "extensions/viewers/editor/vendor/codemirror.js",
   "output_files": [
     {
       "package_path": null,
-      "output_file": "extensions/editor/vendor/codemirror.js",
+      "output_file": "extensions/viewers/editor/vendor/codemirror.js",
       "sha256": "7419fc75e9ed384a359b22a9a3daf6810d5e41f8bcb5dda7d0257ccb3e61f777",
       "size_bytes": 878091
     }
   ],
-  "metadata_file": "extensions/editor/vendor/codemirror.meta.json",
+  "metadata_file": "extensions/viewers/editor/vendor/codemirror.meta.json",
   "sha256": "7419fc75e9ed384a359b22a9a3daf6810d5e41f8bcb5dda7d0257ccb3e61f777",
   "size_bytes": 878091,
   "build_command": [
     "bun",
     "build",
-    "extensions/editor/vendor/codemirror-entry.ts",
+    "extensions/viewers/editor/vendor/codemirror-entry.ts",
     "--target=browser",
     "--format=esm",
     "--minify",
     "--outfile",
-    "extensions/editor/vendor/codemirror.js"
+    "extensions/viewers/editor/vendor/codemirror.js"
   ]
 }
