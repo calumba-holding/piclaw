@@ -63,10 +63,10 @@ Observed loader behavior from `runtime/src/agent-pool/session.ts`:
 - `runtime/extensions/browser/cdp-browser/index.ts`
 - `runtime/extensions/platform/windows/win-ui/index.ts`
 - `runtime/extensions/viewers/office-viewer/index.ts`
+- `runtime/extensions/viewers/drawio-editor/index.ts`
 
 Notably packaged-but-not-auto-loaded from that list:
 
-- `viewers/drawio-editor/`
 - `viewers/editor/`
 - `experimental/azure-openai.harness.ts`
 
@@ -75,6 +75,7 @@ Interpretation:
 - `runtime/extensions/` remains the packaged filesystem-backed extension surface
 - Stage 4 made the category differences explicit rather than flat
 - it now groups browser automation, Windows-specific platform extensions, viewer/editor surfaces, runtime helpers, and harness-only entries without changing the role of `runtime/src/extensions/`
+- `drawio-editor` is now explicitly wired in the bundled extension load list instead of only being present on disk
 
 ### 3. `runtime/skills/`
 

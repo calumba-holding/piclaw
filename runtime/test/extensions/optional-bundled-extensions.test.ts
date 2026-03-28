@@ -8,12 +8,14 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 type FakeState = {
   tools: Map<string, any>;
   commands: Map<string, any>;
+  routes: Array<{ prefix: string; extensionDir: string }>;
 };
 
 function createFakeApi(): { api: ExtensionAPI; state: FakeState } {
   const state: FakeState = {
     tools: new Map<string, any>(),
     commands: new Map<string, any>(),
+    routes: [],
   };
 
   const api: ExtensionAPI = {
@@ -49,6 +51,17 @@ function createFakeApi(): { api: ExtensionAPI; state: FakeState } {
   return { api, state };
 }
 
+function withRouteCapture<T>(state: FakeState, fn: () => Promise<T>): Promise<T> {
+  const previous = (globalThis as any).__piclaw_registerRoute;
+  (globalThis as any).__piclaw_registerRoute = (prefix: string, _handler: unknown, extensionDir: string) => {
+    state.routes.push({ prefix, extensionDir });
+  };
+  return fn().finally(() => {
+    if (previous === undefined) delete (globalThis as any).__piclaw_registerRoute;
+    else (globalThis as any).__piclaw_registerRoute = previous;
+  });
+}
+
 describe("bundled optional extensions", () => {
   test("cdp-browser registers the cdp_browser tool and cdp-tabs command", async () => {
     const { default: registerCdpBrowser } = await import("../../extensions/browser/cdp-browser/index.ts");
@@ -75,5 +88,17 @@ describe("bundled optional extensions", () => {
       expect(fake.state.tools.size).toBe(0);
       expect(fake.state.commands.size).toBe(0);
     }
+  });
+
+  test("drawio-editor registers its tool and route", async () => {
+    const { default: registerDrawioEditor } = await import("../../extensions/viewers/drawio-editor/index.ts");
+    const fake = createFakeApi();
+
+    await withRouteCapture(fake.state, async () => {
+      registerDrawioEditor(fake.api);
+    });
+
+    expect(fake.state.tools.has("open_drawio_editor")).toBe(true);
+    expect(fake.state.routes.some((route) => route.prefix === "/drawio")).toBe(true);
   });
 });
