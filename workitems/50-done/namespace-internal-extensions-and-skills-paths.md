@@ -1,10 +1,11 @@
 ---
 id: namespace-internal-extensions-and-skills-paths
 title: Namespace internal extensions and packaged skills paths more clearly
-status: review
+status: done
 priority: medium
 created: 2026-03-28
 updated: 2026-03-28
+completed: 2026-03-28
 target_release: later
 estimate: M
 risk: medium
@@ -69,11 +70,16 @@ matter.
 ## Updates
 
 ### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- This pass records review acceptance of the Stage 4 namespacing outcome already described on the ticket.
+
+### 2026-03-28
 - Stage 4 execution inputs were prepared in:
   - `docs/stage4-extension-skill-namespacing-inventory-2026-03-28.md`
   - `docs/stage4-extension-skill-namespacing-steplist-2026-03-28.md`
   - `docs/stage4-extension-skill-namespacing-autoresearch-prompt-2026-03-28.md`
-  - `workitems/40-review/execute-stage4-extension-and-skill-namespacing.md`
+  - `workitems/50-done/execute-stage4-extension-and-skill-namespacing.md`
 - The current recommendation is to scope Stage 4 to packaged runtime namespacing first and treat `.pi/...` convention paths as compatibility-sensitive unless loader/discovery evidence proves a rename is necessary.
 - Stage 4 then landed as a packaged-runtime namespacing batch:
   - `runtime/extensions/` grouped into `browser/`, `platform/windows/`, `viewers/`, `integrations/`, and `experimental/`
@@ -84,7 +90,7 @@ matter.
 
 - `docs/broad-filesystem-reorg-map-2026-03-28.md`
 - `workitems/20-doing/plan-broad-filesystem-reorg-from-audit.md`
-- `workitems/40-review/execute-stage4-extension-and-skill-namespacing.md`
+- `workitems/50-done/execute-stage4-extension-and-skill-namespacing.md`
 - `docs/stage4-extension-skill-namespacing-inventory-2026-03-28.md`
 - `docs/stage4-extension-skill-namespacing-steplist-2026-03-28.md`
 - `docs/stage4-extension-skill-namespacing-autoresearch-prompt-2026-03-28.md`

@@ -1,10 +1,11 @@
 ---
 id: autoresearch-sub-agent-supervisor
 title: Autoresearch sub-agent supervisor — run pi-autoresearch as a headless sub-agent from piclaw
-status: review
+status: done
 priority: medium
 created: 2026-03-24
-updated: 2026-03-26
+updated: 2026-03-28
+completed: 2026-03-28
 target_release: next
 estimate: L
 risk: medium
@@ -123,6 +124,16 @@ launch time. A markdown experiment report is generated on stop/completion.
 - [ ] Manual e2e test passes
 
 ## Updates
+
+### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- Manual end-to-end validation was still listed on the ticket, but the recorded review decision explicitly accepted closing this slice to done.
+
+### 2026-03-28
+- Card submission accepted with decision `done` even though the recommendation remained `doing` pending a recorded manual end-to-end validation pass.
+- Lane change: `40-review` → `50-done` by explicit board decision.
+- Remaining unchecked manual e2e items are preserved below as follow-up truth, but the ticket is considered closed by board decision.
 
 ### 2026-03-26
 - Moved from `20-doing` → `40-review` after confirming the implementation is present in the runtime and web channel integration.

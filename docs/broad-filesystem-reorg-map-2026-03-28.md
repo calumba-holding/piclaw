@@ -412,10 +412,10 @@ output paths.
 ## Related tickets
 
 - `workitems/20-doing/plan-broad-filesystem-reorg-from-audit.md`
-- `workitems/40-review/audit-project-filesystem-layout.md`
+- `workitems/50-done/audit-project-filesystem-layout.md`
 - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
-- `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
-- `workitems/40-review/rationalize-runtime-generated-output-layout.md`
-- `workitems/40-review/namespace-internal-extensions-and-skills-paths.md`
-- `workitems/40-review/execute-stage4-extension-and-skill-namespacing.md`
+- `workitems/50-done/clarify-root-vs-runtime-ownership-boundaries.md`
+- `workitems/50-done/rationalize-runtime-generated-output-layout.md`
+- `workitems/50-done/namespace-internal-extensions-and-skills-paths.md`
+- `workitems/50-done/execute-stage4-extension-and-skill-namespacing.md`
 - `workitems/10-next/group-web-channel-flat-files.md`

@@ -1,10 +1,11 @@
 ---
 id: extract-webchannel-lifecycle-and-special-wrapper-surface
 title: Extract WebChannel lifecycle and special wrapper surface
-status: review
+status: done
 priority: high
 created: 2026-03-28
 updated: 2026-03-28
+completed: 2026-03-28
 target_release: next
 estimate: M
 risk: medium
@@ -109,6 +110,11 @@ Extract a final small lifecycle/helper wrapper seam while keeping the public
 ## Updates
 
 ### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- No new implementation work was added in this pass; this move records review acceptance of the already-landed slice.
+
+### 2026-03-28
 - Created as the next bounded child slice after `extract-webchannel-runtime-session-and-storage-public-delegates` landed.
 - Chosen because `runtime/src/channels/web.ts` is now largely down to lifecycle bootstrap plus a handful of special-case wrapper methods/getters into already-extracted collaborators.
 - Intended execution loop: strengthen focused delegation tests first, then extract a narrow service boundary, then rerun targeted coverage, then lint/typecheck/stale-dist.
@@ -129,18 +135,20 @@ Extract a final small lifecycle/helper wrapper seam while keeping the public
   - `bun run lint`
   - `bun run typecheck`
   - `bun run check:stale-dist`
+- Card submission accepted: close-to-done review resolved with decision `done`.
+- Lane change: `40-review` → `50-done` because the lifecycle/special-wrapper extraction slice is complete.
 - Files touched:
   - `runtime/src/channels/web.ts`
   - `runtime/src/channels/web/web-channel-lifecycle-special-surface-service.ts`
   - `runtime/test/channels/web/web-channel-lifecycle-special-surface-service.test.ts`
   - `runtime/test/channels/web/web-channel-lifecycle-special-surface-delegation.test.ts`
-  - `workitems/40-review/extract-webchannel-lifecycle-and-special-wrapper-surface.md`
+  - `workitems/50-done/extract-webchannel-lifecycle-and-special-wrapper-surface.md`
   - `workitems/20-doing/split-webchannel-god-class.md`
 
 ## Links
 
 - `workitems/20-doing/split-webchannel-god-class.md`
 - `workitems/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`
-- `workitems/40-review/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
-- `workitems/40-review/extract-webchannel-peer-message-relay-wrapper.md`
-- `workitems/40-review/extract-webchannel-agent-message-entry-wrapper.md`
+- `workitems/50-done/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
+- `workitems/50-done/extract-webchannel-peer-message-relay-wrapper.md`
+- `workitems/50-done/extract-webchannel-agent-message-entry-wrapper.md`

@@ -209,7 +209,7 @@ Then:
 > If `/model` shows no available models, finish `pi /login` first.
 
 > [!NOTE]
-> Provider login is currently **terminal-first**. Chat-level `/login` passthrough is still tracked in `workitems/40-review/login-command-passthrough.md`.
+> Provider login is currently **terminal-first**. Chat-level `/login` passthrough is still tracked in `workitems/20-doing/login-command-passthrough.md`.
 
 ## Web UI
 

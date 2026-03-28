@@ -1,10 +1,11 @@
 ---
 id: clarify-root-vs-runtime-ownership-boundaries
 title: Clarify repo-root vs runtime ownership boundaries for docs, scripts, and artifacts
-status: review
+status: done
 priority: medium
 created: 2026-03-28
 updated: 2026-03-28
+completed: 2026-03-28
 target_release: later
 estimate: M
 risk: low
@@ -62,6 +63,11 @@ layout drift and inconsistent packaging semantics.
 ## Updates
 
 ### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- No new implementation work was added in this pass; this move records review acceptance of the already-landed slice.
+
+### 2026-03-28
 - Added `docs/repo-runtime-boundaries-2026-03-28.md` as the durable maintainer-facing boundary policy.
 - Updated `README.md` and `docs/install-from-repo.md` to point at the policy and reflect the post-Stage-2 `runtime/generated/` boundary.
 - Added directory-local guidance files for the paired domains:
@@ -70,6 +76,8 @@ layout drift and inconsistent packaging semantics.
   - `runtime/scripts/README.md`
   - `artifacts/README.md`
 - Kept this batch bounded to policy/documentation clarification rather than another relocation sweep.
+- Card submission accepted: close-to-done review resolved with decision `done`.
+- Lane change: `40-review` → `50-done` because the boundary policy and maintainer-facing guidance updates are complete.
 
 ## Links
 

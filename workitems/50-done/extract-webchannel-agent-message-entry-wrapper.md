@@ -1,10 +1,11 @@
 ---
 id: extract-webchannel-agent-message-entry-wrapper
 title: Extract WebChannel agent message entry wrapper
-status: review
+status: done
 priority: high
 created: 2026-03-28
 updated: 2026-03-28
+completed: 2026-03-28
 target_release: next
 estimate: M
 risk: medium
@@ -107,7 +108,14 @@ public `WebChannel.handleAgentMessage()` method as a thin delegate.
 ## Updates
 
 ### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- No new implementation work was added in this pass; this move records review acceptance of the already-landed slice.
+
+### 2026-03-28
 - Lane change: `20-doing` → `40-review` after landing the slice on `main`.
+- Card submission accepted: close-to-done review resolved with decision `done`.
+- Lane change: `40-review` → `50-done` because the agent-message entry extraction slice is complete.
 - Extracted the wrapper into `runtime/src/channels/web/agent-message-entry-service.ts` and switched `WebChannel.handleAgentMessage()` to a thin delegate without changing the public router-facing method.
 - Added focused seam coverage in `runtime/test/channels/web/agent-message-entry-service.test.ts` and `runtime/test/channels/web/web-channel-agent-message-entry-delegation.test.ts`, and strengthened `runtime/test/channels/web/http-dispatch-agent.test.ts` so the dynamic `/agent/:id/message` route also proves the routed request preserves `chat_jid`.
 - Validation evidence:
@@ -119,12 +127,12 @@ public `WebChannel.handleAgentMessage()` method as a thin delegate.
 - Final tidy-up removed redundant `async`/`await` from the thin delegates in both `runtime/src/channels/web.ts` and `runtime/src/channels/web/agent-message-entry-service.ts`, keeping the Promise-returning wrapper path minimal without changing behavior.
 - Files touched: `runtime/src/channels/web.ts`, `runtime/src/channels/web/agent-message-entry-service.ts`, `runtime/test/channels/web/agent-message-entry-service.test.ts`, `runtime/test/channels/web/web-channel-agent-message-entry-delegation.test.ts`, `runtime/test/channels/web/http-dispatch-agent.test.ts`.
 - Next bounded seam split out explicitly instead of widening scope in-place:
-  - `workitems/20-doing/extract-webchannel-message-processing-and-storage-adapters.md`
+  - `workitems/50-done/extract-webchannel-message-processing-and-storage-adapters.md`
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ## Links
 
 - `workitems/20-doing/split-webchannel-god-class.md`
-- `workitems/40-review/extract-webchannel-peer-message-relay-wrapper.md`
-- `workitems/40-review/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
+- `workitems/50-done/extract-webchannel-peer-message-relay-wrapper.md`
+- `workitems/50-done/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
 - `/workspace/notes/piclaw-autoresearch-audit-checklist.md`

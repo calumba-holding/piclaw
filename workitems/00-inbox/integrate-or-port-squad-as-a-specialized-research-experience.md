@@ -97,6 +97,6 @@ This ticket exists to answer:
 ## Links
 
 - `https://github.com/bradygaster/squad`
-- `workitems/40-review/autoresearch-sub-agent-supervisor.md`
+- `workitems/50-done/autoresearch-sub-agent-supervisor.md`
 - `workitems/00-inbox/piclaw-native-autoresearch-lite-experiment-runner.md`
 - `docs/autoresearch-lite-design.md`

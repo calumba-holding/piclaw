@@ -113,5 +113,5 @@ Before adding a new file:
 - `README.md`
 - `docs/install-from-repo.md`
 - `runtime/generated/README.md`
-- `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
+- `workitems/50-done/clarify-root-vs-runtime-ownership-boundaries.md`
 - `docs/broad-filesystem-reorg-map-2026-03-28.md`

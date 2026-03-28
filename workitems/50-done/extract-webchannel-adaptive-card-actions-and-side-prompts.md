@@ -1,10 +1,11 @@
 ---
 id: extract-webchannel-adaptive-card-actions-and-side-prompts
 title: Extract WebChannel adaptive-card actions and side prompts
-status: review
+status: done
 priority: high
 created: 2026-03-28
 updated: 2026-03-28
+completed: 2026-03-28
 target_release: next
 estimate: M
 risk: medium
@@ -124,7 +125,14 @@ orchestration into a focused service with targeted seam tests.
 ## Updates
 
 ### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- No new implementation work was added in this pass; this move records review acceptance of the already-landed slice.
+
+### 2026-03-28
 - Lane change: `20-doing` → `40-review` after landing the slice on `main`.
+- Card submission accepted: close-to-done review resolved with decision `done`.
+- Lane change: `40-review` → `50-done` because the adaptive-card/side-prompt extraction slice is complete.
 - Landed `runtime/src/channels/web/adaptive-card-side-prompt-service.ts`, moving adaptive-card action orchestration plus side-prompt request/stream handling behind a dedicated seam.
 - Kept router-facing `WebChannel` methods intact while reducing `runtime/src/channels/web.ts` from 1235 lines on the prior terminal/VNC baseline to 720 lines after this extraction.
 - Added focused seam coverage in:
@@ -148,7 +156,7 @@ orchestration into a focused service with targeted seam tests.
   - `scripts/audit-baseline-quality-deterministic.ts`
   - `runtime/test/scripts/audit-baseline-quality-deterministic.test.ts`
 - Next bounded seam split out explicitly instead of widening scope in-place:
-  - `workitems/20-doing/extract-webchannel-peer-message-relay-wrapper.md`
+  - `workitems/50-done/extract-webchannel-peer-message-relay-wrapper.md`
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-28
@@ -160,13 +168,13 @@ orchestration into a focused service with targeted seam tests.
 ## Links
 
 - `workitems/20-doing/split-webchannel-god-class.md`
-- `workitems/20-doing/extract-webchannel-peer-message-relay-wrapper.md`
+- `workitems/50-done/extract-webchannel-peer-message-relay-wrapper.md`
 - `workitems/40-review/extract-webchannel-queued-followup-service.md`
 - `workitems/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`
 - `workitems/40-review/extract-webchannel-sse-broadcast-and-session-wiring.md`
 - `workitems/40-review/extract-webchannel-recovery-and-runtime-state-wiring.md`
 - `workitems/40-review/extract-webchannel-message-write-and-followup-coordination.md`
-- `workitems/40-review/extract-webchannel-endpoint-facade-and-handler-contexts.md`
-- `workitems/40-review/extract-webchannel-agent-control-plane-wrappers.md`
-- `workitems/40-review/extract-webchannel-terminal-and-vnc-http-wrappers.md`
+- `workitems/50-done/extract-webchannel-endpoint-facade-and-handler-contexts.md`
+- `workitems/50-done/extract-webchannel-agent-control-plane-wrappers.md`
+- `workitems/50-done/extract-webchannel-terminal-and-vnc-http-wrappers.md`
 - `/workspace/notes/piclaw-autoresearch-audit-checklist.md`

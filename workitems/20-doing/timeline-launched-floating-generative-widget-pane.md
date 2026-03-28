@@ -1,10 +1,10 @@
 ---
 id: timeline-launched-floating-generative-widget-pane
 title: Prototype a timeline-launched floating generative widget pane
-status: review
+status: doing
 priority: medium
 created: 2026-03-19
-updated: 2026-03-27
+updated: 2026-03-28
 target_release: next
 estimate: M
 risk: high
@@ -306,6 +306,11 @@ add focused coverage for:
 - [ ] Update history records implementation and validation evidence.
 
 ## Updates
+
+### 2026-03-28
+- Lane change: `40-review` → `20-doing` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Move to Doing**.
+- Reason captured in review: interaction regression coverage plus current-chat and narrow/mobile validation are still explicitly missing.
 
 ### 2026-03-27
 - Lane change: `20-doing` → `40-review`.

@@ -140,7 +140,7 @@ Extract `WebChannel` into a composition of focused services:
 - The runtime/follow-up facade seam then landed behind `runtime/src/channels/web/runtime-followup-facade-service.ts`, moving the remaining queued-followup, runtime-state, panel/buffer, and queued-placeholder facade methods out of `WebChannel` while preserving public method signatures and runtime semantics.
 - The constructor wiring seam then landed behind `runtime/src/channels/web/web-channel-constructor-factory.ts`, moving collaborator assembly and final constructor bootstrapping out of `WebChannel` while preserving initialization order, auth/session setup, endpoint/control-plane wiring, and runtime behavior.
 - Split the next bounded seam into:
-  - `workitems/40-review/extract-webchannel-request-router-and-http-surface-wrappers.md`
+  - `workitems/50-done/extract-webchannel-request-router-and-http-surface-wrappers.md`
 - Rationale: the remaining request-router and HTTP wrapper methods still make up most of the residual `WebChannel` surface once constructor assembly is extracted.
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 - Result: the constructor wiring seam landed behind `runtime/src/channels/web/web-channel-constructor-factory.ts`, shrinking the live `WebChannel` constructor from 106 lines to 29 lines while preserving auth/session, endpoint/control-plane, server lifecycle, and adaptive side-prompt wiring behavior.
@@ -170,15 +170,15 @@ Extract `WebChannel` into a composition of focused services:
   - `workitems/40-review/extract-webchannel-sse-broadcast-and-session-wiring.md`
   - `workitems/40-review/extract-webchannel-recovery-and-runtime-state-wiring.md`
   - `workitems/40-review/extract-webchannel-message-write-and-followup-coordination.md`
-  - `workitems/40-review/extract-webchannel-endpoint-facade-and-handler-contexts.md`
-  - `workitems/40-review/extract-webchannel-agent-control-plane-wrappers.md`
-  - `workitems/40-review/extract-webchannel-terminal-and-vnc-http-wrappers.md`
-  - `workitems/40-review/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
-  - `workitems/40-review/extract-webchannel-peer-message-relay-wrapper.md`
-  - `workitems/40-review/extract-webchannel-agent-message-entry-wrapper.md`
-  - `workitems/40-review/extract-webchannel-message-processing-and-storage-adapters.md`
-  - `workitems/40-review/extract-webchannel-runtime-and-followup-facades.md`
-  - `workitems/40-review/extract-webchannel-constructor-wiring-factory.md`
-  - `workitems/40-review/extract-webchannel-request-router-and-http-surface-wrappers.md`
-  - `workitems/40-review/extract-webchannel-runtime-session-and-storage-public-delegates.md`
-  - `workitems/40-review/extract-webchannel-lifecycle-and-special-wrapper-surface.md`
+  - `workitems/50-done/extract-webchannel-endpoint-facade-and-handler-contexts.md`
+  - `workitems/50-done/extract-webchannel-agent-control-plane-wrappers.md`
+  - `workitems/50-done/extract-webchannel-terminal-and-vnc-http-wrappers.md`
+  - `workitems/50-done/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
+  - `workitems/50-done/extract-webchannel-peer-message-relay-wrapper.md`
+  - `workitems/50-done/extract-webchannel-agent-message-entry-wrapper.md`
+  - `workitems/50-done/extract-webchannel-message-processing-and-storage-adapters.md`
+  - `workitems/50-done/extract-webchannel-runtime-and-followup-facades.md`
+  - `workitems/50-done/extract-webchannel-constructor-wiring-factory.md`
+  - `workitems/50-done/extract-webchannel-request-router-and-http-surface-wrappers.md`
+  - `workitems/50-done/extract-webchannel-runtime-session-and-storage-public-delegates.md`
+  - `workitems/50-done/extract-webchannel-lifecycle-and-special-wrapper-surface.md`

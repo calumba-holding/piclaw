@@ -1,10 +1,11 @@
 ---
 id: extract-webchannel-message-processing-and-storage-adapters
 title: Extract WebChannel message processing and storage adapters
-status: review
+status: done
 priority: high
 created: 2026-03-28
 updated: 2026-03-28
+completed: 2026-03-28
 target_release: next
 estimate: M
 risk: medium
@@ -112,6 +113,11 @@ Extract a dedicated message-processing/storage adapter seam while keeping
 ## Updates
 
 ### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- No new implementation work was added in this pass; this move records review acceptance of the already-landed slice.
+
+### 2026-03-28
 - Lane change: `20-doing` → `40-review` after landing the slice on `main`.
 - Landed `runtime/src/channels/web/message-processing-storage-service.ts`, moving the public `processChat()` and `storeMessage()` adapter glue out of `WebChannel` while preserving handler/runtime-facing behavior.
 - Added focused seam coverage in:
@@ -133,7 +139,7 @@ Extract a dedicated message-processing/storage adapter seam while keeping
   - `scripts/audit-baseline-quality-deterministic.ts`
   - `runtime/test/scripts/audit-baseline-quality-deterministic.test.ts`
 - Next bounded seam split out explicitly instead of widening scope in-place:
-  - `workitems/20-doing/extract-webchannel-runtime-and-followup-facades.md`
+  - `workitems/50-done/extract-webchannel-runtime-and-followup-facades.md`
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-28
@@ -145,7 +151,7 @@ Extract a dedicated message-processing/storage adapter seam while keeping
 ## Links
 
 - `workitems/20-doing/split-webchannel-god-class.md`
-- `workitems/20-doing/extract-webchannel-runtime-and-followup-facades.md`
-- `workitems/40-review/extract-webchannel-agent-message-entry-wrapper.md`
-- `workitems/40-review/extract-webchannel-peer-message-relay-wrapper.md`
+- `workitems/50-done/extract-webchannel-runtime-and-followup-facades.md`
+- `workitems/50-done/extract-webchannel-agent-message-entry-wrapper.md`
+- `workitems/50-done/extract-webchannel-peer-message-relay-wrapper.md`
 - `/workspace/notes/piclaw-autoresearch-audit-checklist.md`

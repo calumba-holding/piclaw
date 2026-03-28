@@ -1,10 +1,11 @@
 ---
 id: rationalize-runtime-generated-output-layout
 title: Rationalize generated and transient output layout under runtime
-status: review
+status: done
 priority: medium
 created: 2026-03-28
 updated: 2026-03-28
+completed: 2026-03-28
 target_release: later
 estimate: M
 risk: medium
@@ -65,12 +66,17 @@ boundary between human-maintained code and disposable output.
 ## Updates
 
 ### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- This pass records review acceptance that the ticket is satisfied by the Stage 2 generated-output containment work already linked from the ticket.
+
+### 2026-03-28
 - Covered by the Stage 2 generated-output containment batch.
 - Inventory and placement policy were captured in:
   - `docs/stage2-runtime-generated-layout-inventory-2026-03-28.md`
   - `docs/stage2-runtime-generated-containment-steplist-2026-03-28.md`
 - The landed containment work is tracked in:
-  - `workitems/40-review/execute-stage2-runtime-generated-containment.md`
+  - `workitems/50-done/execute-stage2-runtime-generated-containment.md`
 
 ## Links
 

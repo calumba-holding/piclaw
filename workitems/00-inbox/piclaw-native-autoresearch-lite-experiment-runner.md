@@ -137,7 +137,7 @@ copying the TUI widget mechanics.
 - Board review decision: defer this as a **future native-v2 path** rather than keep it in the active ready queue.
 - Lane change: `10-next` → `00-inbox`.
 - Rationale:
-  - `workitems/20-doing/autoresearch-sub-agent-supervisor.md` is the primary near-term implementation path,
+  - `workitems/50-done/autoresearch-sub-agent-supervisor.md` is the primary near-term implementation path,
   - `workitems/20-doing/timeline-launched-floating-generative-widget-pane.md` is still the foundation for the preferred dashboard host,
   - and running a native reimplementation in parallel would create avoidable strategy/WIP duplication.
 - Keep this ticket as the place to capture a later native rewrite if the supervisor MVP proves valuable but constrained.
@@ -163,6 +163,6 @@ copying the TUI widget mechanics.
 - `workitems/50-done/investigate-pi-autoresearch.md`
 - `docs/autoresearch-lite-design.md`
 - `workitems/20-doing/timeline-launched-floating-generative-widget-pane.md`
-- `workitems/20-doing/autoresearch-sub-agent-supervisor.md`
+- `workitems/50-done/autoresearch-sub-agent-supervisor.md`
 - `/workspace/tmp/pi-autoresearch/README.md`
 - `/workspace/tmp/pi-autoresearch/extensions/pi-autoresearch/index.ts`

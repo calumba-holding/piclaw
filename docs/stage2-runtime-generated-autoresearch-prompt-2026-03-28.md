@@ -7,7 +7,7 @@ broad filesystem reorg.
 
 Work the Stage 2 runtime generated-output containment batch from:
 
-- `workitems/40-review/execute-stage2-runtime-generated-containment.md`
+- `workitems/50-done/execute-stage2-runtime-generated-containment.md`
 - `docs/stage2-runtime-generated-layout-inventory-2026-03-28.md`
 - `docs/stage2-runtime-generated-containment-steplist-2026-03-28.md`
 - `docs/broad-filesystem-reorg-map-2026-03-28.md`

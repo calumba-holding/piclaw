@@ -231,6 +231,6 @@ convention rename unless loader/discovery behavior proves it is necessary.
 - `skel/.pi/extensions/`
 - `skel/.pi/agent/extensions/`
 - `skel/.pi/skills/`
-- `workitems/40-review/namespace-internal-extensions-and-skills-paths.md`
+- `workitems/50-done/namespace-internal-extensions-and-skills-paths.md`
 - `runtime/extensions/README.md`
 - `runtime/skills/README.md`

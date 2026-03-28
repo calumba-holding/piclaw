@@ -271,8 +271,8 @@ To avoid churn, these should be treated as acceptable unless fresh evidence says
 
 ### New from this audit
 
-- `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
-- `workitems/40-review/rationalize-runtime-generated-output-layout.md`
+- `workitems/50-done/clarify-root-vs-runtime-ownership-boundaries.md`
+- `workitems/50-done/rationalize-runtime-generated-output-layout.md`
 
 ## Bottom line
 

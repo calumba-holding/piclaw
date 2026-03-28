@@ -1,10 +1,11 @@
 ---
 id: extract-webchannel-peer-message-relay-wrapper
 title: Extract WebChannel peer-message relay wrapper
-status: review
+status: done
 priority: high
 created: 2026-03-28
 updated: 2026-03-28
+completed: 2026-03-28
 target_release: next
 estimate: S
 risk: medium
@@ -111,6 +112,11 @@ public `WebChannel.handleAgentPeerMessage()` method as a thin delegate.
 ## Updates
 
 ### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- No new implementation work was added in this pass; this move records review acceptance of the already-landed slice.
+
+### 2026-03-28
 - Lane change: `20-doing` → `40-review` after landing the slice on `main`.
 - Landed `runtime/src/channels/web/agent-peer-message-relay-service.ts`, moving peer-message payload validation, target resolution, forwarded content shaping, and normal-path delegation out of `WebChannel`.
 - Kept router-facing `handleAgentPeerMessage()` intact while reducing more wrapper glue in `runtime/src/channels/web.ts`.
@@ -133,7 +139,7 @@ public `WebChannel.handleAgentPeerMessage()` method as a thin delegate.
   - `scripts/audit-baseline-quality-deterministic.ts`
   - `runtime/test/scripts/audit-baseline-quality-deterministic.test.ts`
 - Next bounded seam split out explicitly instead of widening scope in-place:
-  - `workitems/20-doing/extract-webchannel-agent-message-entry-wrapper.md`
+  - `workitems/50-done/extract-webchannel-agent-message-entry-wrapper.md`
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-28
@@ -145,8 +151,8 @@ public `WebChannel.handleAgentPeerMessage()` method as a thin delegate.
 ## Links
 
 - `workitems/20-doing/split-webchannel-god-class.md`
-- `workitems/20-doing/extract-webchannel-agent-message-entry-wrapper.md`
-- `workitems/40-review/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
-- `workitems/40-review/extract-webchannel-terminal-and-vnc-http-wrappers.md`
-- `workitems/40-review/extract-webchannel-agent-control-plane-wrappers.md`
+- `workitems/50-done/extract-webchannel-agent-message-entry-wrapper.md`
+- `workitems/50-done/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
+- `workitems/50-done/extract-webchannel-terminal-and-vnc-http-wrappers.md`
+- `workitems/50-done/extract-webchannel-agent-control-plane-wrappers.md`
 - `/workspace/notes/piclaw-autoresearch-audit-checklist.md`

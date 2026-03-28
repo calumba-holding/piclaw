@@ -206,4 +206,4 @@ Instead, it should consider a **piclaw-native autoresearch-lite flow** that:
 - `/workspace/tmp/pi-autoresearch/skills/autoresearch-create/SKILL.md`
 - `docs/autoresearch-lite-design.md`
 - `workitems/00-inbox/piclaw-native-autoresearch-lite-experiment-runner.md`
-- `workitems/10-next/timeline-launched-floating-generative-widget-pane.md`
+- `workitems/20-doing/timeline-launched-floating-generative-widget-pane.md`

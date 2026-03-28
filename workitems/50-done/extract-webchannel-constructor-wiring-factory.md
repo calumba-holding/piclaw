@@ -1,10 +1,11 @@
 ---
 id: extract-webchannel-constructor-wiring-factory
 title: Extract WebChannel constructor wiring factory
-status: review
+status: done
 priority: high
 created: 2026-03-28
 updated: 2026-03-28
+completed: 2026-03-28
 target_release: next
 estimate: M
 risk: medium
@@ -107,6 +108,11 @@ and exposing the public runtime API.
 ## Updates
 
 ### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- No new implementation work was added in this pass; this move records review acceptance of the already-landed slice.
+
+### 2026-03-28
 - Created as the next bounded execution slice under `split-webchannel-god-class` after the runtime/follow-up facade seam landed.
 - Chosen because the constructor still owns a large collaborator-assembly block even after most request/runtime seams have been extracted.
 - Intended for the same repair-first loop: focused seam tests first, then extraction, then targeted `web-channel` validation, then lint/typecheck.
@@ -114,6 +120,8 @@ and exposing the public runtime API.
 
 ### 2026-03-28 (implementation)
 - Lane change: `20-doing` → `40-review` after landing the slice on `main`.
+- Card submission accepted: close-to-done review resolved with decision `done`.
+- Lane change: `40-review` → `50-done` because the constructor-wiring factory extraction slice is complete.
 - Extracted the constructor-owned collaborator assembly into `runtime/src/channels/web/web-channel-constructor-factory.ts` and reduced the `WebChannel` constructor in `runtime/src/channels/web.ts` from 106 lines to 29 lines, then down to 7 lines by delegating the remaining bootstrapping through `initializeWebChannelConstructor(...)`, without changing the public surface.
 - Added focused seam coverage in `runtime/test/channels/web/web-channel-constructor-wiring-factory.test.ts` to lock down creation order, live identity snapshot wiring, auth/session setup, message-write callbacks, endpoint facade inputs, and dependent service assembly.
 - Preserved runtime behavior by wiring server lifecycle, terminal/VNC HTTP, and adaptive-card side-prompt services from already-created local collaborators inside the factory rather than depending on partially-assigned `WebChannel` fields.
@@ -131,14 +139,14 @@ and exposing the public runtime API.
   - `runtime/test/channels/web/web-channel-constructor-wiring-factory.test.ts`
   - `scripts/audit-baseline-quality-deterministic.ts`
   - `runtime/test/scripts/audit-baseline-quality-deterministic.test.ts`
-  - `workitems/40-review/extract-webchannel-constructor-wiring-factory.md`
+  - `workitems/50-done/extract-webchannel-constructor-wiring-factory.md`
   - `workitems/20-doing/split-webchannel-god-class.md`
 - Next bounded seam split out explicitly instead of widening scope in-place:
-  - `workitems/40-review/extract-webchannel-request-router-and-http-surface-wrappers.md`
+  - `workitems/50-done/extract-webchannel-request-router-and-http-surface-wrappers.md`
 
 ## Links
 
 - `workitems/20-doing/split-webchannel-god-class.md`
-- `workitems/40-review/extract-webchannel-runtime-and-followup-facades.md`
-- `workitems/40-review/extract-webchannel-message-processing-and-storage-adapters.md`
+- `workitems/50-done/extract-webchannel-runtime-and-followup-facades.md`
+- `workitems/50-done/extract-webchannel-message-processing-and-storage-adapters.md`
 - `/workspace/notes/piclaw-autoresearch-audit-checklist.md`

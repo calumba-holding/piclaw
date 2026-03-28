@@ -1,10 +1,11 @@
 ---
 id: audit-project-filesystem-layout
 title: Audit project filesystem layout and propose cleanup slices
-status: review
+status: done
 priority: medium
 created: 2026-03-28
 updated: 2026-03-28
+completed: 2026-03-28
 target_release: next
 estimate: M
 risk: low
@@ -136,10 +137,17 @@ into bounded follow-up tickets.
 ## Updates
 
 ### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- No new implementation work was added in this pass; this move records review acceptance of the already-landed slice.
+
+### 2026-03-28
 - Created from request to audit the project filesystem layout and started directly in `20-doing`.
 - Intentionally framed as an audit/planning ticket first so repo-structure cleanup can be driven by evidence rather than by generic “reorganize files” churn.
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 1, deps: 2, risk: 1)
 - Lane change: `20-doing` → `40-review` after completing the audit artifact and follow-up split.
+- Card submission accepted: close-to-done review resolved with decision `done`.
+- Lane change: `40-review` → `50-done` because the audit output and bounded follow-up ticket split are complete.
 - Recorded the audit findings in `docs/filesystem-layout-audit-2026-03-28.md`, including:
   - a top-level inventory snapshot
   - runtime subtree boundary notes
@@ -154,8 +162,8 @@ into bounded follow-up tickets.
     - `workitems/10-next/group-web-channel-flat-files.md`
     - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
 - Split two new bounded follow-up tickets from the audit:
-  - `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
-  - `workitems/40-review/rationalize-runtime-generated-output-layout.md`
+  - `workitems/50-done/clarify-root-vs-runtime-ownership-boundaries.md`
+  - `workitems/50-done/rationalize-runtime-generated-output-layout.md`
 - Validation/evidence capture for the audit used repo tree/path inspection only; no runtime code changes were made in this slice.
 - Final outcome of this audit slice:
   - audit completed and recorded in `docs/filesystem-layout-audit-2026-03-28.md`
@@ -163,16 +171,16 @@ into bounded follow-up tickets.
     - `workitems/10-next/group-web-channel-flat-files.md`
     - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
   - two new bounded follow-up tickets created:
-    - `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
-    - `workitems/40-review/rationalize-runtime-generated-output-layout.md`
+    - `workitems/50-done/clarify-root-vs-runtime-ownership-boundaries.md`
+    - `workitems/50-done/rationalize-runtime-generated-output-layout.md`
   - broad move/rename churn was initially deferred in the audit write-up, but that recommendation is now superseded by direct project guidance to pursue a broader reorg rather than only bounded cleanup slices
 
 ## Links
 
 - `workitems/20-doing/plan-broad-filesystem-reorg-from-audit.md`
 - `docs/filesystem-layout-audit-2026-03-28.md`
-- `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
-- `workitems/40-review/rationalize-runtime-generated-output-layout.md`
+- `workitems/50-done/clarify-root-vs-runtime-ownership-boundaries.md`
+- `workitems/50-done/rationalize-runtime-generated-output-layout.md`
 - `workitems/10-next/group-web-channel-flat-files.md`
 - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
 - `README.md`

@@ -1,10 +1,11 @@
 ---
 id: extract-webchannel-agent-control-plane-wrappers
 title: Extract WebChannel agent control-plane wrappers
-status: review
+status: done
 priority: high
 created: 2026-03-27
-updated: 2026-03-27
+updated: 2026-03-28
+completed: 2026-03-28
 target_release: next
 estimate: M
 risk: medium
@@ -146,8 +147,15 @@ while keeping behavior and public surfaces unchanged.
 
 ## Updates
 
+### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- No new implementation work was added in this pass; this move records review acceptance of the already-landed slice.
+
 ### 2026-03-27
 - Lane change: `20-doing` → `40-review` after landing the slice on `main`.
+- Card submission accepted: close-to-done review resolved with decision `done`.
+- Lane change: `40-review` → `50-done` because the agent control-plane extraction slice is complete.
 - Landed `runtime/src/channels/web/agent-control-plane-service.ts` and delegated queue, branch-lifecycle, and autoresearch control-plane wrappers through it without changing payload shapes, status codes, queue semantics, or branch/autoresearch behavior.
 - Tightened the constructor seam further by adding `createWebAgentControlPlaneService(...)` so `WebChannel` no longer hand-wires the extracted control-plane dependency inline.
 - Added focused seam coverage in:
@@ -165,7 +173,7 @@ while keeping behavior and public surfaces unchanged.
   - `bun run check:stale-dist`
 - Result: `runtime/src/channels/web.ts` lost a large chunk of queue/branch/autoresearch wrapper glue while preserving request-router-facing public methods.
 - Next bounded seam split out explicitly instead of widening scope in-place:
-  - `workitems/20-doing/extract-webchannel-terminal-and-vnc-http-wrappers.md`
+  - `workitems/50-done/extract-webchannel-terminal-and-vnc-http-wrappers.md`
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-27
@@ -177,11 +185,11 @@ while keeping behavior and public surfaces unchanged.
 ## Links
 
 - `workitems/20-doing/split-webchannel-god-class.md`
-- `workitems/20-doing/extract-webchannel-terminal-and-vnc-http-wrappers.md`
+- `workitems/50-done/extract-webchannel-terminal-and-vnc-http-wrappers.md`
 - `workitems/40-review/extract-webchannel-queued-followup-service.md`
 - `workitems/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`
 - `workitems/40-review/extract-webchannel-sse-broadcast-and-session-wiring.md`
 - `workitems/40-review/extract-webchannel-recovery-and-runtime-state-wiring.md`
 - `workitems/40-review/extract-webchannel-message-write-and-followup-coordination.md`
-- `workitems/40-review/extract-webchannel-endpoint-facade-and-handler-contexts.md`
+- `workitems/50-done/extract-webchannel-endpoint-facade-and-handler-contexts.md`
 - `/workspace/notes/piclaw-autoresearch-audit-checklist.md`

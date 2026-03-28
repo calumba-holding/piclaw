@@ -1,10 +1,11 @@
 ---
 id: extract-webchannel-request-router-and-http-surface-wrappers
 title: Extract WebChannel request-router and HTTP surface wrappers
-status: review
+status: done
 priority: high
 created: 2026-03-28
 updated: 2026-03-28
+completed: 2026-03-28
 target_release: next
 estimate: M
 risk: medium
@@ -105,6 +106,11 @@ Extract a dedicated HTTP/routing wrapper seam while keeping the public
 ## Updates
 
 ### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- No new implementation work was added in this pass; this move records review acceptance of the already-landed slice.
+
+### 2026-03-28
 - Created as the next bounded execution slice under `split-webchannel-god-class` after the constructor wiring seam landed.
 - Chosen because the remaining request-router and HTTP wrapper methods still make up most of the residual `WebChannel` surface once constructor assembly is extracted.
 - Intended for the same repair-first loop: focused seam tests first, then extraction, then targeted `web-channel` validation, then lint/typecheck.
@@ -137,5 +143,5 @@ Extract a dedicated HTTP/routing wrapper seam while keeping the public
 ## Links
 
 - `workitems/20-doing/split-webchannel-god-class.md`
-- `workitems/40-review/extract-webchannel-constructor-wiring-factory.md`
+- `workitems/50-done/extract-webchannel-constructor-wiring-factory.md`
 - `/workspace/notes/piclaw-autoresearch-audit-checklist.md`

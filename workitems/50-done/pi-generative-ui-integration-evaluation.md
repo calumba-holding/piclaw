@@ -109,7 +109,7 @@ Treat `pi-generative-ui` as inspiration for:
   - `piclaw/piclaw/src/channels/web/ui-bridge.ts`
 - Decision: do **not** integrate `pi-generative-ui` directly into the timeline and do **not** treat it as a replacement for Adaptive Cards.
 - Chosen direction: a **parallel experiment** for a timeline-launched, user-dismissible floating widget surface, with stored widget artifacts and a sandboxed web rendering model.
-- Created follow-up ticket: `workitems/10-next/timeline-launched-floating-generative-widget-pane.md`.
+- Created follow-up ticket: `workitems/20-doing/timeline-launched-floating-generative-widget-pane.md`.
 - Lane change: `10-next` → `50-done`.
 - Quality: ★★★★★ 9/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 2)
 
@@ -139,4 +139,4 @@ Treat `pi-generative-ui` as inspiration for:
 - `piclaw/docs/extension-ui-contract.md`
 - `piclaw/docs/web-pane-extensions.md`
 - `piclaw/piclaw/src/channels/web/ui-bridge.ts`
-- `workitems/10-next/timeline-launched-floating-generative-widget-pane.md`
+- `workitems/20-doing/timeline-launched-floating-generative-widget-pane.md`

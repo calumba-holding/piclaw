@@ -1,10 +1,11 @@
 ---
 id: execute-stage4-extension-and-skill-namespacing
 title: Execute Stage 4 broad reorg batch — extension and skill namespacing cleanup
-status: review
+status: done
 priority: high
 created: 2026-03-28
 updated: 2026-03-28
+completed: 2026-03-28
 target_release: next
 estimate: L
 risk: high
@@ -81,6 +82,11 @@ as the implementation map/steplist for this batch.
 ## Updates
 
 ### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- No new implementation work was added in this pass; this move records review acceptance of the already-landed slice.
+
+### 2026-03-28
 - Created as the fourth execution batch under `plan-broad-filesystem-reorg-from-audit` after Stages 1–3 established the board rename, generated-output containment, and repo-vs-runtime boundary policy.
 - Intended to keep the broad reorg moving while staying bounded to packaged extension/skill namespacing rather than user-facing `.pi` convention churn.
 - Detailed inventory + step order live in:
@@ -90,6 +96,8 @@ as the implementation map/steplist for this batch.
 
 ### 2026-03-28 — execution notes
 - Lane change: `20-doing` → `40-review` after the Stage 4 packaged-runtime namespacing batch landed with validation green.
+- Card submission accepted: close-to-done review resolved with decision `done`.
+- Lane change: `40-review` → `50-done` because the Stage 4 extension/skill namespacing batch is complete.
 - Grouped packaged runtime extensions under:
   - `runtime/extensions/browser/`
   - `runtime/extensions/platform/windows/`
@@ -124,7 +132,7 @@ as the implementation map/steplist for this batch.
 ## Links
 
 - `workitems/20-doing/plan-broad-filesystem-reorg-from-audit.md`
-- `workitems/40-review/namespace-internal-extensions-and-skills-paths.md`
+- `workitems/50-done/namespace-internal-extensions-and-skills-paths.md`
 - `docs/broad-filesystem-reorg-map-2026-03-28.md`
 - `docs/stage4-extension-skill-namespacing-inventory-2026-03-28.md`
 - `docs/stage4-extension-skill-namespacing-steplist-2026-03-28.md`

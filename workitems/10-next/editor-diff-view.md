@@ -1,9 +1,9 @@
 ---
 id: editor-diff-view
 title: Add a diff view in the editor
-status: doing
+status: next
 created: 2026-03-13
-updated: 2026-03-22
+updated: 2026-03-28
 tags:
   - work-item
   - kanban
@@ -35,6 +35,11 @@ existing editor surface instead of switching to an external tool.
 - Could eventually support inline and/or side-by-side diff modes, but that should be decided explicitly.
 
 ## Updates
+
+### 2026-03-28
+- Lane change: `20-doing` → `10-next` during board review.
+- Moved back out of active work because the ticket is still under-refined for `doing`: the v1 comparison model, UI affordance, and minimal validation path still need to be narrowed before implementation should resume.
+- Recommended refinement target for the next pickup: lock v1 to a single comparison source (preferably current buffer vs saved file) and define the minimal open/render/close behavior and test plan.
 
 ### 2026-03-22
 - Lane change: `10-next` → `20-doing` by user direction.

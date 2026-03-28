@@ -1,10 +1,11 @@
 ---
 id: extract-webchannel-terminal-and-vnc-http-wrappers
 title: Extract WebChannel terminal and VNC HTTP wrappers
-status: review
+status: done
 priority: high
 created: 2026-03-27
 updated: 2026-03-28
+completed: 2026-03-28
 target_release: next
 estimate: M
 risk: medium
@@ -150,7 +151,14 @@ while keeping behavior and public surfaces unchanged.
 ## Updates
 
 ### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- This pass records review acceptance of the landed terminal/VNC HTTP wrapper seam without adding new implementation work.
+
+### 2026-03-28
 - Lane change: `20-doing` → `40-review` after landing the slice on `main`.
+- Card submission accepted: close-to-done review resolved with decision `done`.
+- Lane change: `40-review` → `50-done` because the terminal/VNC HTTP wrapper extraction slice is complete.
 - Landed `runtime/src/channels/web/terminal-vnc-http-service.ts` so terminal session, VNC session, and VNC handoff HTTP wrappers now delegate through a dedicated seam instead of living directly on `WebChannel`.
 - Kept the router-facing public methods intact while reducing `runtime/src/channels/web.ts` from 1280 lines on the prior control-plane baseline to 1235 lines after the seam cleanup.
 - Added focused seam coverage in:
@@ -170,7 +178,7 @@ while keeping behavior and public surfaces unchanged.
   - `runtime/test/channels/web/terminal-vnc-http-service.test.ts`
   - `runtime/test/channels/web/web-channel-terminal-vnc-http-delegation.test.ts`
 - Next bounded seam split out explicitly instead of widening scope in-place:
-  - `workitems/20-doing/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
+  - `workitems/50-done/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-27
@@ -182,12 +190,12 @@ while keeping behavior and public surfaces unchanged.
 ## Links
 
 - `workitems/20-doing/split-webchannel-god-class.md`
-- `workitems/20-doing/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
+- `workitems/50-done/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
 - `workitems/40-review/extract-webchannel-queued-followup-service.md`
 - `workitems/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`
 - `workitems/40-review/extract-webchannel-sse-broadcast-and-session-wiring.md`
 - `workitems/40-review/extract-webchannel-recovery-and-runtime-state-wiring.md`
 - `workitems/40-review/extract-webchannel-message-write-and-followup-coordination.md`
-- `workitems/40-review/extract-webchannel-endpoint-facade-and-handler-contexts.md`
-- `workitems/40-review/extract-webchannel-agent-control-plane-wrappers.md`
+- `workitems/50-done/extract-webchannel-endpoint-facade-and-handler-contexts.md`
+- `workitems/50-done/extract-webchannel-agent-control-plane-wrappers.md`
 - `/workspace/notes/piclaw-autoresearch-audit-checklist.md`

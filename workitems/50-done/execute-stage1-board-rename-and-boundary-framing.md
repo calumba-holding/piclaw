@@ -1,10 +1,11 @@
 ---
 id: execute-stage1-board-rename-and-boundary-framing
 title: Execute Stage 1 broad reorg batch — board rename and boundary framing
-status: review
+status: done
 priority: high
 created: 2026-03-28
 updated: 2026-03-28
+completed: 2026-03-28
 target_release: next
 estimate: L
 risk: high
@@ -88,6 +89,11 @@ as the implementation map/steplist for this batch.
 ## Updates
 
 ### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- No new implementation work was added in this pass; this move records review acceptance of the already-landed slice.
+
+### 2026-03-28
 - Executed the Stage 1 board rename on branch `autoresearch/stage1-workitems-rename-2026-03-28` from `origin/main`.
 - Renamed `kanban/` → `workitems/` and `skel/kanban/` → `skel/workitems/` using `git mv`.
 - Added repo-root vs `runtime/` ownership rules to `README.md` and documented the transitional naming policy in `docs/tools-and-skills.md` plus `skel/.pi/skills/kanban-management/SKILL.md`.
@@ -103,6 +109,8 @@ as the implementation map/steplist for this batch.
 
 ### 2026-03-28
 - Lane change: `20-doing` → `40-review` after the Stage 1 rename landed on `main`.
+- Card submission accepted: close-to-done review resolved with decision `done`.
+- Lane change: `40-review` → `50-done` because the Stage 1 rename/boundary-framing batch is complete.
 - Created as the first execution batch under `plan-broad-filesystem-reorg-from-audit`.
 - Intended to be suitable for either manual execution or an autoresearch run.
 - The detailed step order and guardrails live in:
@@ -121,4 +129,4 @@ as the implementation map/steplist for this batch.
 - `docs/broad-filesystem-reorg-map-2026-03-28.md`
 - `docs/stage1-broad-filesystem-reorg-steplist-2026-03-28.md`
 - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
-- `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
+- `workitems/50-done/clarify-root-vs-runtime-ownership-boundaries.md`

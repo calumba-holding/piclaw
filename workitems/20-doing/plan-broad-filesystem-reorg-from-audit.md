@@ -100,30 +100,30 @@ Potentially in scope, pending plan decisions:
 - The audit findings still stand, but its earlier conservative recommendation against broad churn is now explicitly superseded.
 - Starting point inputs for this planning/execution umbrella:
   - `docs/filesystem-layout-audit-2026-03-28.md`
-  - `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
-  - `workitems/40-review/rationalize-runtime-generated-output-layout.md`
+  - `workitems/50-done/clarify-root-vs-runtime-ownership-boundaries.md`
+  - `workitems/50-done/rationalize-runtime-generated-output-layout.md`
   - `workitems/10-next/group-web-channel-flat-files.md`
   - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
 - Immediate next step: turn the audit into a target-state reorg map and decide whether execution should happen in 2–4 staged batches or a more aggressive single migration.
 - Completed planning artifacts:
   - `docs/broad-filesystem-reorg-map-2026-03-28.md`
   - `docs/stage1-broad-filesystem-reorg-steplist-2026-03-28.md`
-  - `workitems/40-review/execute-stage1-board-rename-and-boundary-framing.md`
+  - `workitems/50-done/execute-stage1-board-rename-and-boundary-framing.md`
 - Additional reorg finding folded into the plan: internal extension and packaged skill paths also need clearer namespacing, tracked via:
-  - `workitems/40-review/namespace-internal-extensions-and-skills-paths.md`
+  - `workitems/50-done/namespace-internal-extensions-and-skills-paths.md`
 - Stage 1 was executed and landed on `main` via `75f7dedb` (`Rename kanban board paths to workitems`).
 - Stage 2 was executed and landed on `main` via `d11c585b` (`Contain runtime generated output under runtime/generated`), with the implementation and validation captured in:
   - `docs/stage2-runtime-generated-layout-inventory-2026-03-28.md`
   - `docs/stage2-runtime-generated-containment-steplist-2026-03-28.md`
-  - `workitems/40-review/execute-stage2-runtime-generated-containment.md`
+  - `workitems/50-done/execute-stage2-runtime-generated-containment.md`
 - Stage 3 boundary clarification was then landed as a bounded policy/docs batch, with the implementation captured in:
   - `docs/repo-runtime-boundaries-2026-03-28.md`
-  - `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
+  - `workitems/50-done/clarify-root-vs-runtime-ownership-boundaries.md`
 - Stage 4 was executed and landed as a packaged-runtime namespacing batch, with the implementation and validation captured in:
   - `docs/stage4-extension-skill-namespacing-inventory-2026-03-28.md`
   - `docs/stage4-extension-skill-namespacing-steplist-2026-03-28.md`
   - `docs/stage4-extension-skill-namespacing-autoresearch-prompt-2026-03-28.md`
-  - `workitems/40-review/execute-stage4-extension-and-skill-namespacing.md`
+  - `workitems/50-done/execute-stage4-extension-and-skill-namespacing.md`
 - Stage 5 was then executed in three bounded manual tranches, with the execution and validation captured in:
   - `docs/stage5-web-channel-grouping-inventory-2026-03-28.md`
   - `docs/stage5-web-channel-grouping-steplist-2026-03-28.md`
@@ -139,14 +139,14 @@ Potentially in scope, pending plan decisions:
 - `docs/stage1-board-rename-reference-inventory-2026-03-28.md`
 - `docs/stage2-runtime-generated-layout-inventory-2026-03-28.md`
 - `docs/stage2-runtime-generated-containment-steplist-2026-03-28.md`
-- `workitems/40-review/execute-stage1-board-rename-and-boundary-framing.md`
-- `workitems/40-review/execute-stage2-runtime-generated-containment.md`
-- `workitems/40-review/audit-project-filesystem-layout.md`
+- `workitems/50-done/execute-stage1-board-rename-and-boundary-framing.md`
+- `workitems/50-done/execute-stage2-runtime-generated-containment.md`
+- `workitems/50-done/audit-project-filesystem-layout.md`
 - `docs/filesystem-layout-audit-2026-03-28.md`
-- `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
-- `workitems/40-review/rationalize-runtime-generated-output-layout.md`
-- `workitems/40-review/namespace-internal-extensions-and-skills-paths.md`
-- `workitems/40-review/execute-stage4-extension-and-skill-namespacing.md`
+- `workitems/50-done/clarify-root-vs-runtime-ownership-boundaries.md`
+- `workitems/50-done/rationalize-runtime-generated-output-layout.md`
+- `workitems/50-done/namespace-internal-extensions-and-skills-paths.md`
+- `workitems/50-done/execute-stage4-extension-and-skill-namespacing.md`
 - `workitems/10-next/group-web-channel-flat-files.md`
 - `workitems/20-doing/execute-stage5-web-channel-grouping.md`
 - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`

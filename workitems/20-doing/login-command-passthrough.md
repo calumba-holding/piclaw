@@ -1,10 +1,10 @@
 ---
 id: login-command-passthrough
 title: Pass /login command through to pi and effect successful logins
-status: review
+status: doing
 priority: medium
 created: 2026-03-11
-updated: 2026-03-27
+updated: 2026-03-28
 tags:
   - work-item
   - kanban
@@ -51,6 +51,16 @@ It is not about piclaw's own web/TOTP/passkey session login.
 - How should provider-auth prompts/URLs be relayed through the web chat flow?
 
 ## Updates
+
+### 2026-03-28
+- Lane change: `40-review` → `20-doing` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Move to Doing**.
+- Reason captured in review: end-to-end validation is still needed for same-chat success/failure behavior across OAuth/manual-paste and API-key flows.
+
+### 2026-03-28
+- Card submission accepted with decision `doing`.
+- Lane change: `40-review` → `20-doing` because the remaining same-chat UX and graceful-failure validation gaps still need active implementation/verification.
+- Review recommendation and board decision aligned on returning this item to active work.
 
 ### 2026-03-27
 - Lane change: `20-doing` → `40-review`.

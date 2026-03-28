@@ -1,10 +1,11 @@
 ---
 id: extract-webchannel-endpoint-facade-and-handler-contexts
 title: Extract WebChannel endpoint facade and handler contexts seam
-status: review
+status: done
 priority: high
 created: 2026-03-27
-updated: 2026-03-27
+updated: 2026-03-28
+completed: 2026-03-28
 target_release: next
 estimate: M
 risk: medium
@@ -144,8 +145,15 @@ focused validation while keeping behavior and public surfaces unchanged.
 
 ## Updates
 
+### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- No new implementation work was added in this pass; this move records review acceptance of the already-landed slice.
+
 ### 2026-03-27
 - Lane change: `20-doing` → `40-review` after landing the slice on `main`.
+- Card submission accepted: close-to-done review resolved with decision `done`.
+- Lane change: `40-review` → `50-done` because the endpoint-facade/handler-context extraction slice is complete.
 - Landed `runtime/src/channels/web/channel-endpoint-facade-service.ts` and delegated the lightweight endpoint wrappers through it, while updating `channel-endpoint-context-factory.ts` to centralize live identity snapshot normalization and preserve avatar/manifest refresh behavior.
 - Added focused seam coverage in:
   - `runtime/test/channels/web/channel-endpoint-facade-service.test.ts`
@@ -161,7 +169,7 @@ focused validation while keeping behavior and public surfaces unchanged.
   - `bun run typecheck`
 - Result: `runtime/src/channels/web.ts` dropped from 1602 to 1546 lines while preserving endpoint payloads, status codes, and live identity/avatar refresh semantics.
 - Next bounded seam split out explicitly instead of widening scope in-place:
-  - `workitems/20-doing/extract-webchannel-agent-control-plane-wrappers.md`
+  - `workitems/50-done/extract-webchannel-agent-control-plane-wrappers.md`
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-27
@@ -173,7 +181,7 @@ focused validation while keeping behavior and public surfaces unchanged.
 ## Links
 
 - `workitems/20-doing/split-webchannel-god-class.md`
-- `workitems/20-doing/extract-webchannel-agent-control-plane-wrappers.md`
+- `workitems/50-done/extract-webchannel-agent-control-plane-wrappers.md`
 - `workitems/40-review/extract-webchannel-queued-followup-service.md`
 - `workitems/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`
 - `workitems/40-review/extract-webchannel-sse-broadcast-and-session-wiring.md`

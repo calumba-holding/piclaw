@@ -1,10 +1,11 @@
 ---
 id: execute-stage2-runtime-generated-containment
 title: Execute Stage 2 broad reorg batch — runtime generated-output containment
-status: review
+status: done
 priority: high
 created: 2026-03-28
 updated: 2026-03-28
+completed: 2026-03-28
 target_release: next
 estimate: L
 risk: high
@@ -82,6 +83,11 @@ as the implementation map/steplist for this batch.
 ## Updates
 
 ### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- No new implementation work was added in this pass; this move records review acceptance of the already-landed slice.
+
+### 2026-03-28
 - Created as the second execution batch under `plan-broad-filesystem-reorg-from-audit` after Stage 1 board/workitems renaming landed.
 - Intended to keep the broad reorg moving while staying bounded to runtime generated/transient output containment.
 - Detailed inventory + step order live in:
@@ -91,6 +97,8 @@ as the implementation map/steplist for this batch.
 
 ### 2026-03-28 — execution notes
 - Lane change: `20-doing` → `40-review` after the Stage 2 containment batch landed locally with validation green.
+- Card submission accepted: close-to-done review resolved with decision `done`.
+- Lane change: `40-review` → `50-done` because the Stage 2 runtime generated-output containment batch is complete.
 - Introduced `runtime/generated/` with an explicit README documenting what belongs there and what does not.
 - Moved tracked TypeScript build output from `runtime/dist/` to `runtime/generated/dist/` and updated build + stale-dist tooling accordingly.
 - Repointed Bun coverage output from `runtime/coverage/` to `runtime/generated/coverage/` in package scripts and the targeted coverage audit helper.
@@ -119,4 +127,4 @@ as the implementation map/steplist for this batch.
 - `docs/stage2-runtime-generated-layout-inventory-2026-03-28.md`
 - `docs/stage2-runtime-generated-containment-steplist-2026-03-28.md`
 - `docs/stage2-runtime-generated-autoresearch-prompt-2026-03-28.md`
-- `workitems/40-review/rationalize-runtime-generated-output-layout.md`
+- `workitems/50-done/rationalize-runtime-generated-output-layout.md`

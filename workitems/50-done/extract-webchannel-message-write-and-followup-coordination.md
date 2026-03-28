@@ -167,7 +167,7 @@ validation while keeping behavior and public surfaces unchanged.
   - `bun run typecheck`
 - Result: `runtime/src/channels/web.ts` dropped from 1628 to 1602 lines while preserving the public WebChannel write-path API.
 - Next bounded seam split out explicitly instead of widening scope in-place:
-  - `workitems/20-doing/extract-webchannel-endpoint-facade-and-handler-contexts.md`
+  - `workitems/50-done/extract-webchannel-endpoint-facade-and-handler-contexts.md`
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-27
@@ -179,7 +179,7 @@ validation while keeping behavior and public surfaces unchanged.
 ## Links
 
 - `workitems/20-doing/split-webchannel-god-class.md`
-- `workitems/20-doing/extract-webchannel-endpoint-facade-and-handler-contexts.md`
+- `workitems/50-done/extract-webchannel-endpoint-facade-and-handler-contexts.md`
 - `workitems/40-review/extract-webchannel-queued-followup-service.md`
 - `workitems/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`
 - `workitems/40-review/extract-webchannel-sse-broadcast-and-session-wiring.md`

@@ -1,10 +1,11 @@
 ---
 id: extract-webchannel-runtime-session-and-storage-public-delegates
 title: Extract WebChannel runtime/session/storage public delegates
-status: review
+status: done
 priority: high
 created: 2026-03-28
 updated: 2026-03-28
+completed: 2026-03-28
 target_release: next
 estimate: M
 risk: medium
@@ -108,6 +109,11 @@ Extract a dedicated public runtime/delegation seam while keeping the public
 ## Updates
 
 ### 2026-03-28
+- Lane change: `40-review` → `50-done` via web review-card decision.
+- Review outcome recorded from the adaptive-card submission: **Close to Done**.
+- This pass records review acceptance of the extracted runtime/session/storage delegate seam and its validation evidence.
+
+### 2026-03-28
 - Created as the next bounded child slice after `extract-webchannel-request-router-and-http-surface-wrappers` landed.
 - Chosen because `runtime/src/channels/web.ts` now mostly consists of public-compatibility delegates into already-extracted collaborators, with the runtime-followup/session/storage cluster still representing the largest remaining pure wrapper surface.
 - Intended execution loop: strengthen focused delegation tests first, then extract a narrow service boundary, then rerun targeted `web-channel` coverage, then lint/typecheck/stale-dist.
@@ -130,10 +136,12 @@ Extract a dedicated public runtime/delegation seam while keeping the public
   - `bun run typecheck`
   - `bun run check:stale-dist`
 - Result: mergeable slice ready for review; queued follow-up/runtime-state behavior, session-broadcast compatibility behavior, and message-processing/storage semantics remained unchanged across the focused coverage above.
+- Card submission accepted: close-to-done review resolved with decision `done`.
+- Lane change: `40-review` → `50-done` because the runtime/session/storage public-delegate extraction slice is complete.
 
 ## Links
 
 - `workitems/20-doing/split-webchannel-god-class.md`
-- `workitems/40-review/extract-webchannel-runtime-and-followup-facades.md`
-- `workitems/40-review/extract-webchannel-message-processing-and-storage-adapters.md`
+- `workitems/50-done/extract-webchannel-runtime-and-followup-facades.md`
+- `workitems/50-done/extract-webchannel-message-processing-and-storage-adapters.md`
 - `workitems/40-review/extract-webchannel-sse-broadcast-and-session-wiring.md`
