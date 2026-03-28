@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isInternalSecretRequestAuthorized } from "../../../src/channels/web/internal-secret.js";
+import { isInternalSecretRequestAuthorized } from "../../../../src/channels/web/auth/internal-secret.js";
 
 describe("internal secret authorization", () => {
   test("accepts x-piclaw-internal-secret header", () => {

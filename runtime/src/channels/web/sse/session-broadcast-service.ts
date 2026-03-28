@@ -11,7 +11,7 @@
 import type { AgentSession } from "@mariozechner/pi-coding-agent";
 
 import type { AgentPool } from "../../../agent-pool.js";
-import { bindWebUiSessionBinder } from "../agent-pool-binder.js";
+import { bindWebUiSessionBinder } from "../agent/agent-pool-binder.js";
 import { SseHub } from "./sse-hub.js";
 import { UiBridge, type UiBridgeChannel } from "../theming/ui-bridge.js";
 

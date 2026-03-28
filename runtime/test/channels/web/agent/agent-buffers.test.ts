@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { AgentBuffers } from "../../../src/channels/web/agent-buffers.js";
+import { AgentBuffers } from "../../../../src/channels/web/agent/agent-buffers.js";
 
 describe("web agent buffers", () => {
   test("tracks panel expansion per turn and panel", () => {

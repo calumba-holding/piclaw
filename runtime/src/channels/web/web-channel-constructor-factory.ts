@@ -15,12 +15,12 @@ import {
 import {
   createWebAgentControlPlaneService,
   type WebAgentControlPlaneService,
-} from "./agent-control-plane-service.js";
+} from "./agent/agent-control-plane-service.js";
 import {
   createWebAgentPeerMessageRelayService,
   type WebAgentPeerMessageRelayChannelLike,
   type WebAgentPeerMessageRelayService,
-} from "./agent-peer-message-relay-service.js";
+} from "./agent/agent-peer-message-relay-service.js";
 import { ensureAvatarCache } from "./media/avatar-service.js";
 import { WebAuthGateway } from "./auth/auth-gateway.js";
 import {
@@ -60,10 +60,10 @@ import {
   type WebTerminalVncHttpChannel,
   type WebTerminalVncHttpService,
 } from "./terminal-vnc-http-service.js";
-import { TotpFailureTracker } from "./totp-failure-tracker.js";
+import { TotpFailureTracker } from "./auth/totp-failure-tracker.js";
 import { VncSessionService } from "./vnc/vnc-session-service.js";
 import type { WebChannelLike } from "./web-channel-contracts.js";
-import { WebauthnChallengeTracker } from "./webauthn-challenges.js";
+import { WebauthnChallengeTracker } from "./auth/webauthn-challenges.js";
 
 type AgentPoolWithKnownChats = AgentPool & {
   listKnownChats?: (rootChatJid?: string | null, options?: { includeArchived?: boolean }) => unknown[];

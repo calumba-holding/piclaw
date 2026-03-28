@@ -7,16 +7,16 @@
  * the coordinator.
  */
 
-import type { AgentPool } from "../../agent-pool.js";
+import type { AgentPool } from "../../../agent-pool.js";
 import {
   getInflightMessageId,
   getMessageThreadRootIdById,
   type InteractionRow,
-} from "../../db.js";
-import { createLogger } from "../../utils/logger.js";
-import type { QueuedFollowupItem } from "./followup-placeholders.js";
-import { parseJsonObjectRequest } from "./json-body.js";
-import type { QueuedFollowupLifecycleService } from "./queued-followup-lifecycle-service.js";
+} from "../../../db.js";
+import { createLogger } from "../../../utils/logger.js";
+import type { QueuedFollowupItem } from "../followup-placeholders.js";
+import { parseJsonObjectRequest } from "../json-body.js";
+import type { QueuedFollowupLifecycleService } from "../queued-followup-lifecycle-service.js";
 
 const log = createLogger("web");
 
@@ -114,7 +114,7 @@ export class WebAgentControlPlaneService {
     const chatJid = this.resolveChatJid(url.searchParams.get("chat_jid"));
     try {
       const getAutoresearchWidgetPayload = this.options.getAutoresearchWidgetPayload
-        ?? (await import("../../extensions/autoresearch-supervisor.js")).getAutoresearchWidgetPayload;
+        ?? (await import("../../../extensions/autoresearch-supervisor.js")).getAutoresearchWidgetPayload;
       return this.options.json(getAutoresearchWidgetPayload(chatJid));
     } catch (error) {
       log.warn("Failed to read autoresearch status", {
@@ -133,7 +133,7 @@ export class WebAgentControlPlaneService {
     const chatJid = this.resolveChatJid(payload.chat_jid);
     try {
       const stopAutoresearchFromWeb = this.options.stopAutoresearchFromWeb
-        ?? (await import("../../extensions/autoresearch-supervisor.js")).stopAutoresearchFromWeb;
+        ?? (await import("../../../extensions/autoresearch-supervisor.js")).stopAutoresearchFromWeb;
       const result = await stopAutoresearchFromWeb({
         chat_jid: chatJid,
         generate_report: payload.generate_report !== false,
@@ -157,7 +157,7 @@ export class WebAgentControlPlaneService {
     const chatJid = this.resolveChatJid(payload.chat_jid);
     try {
       const dismissAutoresearchWidget = this.options.dismissAutoresearchWidget
-        ?? (await import("../../extensions/autoresearch-supervisor.js")).dismissAutoresearchWidget;
+        ?? (await import("../../../extensions/autoresearch-supervisor.js")).dismissAutoresearchWidget;
       return this.options.json({
         status: dismissAutoresearchWidget(chatJid) ? "ok" : "noop",
         chat_jid: chatJid,

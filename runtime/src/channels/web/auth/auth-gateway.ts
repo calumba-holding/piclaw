@@ -19,7 +19,7 @@ import {
 import type { TotpAuthContext, TotpFailureTrackerLike } from "./totp-auth.js";
 import type { WebauthnAuthContext } from "./webauthn-auth.js";
 import type { WebauthnEnrolPageContext } from "./webauthn-enrol-page.js";
-import type { WebauthnChallengeTracker } from "../webauthn-challenges.js";
+import type { WebauthnChallengeTracker } from "./webauthn-challenges.js";
 import { getClientKey as getRequestClientKey } from "../http/client.js";
 import { createLogger } from "../../../utils/logger.js";
 

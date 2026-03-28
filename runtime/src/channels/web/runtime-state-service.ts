@@ -7,9 +7,9 @@
  * orchestration without changing the public WebChannel API.
  */
 
-import type { WebAgentBufferEntry } from "./agent-buffers.js";
-import { AgentBuffers } from "./agent-buffers.js";
-import { AgentStatusStore } from "./agent-status-store.js";
+import type { WebAgentBufferEntry } from "./agent/agent-buffers.js";
+import { AgentBuffers } from "./agent/agent-buffers.js";
+import { AgentStatusStore } from "./agent/agent-status-store.js";
 import { WebChannelState } from "./channel-state.js";
 import {
   getThreadRootId as getThreadRootIdForChat,

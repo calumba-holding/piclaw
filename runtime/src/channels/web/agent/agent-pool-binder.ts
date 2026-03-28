@@ -2,7 +2,7 @@
  * channels/web/agent-pool-binder.ts – safely bind UI session bridge to AgentPool.
  */
 
-import type { AgentPool } from "../../agent-pool.js";
+import type { AgentPool } from "../../../agent-pool.js";
 import type { AgentSession } from "@mariozechner/pi-coding-agent";
 
 type SessionBinder = (session: AgentSession, chatJid: string) => Promise<void> | void;

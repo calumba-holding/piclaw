@@ -5,7 +5,7 @@ import type { ServerWebSocket } from "bun";
 
 import { WORKSPACE_DIR } from "../../../core/config.js";
 import { DEFAULT_WEB_USER_ID, getWebSession } from "../../../db.js";
-import { getSessionTokenFromRequest } from "../session-auth.js";
+import { getSessionTokenFromRequest } from "../auth/session-auth.js";
 
 export interface TerminalSessionOwner {
   token: string;

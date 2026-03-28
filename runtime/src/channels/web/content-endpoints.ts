@@ -8,7 +8,7 @@ import {
   getThreadResponse,
   getTimelineResponse,
 } from "./timeline-service.js";
-import type { WebAgentBufferEntry } from "./agent-buffers.js";
+import type { WebAgentBufferEntry } from "./agent/agent-buffers.js";
 
 /** Shared dependencies for timeline/search/thread/thought endpoint handlers. */
 export interface ContentEndpointsContext {

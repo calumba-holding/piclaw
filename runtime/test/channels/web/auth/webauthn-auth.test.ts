@@ -6,7 +6,7 @@ import {
   handleWebauthnRegisterStart,
   type WebauthnAuthContext,
 } from "../../../../src/channels/web/auth/webauthn-auth.js";
-import { WebauthnChallengeTracker } from "../../../../src/channels/web/webauthn-challenges.js";
+import { WebauthnChallengeTracker } from "../../../../src/channels/web/auth/webauthn-challenges.js";
 
 function createContext(passkeyEnabled = true) {
   const authEvents: string[] = [];

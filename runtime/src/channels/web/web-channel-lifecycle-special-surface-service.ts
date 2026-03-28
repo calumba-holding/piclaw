@@ -8,7 +8,7 @@ import {
   createWebAgentPeerMessageRelayService,
   type WebAgentPeerMessageRelayChannelLike,
   type WebAgentPeerMessageRelayService,
-} from "./agent-peer-message-relay-service.js";
+} from "./agent/agent-peer-message-relay-service.js";
 import type { WebServerLifecycleGatewayService, WebSocketSessionData } from "./server-lifecycle-gateway-service.js";
 import type { WebChannelLike } from "./web-channel-contracts.js";
 

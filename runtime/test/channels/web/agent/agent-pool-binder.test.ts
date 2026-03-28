@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { AgentPool } from "../../../src/agent-pool.js";
-import { bindWebUiSessionBinder } from "../../../src/channels/web/agent-pool-binder.js";
+import type { AgentPool } from "../../../../src/agent-pool.js";
+import { bindWebUiSessionBinder } from "../../../../src/channels/web/agent/agent-pool-binder.js";
 
 describe("agent pool binder helper", () => {
   test("binds session binder when agent pool supports setSessionBinder", () => {

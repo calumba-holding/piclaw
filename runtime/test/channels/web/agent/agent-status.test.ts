@@ -4,8 +4,8 @@ import {
   handleAgentModelsRequest,
   handleAgentStatusRequest,
   type AgentStatusContext,
-} from "../../../src/channels/web/agent-status.js";
-import { createJsonResponder } from "./helpers/http.js";
+} from "../../../../src/channels/web/agent/agent-status.js";
+import { createJsonResponder } from "../helpers/http.js";
 
 function createContext(overrides: Partial<AgentStatusContext> = {}): AgentStatusContext {
   return {

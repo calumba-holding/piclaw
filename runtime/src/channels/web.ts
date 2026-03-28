@@ -15,8 +15,8 @@
 
 import { AgentQueue } from "../queue.js";
 import type { AgentPool } from "../agent-pool.js";
-import { WebauthnChallengeTracker } from "./web/webauthn-challenges.js";
-import { TotpFailureTracker } from "./web/totp-failure-tracker.js";
+import { WebauthnChallengeTracker } from "./web/auth/webauthn-challenges.js";
+import { TotpFailureTracker } from "./web/auth/totp-failure-tracker.js";
 import type { WebChannelLike } from "./web/web-channel-contracts.js";
 import type { RequestRouterService } from "./web/request-router-service.js";
 import type { WebSessionBroadcastService } from "./web/sse/session-broadcast-service.js";
@@ -26,11 +26,11 @@ import type { QueuedFollowupItem } from "./web/followup-placeholders.js";
 import { QueuedFollowupLifecycleService } from "./web/queued-followup-lifecycle-service.js";
 import type { SendMessageOptions } from "./web/messaging/message-write-flows.js";
 import type { WebMessageWriteService } from "./web/message-write-service.js";
-import type { WebAgentBufferEntry } from "./web/agent-buffers.js";
+import type { WebAgentBufferEntry } from "./web/agent/agent-buffers.js";
 import type { WebChannelRuntimeStateService } from "./web/runtime-state-service.js";
 import type { WebChannelEndpointContexts } from "./web/channel-endpoint-context-factory.js";
 import type { WebChannelEndpointFacadeService } from "./web/channel-endpoint-facade-service.js";
-import type { WebAgentControlPlaneService } from "./web/agent-control-plane-service.js";
+import type { WebAgentControlPlaneService } from "./web/agent/agent-control-plane-service.js";
 import type { InteractionBroadcaster } from "./web/interaction-broadcaster.js";
 import type { WebAuthGateway } from "./web/auth/auth-gateway.js";
 import type {
@@ -43,7 +43,7 @@ import type {
 } from "./web/cards/adaptive-card-side-prompt-service.js";
 import type {
   WebAgentPeerMessageRelayService,
-} from "./web/agent-peer-message-relay-service.js";
+} from "./web/agent/agent-peer-message-relay-service.js";
 import {
   createWebChannelHttpSurfaceService,
   getWebChannelHttpSurfaceService,

@@ -14,7 +14,7 @@ import {
   createPostMutationsContext,
   createUiEndpointsContext,
 } from "./endpoint-contexts.js";
-import type { AgentStatusContext } from "./agent-status.js";
+import type { AgentStatusContext } from "./agent/agent-status.js";
 import type { ContentEndpointsContext } from "./content-endpoints.js";
 import type { AgentsEndpointContext, AvatarEndpointContext } from "./identity-endpoints.js";
 import type { PostMutationsContext } from "./post-mutations.js";

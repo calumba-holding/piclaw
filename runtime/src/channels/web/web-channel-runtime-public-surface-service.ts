@@ -1,5 +1,5 @@
 import type { InteractionRow } from "../../db.js";
-import type { WebAgentBufferEntry } from "./agent-buffers.js";
+import type { WebAgentBufferEntry } from "./agent/agent-buffers.js";
 import type { QueuedFollowupItem } from "./followup-placeholders.js";
 import type { SendMessageOptions } from "./messaging/message-write-flows.js";
 import type { WebMessageProcessingStorageService } from "./messaging/message-processing-storage-service.js";

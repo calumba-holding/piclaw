@@ -102,7 +102,7 @@ async function createStoredTotpCardFixture(options: {
   });
   db.getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(sourceRowId, sourceRowId);
 
-  const totpCard = await import("../../../src/channels/web/totp-card.js");
+  const totpCard = await import("../../../src/channels/web/auth/totp-card.js");
   const parsed = totpCard.parseTotpCardToken(token || "");
 
   const webMod = await import(`../../../src/channels/web.js${freshSuffix}`) as typeof import("../../../src/channels/web.js");

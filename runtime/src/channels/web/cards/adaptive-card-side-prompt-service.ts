@@ -22,7 +22,7 @@ import {
 import { randomSessionToken, verifyTotp } from "../auth/auth.js";
 import type { InteractionRow } from "../../../db.js";
 import { parseJsonObjectRequest } from "../json-body.js";
-import { hashTotpSecret, parseTotpCardToken } from "../totp-card.js";
+import { hashTotpSecret, parseTotpCardToken } from "../auth/totp-card.js";
 import { handleAgentMessage as handleAgentMessageRequest } from "../handlers/agent.js";
 import type { WebChannelLike } from "../web-channel-contracts.js";
 

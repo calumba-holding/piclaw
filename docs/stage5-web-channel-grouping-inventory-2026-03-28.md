@@ -21,9 +21,11 @@ Measured on 2026-03-28:
 This means the existing `group-web-channel-flat-files` ticket is still valid,
 but its older 56-file number is stale.
 
-## Execution update — first manual tranche landed
+## Execution update — two manual tranches landed
 
-The first manual Stage 5 tranche has now landed in code.
+Two manual Stage 5 tranches have now landed in code.
+
+### First tranche
 
 Moved source clusters:
 
@@ -34,12 +36,23 @@ Moved source clusters:
 - `theming/`
 - `messaging/`
 
+That first tranche reduced the flat root from 73 files to 47 files.
+
+### Second tranche
+
+Expanded the grouped layout with additional obvious support areas:
+
+- more auth support moved under `auth/`
+- a new `agent/` directory for agent/status/control-plane support files
+- fallback `theme.ts` moved under `theming/`
+
 Current post-move flat-root count:
 
-- `runtime/src/channels/web/` — **47 flat files**
+- `runtime/src/channels/web/` — **32 flat files**
 
 That is a meaningful reduction from the 73-file starting point, while still
-leaving a deliberate second-tranche remainder for later grouping.
+leaving a deliberate later-tranche remainder for the more ambiguous lifecycle,
+endpoint, and routing files.
 
 ## Stable existing grouped areas
 

@@ -10,8 +10,8 @@ import {
   serveLoginPageResponse,
   type AuthEndpointsContext,
 } from "../../../../src/channels/web/auth/auth-endpoints.js";
-import { TotpFailureTracker } from "../../../../src/channels/web/totp-failure-tracker.js";
-import { WebauthnChallengeTracker } from "../../../../src/channels/web/webauthn-challenges.js";
+import { TotpFailureTracker } from "../../../../src/channels/web/auth/totp-failure-tracker.js";
+import { WebauthnChallengeTracker } from "../../../../src/channels/web/auth/webauthn-challenges.js";
 
 function json(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {

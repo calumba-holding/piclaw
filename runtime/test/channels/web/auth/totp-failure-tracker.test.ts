@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { TotpFailureTracker } from "../../../src/channels/web/totp-failure-tracker.js";
+import { TotpFailureTracker } from "../../../../src/channels/web/auth/totp-failure-tracker.js";
 
 describe("totp failure tracker", () => {
   test("locks after failure limit and clears on success", () => {

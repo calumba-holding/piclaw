@@ -7,8 +7,8 @@
  */
 
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { getWebRuntimeConfig } from "../../core/config.js";
-import { generateTotpQr } from "../../utils/totp-qr.js";
+import { getWebRuntimeConfig } from "../../../core/config.js";
+import { generateTotpQr } from "../../../utils/totp-qr.js";
 
 /** Supported TOTP card flows. */
 export type TotpCardFlow = "setup" | "secondary" | "reset";

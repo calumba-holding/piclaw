@@ -5,9 +5,9 @@
  */
 
 import { expect, test } from "bun:test";
-import "../../helpers.js";
+import "../../../helpers.js";
 
-import { getAgentsResponse } from "../../../src/channels/web/agents-service.js";
+import { getAgentsResponse } from "../../../../src/channels/web/agent/agents-service.js";
 
 test("getAgentsResponse includes model label when available", async () => {
   const pool = {

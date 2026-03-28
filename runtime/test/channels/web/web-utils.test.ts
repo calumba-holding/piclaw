@@ -10,7 +10,7 @@ import { existsSync } from "fs";
 import { join } from "path";
 
 import { clampInt, errorJson, jsonResponse, okJson, parseOptionalInt } from "../../../src/channels/web/http/http-utils.js";
-import { buildPreview, createToolTitleTracker } from "../../../src/channels/web/agent-utils.js";
+import { buildPreview, createToolTitleTracker } from "../../../src/channels/web/agent/agent-utils.js";
 import { handleSse, broadcastEvent } from "../../../src/channels/web/sse/sse.js";
 import { serveDocsStatic, serveStatic } from "../../../src/channels/web/http/static.js";
 import { UiBridge } from "../../../src/channels/web/theming/ui-bridge.js";

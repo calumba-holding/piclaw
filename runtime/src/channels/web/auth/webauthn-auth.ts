@@ -31,7 +31,7 @@ import {
   bufferToBase64Url,
   resolveWebauthnRpInfo,
   type WebauthnChallengeTracker,
-} from "../webauthn-challenges.js";
+} from "./webauthn-challenges.js";
 import { createLogger } from "../../../utils/logger.js";
 
 const log = createLogger("web.webauthn-auth");

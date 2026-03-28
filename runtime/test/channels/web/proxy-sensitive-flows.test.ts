@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { resolveWebauthnRpInfo } from "../../../src/channels/web/webauthn-challenges.js";
+import { resolveWebauthnRpInfo } from "../../../src/channels/web/auth/webauthn-challenges.js";
 import { checkCsrfOrigin } from "../../../src/channels/web/http/security.js";
 import { getRequestOriginParts } from "../../../src/utils/request-client.js";
 

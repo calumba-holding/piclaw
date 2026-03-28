@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import "../../helpers.ts";
 import { WebChannel } from "../../../src/channels/web.ts";
-import { WebAgentControlPlaneService } from "../../../src/channels/web/agent-control-plane-service.js";
+import { WebAgentControlPlaneService } from "../../../src/channels/web/agent/agent-control-plane-service.js";
 import type { QueuedFollowupLifecycleService } from "../../../src/channels/web/queued-followup-lifecycle-service.js";
 
 function jsonResponse(payload: unknown, status = 200): Response {

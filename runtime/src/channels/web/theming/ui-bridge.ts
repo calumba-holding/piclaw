@@ -12,7 +12,7 @@
 import type { AgentSession, ExtensionUIContext } from "@mariozechner/pi-coding-agent";
 
 import { createLogger } from "../../../utils/logger.js";
-import { createFallbackTheme } from "../theme.js";
+import { createFallbackTheme } from "./theme.js";
 
 const log = createLogger("web.ui-bridge");
 

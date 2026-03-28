@@ -6,7 +6,7 @@ import {
   handleAgentContextRequest,
   handleAgentModelsRequest,
   handleAgentStatusRequest,
-} from "./agent-status.js";
+} from "./agent/agent-status.js";
 import {
   handleHashtagRequest,
   handleSearchRequest,

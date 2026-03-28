@@ -3,7 +3,7 @@ import type { ServerWebSocket } from "bun";
 
 import { DEFAULT_WEB_USER_ID, getWebSession } from "../../../db.js";
 import { WebSocketTcpBridge } from "../remote-display/websocket-tcp-bridge.js";
-import { getSessionTokenFromRequest } from "../session-auth.js";
+import { getSessionTokenFromRequest } from "../auth/session-auth.js";
 
 /** Allowlisted or direct-connect VNC target metadata. */
 export interface VncTargetRecord {

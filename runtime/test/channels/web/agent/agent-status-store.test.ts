@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { AgentStatusStore } from "../../../src/channels/web/agent-status-store.js";
+import { AgentStatusStore } from "../../../../src/channels/web/agent/agent-status-store.js";
 
 describe("web agent status store", () => {
   test("load clears non-restorable persisted statuses and resets in-memory state", () => {

@@ -70,8 +70,9 @@ runtime/src/channels/web/vnc/        1 file,    296 lines
   - `docs/stage5-web-channel-grouping-autoresearch-prompt-2026-03-28.md`
   - `workitems/20-doing/execute-stage5-web-channel-grouping.md`
 - Recommended first tranche is no longer “move everything blindly”, but to group the clearest semantic slices first: `auth/`, `sse/`, `cards/`, `media/`, `theming/`, and `messaging/`.
-- The first manual tranche has now landed those six capability directories and reduced the flat root from 73 files to 47 files.
-- The ticket remains open because the original end-state target (15 or fewer files at the `web/` root) still needs a later second tranche.
+- The first manual tranche landed the six broad capability directories and reduced the flat root from 73 files to 47 files.
+- A second manual tranche then grouped additional auth/agent/theming support files and reduced the flat root again, from 47 files to 32 files.
+- The ticket remains open because the original end-state target (15 or fewer files at the `web/` root) still needs at least one later tranche.
 
 ## Links
 

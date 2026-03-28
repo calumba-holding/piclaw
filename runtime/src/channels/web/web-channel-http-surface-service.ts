@@ -1,5 +1,5 @@
 import type { RemoteInteropService } from "../../remote/service.js";
-import type { WebAgentControlPlaneService } from "./agent-control-plane-service.js";
+import type { WebAgentControlPlaneService } from "./agent/agent-control-plane-service.js";
 import type { WebChannelEndpointFacadeService } from "./channel-endpoint-facade-service.js";
 import type { ResponseService } from "./http/response-service.js";
 import type { RequestRouterService } from "./request-router-service.js";

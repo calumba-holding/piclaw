@@ -11,7 +11,7 @@ import type { AgentSession } from "@mariozechner/pi-coding-agent";
 import type { AgentControlCommand, AgentControlResult } from "../agent-control-types.js";
 import { getWebRuntimeConfig } from "../../core/config.js";
 import { getChatChannel, getChatJid } from "../../core/chat-context.js";
-import { getWebOrigin } from "../../channels/web/request-origin.js";
+import { getWebOrigin } from "../../channels/web/auth/request-origin.js";
 import {
   createWebauthnEnrollment,
   listWebauthnCredentials,

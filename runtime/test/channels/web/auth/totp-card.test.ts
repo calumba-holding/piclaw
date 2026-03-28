@@ -9,7 +9,7 @@ import {
   createTotpCardToken,
   hashTotpSecret,
   parseTotpCardToken,
-} from "../../../src/channels/web/totp-card.js";
+} from "../../../../src/channels/web/auth/totp-card.js";
 
 test("totp card token round-trips signed state", () => {
   const token = createTotpCardToken({

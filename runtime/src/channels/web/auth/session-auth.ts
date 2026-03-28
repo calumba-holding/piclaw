@@ -2,7 +2,7 @@
  * channels/web/session-auth.ts – Web session cookie/auth helper functions.
  */
 
-import { deleteExpiredWebSessions, getWebSession } from "../../db.js";
+import { deleteExpiredWebSessions, getWebSession } from "../../../db.js";
 
 function parseCookies(req: Request): Record<string, string> {
   const header = req.headers.get("cookie") || "";

@@ -13,7 +13,7 @@ import { getTestWorkspace, setEnv } from "../../helpers.js";
 
 // ── Post content length validation ──
 import { parsePostPayload } from "../../../src/channels/web/posts-service.js";
-import { createAgentProfileBuilder } from "../../../src/channels/web/agent-utils.js";
+import { createAgentProfileBuilder } from "../../../src/channels/web/agent/agent-utils.js";
 
 describe("parsePostPayload", () => {
   test("rejects content exceeding 100 KB", () => {

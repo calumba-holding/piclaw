@@ -6,12 +6,12 @@ import {
   buildSessionCookieHeader,
   isRequestAuthenticated,
   isRequestTotpSession,
-} from "../session-auth.js";
-import { isInternalSecretRequestAuthorized } from "../internal-secret.js";
+} from "./session-auth.js";
+import { isInternalSecretRequestAuthorized } from "./internal-secret.js";
 import type { TotpAuthContext, TotpFailureTrackerLike } from "./totp-auth.js";
 import type { WebauthnAuthContext } from "./webauthn-auth.js";
 import type { WebauthnEnrolPageContext } from "./webauthn-enrol-page.js";
-import type { WebauthnChallengeTracker } from "../webauthn-challenges.js";
+import type { WebauthnChallengeTracker } from "./webauthn-challenges.js";
 
 /** Runtime auth feature flags and cookie settings derived from config/env. */
 export interface WebAuthRuntimeConfig {

@@ -2,7 +2,7 @@
  * channels/web/webauthn-challenges.ts – transient WebAuthn challenge tracking and helpers.
  */
 
-import { getRequestOriginParts } from "./http/client.js";
+import { getRequestOriginParts } from "../http/client.js";
 
 /** In-memory challenge entry for pending WebAuthn login/registration flows. */
 export type PendingWebauthnChallenge = {

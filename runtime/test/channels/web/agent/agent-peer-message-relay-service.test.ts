@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { WebAgentPeerMessageRelayService } from "../../../src/channels/web/agent-peer-message-relay-service.js";
+import { WebAgentPeerMessageRelayService } from "../../../../src/channels/web/agent/agent-peer-message-relay-service.js";
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {

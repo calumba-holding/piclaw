@@ -46,12 +46,12 @@ async function setup(extraEnv: Record<string, string | undefined> = {}) {
 
   const passkey = (await import(`../../src/agent-control/handlers/passkey.js${token}`)) as typeof import("../../src/agent-control/handlers/passkey.js");
   const totp = (await import(`../../src/agent-control/handlers/totp.js${token}`)) as typeof import("../../src/agent-control/handlers/totp.js");
-  const totpCard = (await import(`../../src/channels/web/totp-card.js`)) as typeof import("../../src/channels/web/totp-card.js");
+  const totpCard = (await import(`../../src/channels/web/auth/totp-card.js`)) as typeof import("../../src/channels/web/auth/totp-card.js");
 
   return { db, config, passkey, totp, totpCard };
 }
 
-function extractTotpCardState(result: { contentBlocks?: unknown[] }, totpCard: typeof import("../../src/channels/web/totp-card.js")) {
+function extractTotpCardState(result: { contentBlocks?: unknown[] }, totpCard: typeof import("../../src/channels/web/auth/totp-card.js")) {
   const block = Array.isArray(result.contentBlocks) ? (result.contentBlocks[0] as Record<string, any> | undefined) : undefined;
   const token = block?.payload?.actions?.[0]?.data?.__totp_token;
   return typeof token === "string" ? totpCard.parseTotpCardToken(token) : { ok: false as const, error: "missing" as const };

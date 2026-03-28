@@ -34,7 +34,7 @@ import {
   setChatCursor,
 } from "../../../db.js";
 import { detectChannel, formatMessages, formatOutbound } from "../../../router.js";
-import { createAgentProfileBuilder } from "../agent-utils.js";
+import { createAgentProfileBuilder } from "../agent/agent-utils.js";
 import { resolveAvatarUrl } from "../media/avatar-service.js";
 import { createAgentEventEmitter, createStreamingEventHandler } from "../sse/agent-events.js";
 import { broadcastInteractionUpdated } from "../cards/interaction-service.js";

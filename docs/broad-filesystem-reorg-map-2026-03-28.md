@@ -382,6 +382,14 @@ Avoid indefinite dual-path support.
 - reduced the flat root under `runtime/src/channels/web/` from 73 files to 47 files
 - validated the tranche with focused tests, `bun run lint`, `bun run typecheck`, and `bun run check:import-boundaries`
 - left a deliberate second-tranche remainder rather than forcing ambiguous orchestration/control files into the same move batch
+- manually landed a second tranche for additional obvious support files:
+  - expanded `runtime/src/channels/web/auth/`
+  - added `runtime/src/channels/web/agent/`
+  - moved fallback theming support fully under `runtime/src/channels/web/theming/`
+- regrouped the matching direct module tests under `runtime/test/channels/web/auth/` and `runtime/test/channels/web/agent/` where straightforward
+- reduced the flat root under `runtime/src/channels/web/` again, from 47 files to 32 files
+- validated the second tranche with focused auth/agent/web tests, `bun run lint`, `bun run typecheck`, and `bun run check:import-boundaries`
+- still left a deliberate later-tranche remainder rather than forcing lifecycle/endpoint/routing files into the same batch
 
 ## First-batch recommendation
 

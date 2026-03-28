@@ -4,7 +4,7 @@ import {
   bufferToBase64Url,
   resolveWebauthnRpInfo,
   WebauthnChallengeTracker,
-} from "../../../src/channels/web/webauthn-challenges.js";
+} from "../../../../src/channels/web/auth/webauthn-challenges.js";
 
 describe("webauthn challenge tracker", () => {
   test("tracks and consumes login/registration challenges", () => {

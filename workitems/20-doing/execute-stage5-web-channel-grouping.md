@@ -99,7 +99,21 @@ as the implementation map/steplist for this batch.
   - `bun run lint`
   - `bun run typecheck`
   - `bun run check:import-boundaries`
-- Stage 5 is meaningfully advanced, but a second tranche is still available if the project wants to push the flat root lower than 47 files.
+- Stage 5 is meaningfully advanced, and a second tranche remained available for the more obvious leftover auth/agent/theming support files.
+
+### 2026-03-28 — second manual tranche
+- Landed a follow-on grouping pass for additional clear support files:
+  - expanded `runtime/src/channels/web/auth/` with session/auth helper files
+  - added `runtime/src/channels/web/agent/` for agent status/control-plane/binder helpers
+  - moved fallback `theme.ts` under `runtime/src/channels/web/theming/`
+- Regrouped the matching direct module tests under `runtime/test/channels/web/auth/` and `runtime/test/channels/web/agent/` where straightforward.
+- The flat root under `runtime/src/channels/web/` dropped again, from 47 files to 32 files.
+- Validation run for the tranche:
+  - focused auth/agent/web tests plus `test/agent-control/passkey-totp-handler.test.ts`
+  - `bun run lint`
+  - `bun run typecheck`
+  - `bun run check:import-boundaries`
+- Stage 5 remains in progress because the original ticket target (15 or fewer files at the web root) still needs another later tranche.
 
 ## Links
 

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildSessionCookieHeader,
   getSessionTokenFromRequest,
-} from "../../../src/channels/web/session-auth.js";
+} from "../../../../src/channels/web/auth/session-auth.js";
 
 describe("web session auth helpers", () => {
   test("extracts session token from cookie header", () => {

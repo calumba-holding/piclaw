@@ -4,8 +4,8 @@
 
 import type { AgentPool } from "../../agent-pool.js";
 import type { InteractionRow } from "../../db.js";
-import type { WebAgentBufferEntry } from "./agent-buffers.js";
-import type { AgentStatusContext } from "./agent-status.js";
+import type { WebAgentBufferEntry } from "./agent/agent-buffers.js";
+import type { AgentStatusContext } from "./agent/agent-status.js";
 import type { ContentEndpointsContext } from "./content-endpoints.js";
 import type { AgentsEndpointContext, AvatarEndpointContext } from "./identity-endpoints.js";
 import type { PostMutationsContext } from "./post-mutations.js";

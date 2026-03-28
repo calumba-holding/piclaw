@@ -7,7 +7,7 @@
  * Consumers: web/agent-events.ts, web/agent-message-store.ts.
  */
 
-import { buildPreviewLines, countSoftLines, splitLines } from "../../utils/preview.js";
+import { buildPreviewLines, countSoftLines, splitLines } from "../../../utils/preview.js";
 
 /** Function type that decorates payloads with chat + profile metadata fields. */
 export type AgentProfileBuilder = <T extends object>(payload: T) => T & {

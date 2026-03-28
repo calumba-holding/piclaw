@@ -17,7 +17,7 @@ import {
   createTotpCardToken,
   hashTotpSecret,
   type TotpCardFlow,
-} from "../../channels/web/totp-card.js";
+} from "../../channels/web/auth/totp-card.js";
 import { generateTotpQr } from "../../utils/totp-qr.js";
 
 type TotpCommand = Extract<AgentControlCommand, { type: "totp" }>;
