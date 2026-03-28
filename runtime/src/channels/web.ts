@@ -33,7 +33,6 @@ import { WebSessionBroadcastService } from "./web/session-broadcast-service.js";
 import { ResponseService } from "./web/http/response-service.js";
 import {
   replaceMessageContent,
-  getChatBranchByChatJid,
   getChatCursor,
   getDb,
 } from "../db.js";
@@ -69,10 +68,14 @@ import {
   WebAdaptiveCardSidePromptService,
   type WebAdaptiveCardSidePromptChannelLike,
 } from "./web/adaptive-card-side-prompt-service.js";
+import {
+  createWebAgentPeerMessageRelayService,
+  WebAgentPeerMessageRelayService,
+  type WebAgentPeerMessageRelayChannelLike,
+} from "./web/agent-peer-message-relay-service.js";
 import { TerminalSessionService } from "./web/terminal/terminal-session-service.js";
 import { VncSessionService } from "./web/vnc/vnc-session-service.js";
 import { RemoteInteropService } from "../remote/service.js";
-import { parseJsonObjectRequest } from "./web/json-body.js";
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
 const STATE_KEY = "last_agent_timestamp_web";
@@ -81,6 +84,15 @@ function getAdaptiveCardSidePromptService(channel: WebAdaptiveCardSidePromptChan
   return (channel as { adaptiveCardSidePromptService?: WebAdaptiveCardSidePromptService }).adaptiveCardSidePromptService
     ?? createWebAdaptiveCardSidePromptService(channel, {
       defaultChatJid: DEFAULT_CHAT_JID,
+      defaultAgentId: DEFAULT_AGENT_ID,
+    });
+}
+
+function getAgentPeerMessageRelayService(
+  channel: Pick<WebAgentPeerMessageRelayChannelLike, "json"> & { agentPool?: WebAgentPeerMessageRelayChannelLike["agentPool"] },
+): WebAgentPeerMessageRelayService {
+  return (channel as { peerMessageRelayService?: WebAgentPeerMessageRelayService }).peerMessageRelayService
+    ?? createWebAgentPeerMessageRelayService(channel as WebAgentPeerMessageRelayChannelLike, {
       defaultAgentId: DEFAULT_AGENT_ID,
     });
 }
@@ -115,6 +127,7 @@ export class WebChannel implements WebChannelLike {
   private readonly serverLifecycleGateway: WebServerLifecycleGatewayService;
   private readonly terminalVncHttpService: WebTerminalVncHttpService;
   private readonly adaptiveCardSidePromptService: WebAdaptiveCardSidePromptService;
+  private readonly peerMessageRelayService: WebAgentPeerMessageRelayService;
   private readonly messageWriteService: WebMessageWriteService;
   private readonly endpointFacade: WebChannelEndpointFacadeService;
   private readonly controlPlaneService: WebAgentControlPlaneService;
@@ -213,6 +226,9 @@ export class WebChannel implements WebChannelLike {
       defaultChatJid: DEFAULT_CHAT_JID,
       defaultAgentId: DEFAULT_AGENT_ID,
       webRuntimeConfig: this.webRuntimeConfig,
+    });
+    this.peerMessageRelayService = createWebAgentPeerMessageRelayService(this, {
+      defaultAgentId: DEFAULT_AGENT_ID,
     });
   }
 
@@ -563,72 +579,7 @@ export class WebChannel implements WebChannelLike {
    * Reuses the normal agent message path in the target chat so queue/defer semantics stay consistent.
    */
   async handleAgentPeerMessage(req: Request): Promise<Response> {
-    const parsed = await parseJsonObjectRequest(req);
-    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
-
-    const payload = parsed.payload as {
-      source_chat_jid?: string;
-      source_agent_name?: string;
-      target_chat_jid?: string;
-      target_agent_name?: string;
-      content?: string;
-      mode?: "auto" | "queue" | "steer";
-    };
-
-    const sourceChatJid = typeof payload.source_chat_jid === "string" ? payload.source_chat_jid.trim() : "";
-    const sourceAgentName = typeof payload.source_agent_name === "string" ? payload.source_agent_name.trim() : "";
-    const requestedTargetChatJid = typeof payload.target_chat_jid === "string" ? payload.target_chat_jid.trim() : "";
-    const requestedTargetAgentName = typeof payload.target_agent_name === "string" ? payload.target_agent_name.trim() : "";
-    const content = typeof payload.content === "string" ? payload.content.trim() : "";
-    const mode = payload.mode === "queue" || payload.mode === "steer" || payload.mode === "auto"
-      ? payload.mode
-      : "auto";
-
-    if (!sourceChatJid) return this.json({ error: "Missing source_chat_jid" }, 400);
-    if (!requestedTargetChatJid && !requestedTargetAgentName) {
-      return this.json({ error: "Missing target_chat_jid or target_agent_name" }, 400);
-    }
-    if (!content) return this.json({ error: "Missing content" }, 400);
-
-    const targetChat = requestedTargetChatJid
-      ? this.agentPool.listActiveChats().find((chat) => chat.chat_jid === requestedTargetChatJid)
-          ?? getChatBranchByChatJid(requestedTargetChatJid)
-      : (typeof (this.agentPool as { findChatByAgentName?: (name: string) => { chat_jid: string; agent_name: string } | null }).findChatByAgentName === "function"
-          ? (this.agentPool as { findChatByAgentName: (name: string) => { chat_jid: string; agent_name: string } | null }).findChatByAgentName(requestedTargetAgentName)
-          : this.agentPool.findActiveChatByAgentName(requestedTargetAgentName));
-    if (!targetChat) {
-      return this.json({ error: requestedTargetAgentName ? `Unknown target agent: ${requestedTargetAgentName}` : `Target chat is not active: ${requestedTargetChatJid}` }, 404);
-    }
-    if (sourceChatJid === targetChat.chat_jid) {
-      return this.json({ error: "source_chat_jid and target chat must differ" }, 400);
-    }
-
-    const effectiveSourceAgentName = sourceAgentName || this.agentPool.getAgentHandleForChat(sourceChatJid);
-    const forwardedContent = `Peer message from @${effectiveSourceAgentName}:\n\n${content}`;
-    const forwardReq = new Request(`http://internal/agent/${DEFAULT_AGENT_ID}/message?chat_jid=${encodeURIComponent(targetChat.chat_jid)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        content: forwardedContent,
-        mode,
-      }),
-    });
-
-    const forwardRes = await handleAgentMessageRequest(this, forwardReq, `/agent/${DEFAULT_AGENT_ID}/message`, targetChat.chat_jid, DEFAULT_AGENT_ID);
-    if (!forwardRes.ok) {
-      return forwardRes;
-    }
-
-    const responseBody = await forwardRes.json().catch(() => ({} as Record<string, unknown>));
-    return this.json({
-      status: "ok",
-      ...responseBody,
-      source_chat_jid: sourceChatJid,
-      source_agent_name: effectiveSourceAgentName,
-      target_chat_jid: targetChat.chat_jid,
-      target_agent_name: targetChat.agent_name,
-      relayed: true,
-    }, forwardRes.status);
+    return await getAgentPeerMessageRelayService(this).handleAgentPeerMessage(req);
   }
 
   /**
