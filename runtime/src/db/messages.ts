@@ -320,7 +320,20 @@ export function getTimeline(chatJid: string, limit: number, beforeId?: number): 
         )
         .all(chatJid, limit) as StoredMessageRow[]);
 
-  const interactions = rows.map((row) => buildInteraction(row, getMediaIdsForMessage(row.rowid)));
+  const rowIds = rows.map((row) => row.rowid);
+  const mediaByMessage = new Map<number, number[]>();
+  if (rowIds.length > 0) {
+    const placeholders = rowIds.map(() => "?").join(",");
+    const mediaRows = db
+      .prepare(`SELECT message_rowid, media_id FROM message_media WHERE message_rowid IN (${placeholders}) ORDER BY message_rowid, media_id`)
+      .all(...rowIds) as Array<{ message_rowid: number; media_id: number }>;
+    for (const mediaRow of mediaRows) {
+      const current = mediaByMessage.get(mediaRow.message_rowid);
+      if (current) current.push(mediaRow.media_id);
+      else mediaByMessage.set(mediaRow.message_rowid, [mediaRow.media_id]);
+    }
+  }
+  const interactions = rows.map((row) => buildInteraction(row, mediaByMessage.get(row.rowid) || []));
   return interactions.reverse();
 }
 

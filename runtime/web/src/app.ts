@@ -1663,16 +1663,7 @@ function MainApp({ locationParams, navigate }) {
         } catch (e) {
             console.warn('Failed to load agents:', e);
         }
-        // Fetch initial context usage for the pie chart indicator
-        try {
-            const targetChatJid = currentChatJid;
-            const ctx = await getAgentContext(targetChatJid);
-            if (activeChatJidRef.current !== targetChatJid) return;
-            if (ctx) setContextUsage(ctx);
-        } catch {
-            /* expected: context widget refresh is best-effort during startup/chat switches. */
-        }
-    }, [applyBranding, currentChatJid]);
+    }, [applyBranding]);
 
     useEffect(() => {
         loadAgents();
@@ -2168,14 +2159,9 @@ function MainApp({ locationParams, navigate }) {
     }, [refreshModelAndQueueState, refreshModelState, refreshActiveChatAgents, refreshCurrentChatBranches, refreshQueueState]);
 
     useEffect(() => {
-        refreshCurrentChatBranches();
-    }, [refreshCurrentChatBranches]);
-
-    useEffect(() => {
         setExtensionStatusPanels(new Map());
         setPendingExtensionPanelActions(new Set());
-        void refreshAutoresearchStatus();
-    }, [currentChatJid, refreshAutoresearchStatus]);
+    }, [currentChatJid]);
 
     useEffect(() => {
         let cancelled = false;

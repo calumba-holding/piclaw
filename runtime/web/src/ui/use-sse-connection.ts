@@ -24,8 +24,6 @@ export function useSseConnection({ handleSseEvent, handleConnectionStatusChange,
   onWakeRef.current = onWake;
 
   useEffect(() => {
-    loadPostsRef.current();
-
     const sse = new SSEClient(
       (type, data) => sseEventRef.current(type, data),
       (status) => statusChangeRef.current(status),
