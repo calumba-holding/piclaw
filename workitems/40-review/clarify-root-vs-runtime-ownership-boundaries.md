@@ -1,7 +1,7 @@
 ---
 id: clarify-root-vs-runtime-ownership-boundaries
 title: Clarify repo-root vs runtime ownership boundaries for docs, scripts, and artifacts
-status: next
+status: review
 priority: medium
 created: 2026-03-28
 updated: 2026-03-28
@@ -54,10 +54,22 @@ layout drift and inconsistent packaging semantics.
 
 ## Acceptance Criteria
 
-- [ ] A short, durable ownership policy exists for root vs `runtime/`
-- [ ] `docs/`, `scripts/`, and `artifacts/` each have a clear placement rule
-- [ ] The README or other maintainer-facing docs point to the rule
-- [ ] Any recommended future moves are split into separate bounded tickets
+- [x] A short, durable ownership policy exists for root vs `runtime/`
+- [x] `docs/`, `scripts/`, and `artifacts/` each have a clear placement rule
+- [x] The README or other maintainer-facing docs point to the rule
+- [x] Any recommended future moves are split into separate bounded tickets
+
+## Updates
+
+### 2026-03-28
+- Added `docs/repo-runtime-boundaries-2026-03-28.md` as the durable maintainer-facing boundary policy.
+- Updated `README.md` and `docs/install-from-repo.md` to point at the policy and reflect the post-Stage-2 `runtime/generated/` boundary.
+- Added directory-local guidance files for the paired domains:
+  - `scripts/README.md`
+  - `runtime/docs/README.md`
+  - `runtime/scripts/README.md`
+  - `artifacts/README.md`
+- Kept this batch bounded to policy/documentation clarification rather than another relocation sweep.
 
 ## Links
 

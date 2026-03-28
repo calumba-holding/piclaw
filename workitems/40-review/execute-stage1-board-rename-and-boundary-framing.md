@@ -121,4 +121,4 @@ as the implementation map/steplist for this batch.
 - `docs/broad-filesystem-reorg-map-2026-03-28.md`
 - `docs/stage1-broad-filesystem-reorg-steplist-2026-03-28.md`
 - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
-- `workitems/10-next/clarify-root-vs-runtime-ownership-boundaries.md`
+- `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`

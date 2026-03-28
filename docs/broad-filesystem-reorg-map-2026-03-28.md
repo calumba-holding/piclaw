@@ -332,6 +332,17 @@ Avoid indefinite dual-path support.
 - `runtime/tmp/` is not automatically generated output and should stay out of `runtime/generated/` unless its contents change class
 - `runtime/node_modules/` remains untouched as the Stage 2 toolchain exception
 
+### Stage 3 execution update — 2026-03-28
+
+- added a durable maintainer-facing boundary policy in `docs/repo-runtime-boundaries-2026-03-28.md`
+- updated `README.md` and `docs/install-from-repo.md` so the root-vs-runtime placement rule is visible in the main maintainer/install paths
+- added directory-local guidance files to reinforce the paired-domain rules:
+  - `scripts/README.md`
+  - `runtime/docs/README.md`
+  - `runtime/scripts/README.md`
+  - `artifacts/README.md`
+- kept Stage 3 intentionally bounded to policy clarification and local directory guidance rather than another relocation sweep
+
 ## First-batch recommendation
 
 If we start executing immediately, the best first batch is:
@@ -348,7 +359,7 @@ output paths.
 - `workitems/20-doing/plan-broad-filesystem-reorg-from-audit.md`
 - `workitems/40-review/audit-project-filesystem-layout.md`
 - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
-- `workitems/10-next/clarify-root-vs-runtime-ownership-boundaries.md`
-- `workitems/10-next/rationalize-runtime-generated-output-layout.md`
+- `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
+- `workitems/40-review/rationalize-runtime-generated-output-layout.md`
 - `workitems/10-next/namespace-internal-extensions-and-skills-paths.md`
 - `workitems/10-next/group-web-channel-flat-files.md`

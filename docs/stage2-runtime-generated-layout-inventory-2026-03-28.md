@@ -172,4 +172,4 @@ Treat Stage 2 as:
 
 - `docs/broad-filesystem-reorg-map-2026-03-28.md`
 - `workitems/20-doing/plan-broad-filesystem-reorg-from-audit.md`
-- `workitems/10-next/rationalize-runtime-generated-output-layout.md`
+- `workitems/40-review/rationalize-runtime-generated-output-layout.md`

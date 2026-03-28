@@ -17,8 +17,12 @@ Docker is not the best fit or is not available. That said, this is still an
 experimental path and not a generally supported deployment target.
 
 The repository root is the package/install boundary for this flow. The nested
-`runtime/` directory is an implementation detail that contains the runtime
-sources, web app, extensions, vendored assets, and skills.
+`runtime/` directory is the packaged implementation subtree that contains the
+runtime sources, web app, extensions, vendored assets, skills, packaged helper
+scripts, and packaged runtime docs.
+
+For maintainer-facing placement rules inside the repo, see
+`docs/repo-runtime-boundaries-2026-03-28.md`.
 
 ## What happens at install time
 

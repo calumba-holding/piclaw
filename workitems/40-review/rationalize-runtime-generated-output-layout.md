@@ -1,7 +1,7 @@
 ---
 id: rationalize-runtime-generated-output-layout
 title: Rationalize generated and transient output layout under runtime
-status: next
+status: review
 priority: medium
 created: 2026-03-28
 updated: 2026-03-28
@@ -57,10 +57,20 @@ boundary between human-maintained code and disposable output.
 
 ## Acceptance Criteria
 
-- [ ] Current generated/transient runtime directories are inventoried with owners/producers
-- [ ] A containment/placement policy is documented
-- [ ] Low-risk cleanup opportunities are separated from expensive moves
-- [ ] Any move/rename work is split into explicit bounded follow-up tickets
+- [x] Current generated/transient runtime directories are inventoried with owners/producers
+- [x] A containment/placement policy is documented
+- [x] Low-risk cleanup opportunities are separated from expensive moves
+- [x] Any move/rename work is split into explicit bounded follow-up tickets
+
+## Updates
+
+### 2026-03-28
+- Covered by the Stage 2 generated-output containment batch.
+- Inventory and placement policy were captured in:
+  - `docs/stage2-runtime-generated-layout-inventory-2026-03-28.md`
+  - `docs/stage2-runtime-generated-containment-steplist-2026-03-28.md`
+- The landed containment work is tracked in:
+  - `workitems/40-review/execute-stage2-runtime-generated-containment.md`
 
 ## Links
 

@@ -80,7 +80,7 @@ cd /workspace && pi
 >
 > One reason this path exists is to support people who want to run PiClaw on low-end ARM SBCs, lightweight VMs, or other sandboxed environments where Docker is not the best fit or is not available.
 >
-> The repository root is the install/package boundary. The nested `runtime/` directory is the implementation subtree used by the packaged CLI, web assets, extensions, and skills.
+> The repository root is the install/package boundary. The nested `runtime/` directory is the implementation subtree used by the packaged CLI, web assets, extensions, skills, packaged helper scripts, and packaged runtime docs.
 
 ```bash
 bun add -g github:rcarmo/piclaw
@@ -116,7 +116,9 @@ The repo root is the maintainer/operator boundary; `runtime/` is the packaged im
 - `scripts/` — repo-level dev/operator entrypoints and audits
 - `runtime/scripts/` — packaged helper scripts that ship with piclaw
 - `artifacts/` — durable repo-level evidence and audit outputs
-- runtime-generated build/test output remains under `runtime/` until the later generated-output containment batch lands
+- `runtime/generated/` — transient runtime-generated build/test/cache output
+
+See `docs/repo-runtime-boundaries-2026-03-28.md` for the longer placement policy.
 
 Intentional exceptions remain intentionally named `kanban` when they describe the visual/editor surface rather than the repo work-item store — for example `kanban-management` and `*.kanban.md`.
 

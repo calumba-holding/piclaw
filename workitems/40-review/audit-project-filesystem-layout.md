@@ -154,8 +154,8 @@ into bounded follow-up tickets.
     - `workitems/10-next/group-web-channel-flat-files.md`
     - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
 - Split two new bounded follow-up tickets from the audit:
-  - `workitems/10-next/clarify-root-vs-runtime-ownership-boundaries.md`
-  - `workitems/10-next/rationalize-runtime-generated-output-layout.md`
+  - `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
+  - `workitems/40-review/rationalize-runtime-generated-output-layout.md`
 - Validation/evidence capture for the audit used repo tree/path inspection only; no runtime code changes were made in this slice.
 - Final outcome of this audit slice:
   - audit completed and recorded in `docs/filesystem-layout-audit-2026-03-28.md`
@@ -163,16 +163,16 @@ into bounded follow-up tickets.
     - `workitems/10-next/group-web-channel-flat-files.md`
     - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
   - two new bounded follow-up tickets created:
-    - `workitems/10-next/clarify-root-vs-runtime-ownership-boundaries.md`
-    - `workitems/10-next/rationalize-runtime-generated-output-layout.md`
+    - `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
+    - `workitems/40-review/rationalize-runtime-generated-output-layout.md`
   - broad move/rename churn was initially deferred in the audit write-up, but that recommendation is now superseded by direct project guidance to pursue a broader reorg rather than only bounded cleanup slices
 
 ## Links
 
 - `workitems/20-doing/plan-broad-filesystem-reorg-from-audit.md`
 - `docs/filesystem-layout-audit-2026-03-28.md`
-- `workitems/10-next/clarify-root-vs-runtime-ownership-boundaries.md`
-- `workitems/10-next/rationalize-runtime-generated-output-layout.md`
+- `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
+- `workitems/40-review/rationalize-runtime-generated-output-layout.md`
 - `workitems/10-next/group-web-channel-flat-files.md`
 - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
 - `README.md`

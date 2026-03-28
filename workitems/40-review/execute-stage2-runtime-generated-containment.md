@@ -119,4 +119,4 @@ as the implementation map/steplist for this batch.
 - `docs/stage2-runtime-generated-layout-inventory-2026-03-28.md`
 - `docs/stage2-runtime-generated-containment-steplist-2026-03-28.md`
 - `docs/stage2-runtime-generated-autoresearch-prompt-2026-03-28.md`
-- `workitems/10-next/rationalize-runtime-generated-output-layout.md`
+- `workitems/40-review/rationalize-runtime-generated-output-layout.md`

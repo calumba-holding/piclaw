@@ -100,8 +100,8 @@ Potentially in scope, pending plan decisions:
 - The audit findings still stand, but its earlier conservative recommendation against broad churn is now explicitly superseded.
 - Starting point inputs for this planning/execution umbrella:
   - `docs/filesystem-layout-audit-2026-03-28.md`
-  - `workitems/10-next/clarify-root-vs-runtime-ownership-boundaries.md`
-  - `workitems/10-next/rationalize-runtime-generated-output-layout.md`
+  - `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
+  - `workitems/40-review/rationalize-runtime-generated-output-layout.md`
   - `workitems/10-next/group-web-channel-flat-files.md`
   - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
 - Immediate next step: turn the audit into a target-state reorg map and decide whether execution should happen in 2–4 staged batches or a more aggressive single migration.
@@ -112,10 +112,13 @@ Potentially in scope, pending plan decisions:
 - Additional reorg finding folded into the plan: internal extension and packaged skill paths also need clearer namespacing, tracked via:
   - `workitems/10-next/namespace-internal-extensions-and-skills-paths.md`
 - Stage 1 was executed and landed on `main` via `75f7dedb` (`Rename kanban board paths to workitems`).
-- Stage 2 was executed locally as the next bounded batch, with the implementation and validation captured in:
+- Stage 2 was executed and landed on `main` via `d11c585b` (`Contain runtime generated output under runtime/generated`), with the implementation and validation captured in:
   - `docs/stage2-runtime-generated-layout-inventory-2026-03-28.md`
   - `docs/stage2-runtime-generated-containment-steplist-2026-03-28.md`
   - `workitems/40-review/execute-stage2-runtime-generated-containment.md`
+- Stage 3 boundary clarification was then landed as a bounded policy/docs batch, with the implementation captured in:
+  - `docs/repo-runtime-boundaries-2026-03-28.md`
+  - `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
 
 ## Links
 
@@ -129,8 +132,8 @@ Potentially in scope, pending plan decisions:
 - `workitems/40-review/execute-stage2-runtime-generated-containment.md`
 - `workitems/40-review/audit-project-filesystem-layout.md`
 - `docs/filesystem-layout-audit-2026-03-28.md`
-- `workitems/10-next/clarify-root-vs-runtime-ownership-boundaries.md`
-- `workitems/10-next/rationalize-runtime-generated-output-layout.md`
+- `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
+- `workitems/40-review/rationalize-runtime-generated-output-layout.md`
 - `workitems/10-next/namespace-internal-extensions-and-skills-paths.md`
 - `workitems/10-next/group-web-channel-flat-files.md`
 - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
