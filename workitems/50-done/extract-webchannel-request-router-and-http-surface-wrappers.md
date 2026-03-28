@@ -31,7 +31,7 @@ routing behavior, status codes, JSON/static response semantics, or the public
 `WebChannel` surface used by the runtime.
 
 This is the next bounded execution slice under:
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 
 after the constructor wiring factory seam landed.
 
@@ -142,6 +142,6 @@ Extract a dedicated HTTP/routing wrapper seam while keeping the public
 
 ## Links
 
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 - `workitems/50-done/extract-webchannel-constructor-wiring-factory.md`
 - `/workspace/notes/piclaw-autoresearch-audit-checklist.md`

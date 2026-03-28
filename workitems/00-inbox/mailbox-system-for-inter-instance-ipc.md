@@ -1,10 +1,10 @@
 ---
 id: mailbox-system-for-inter-instance-ipc
 title: Add a mailbox system for inter-instance IPC
-status: blocked
+status: inbox
 priority: medium
 created: 2026-03-16
-updated: 2026-03-18
+updated: 2026-03-28
 target_release: later
 estimate: M
 risk: medium
@@ -94,6 +94,16 @@ multi-instance collaboration rather than trying to force everything through live
 interactive calls.
 
 ## Updates
+
+### 2026-03-28
+- Lane change: `30-blocked` → `00-inbox` via web blocked-card decision.
+- Blocked-lane outcome recorded from the adaptive-card submission: **Move to Inbox**.
+- The ticket reads as a research/design idea with open framing questions rather than a currently blocked implementation task.
+
+### 2026-03-28
+- Card submission accepted with decision `inbox`.
+- Lane change: `30-blocked` → `00-inbox` because this is better treated as a deferred design idea than as an actively blocked implementation.
+- The idea remains intentionally uncommitted pending broader inter-instance IPC prioritization.
 
 ### 2026-03-16
 - Ticket created from a new idea request during broader inter-instance planning.

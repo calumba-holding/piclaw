@@ -32,7 +32,7 @@ wording, queue/defer semantics, response payloads, or the public `WebChannel`
 method used by the request router.
 
 This is the next bounded execution slice under:
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 
 after the queued follow-up, server lifecycle/websocket gateway,
 SSE/session-broadcast, recovery/runtime-state, message-write, endpoint facade,
@@ -150,7 +150,7 @@ public `WebChannel.handleAgentPeerMessage()` method as a thin delegate.
 
 ## Links
 
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 - `workitems/50-done/extract-webchannel-agent-message-entry-wrapper.md`
 - `workitems/50-done/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
 - `workitems/50-done/extract-webchannel-terminal-and-vnc-http-wrappers.md`

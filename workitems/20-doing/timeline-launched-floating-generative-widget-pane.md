@@ -308,6 +308,11 @@ add focused coverage for:
 ## Updates
 
 ### 2026-03-28
+- Lane retained: `20-doing` via web doing-card decision.
+- Doing-lane outcome recorded from the adaptive-card submission: **Keep in Doing**.
+- Interaction regression coverage plus current-chat and narrow/mobile validation remains active work.
+
+### 2026-03-28
 - Lane change: `40-review` → `20-doing` via web review-card decision.
 - Review outcome recorded from the adaptive-card submission: **Move to Doing**.
 - Reason captured in review: interaction regression coverage plus current-chat and narrow/mobile validation are still explicitly missing.

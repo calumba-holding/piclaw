@@ -1,10 +1,10 @@
 ---
 id: codebase-quality-cleanup-2026
 title: "Master: codebase quality cleanup & refactoring (2026-Q1)"
-status: blocked
+status: doing
 priority: critical
 created: 2026-03-23
-updated: 2026-03-27
+updated: 2026-03-28
 tags:
   - master
   - refactor
@@ -88,6 +88,11 @@ These are desirable but not required to close this ticket:
 - [ ] Re-run quality assessment and confirm grade improvement
 
 ## Updates
+
+### 2026-03-28
+- Lane change: `30-blocked` → `20-doing` via web blocked-card decision.
+- Blocked-lane outcome recorded from the adaptive-card submission: **Move to Doing**.
+- This decision reactivates the quality umbrella despite its open blocker chain; downstream blocker cleanup should now be tracked from active work instead of pure blocked status.
 
 ### 2026-03-27
 - Refreshed the blocker chain after repo-status audit.

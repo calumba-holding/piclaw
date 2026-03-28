@@ -1,10 +1,10 @@
 ---
 id: web-onboarding-mkcert-passkey
 title: Web onboarding flow for mkcert + passkey setup
-status: blocked
+status: inbox
 priority: low
 created: 2026-03-11
-updated: 2026-03-12
+updated: 2026-03-28
 tags:
   - work-item
   - kanban
@@ -55,6 +55,11 @@ Pros: Polished UX, fewer support issues.
 Cons: More frontend work, platform detection can be fragile.
 
 ## Updates
+
+### 2026-03-28
+- Lane change: `30-blocked` → `00-inbox` via web blocked-card decision.
+- Blocked-lane outcome recorded from the adaptive-card submission: **Move to Inbox**.
+- The ticket is currently backlog parking pending prioritization, so it fits better as an inbox idea than as a hard-blocked item.
 
 ### 2026-03-12
 - Board quality review: added rough acceptance criteria so the ticket clears the inbox gate more cleanly.

@@ -1,7 +1,7 @@
 ---
 id: split-webchannel-god-class
 title: "Refactor: split WebChannel god-class into composable services"
-status: doing
+status: next
 priority: critical
 created: 2026-03-23
 updated: 2026-03-28
@@ -53,6 +53,12 @@ Extract `WebChannel` into a composition of focused services:
 - This unblocks all future web-layer work
 
 ## Updates
+
+### 2026-03-28
+- Card submission accepted with decision `next`.
+- Lane change: `20-doing` → `10-next` via web doing-card decision.
+- Doing-lane outcome recorded from the adaptive-card submission: **Move to Next**.
+- The latest stabilization note says not to force more extraction just to chase line count, so this item leaves active WIP for now.
 
 ### 2026-03-28
 - Stabilization review: after landing the HTTP surface, runtime/session/storage public-surface, and lifecycle/special-wrapper seams, `runtime/src/channels/web.ts` is now functioning primarily as a compatibility shell over extracted services rather than as a behavior-heavy god-class.

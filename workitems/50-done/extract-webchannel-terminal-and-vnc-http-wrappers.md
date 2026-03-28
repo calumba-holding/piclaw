@@ -32,7 +32,7 @@ handoff semantics, JSON payload shapes, or the public WebChannel methods used by
 the request router.
 
 This is the next bounded execution slice under:
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 
 after the queued follow-up, server lifecycle/websocket gateway,
 SSE/session-broadcast, recovery/runtime-state, message-write, endpoint facade,
@@ -189,7 +189,7 @@ while keeping behavior and public surfaces unchanged.
 
 ## Links
 
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 - `workitems/50-done/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
 - `workitems/40-review/extract-webchannel-queued-followup-service.md`
 - `workitems/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`

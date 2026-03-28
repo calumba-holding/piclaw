@@ -31,7 +31,7 @@ server lifecycle behavior, adaptive-card/side-prompt behavior, peer-message
 relay behavior, agent-message entry behavior, or the public `WebChannel` API.
 
 This is the next bounded execution slice under:
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 
 after the runtime/session/storage public-delegate seam landed.
 
@@ -143,11 +143,11 @@ Extract a final small lifecycle/helper wrapper seam while keeping the public
   - `runtime/test/channels/web/web-channel-lifecycle-special-surface-service.test.ts`
   - `runtime/test/channels/web/web-channel-lifecycle-special-surface-delegation.test.ts`
   - `workitems/50-done/extract-webchannel-lifecycle-and-special-wrapper-surface.md`
-  - `workitems/20-doing/split-webchannel-god-class.md`
+  - `workitems/10-next/split-webchannel-god-class.md`
 
 ## Links
 
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 - `workitems/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`
 - `workitems/50-done/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
 - `workitems/50-done/extract-webchannel-peer-message-relay-wrapper.md`

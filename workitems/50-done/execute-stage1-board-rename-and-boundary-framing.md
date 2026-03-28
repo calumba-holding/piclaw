@@ -125,7 +125,7 @@ as the implementation map/steplist for this batch.
 
 ## Links
 
-- `workitems/20-doing/plan-broad-filesystem-reorg-from-audit.md`
+- `workitems/50-done/plan-broad-filesystem-reorg-from-audit.md`
 - `docs/broad-filesystem-reorg-map-2026-03-28.md`
 - `docs/stage1-broad-filesystem-reorg-steplist-2026-03-28.md`
 - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`

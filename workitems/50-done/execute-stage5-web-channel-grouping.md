@@ -1,10 +1,11 @@
 ---
 id: execute-stage5-web-channel-grouping
 title: Execute Stage 5 broad reorg batch — web-channel source-tree grouping cleanup
-status: review
+status: done
 priority: high
 created: 2026-03-28
 updated: 2026-03-28
+completed: 2026-03-28
 target_release: next
 estimate: L
 risk: high
@@ -79,6 +80,11 @@ as the implementation map/steplist for this batch.
 ## Updates
 
 ### 2026-03-28
+- Lane change: `20-doing` → `50-done` via web doing-card decision.
+- Doing-lane outcome recorded from the adaptive-card submission: **Close to Done**.
+- The ticket body already stated Stage 5 satisfied its original target and was review-ready; this decision closes it out.
+
+### 2026-03-28
 - Created as the fifth execution batch under `plan-broad-filesystem-reorg-from-audit` after Stages 1–4 established top-level naming, generated-output containment, repo-vs-runtime boundaries, and packaged extension/skill namespacing.
 - Intended to keep the broad reorg moving while staying bounded to source-tree grouping inside `runtime/src/channels/web/`.
 - Detailed inventory + step order live in:
@@ -131,10 +137,12 @@ as the implementation map/steplist for this batch.
   - `bun run typecheck`
   - `bun run check:import-boundaries`
 - Stage 5 now satisfies the original flat-root acceptance target and is ready for review.
+- Card submission accepted with decision `done` even though the recommendation remained `review`.
+- Lane change: `40-review`/review-ready state → `50-done` by explicit board decision.
 
 ## Links
 
-- `workitems/20-doing/plan-broad-filesystem-reorg-from-audit.md`
+- `workitems/50-done/plan-broad-filesystem-reorg-from-audit.md`
 - `workitems/10-next/group-web-channel-flat-files.md`
 - `docs/broad-filesystem-reorg-map-2026-03-28.md`
 - `docs/stage5-web-channel-grouping-inventory-2026-03-28.md`

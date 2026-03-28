@@ -31,7 +31,7 @@ which collaborators are created, initialization order, runtime behavior,
 auth/session setup, endpoint wiring, or the public `WebChannel` surface.
 
 This is the next bounded execution slice under:
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 
 after the queued follow-up, server lifecycle/websocket gateway,
 SSE/session-broadcast, recovery/runtime-state, message-write, endpoint facade,
@@ -140,13 +140,13 @@ and exposing the public runtime API.
   - `scripts/audit-baseline-quality-deterministic.ts`
   - `runtime/test/scripts/audit-baseline-quality-deterministic.test.ts`
   - `workitems/50-done/extract-webchannel-constructor-wiring-factory.md`
-  - `workitems/20-doing/split-webchannel-god-class.md`
+  - `workitems/10-next/split-webchannel-god-class.md`
 - Next bounded seam split out explicitly instead of widening scope in-place:
   - `workitems/50-done/extract-webchannel-request-router-and-http-surface-wrappers.md`
 
 ## Links
 
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 - `workitems/50-done/extract-webchannel-runtime-and-followup-facades.md`
 - `workitems/50-done/extract-webchannel-message-processing-and-storage-adapters.md`
 - `/workspace/notes/piclaw-autoresearch-audit-checklist.md`

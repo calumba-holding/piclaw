@@ -1,10 +1,11 @@
 ---
 id: plan-broad-filesystem-reorg-from-audit
 title: Plan and stage a broad filesystem reorg from the layout audit
-status: doing
+status: done
 priority: high
 created: 2026-03-28
 updated: 2026-03-28
+completed: 2026-03-28
 target_release: next
 estimate: L
 risk: high
@@ -96,6 +97,11 @@ Potentially in scope, pending plan decisions:
 ## Updates
 
 ### 2026-03-28
+- Lane change: `20-doing` → `50-done` via web doing-card decision.
+- Doing-lane outcome recorded from the adaptive-card submission: **Close to Done**.
+- The umbrella now records a planned-and-staged reorg with executed Stage 1–5 follow-through, so this decision closes the planning ticket.
+
+### 2026-03-28
 - Created immediately after reviewing `audit-project-filesystem-layout` in light of new project guidance.
 - The audit findings still stand, but its earlier conservative recommendation against broad churn is now explicitly superseded.
 - Starting point inputs for this planning/execution umbrella:
@@ -128,8 +134,10 @@ Potentially in scope, pending plan decisions:
   - `docs/stage5-web-channel-grouping-inventory-2026-03-28.md`
   - `docs/stage5-web-channel-grouping-steplist-2026-03-28.md`
   - `docs/stage5-web-channel-grouping-autoresearch-prompt-2026-03-28.md`
-  - `workitems/20-doing/execute-stage5-web-channel-grouping.md`
+  - `workitems/50-done/execute-stage5-web-channel-grouping.md`
 - The original Stage 5 target is now satisfied: the flat root under `runtime/src/channels/web/` was reduced from 73 files to 12 files.
+- Card submission accepted: close-to-done review resolved with decision `done`.
+- Lane change: `20-doing` → `50-done` because the broad reorg plan has been executed through its staged batches and the umbrella planning ticket is now complete.
 
 ## Links
 
@@ -148,5 +156,5 @@ Potentially in scope, pending plan decisions:
 - `workitems/50-done/namespace-internal-extensions-and-skills-paths.md`
 - `workitems/50-done/execute-stage4-extension-and-skill-namespacing.md`
 - `workitems/10-next/group-web-channel-flat-files.md`
-- `workitems/20-doing/execute-stage5-web-channel-grouping.md`
+- `workitems/50-done/execute-stage5-web-channel-grouping.md`
 - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`

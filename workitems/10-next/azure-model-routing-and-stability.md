@@ -1,10 +1,10 @@
 ---
 id: azure-model-routing-and-stability
 title: Harden Azure / Foundry model routing and stability
-status: blocked
+status: next
 priority: high
 created: 2026-03-10
-updated: 2026-03-12
+updated: 2026-03-28
 target_release: next
 tags:
   - work-item
@@ -37,6 +37,16 @@ Use the Azure harness to close the remaining Azure-model issues:
 - Harness results are repeatable and documented, with all fixes identified before porting over to our core code.
 
 ## Updates
+
+### 2026-03-28
+- Lane change: `30-blocked` → `10-next` via web blocked-card decision.
+- Blocked-lane outcome recorded from the adaptive-card submission: **Move to Next**.
+- The recorded blocker was time/prioritization rather than a hard dependency, so the ticket is parked in the ready queue instead of blocked.
+
+### 2026-03-28
+- Card submission accepted with decision `next`.
+- Lane change: `30-blocked` → `10-next` because the item is no longer being treated as actively blocked; it is deferred behind other priorities but remains a ready next-up candidate.
+- Existing harness findings, porting paths, and notes remain valid for the next work window.
 
 ### 2026-03-12
 - Board quality review: added explicit test plan and DoD checklist.

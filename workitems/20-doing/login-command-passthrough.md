@@ -53,6 +53,11 @@ It is not about piclaw's own web/TOTP/passkey session login.
 ## Updates
 
 ### 2026-03-28
+- Lane retained: `20-doing` via web doing-card decision.
+- Doing-lane outcome recorded from the adaptive-card submission: **Keep in Doing**.
+- Same-chat UX plus graceful-failure validation remains active work.
+
+### 2026-03-28
 - Lane change: `40-review` → `20-doing` via web review-card decision.
 - Review outcome recorded from the adaptive-card submission: **Move to Doing**.
 - Reason captured in review: end-to-end validation is still needed for same-chat success/failure behavior across OAuth/manual-paste and API-key flows.

@@ -4,7 +4,7 @@ title: Promote export-timeline-pdf skill into skel
 status: blocked
 priority: medium
 created: 2026-03-17
-updated: 2026-03-22
+updated: 2026-03-28
 target_release: next
 estimate: S
 risk: medium
@@ -76,6 +76,11 @@ Path A — block the skill as unsupported until the necessary server-side runtim
 - [ ] Ticket can move out of blocked with fresh validation evidence.
 
 ## Updates
+
+### 2026-03-28
+- Lane retained: `30-blocked` via web blocked-card decision.
+- Blocked-lane outcome recorded from the adaptive-card submission: **Keep in Blocked**.
+- The missing server-side runtime components still appear to be the governing blocker for this workflow in the current environment.
 
 ### 2026-03-22
 - Lane change: `50-done` → `30-blocked` after re-evaluation.

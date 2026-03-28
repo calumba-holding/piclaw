@@ -32,7 +32,7 @@ semantics, UI/content endpoint behavior, or the public methods used by the
 existing request router.
 
 This is the next bounded execution slice under:
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 
 after the queued follow-up, server lifecycle/websocket gateway,
 SSE/session-broadcast, recovery/runtime-state, and message-write seams landed.
@@ -180,7 +180,7 @@ focused validation while keeping behavior and public surfaces unchanged.
 
 ## Links
 
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 - `workitems/50-done/extract-webchannel-agent-control-plane-wrappers.md`
 - `workitems/40-review/extract-webchannel-queued-followup-service.md`
 - `workitems/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`

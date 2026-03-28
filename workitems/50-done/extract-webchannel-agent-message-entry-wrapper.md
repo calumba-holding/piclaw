@@ -30,7 +30,7 @@ chat selection, `chat_jid` query handling, queue/defer semantics, slash-command
 entry behavior, or the public `WebChannel` method used by the request router.
 
 This is the next bounded execution slice under:
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 
 after the queued follow-up, server lifecycle/websocket gateway,
 SSE/session-broadcast, recovery/runtime-state, message-write, endpoint facade,
@@ -132,7 +132,7 @@ public `WebChannel.handleAgentMessage()` method as a thin delegate.
 
 ## Links
 
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 - `workitems/50-done/extract-webchannel-peer-message-relay-wrapper.md`
 - `workitems/50-done/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
 - `/workspace/notes/piclaw-autoresearch-audit-checklist.md`

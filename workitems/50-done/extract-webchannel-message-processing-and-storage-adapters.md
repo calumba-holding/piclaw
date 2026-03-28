@@ -32,7 +32,7 @@ identity shaping, thread/media/content-block handling, or the public
 `WebChannel` methods used by the handler/runtime surfaces.
 
 This is the next bounded execution slice under:
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 
 after the queued follow-up, server lifecycle/websocket gateway,
 SSE/session-broadcast, recovery/runtime-state, message-write, endpoint facade,
@@ -150,7 +150,7 @@ Extract a dedicated message-processing/storage adapter seam while keeping
 
 ## Links
 
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 - `workitems/50-done/extract-webchannel-runtime-and-followup-facades.md`
 - `workitems/50-done/extract-webchannel-agent-message-entry-wrapper.md`
 - `workitems/50-done/extract-webchannel-peer-message-relay-wrapper.md`

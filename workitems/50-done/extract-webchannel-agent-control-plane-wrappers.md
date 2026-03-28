@@ -32,7 +32,7 @@ behavior, HTTP payload shapes, status codes, or the public WebChannel methods
 used by the request router.
 
 This is the next bounded execution slice under:
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 
 after the queued follow-up, server lifecycle/websocket gateway,
 SSE/session-broadcast, recovery/runtime-state, message-write, and endpoint
@@ -184,7 +184,7 @@ while keeping behavior and public surfaces unchanged.
 
 ## Links
 
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 - `workitems/50-done/extract-webchannel-terminal-and-vnc-http-wrappers.md`
 - `workitems/40-review/extract-webchannel-queued-followup-service.md`
 - `workitems/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`

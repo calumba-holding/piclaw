@@ -32,7 +32,7 @@ semantics, panel-buffer access, or the `WebChannelLike` contract relied on by
 handlers/tests.
 
 This is the next bounded execution slice under:
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 
 after the queued follow-up, server lifecycle/websocket gateway,
 SSE/session-broadcast, recovery/runtime-state, message-write, endpoint facade,
@@ -153,7 +153,7 @@ Extract a dedicated runtime/follow-up facade seam while keeping the public
 
 ## Links
 
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 - `workitems/50-done/extract-webchannel-constructor-wiring-factory.md`
 - `workitems/50-done/extract-webchannel-message-processing-and-storage-adapters.md`
 - `workitems/50-done/extract-webchannel-agent-message-entry-wrapper.md`
