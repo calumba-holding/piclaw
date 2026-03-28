@@ -6,7 +6,7 @@ distribution: public
 
 # Feature Refinement Flow
 
-Use this skill to turn a feature request into a clear, implementation-ready ticket.
+Use this skill to turn a feature request into a clear, implementation-ready work item.
 
 ## When to use
 
@@ -52,9 +52,9 @@ Ask up to 20 questions in sequence, one-at-a-time, unless already answered.
 19. How will we prove this works (test plan)?
 20. What is the acceptance/closure condition for “done”?
 
-## How to use in tickets
+## How to use in work items
 
-- Add a short “Refinement notes” section in the ticket with the 20-question answers.
+- Add a short “Refinement notes” section in the work item with the 20-question answers.
 - Convert answers into:
   - acceptance criteria,
   - risks,
@@ -65,7 +65,7 @@ Ask up to 20 questions in sequence, one-at-a-time, unless already answered.
 
 ## Preference persistence
 
-Keep answers in a feature-scoped notes/ticket file or `notes/preferences/feature-refinement.md` if the process becomes reusable.
+Keep answers in a feature-scoped notes/work-item file or `notes/preferences/feature-refinement.md` if the process becomes reusable.
 
 ## Practical tip
 

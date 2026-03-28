@@ -163,7 +163,7 @@ Direct commands (no LLM round-trip):
 
 > [!NOTE]
 > Provider-auth `/login` is currently terminal-first (`pi /login` in the terminal pane or `docker exec`).
-> Chat-level `/login` passthrough is tracked in the kanban ticket `login-command-passthrough`.
+> Chat-level `/login` passthrough is tracked in the project work item `login-command-passthrough`.
 
 `/search` performs a workspace full‑text search (notes + skills) without calling the LLM:
 
