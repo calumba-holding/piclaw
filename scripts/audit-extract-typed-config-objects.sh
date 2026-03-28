@@ -38,7 +38,7 @@ typed_config_objects=$(bun -e 'const fs=require("fs"); const src=fs.readFileSync
 bun -e '
   const fs = require("fs");
   const summary = {
-    ticket: "kanban/10-next/extract-typed-config-objects.md",
+    ticket: "workitems/10-next/extract-typed-config-objects.md",
     command: "./scripts/audit-extract-typed-config-objects.sh",
     timestamp: new Date().toISOString(),
     metrics: {

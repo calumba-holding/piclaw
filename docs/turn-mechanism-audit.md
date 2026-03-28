@@ -890,7 +890,7 @@ User clicks Steer button on queue stack item
    Stored as a terminal bot message and broadcast via `agent_response`.
 
 2. ~~**183 MB session file**~~ **Tracked**: Created kanban ticket
-   `kanban/00-inbox/session-file-rotation.md` covering size monitoring, rotation,
+   `workitems/00-inbox/session-file-rotation.md` covering size monitoring, rotation,
    archival, and queue validation during rotation. Includes acceptance criteria
    to verify queued messages are preserved and that rotation does not occur
    during inflight turns.

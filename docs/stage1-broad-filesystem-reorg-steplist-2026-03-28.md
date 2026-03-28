@@ -33,7 +33,7 @@ Before changing anything:
 - the current source of truth docs exist:
   - `docs/filesystem-layout-audit-2026-03-28.md`
   - `docs/broad-filesystem-reorg-map-2026-03-28.md`
-  - `kanban/20-doing/plan-broad-filesystem-reorg-from-audit.md`
+  - `workitems/20-doing/plan-broad-filesystem-reorg-from-audit.md`
 
 ## Primary deliverables
 
@@ -108,7 +108,7 @@ Expected touch points include:
 - helper/render code
 - path constants
 - stage/review lane documentation
-- scaffolding under `skel/kanban/` (decide whether this also becomes `skel/workitems/` in the same step)
+- scaffolding under `skel/workitems/` (decide whether this also becomes `skel/workitems/` in the same step)
 
 ### Step 5 — handle skill/helper naming carefully
 

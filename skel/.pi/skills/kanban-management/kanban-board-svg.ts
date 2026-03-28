@@ -1,21 +1,23 @@
 #!/usr/bin/env bun
 /**
- * kanban-board-svg.ts — Generate a compact kanban board SVG from workspace tickets.
+ * kanban-board-svg.ts — Generate a compact workitems board SVG from workspace tickets.
  *
- * Reads tickets from the kanban directory and produces a themed SVG with
- * colored priority dots, lane accent bars, and a capped Done column.
+ * Reads tickets from the canonical workitems directory (with a fallback to the
+ * legacy kanban path) and produces a themed SVG with colored priority dots,
+ * lane accent bars, and a capped Done column.
  *
  * Usage:
  *   bun run kanban-board-svg.ts [--out path.svg] [--theme dark|light|auto] [--post]
  *
  * Options:
- *   --out <path>    Output file (default: /workspace/tmp/kanban-board.svg)
- *   --theme <name>  dark | light | auto (auto selects by time-of-day)
- *   --post          Write an IPC message with inline SVG media attachment
- *   --chat <jid>    Override chat JID (default: web:default)
- *   --message <txt> Custom message text (default includes timestamp)
- *   --done-max <n>  Max Done cards to show (default: 5)
- *   --kanban <dir>  Override kanban directory
+ *   --out <path>      Output file (default: /workspace/tmp/kanban-board.svg)
+ *   --theme <name>    dark | light | auto (auto selects by time-of-day)
+ *   --post            Write an IPC message with inline SVG media attachment
+ *   --chat <jid>      Override chat JID (default: web:default)
+ *   --message <txt>   Custom message text (default includes timestamp)
+ *   --done-max <n>    Max Done cards to show (default: 5)
+ *   --workitems <dir> Override canonical workitems directory
+ *   --kanban <dir>    Legacy alias for the old kanban directory path
  */
 
 import { readdirSync, readFileSync, existsSync, writeFileSync, mkdirSync, statSync } from "fs";
@@ -26,13 +28,15 @@ import { join, basename } from "path";
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
   console.log("Usage: bun kanban-board-svg.ts [options]");
   console.log("");
-  console.log("  --out <path>    Output SVG path");
-  console.log("  --theme <name>  dark | light | auto");
-  console.log("  --post          Post to chat via IPC");
-  console.log("  --chat <jid>    Target chat JID");
-  console.log("  --message <txt> Message text");
-  console.log("  --done-max <n>  Max done cards shown (default 5)");
-  console.log("  --kanban <dir>  Kanban directory path");
+  console.log("  --out <path>      Output SVG path");
+  console.log("  --theme <name>    dark | light | auto");
+  console.log("  --post            Post to chat via IPC");
+  console.log("  --chat <jid>      Target chat JID");
+  console.log("  --message <txt>   Message text");
+  console.log("  --done-max <n>    Max done cards shown (default 5)");
+  console.log("  --workitems <dir> Workitems directory path");
+  console.log("  --kanban <dir>    Legacy alias for the old kanban directory path");
+  console.log("  Defaults to /workspace/workitems and falls back to /workspace/kanban if needed.");
   process.exit(0);
 }
 
@@ -42,12 +46,18 @@ const getArg = (flag: string): string | undefined => {
   return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
 };
 
-const KANBAN_DIR = getArg("--kanban") || process.env.KANBAN_DIR || "/workspace/kanban";
+function resolveBoardDir(): string {
+  const explicit = getArg("--workitems") || process.env.WORKITEMS_DIR || getArg("--kanban") || process.env.KANBAN_DIR;
+  if (explicit) return explicit;
+  return existsSync("/workspace/workitems") ? "/workspace/workitems" : "/workspace/kanban";
+}
+
+const BOARD_DIR = resolveBoardDir();
 const OUTPUT = getArg("--out") || "/workspace/tmp/kanban-board.svg";
 const THEME_RAW = (getArg("--theme") || "auto").trim().toLowerCase();
 const POST_TO_IPC = args.includes("--post");
 const CHAT_JID = getArg("--chat") || process.env.PICLAW_CHAT_JID || "web:default";
-const MESSAGE_TEXT = getArg("--message") || `Kanban board as of ${new Date().toISOString().slice(0, 10)}`;
+const MESSAGE_TEXT = getArg("--message") || `Workitems board as of ${new Date().toISOString().slice(0, 10)}`;
 const DONE_MAX = Math.max(1, parseInt(getArg("--done-max") || "5", 10) || 5);
 
 // ── Themes ──────────────────────────────────────────────────────
@@ -124,7 +134,7 @@ interface Ticket {
 }
 
 function readTickets(laneDir: string): Ticket[] {
-  const fullPath = join(KANBAN_DIR, laneDir);
+  const fullPath = join(BOARD_DIR, laneDir);
   if (!existsSync(fullPath)) return [];
   const tickets: Ticket[] = [];
   for (const fn of readdirSync(fullPath).sort()) {
@@ -206,7 +216,7 @@ function generate(): string {
   lines.push(`.more-text { font-family: ${FONT}; font-size: 10px; fill: ${P.moreText}; font-style: italic; }`);
   lines.push(`</style></defs>`);
   lines.push(`<rect class="board-bg" width="${totalW}" height="${totalH}" rx="12" ry="12"/>`);
-  lines.push(`<text x="${totalW / 2}" y="18" text-anchor="middle" font-family="${FONT}" font-size="11" fill="${P.boardTitle}" font-weight="600">PICLAW KANBAN — ${grandTotal} tickets</text>`);
+  lines.push(`<text x="${totalW / 2}" y="18" text-anchor="middle" font-family="${FONT}" font-size="11" fill="${P.boardTitle}" font-weight="600">PICLAW WORKITEMS — ${grandTotal} tickets</text>`);
 
   let x = PAD;
   const topY = PAD + 6;
@@ -273,7 +283,7 @@ function postBoardSvg(svgPath: string): void {
 mkdirSync(join(OUTPUT, ".."), { recursive: true });
 const svg = generate();
 writeFileSync(OUTPUT, svg, "utf-8");
-console.log(`✅ Kanban board SVG written to ${OUTPUT} (${(svg.length / 1024).toFixed(1)} KB)`);
+console.log(`✅ Workitems board SVG written to ${OUTPUT} (${(svg.length / 1024).toFixed(1)} KB)`);
 console.log(`🎨 Theme: ${THEME}${THEME_RAW === "auto" ? " (auto)" : ""}`);
 
 const summary = LANES.map((l) => {

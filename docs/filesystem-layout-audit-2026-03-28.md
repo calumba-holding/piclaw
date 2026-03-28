@@ -105,13 +105,13 @@ And the UI/test adjacency is also good:
 
 Board lanes are explicit and conventional:
 
-- `kanban/00-inbox/`
-- `kanban/10-next/`
-- `kanban/20-doing/`
-- `kanban/30-blocked/`
-- `kanban/40-review/`
-- `kanban/50-done/`
-- `kanban/_templates/`
+- `workitems/00-inbox/`
+- `workitems/10-next/`
+- `workitems/20-doing/`
+- `workitems/30-blocked/`
+- `workitems/40-review/`
+- `workitems/50-done/`
+- `workitems/_templates/`
 
 That structure is clear, but the **name** `kanban/` now undersells the fact that this directory is the canonical project work-item store rather than just a board view.
 
@@ -217,8 +217,8 @@ are not governed by one obvious placement rule.
 
 Two layout concerns are already captured and should be treated as existing roadmap items rather than re-audited indefinitely:
 
-- `kanban/10-next/group-web-channel-flat-files.md`
-- `kanban/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
+- `workitems/10-next/group-web-channel-flat-files.md`
+- `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
 
 That is good news: not every audit finding requires a new ticket.
 
@@ -266,13 +266,13 @@ To avoid churn, these should be treated as acceptable unless fresh evidence says
 
 ### Already existing
 
-- `kanban/10-next/group-web-channel-flat-files.md`
-- `kanban/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
+- `workitems/10-next/group-web-channel-flat-files.md`
+- `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
 
 ### New from this audit
 
-- `kanban/10-next/clarify-root-vs-runtime-ownership-boundaries.md`
-- `kanban/10-next/rationalize-runtime-generated-output-layout.md`
+- `workitems/10-next/clarify-root-vs-runtime-ownership-boundaries.md`
+- `workitems/10-next/rationalize-runtime-generated-output-layout.md`
 
 ## Bottom line
 

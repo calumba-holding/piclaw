@@ -257,5 +257,5 @@ validation instead of cookie-auth + CSRF.
 ## Follow-up candidates
 
 1. Continue evolving the `extension_ui_*` browser-event bridge into a richer first-class extension UI surface if needed.
-   - ticket: `kanban/00-inbox/extension-ui-sse-client-contract-gap.md`
+   - ticket: `workitems/00-inbox/extension-ui-sse-client-contract-gap.md`
 2. Keep route inventory coverage in tests so newly added mutating endpoints do not skip classification.

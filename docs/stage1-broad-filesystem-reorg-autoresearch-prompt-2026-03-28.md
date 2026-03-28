@@ -7,7 +7,7 @@ broad filesystem reorg.
 
 Work the Stage 1 broad filesystem reorg batch from:
 
-- `kanban/20-doing/execute-stage1-board-rename-and-boundary-framing.md`
+- `workitems/20-doing/execute-stage1-board-rename-and-boundary-framing.md`
 - `docs/stage1-broad-filesystem-reorg-steplist-2026-03-28.md`
 - `docs/broad-filesystem-reorg-map-2026-03-28.md`
 

@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_DIR="$ROOT_DIR/runtime"
-CHECKLIST_PATH="$ROOT_DIR/kanban/20-doing/audit-session-turn-management-regression-checklist.md"
+CHECKLIST_PATH="$ROOT_DIR/workitems/20-doing/audit-session-turn-management-regression-checklist.md"
 LOG_DIR="${PICLAW_AUDIT_LOG_DIR:-/workspace/logs}"
 TIMESTAMP="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
 LOG_FILE="$LOG_DIR/audit-session-turn-management-regression-${TIMESTAMP}.log"

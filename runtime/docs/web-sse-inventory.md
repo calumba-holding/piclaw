@@ -169,5 +169,5 @@ That closes the earlier transport dead-end, but it does **not** yet amount to a 
 ## Suggested next checks
 
 1. Decide whether the current lightweight browser-event bridge for `extension_ui_*` should grow into a richer first-class extension-UI surface.
-   - ticket: `kanban/00-inbox/extension-ui-sse-client-contract-gap.md`
+   - ticket: `workitems/00-inbox/extension-ui-sse-client-contract-gap.md`
 2. Compare this server inventory against any tests that assume a wider SSE contract than the server now emits.

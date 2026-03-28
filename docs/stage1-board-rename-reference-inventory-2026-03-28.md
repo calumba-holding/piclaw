@@ -97,4 +97,4 @@ A Stage 1 autoresearch run should use this inventory to avoid two common mistake
 
 - `docs/stage1-broad-filesystem-reorg-steplist-2026-03-28.md`
 - `docs/stage1-broad-filesystem-reorg-autoresearch-prompt-2026-03-28.md`
-- `kanban/20-doing/execute-stage1-board-rename-and-boundary-framing.md`
+- `workitems/20-doing/execute-stage1-board-rename-and-boundary-framing.md`

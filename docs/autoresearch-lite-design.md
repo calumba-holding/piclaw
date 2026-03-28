@@ -440,4 +440,4 @@ Do **not** copy from upstream:
 - `docs/runtime-flows.md`
 - `docs/extension-ui-contract.md`
 - `docs/web-pane-extensions.md`
-- `kanban/10-next/timeline-launched-floating-generative-widget-pane.md`
+- `workitems/10-next/timeline-launched-floating-generative-widget-pane.md`

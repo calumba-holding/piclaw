@@ -1,19 +1,25 @@
 ---
 name: kanban-management
-description: "Manage the kanban board end-to-end: ideation, implementation planning, quality scoring, and definition-of-done tracking."
+description: "Manage the project workitems board end-to-end: ideation, implementation planning, quality scoring, and definition-of-done tracking."
 distribution: public
 ---
 
 # Kanban Management Skill
 
 Activate this skill when the user asks to create, triage, refine, score, or
-move kanban tickets — or when asked to review the board and propose next actions.
+move project workitems — or when asked to review the board and propose next actions.
+
+Compatibility note:
+
+- the public skill name remains `kanban-management` for now
+- the canonical project board path is `workitems/`
+- visual/editor semantics such as `*.kanban.md` remain intentionally named `kanban`
 
 ---
 
 ## 0. Board Scope Preference
 
-Kanban boards should ideally be **per project**, not one global mixed board.
+Project workitems boards should ideally be **per project**, not one global mixed board.
 
 - Prefer keeping each project's tickets inside that project's own repository or workspace subtree.
 - Use a shared/global board only for cross-project work, personal backlog items, or tickets explicitly marked as non-project work.
@@ -27,13 +33,13 @@ Kanban boards should ideally be **per project**, not one global mixed board.
 
 | Lane | Path | Purpose |
 |---|---|---|
-| Inbox | `kanban/00-inbox/` | Raw ideas, bug reports, unstructured requests |
-| Next | `kanban/10-next/` | Refined, ready to pick up |
-| Doing | `kanban/20-doing/` | Actively in progress (limit ≤ 3) |
-| Blocked | `kanban/30-blocked/` | Has explicit `## Blockers` section |
-| Review | `kanban/40-review/` | Implementation done, needs verification |
-| Done | `kanban/50-done/` | Verified complete |
-| Template | `kanban/_templates/work-item.md` | Copy for new tickets |
+| Inbox | `workitems/00-inbox/` | Raw ideas, bug reports, unstructured requests |
+| Next | `workitems/10-next/` | Refined, ready to pick up |
+| Doing | `workitems/20-doing/` | Actively in progress (limit ≤ 3) |
+| Blocked | `workitems/30-blocked/` | Has explicit `## Blockers` section |
+| Review | `workitems/40-review/` | Implementation done, needs verification |
+| Done | `workitems/50-done/` | Verified complete |
+| Template | `workitems/_templates/work-item.md` | Copy for new tickets |
 
 ## 2. Ticket File Format
 
@@ -445,17 +451,17 @@ graph LR
 
 ```bash
 # Full inventory
-find kanban -maxdepth 2 -type f -name '*.md' ! -path '*/_templates/*' | sort
+find workitems -maxdepth 2 -type f -name '*.md' ! -path '*/_templates/*' | sort
 
 # Dependency graph
-rg -n "## Blockers|blocker|gated" kanban -S
+rg -n "## Blockers|blocker|gated" workitems -S
 
 # Stale ticket check
-find kanban/10-next kanban/20-doing kanban/30-blocked -name '*.md' \
+find workitems/10-next workitems/20-doing workitems/30-blocked -name '*.md' \
   -exec grep -l "updated: $(date -d '-7 days' +%F 2>/dev/null || date -v-7d +%F)" {} \;
 
 # Front matter audit
-rg -n "^status:|^priority:|^estimate:|^risk:" kanban -S
+rg -n "^status:|^priority:|^estimate:|^risk:" workitems -S
 ```
 
 ---

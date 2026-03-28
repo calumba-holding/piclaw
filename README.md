@@ -106,6 +106,20 @@ bun run build             # recompile TypeScript (optional — Bun runs .ts dire
 
 See [docs/install-from-repo.md](docs/install-from-repo.md) for scope and caveats.
 
+### Repo ownership rules
+
+The repo root is the maintainer/operator boundary; `runtime/` is the packaged implementation boundary.
+
+- `workitems/` — canonical project work-item store for this repo
+- `docs/` — repo/operator/architecture/install documentation
+- `runtime/docs/` — packaged/runtime-facing documentation only
+- `scripts/` — repo-level dev/operator entrypoints and audits
+- `runtime/scripts/` — packaged helper scripts that ship with piclaw
+- `artifacts/` — durable repo-level evidence and audit outputs
+- runtime-generated build/test output remains under `runtime/` until the later generated-output containment batch lands
+
+Intentional exceptions remain intentionally named `kanban` when they describe the visual/editor surface rather than the repo work-item store — for example `kanban-management` and `*.kanban.md`.
+
 ### Build from source
 
 > [!NOTE]
@@ -193,7 +207,7 @@ Then:
 > If `/model` shows no available models, finish `pi /login` first.
 
 > [!NOTE]
-> Provider login is currently **terminal-first**. Chat-level `/login` passthrough is still tracked in kanban.
+> Provider login is currently **terminal-first**. Chat-level `/login` passthrough is still tracked in `workitems/40-review/login-command-passthrough.md`.
 
 ## Web UI
 

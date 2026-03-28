@@ -76,7 +76,7 @@ Each skill keeps its script alongside its `SKILL.md` for portability. Current se
 | `bootstrap-container` | Validate required tools and install missing dependencies |
 | `extension-design` | Design and audit Pi extensions safely |
 | `extension-troubleshoot` | Diagnose and fix extension issues (imports, DB init, watcher perms) |
-| `kanban-management` | Manage kanban board: ideation, triage, quality scoring, definition-of-done tracking |
+| `kanban-management` | Manage the project workitems board: ideation, triage, quality scoring, definition-of-done tracking |
 | `adaptive-cards-authoring` | Author Adaptive Cards for structured web interactions |
 | `close-of-day` | End-of-day sweep: situate, backup, timeline cleanup, daily-notes summarisation |
 | `export-timeline-pdf` | Export a chat timeline to PDF via Playwright |
@@ -84,6 +84,8 @@ Each skill keeps its script alongside its `SKILL.md` for portability. Current se
 | `situate-daily-notes` | Situation report and Obsidian-style daily summary notes |
 | `timeline-cleanup` | Delete low-value timeline messages by keyword patterns |
 | `proxmox-management` | Manage Proxmox VM lifecycle, USB mapping passthrough, and backup-restore moves |
+
+`kanban-management` intentionally keeps its public name for now, but repo-local board paths in this project now live under `workitems/`. Visual/editor semantics such as `*.kanban.md` remain intentionally named.
 
 The packaged Proxmox helper now lives at `runtime/scripts/proxmox.ts` and can be invoked from the repo with:
 

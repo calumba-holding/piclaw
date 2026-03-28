@@ -330,10 +330,10 @@ output paths.
 
 ## Related tickets
 
-- `kanban/20-doing/plan-broad-filesystem-reorg-from-audit.md`
-- `kanban/40-review/audit-project-filesystem-layout.md`
-- `kanban/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
-- `kanban/10-next/clarify-root-vs-runtime-ownership-boundaries.md`
-- `kanban/10-next/rationalize-runtime-generated-output-layout.md`
-- `kanban/10-next/namespace-internal-extensions-and-skills-paths.md`
-- `kanban/10-next/group-web-channel-flat-files.md`
+- `workitems/20-doing/plan-broad-filesystem-reorg-from-audit.md`
+- `workitems/40-review/audit-project-filesystem-layout.md`
+- `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
+- `workitems/10-next/clarify-root-vs-runtime-ownership-boundaries.md`
+- `workitems/10-next/rationalize-runtime-generated-output-layout.md`
+- `workitems/10-next/namespace-internal-extensions-and-skills-paths.md`
+- `workitems/10-next/group-web-channel-flat-files.md`
