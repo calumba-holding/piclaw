@@ -37,8 +37,9 @@ existing editor surface instead of switching to an external tool.
 ## Updates
 
 ### 2026-03-28
-- Lane change: `20-doing` → `10-next` during board review.
-- Moved back out of active work because the ticket is still under-refined for `doing`: the v1 comparison model, UI affordance, and minimal validation path still need to be narrowed before implementation should resume.
+- Lane retained: `10-next` via web next-card decision.
+- Next-lane outcome recorded from the adaptive-card submission: **Keep in Next**.
+- The ticket remains under-refined for `doing`: the v1 comparison model, UI affordance, and minimal validation path still need to be narrowed before implementation should resume.
 - Recommended refinement target for the next pickup: lock v1 to a single comparison source (preferably current buffer vs saved file) and define the minimal open/render/close behavior and test plan.
 
 ### 2026-03-22

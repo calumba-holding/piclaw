@@ -39,6 +39,11 @@ Use the Azure harness to close the remaining Azure-model issues:
 ## Updates
 
 ### 2026-03-28
+- Lane retained: `10-next` via web next-card decision.
+- Next-lane outcome recorded from the adaptive-card submission: **Keep in Next**.
+- The ticket remains a ready candidate, but there was no decision to pull it into active WIP yet.
+
+### 2026-03-28
 - Lane change: `30-blocked` → `10-next` via web blocked-card decision.
 - Blocked-lane outcome recorded from the adaptive-card submission: **Move to Next**.
 - The recorded blocker was time/prioritization rather than a hard dependency, so the ticket is parked in the ready queue instead of blocked.

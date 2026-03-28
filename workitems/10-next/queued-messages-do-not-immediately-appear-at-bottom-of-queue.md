@@ -4,7 +4,7 @@ title: Queued messages do not immediately appear at the bottom of the queue
 status: next
 priority: medium
 created: 2026-03-17
-updated: 2026-03-26
+updated: 2026-03-28
 estimate: M
 risk: medium
 tags:
@@ -41,6 +41,11 @@ bug.
 - A regression test exists for the observed append/visibility case.
 
 ## Updates
+
+### 2026-03-28
+- Lane retained: `10-next` via web next-card decision.
+- Next-lane outcome recorded from the adaptive-card submission: **Keep in Next**.
+- Still awaiting fresh implementation evidence or a narrowed repro before promotion back into active work.
 
 ### 2026-03-26
 - Lane change: `40-review` → `10-next`.

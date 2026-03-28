@@ -1,10 +1,12 @@
 ---
 id: rename-project-kanban-to-workitems-and-update-skilling
 title: Rename project kanban to workitems and update the skill/helpers accordingly
-status: next
+status: done
 priority: medium
 created: 2026-03-26
-updated: 2026-03-26
+updated: 2026-03-28
+completed: 2026-03-28
+
 target_release: later
 estimate: M
 risk: medium
@@ -127,6 +129,11 @@ work-item management.
 - [ ] Update history records the migration and any compatibility choices
 
 ## Updates
+
+### 2026-03-28
+- Lane change: `10-next` → `50-done` via web next-card decision.
+- Next-lane outcome recorded from the adaptive-card submission: **Close to Done**.
+- The board rename and surrounding helper/skill fallout were treated as sufficiently resolved by the recorded review decision.
 
 ### 2026-03-26
 - Created from request to rename the Piclaw project-local `kanban/` board to `workitems/` and update the related skill/helper surface accordingly.

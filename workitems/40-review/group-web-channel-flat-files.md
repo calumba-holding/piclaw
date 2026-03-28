@@ -63,12 +63,17 @@ runtime/src/channels/web/vnc/        1 file,    296 lines
 - Quality: ★★★☆☆ 6/10 (problem: 2, scope: 1, test: 1, deps: 1, risk: 1)
 
 ### 2026-03-28
+- Lane change: `10-next` → `40-review` via web next-card decision.
+- Next-lane outcome recorded from the adaptive-card submission: **Move to Review**.
+- Stage 5 execution now satisfies the ticket’s acceptance target, so the follow-up grouping ticket is promoted for review/closure rather than remaining in next.
+
+### 2026-03-28
 - Broad filesystem reorg sequencing now treats this as the active Stage 5 candidate.
 - Current measured structure is worse than the older snapshot: 73 flat files at the web root, with grouped planning captured in:
   - `docs/stage5-web-channel-grouping-inventory-2026-03-28.md`
   - `docs/stage5-web-channel-grouping-steplist-2026-03-28.md`
   - `docs/stage5-web-channel-grouping-autoresearch-prompt-2026-03-28.md`
-  - `workitems/20-doing/execute-stage5-web-channel-grouping.md`
+  - `workitems/50-done/execute-stage5-web-channel-grouping.md`
 - Recommended first tranche is no longer “move everything blindly”, but to group the clearest semantic slices first: `auth/`, `sse/`, `cards/`, `media/`, `theming/`, and `messaging/`.
 - The first manual tranche landed the six broad capability directories and reduced the flat root from 73 files to 47 files.
 - A second manual tranche then grouped additional auth/agent/theming support files and reduced the flat root again, from 47 files to 32 files.

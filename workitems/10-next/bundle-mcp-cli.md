@@ -4,7 +4,7 @@ title: Bundle mcp-cli for local MCP server management
 status: next
 priority: medium
 created: 2026-03-11
-updated: 2026-03-18
+updated: 2026-03-28
 estimate: M
 risk: low
 tags:
@@ -63,6 +63,11 @@ helper-skill guidance.
 - `notes/preferences/agent.md` — tooling preferences
 
 ## Updates
+
+### 2026-03-28
+- Lane retained: `10-next` via web next-card decision.
+- Next-lane outcome recorded from the adaptive-card submission: **Keep in Next**.
+- Still awaiting install-method and Bun/container compatibility research before promotion into active implementation.
 
 ### 2026-03-12
 - Board quality review: ticket already had a clear summary and rough acceptance criteria; kept in inbox pending install-method research.

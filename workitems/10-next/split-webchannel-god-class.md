@@ -55,6 +55,11 @@ Extract `WebChannel` into a composition of focused services:
 ## Updates
 
 ### 2026-03-28
+- Lane retained: `10-next` via web next-card decision.
+- Next-lane outcome recorded from the adaptive-card submission: **Keep in Next**.
+- The latest stabilization note still argues against forcing more extraction work solely to chase line count.
+
+### 2026-03-28
 - Card submission accepted with decision `next`.
 - Lane change: `20-doing` → `10-next` via web doing-card decision.
 - Doing-lane outcome recorded from the adaptive-card submission: **Move to Next**.
@@ -66,7 +71,7 @@ Extract `WebChannel` into a composition of focused services:
   - `runtime/src/channels/web.ts`: 568 lines
   - delegate calls to extracted helpers: 42 HTTP-surface, 32 runtime-public-surface, 8 lifecycle-special-surface
   - remaining content is mostly field storage, constructor bootstrapping, and public API compatibility methods that intentionally remain on `WebChannel`
-- Decision: treat the refactor as **effectively stabilized for now**. Do not force another extraction slice merely to chase line count; only reopen this umbrella if a new behavior-based seam appears or downstream cleanup like `workitems/10-next/group-web-channel-flat-files.md` becomes the clearer next move.
+- Decision: treat the refactor as **effectively stabilized for now**. Do not force another extraction slice merely to chase line count; only reopen this umbrella if a new behavior-based seam appears or downstream cleanup like `workitems/40-review/group-web-channel-flat-files.md` becomes the clearer next move.
 - Operational takeaway: the highest-value follow-up has shifted from more `WebChannel` seam-splitting to filesystem/module-layout cleanup and normal web UX/auth backlog work.
 - The request-router / HTTP wrapper seam landed on branch `autoresearch/exp-mnadojwr-yrg9` via `76edacdc` (`Extracted a focused WebChannel HTTP surface service...`).
 - Result:

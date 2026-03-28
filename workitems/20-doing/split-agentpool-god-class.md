@@ -1,10 +1,10 @@
 ---
 id: split-agentpool-god-class
 title: "Refactor: split AgentPool into session, tools, and turn modules"
-status: next
+status: doing
 priority: critical
 created: 2026-03-23
-updated: 2026-03-27
+updated: 2026-03-28
 tags:
   - refactor
   - modularity
@@ -50,6 +50,11 @@ Split into:
 - 17 `catch(e)` + 15 `catch {}` blocks — error handling needs attention during extraction
 
 ## Updates
+
+### 2026-03-28
+- Lane change: `10-next` → `20-doing` via web next-card decision.
+- Next-lane outcome recorded from the adaptive-card submission: **Move to Doing**.
+- This makes AgentPool the newly reactivated structural refactor in active WIP.
 
 ### 2026-03-27
 - Repo-status audit refreshed the size callout to match the current file: `runtime/src/agent-pool.ts` is now 1,632 lines.

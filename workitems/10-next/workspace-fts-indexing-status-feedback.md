@@ -4,7 +4,7 @@ title: Add workspace FTS indexing status and feedback in the UI
 status: next
 priority: medium
 created: 2026-03-12
-updated: 2026-03-18
+updated: 2026-03-28
 estimate: M
 risk: medium
 tags:
@@ -77,6 +77,11 @@ search results are fresh, incomplete, or still being indexed.
 - If indexing internals do not currently expose enough state, add the smallest reliable status surface first.
 
 ## Updates
+
+### 2026-03-28
+- Lane retained: `10-next` via web next-card decision.
+- Next-lane outcome recorded from the adaptive-card submission: **Keep in Next**.
+- The requirement is clear, but the ticket still includes open UX-definition work and was not promoted into active WIP in this pass.
 
 ### 2026-03-12
 - Added to track missing UI feedback for workspace full-text indexing status and freshness.
