@@ -165,10 +165,11 @@ into bounded follow-up tickets.
   - two new bounded follow-up tickets created:
     - `kanban/10-next/clarify-root-vs-runtime-ownership-boundaries.md`
     - `kanban/10-next/rationalize-runtime-generated-output-layout.md`
-  - broad move/rename churn intentionally deferred
+  - broad move/rename churn was initially deferred in the audit write-up, but that recommendation is now superseded by direct project guidance to pursue a broader reorg rather than only bounded cleanup slices
 
 ## Links
 
+- `kanban/20-doing/plan-broad-filesystem-reorg-from-audit.md`
 - `docs/filesystem-layout-audit-2026-03-28.md`
 - `kanban/10-next/clarify-root-vs-runtime-ownership-boundaries.md`
 - `kanban/10-next/rationalize-runtime-generated-output-layout.md`
