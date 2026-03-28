@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { html, useEffect } from '../vendor/preact-htm.js';
+import { BodyPortal } from './body-portal.js';
 
 /**
  * Image modal for zooming
@@ -14,8 +15,10 @@ export function ImageModal({ src, onClose }) {
     }, [onClose]);
 
     return html`
-        <div class="image-modal" onClick=${onClose}>
-            <img src=${src} alt="Full size" />
-        </div>
+        <${BodyPortal} className="image-modal-portal-root">
+            <div class="image-modal" onClick=${onClose}>
+                <img src=${src} alt="Full size" />
+            </div>
+        </${BodyPortal}>
     `;
 }

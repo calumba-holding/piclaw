@@ -6075,7 +6075,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: 2200;
     cursor: zoom-out;
     animation: fadeIn 0.2s ease-out;
 }
@@ -6089,6 +6089,7 @@ body {
 .attachment-preview-modal {
     cursor: default;
     padding: var(--spacing-lg);
+    z-index: 2300;
 }
 
 .attachment-preview-shell {
