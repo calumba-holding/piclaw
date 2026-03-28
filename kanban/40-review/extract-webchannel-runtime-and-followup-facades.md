@@ -1,7 +1,7 @@
 ---
 id: extract-webchannel-runtime-and-followup-facades
 title: Extract WebChannel runtime and follow-up facades
-status: doing
+status: review
 priority: high
 created: 2026-03-28
 updated: 2026-03-28
@@ -70,17 +70,17 @@ Expected source surfaces:
 
 ## Acceptance Criteria
 
-- [ ] Remaining runtime/follow-up facade methods move behind a focused service/module with a narrower interface than `WebChannel`.
-- [ ] Existing behavior remains unchanged for:
-  - [ ] queued follow-up lifecycle accessors/mutators
-  - [ ] pending steering / agent status / thread-root accessors
-  - [ ] panel expansion and draft/thought buffer accessors
-  - [ ] recovery/load/save/resume passthrough behavior
-  - [ ] public WebChannel signatures relied on by handlers/tests
-- [ ] `runtime/src/channels/web.ts` loses another meaningful chunk of facade glue.
-- [ ] Focused tests exist or are strengthened for the extracted seam.
-- [ ] Existing relevant `web-channel` integration tests still pass.
-- [ ] No new `any` usage is introduced.
+- [x] Remaining runtime/follow-up facade methods move behind a focused service/module with a narrower interface than `WebChannel`.
+- [x] Existing behavior remains unchanged for:
+  - [x] queued follow-up lifecycle accessors/mutators
+  - [x] pending steering / agent status / thread-root accessors
+  - [x] panel expansion and draft/thought buffer accessors
+  - [x] recovery/load/save/resume passthrough behavior
+  - [x] public WebChannel signatures relied on by handlers/tests
+- [x] `runtime/src/channels/web.ts` loses another meaningful chunk of facade glue.
+- [x] Focused tests exist or are strengthened for the extracted seam.
+- [x] Existing relevant `web-channel` integration tests still pass.
+- [x] No new `any` usage is introduced.
 
 ## Recommended Path
 
@@ -89,16 +89,16 @@ Extract a dedicated runtime/follow-up facade seam while keeping the public
 
 ## Test Plan
 
-- [ ] Add or strengthen focused tests for:
+- [x] Add or strengthen focused tests for:
   - queued follow-up facade delegation
   - runtime-state facade delegation
   - panel/buffer accessor compatibility
-- [ ] Re-run affected integration coverage from:
+- [x] Re-run affected integration coverage from:
   - `runtime/test/channels/web/web-channel.test.ts`
   - `runtime/test/channels/web/web-agent-streaming.test.ts`
   - `runtime/test/channels/web/runtime-state-service.test.ts`
   - `runtime/test/channels/web/message-write-service.test.ts`
-- [ ] Run validation in repair-first order:
+- [x] Run validation in repair-first order:
   1. focused facade tests
   2. targeted `web-channel` tests
   3. `bun run lint`
@@ -106,12 +106,38 @@ Extract a dedicated runtime/follow-up facade seam while keeping the public
 
 ## Definition of Done
 
-- [ ] Extracted runtime/follow-up facade seam is mergeable back to `main`.
-- [ ] Focused and integration validation are green.
-- [ ] Ticket `## Updates` records commands, evidence, and files touched.
-- [ ] Parent WebChannel split ticket is updated to reflect the next chosen seam.
+- [x] Extracted runtime/follow-up facade seam is mergeable back to `main`.
+- [x] Focused and integration validation are green.
+- [x] Ticket `## Updates` records commands, evidence, and files touched.
+- [x] Parent WebChannel split ticket is updated to reflect the next chosen seam.
 
 ## Updates
+
+### 2026-03-28
+- Lane change: `20-doing` → `40-review` after landing the slice on `main`.
+- Landed `runtime/src/channels/web/runtime-followup-facade-service.ts`, moving the remaining queued-followup, runtime-state, panel/buffer, and queued-placeholder facade methods behind a dedicated seam.
+- Kept all public `WebChannelLike` signatures intact while reducing `runtime/src/channels/web.ts` from 671 lines on the prior mainline to 662 lines after this facade cleanup.
+- Added focused seam coverage in:
+  - `runtime/test/channels/web/runtime-followup-facade-service.test.ts`
+  - `runtime/test/channels/web/web-channel-runtime-followup-delegation.test.ts`
+- Updated deterministic audit grouping in:
+  - `scripts/audit-baseline-quality-deterministic.ts`
+  - `runtime/test/scripts/audit-baseline-quality-deterministic.test.ts`
+- Validation evidence:
+  - `bun test runtime/test/channels/web/runtime-followup-facade-service.test.ts runtime/test/channels/web/web-channel-runtime-followup-delegation.test.ts runtime/test/channels/web/web-channel.test.ts runtime/test/channels/web/web-agent-streaming.test.ts runtime/test/channels/web/runtime-state-service.test.ts runtime/test/channels/web/message-write-service.test.ts`
+  - `bun run lint`
+  - `bun run typecheck`
+  - `bun run check:stale-dist`
+- Files touched:
+  - `runtime/src/channels/web.ts`
+  - `runtime/src/channels/web/runtime-followup-facade-service.ts`
+  - `runtime/test/channels/web/runtime-followup-facade-service.test.ts`
+  - `runtime/test/channels/web/web-channel-runtime-followup-delegation.test.ts`
+  - `scripts/audit-baseline-quality-deterministic.ts`
+  - `runtime/test/scripts/audit-baseline-quality-deterministic.test.ts`
+- Next bounded seam split out explicitly instead of widening scope in-place:
+  - `kanban/20-doing/extract-webchannel-constructor-wiring-factory.md`
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-28
 - Created as the next bounded execution slice under `split-webchannel-god-class` after the message-processing/storage seam landed.
@@ -122,6 +148,7 @@ Extract a dedicated runtime/follow-up facade seam while keeping the public
 ## Links
 
 - `kanban/20-doing/split-webchannel-god-class.md`
+- `kanban/20-doing/extract-webchannel-constructor-wiring-factory.md`
 - `kanban/40-review/extract-webchannel-message-processing-and-storage-adapters.md`
 - `kanban/40-review/extract-webchannel-agent-message-entry-wrapper.md`
 - `/workspace/notes/piclaw-autoresearch-audit-checklist.md`
