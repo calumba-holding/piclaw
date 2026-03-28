@@ -338,7 +338,10 @@ export function createWebChannelConstructorFactory(
   });
 
   const runtimeFollowupFacade = deps.createRuntimeFollowupFacade({
-    getMessageWriteService: () => messageWriteService,
+    getMessageWriteService: () => {
+      const dynamicChannel = channel as typeof channel & { messageWriteService?: typeof messageWriteService };
+      return dynamicChannel.messageWriteService ?? messageWriteService;
+    },
     getQueuedFollowupLifecycle: () => channel.queuedFollowupLifecycle,
     getRuntimeState: () => runtimeState,
   });

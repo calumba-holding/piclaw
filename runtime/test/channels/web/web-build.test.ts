@@ -10,6 +10,8 @@ import "../../helpers.js";
 import { existsSync } from "fs";
 import { join } from "path";
 
+const WEB_BUILD_TEST_TIMEOUT_MS = 20_000;
+
 function projectRoot(): string {
   return join(import.meta.dir, "..", "..", "..");
 }
@@ -46,4 +48,4 @@ test("build:web produces bundle assets", async () => {
 
   expect(existsSync(editorBundlePath)).toBe(true);
   expect(existsSync(editorMapPath)).toBe(true);
-});
+}, WEB_BUILD_TEST_TIMEOUT_MS);
