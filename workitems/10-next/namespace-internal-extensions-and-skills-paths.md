@@ -66,10 +66,24 @@ matter.
 - [ ] Loader/discovery/docs references are updated consistently
 - [ ] Validation covers the affected extension/skill path surfaces
 
+## Updates
+
+### 2026-03-28
+- Stage 4 execution inputs were prepared in:
+  - `docs/stage4-extension-skill-namespacing-inventory-2026-03-28.md`
+  - `docs/stage4-extension-skill-namespacing-steplist-2026-03-28.md`
+  - `docs/stage4-extension-skill-namespacing-autoresearch-prompt-2026-03-28.md`
+  - `workitems/20-doing/execute-stage4-extension-and-skill-namespacing.md`
+- The current recommendation is to scope Stage 4 to packaged runtime namespacing first and treat `.pi/...` convention paths as compatibility-sensitive unless loader/discovery evidence proves a rename is necessary.
+
 ## Links
 
 - `docs/broad-filesystem-reorg-map-2026-03-28.md`
 - `workitems/20-doing/plan-broad-filesystem-reorg-from-audit.md`
+- `workitems/20-doing/execute-stage4-extension-and-skill-namespacing.md`
+- `docs/stage4-extension-skill-namespacing-inventory-2026-03-28.md`
+- `docs/stage4-extension-skill-namespacing-steplist-2026-03-28.md`
+- `docs/stage4-extension-skill-namespacing-autoresearch-prompt-2026-03-28.md`
 - `runtime/extensions/`
 - `runtime/skills/`
 - `skel/.pi/extensions/`

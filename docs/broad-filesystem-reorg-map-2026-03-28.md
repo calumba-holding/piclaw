@@ -343,6 +343,14 @@ Avoid indefinite dual-path support.
   - `artifacts/README.md`
 - kept Stage 3 intentionally bounded to policy clarification and local directory guidance rather than another relocation sweep
 
+### Stage 4 preparation update — 2026-03-28
+
+- captured the current extension/skill surface inventory in `docs/stage4-extension-skill-namespacing-inventory-2026-03-28.md`
+- prepared the execution order in `docs/stage4-extension-skill-namespacing-steplist-2026-03-28.md`
+- prepared an execution brief in `docs/stage4-extension-skill-namespacing-autoresearch-prompt-2026-03-28.md`
+- opened `workitems/20-doing/execute-stage4-extension-and-skill-namespacing.md` as the active next batch
+- Stage 4 is intentionally scoped to packaged runtime namespacing first; public `.pi/...` convention paths are treated as compatibility-sensitive unless loader/discovery evidence proves otherwise
+
 ## First-batch recommendation
 
 If we start executing immediately, the best first batch is:
@@ -362,4 +370,5 @@ output paths.
 - `workitems/40-review/clarify-root-vs-runtime-ownership-boundaries.md`
 - `workitems/40-review/rationalize-runtime-generated-output-layout.md`
 - `workitems/10-next/namespace-internal-extensions-and-skills-paths.md`
+- `workitems/20-doing/execute-stage4-extension-and-skill-namespacing.md`
 - `workitems/10-next/group-web-channel-flat-files.md`
