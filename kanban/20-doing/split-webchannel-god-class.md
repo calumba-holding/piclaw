@@ -76,9 +76,10 @@ Extract `WebChannel` into a composition of focused services:
 - The endpoint facade / handler-context seam then landed behind `runtime/src/channels/web/channel-endpoint-facade-service.ts`, centralizing lightweight endpoint wrappers and live identity snapshot reuse while preserving endpoint payloads and refresh behavior.
 - The agent control-plane seam then landed behind `runtime/src/channels/web/agent-control-plane-service.ts`, moving queue, branch-lifecycle, and autoresearch wrapper glue out of `WebChannel` while preserving payload shapes, status codes, and router-facing public methods.
 - The terminal/VNC HTTP seam then landed behind `runtime/src/channels/web/terminal-vnc-http-service.ts`, moving terminal session, VNC session, and VNC handoff HTTP wrapper glue out of `WebChannel` while preserving auth/CSRF/target-validation behavior and router-facing public methods.
+- The adaptive-card/side-prompt seam then landed behind `runtime/src/channels/web/adaptive-card-side-prompt-service.ts`, moving adaptive-card action orchestration and side-prompt request/stream wrappers out of `WebChannel` while preserving payload validation, login/TOTP flows, autoresearch card actions, and router-facing public methods.
 - Split the next bounded seam into:
-  - `kanban/20-doing/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
-- Rationale: adaptive-card action handling and side-prompt streaming remain one of the largest cohesive interactive wrapper clusters still living on `WebChannel` after the first eight extractions.
+  - `kanban/20-doing/extract-webchannel-peer-message-relay-wrapper.md`
+- Rationale: peer-message relay remains one of the last cohesive request-wrapper clusters still living on `WebChannel` after the first nine extractions.
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-27
@@ -107,4 +108,5 @@ Extract `WebChannel` into a composition of focused services:
   - `kanban/40-review/extract-webchannel-endpoint-facade-and-handler-contexts.md`
   - `kanban/40-review/extract-webchannel-agent-control-plane-wrappers.md`
   - `kanban/40-review/extract-webchannel-terminal-and-vnc-http-wrappers.md`
-  - `kanban/20-doing/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
+  - `kanban/40-review/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
+  - `kanban/20-doing/extract-webchannel-peer-message-relay-wrapper.md`

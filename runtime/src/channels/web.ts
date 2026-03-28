@@ -21,7 +21,6 @@ import {
   getIdentityConfig,
   getWebRuntimeConfig,
   getWebServerConfig,
-  setWebTotpSecret,
 } from "../core/config.js";
 import type { WebChannelLike } from "./web/web-channel-contracts.js";
 import { RequestRouterService } from "./web/request-router-service.js";
@@ -33,14 +32,10 @@ import {
 import { WebSessionBroadcastService } from "./web/session-broadcast-service.js";
 import { ResponseService } from "./web/http/response-service.js";
 import {
-  createWebSession,
-  DEFAULT_WEB_USER_ID,
-  deleteAllWebSessions,
   replaceMessageContent,
   getChatBranchByChatJid,
   getChatCursor,
   getDb,
-  getMessageByRowId,
 } from "../db.js";
 import type { InteractionRow } from "../db.js";
 import type { QueuedFollowupItem } from "./web/followup-placeholders.js";
@@ -51,16 +46,6 @@ import { WebMessageWriteService } from "./web/message-write-service.js";
 import { ensureAvatarCache } from "./web/avatar-service.js";
 import type { WebAgentBufferEntry } from "./web/agent-buffers.js";
 import { WebChannelRuntimeStateService } from "./web/runtime-state-service.js";
-import {
-  buildAdaptiveCardSubmissionText,
-  buildAdaptiveCardSubmitBlock,
-  getAdaptiveCardSubmitBehavior,
-  getAdaptiveCardSubmitState,
-  getAdaptiveCardTestFailure,
-  markAdaptiveCardState,
-  sanitizeAdaptiveCardActionPayload,
-  sanitizeAdaptiveCardSubmissionData,
-} from "./web/adaptive-card-actions.js";
 import {
   createWebChannelEndpointContexts,
   createWebChannelIdentitySnapshot,
@@ -79,38 +64,25 @@ import {
   type WebSocketSessionData,
 } from "./web/server-lifecycle-gateway-service.js";
 import { createWebTerminalVncHttpService, WebTerminalVncHttpService } from "./web/terminal-vnc-http-service.js";
+import {
+  createWebAdaptiveCardSidePromptService,
+  WebAdaptiveCardSidePromptService,
+  type WebAdaptiveCardSidePromptChannelLike,
+} from "./web/adaptive-card-side-prompt-service.js";
 import { TerminalSessionService } from "./web/terminal/terminal-session-service.js";
 import { VncSessionService } from "./web/vnc/vnc-session-service.js";
 import { RemoteInteropService } from "../remote/service.js";
-import { createLogger } from "../utils/logger.js";
-import { randomSessionToken, verifyTotp } from "./web/auth.js";
 import { parseJsonObjectRequest } from "./web/json-body.js";
-import { hashTotpSecret, parseTotpCardToken } from "./web/totp-card.js";
-
-const log = createLogger("web");
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
 const STATE_KEY = "last_agent_timestamp_web";
 
-function getWebSessionTtlSeconds(): number {
-  const rawTtl = getWebRuntimeConfig().sessionTtl;
-  return Math.max(60, rawTtl || 0);
-}
-
-function formatSseEvent(eventType: string, data: unknown): string {
-  return `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
-}
-
-function parseSidePromptPayload(payload: { prompt?: string; system_prompt?: string; chat_jid?: string }): {
-  prompt: string;
-  systemPrompt: string;
-  chatJid: string;
-} {
-  return {
-    prompt: typeof payload.prompt === "string" ? payload.prompt.trim() : "",
-    systemPrompt: typeof payload.system_prompt === "string" ? payload.system_prompt.trim() : "",
-    chatJid: typeof payload.chat_jid === "string" && payload.chat_jid.trim() ? payload.chat_jid.trim() : DEFAULT_CHAT_JID,
-  };
+function getAdaptiveCardSidePromptService(channel: WebAdaptiveCardSidePromptChannelLike): WebAdaptiveCardSidePromptService {
+  return (channel as { adaptiveCardSidePromptService?: WebAdaptiveCardSidePromptService }).adaptiveCardSidePromptService
+    ?? createWebAdaptiveCardSidePromptService(channel, {
+      defaultChatJid: DEFAULT_CHAT_JID,
+      defaultAgentId: DEFAULT_AGENT_ID,
+    });
 }
 
 /** Construction options for WebChannel: queue and agentPool references. */
@@ -142,6 +114,7 @@ export class WebChannel implements WebChannelLike {
   private readonly runtimeState: WebChannelRuntimeStateService;
   private readonly serverLifecycleGateway: WebServerLifecycleGatewayService;
   private readonly terminalVncHttpService: WebTerminalVncHttpService;
+  private readonly adaptiveCardSidePromptService: WebAdaptiveCardSidePromptService;
   private readonly messageWriteService: WebMessageWriteService;
   private readonly endpointFacade: WebChannelEndpointFacadeService;
   private readonly controlPlaneService: WebAgentControlPlaneService;
@@ -236,6 +209,11 @@ export class WebChannel implements WebChannelLike {
       webRuntimeConfig: this.webRuntimeConfig,
     });
     this.terminalVncHttpService = createWebTerminalVncHttpService(this, { webRuntimeConfig: this.webRuntimeConfig });
+    this.adaptiveCardSidePromptService = createWebAdaptiveCardSidePromptService(this, {
+      defaultChatJid: DEFAULT_CHAT_JID,
+      defaultAgentId: DEFAULT_AGENT_ID,
+      webRuntimeConfig: this.webRuntimeConfig,
+    });
   }
 
   get sse(): WebSessionBroadcastService["sse"] {
@@ -662,508 +640,15 @@ export class WebChannel implements WebChannelLike {
   }
 
   async handleAdaptiveCardAction(req: Request): Promise<Response> {
-    const parsed = await parseJsonObjectRequest(req);
-    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
-
-    const payload = parsed.payload as {
-      post_id?: number | string;
-      thread_id?: number | string | null;
-      card_id?: string;
-      chat_jid?: string;
-      action?: { type?: string; title?: string; data?: unknown; url?: string };
-    };
-
-    const normalized = sanitizeAdaptiveCardActionPayload(payload);
-    const chatJid = normalized.chatJid ?? DEFAULT_CHAT_JID;
-    if (!normalized.postId || normalized.postId <= 0) {
-      return this.json({ error: "Missing or invalid post_id" }, 400);
-    }
-    const sourcePostId = normalized.postId;
-    if (!normalized.cardId) {
-      return this.json({ error: "Missing or invalid card_id" }, 400);
-    }
-    if (!normalized.actionType) {
-      return this.json({ error: "Missing or invalid action.type" }, 400);
-    }
-
-    if (normalized.actionType === "Action.OpenUrl") {
-      return this.json({ status: "ok", handled: "client", action_type: normalized.actionType, url: normalized.actionUrl || null }, 200);
-    }
-
-    if (normalized.actionType !== "Action.Submit") {
-      return this.json({ error: `Unsupported action type: ${normalized.actionType}` }, 400);
-    }
-
-    const sourceInteraction = getMessageByRowId(chatJid, sourcePostId);
-    if (!sourceInteraction) {
-      return this.json({ error: "Source post not found" }, 404);
-    }
-
-    const simulatedFailure = getAdaptiveCardTestFailure(normalized.cardId, normalized.actionData);
-    if (simulatedFailure) {
-      return this.json({ error: simulatedFailure }, 422);
-    }
-
-    const submittedAt = new Date().toISOString();
-    const sanitizedSubmissionData = sanitizeAdaptiveCardSubmissionData(normalized.actionData);
-    const submissionMeta = {
-      action_type: normalized.actionType,
-      title: normalized.actionTitle || undefined,
-      data: sanitizedSubmissionData,
-      submitted_at: submittedAt,
-    };
-    const submitBehavior = getAdaptiveCardSubmitBehavior(sourceInteraction.data?.content_blocks, normalized.cardId);
-    const targetState = getAdaptiveCardSubmitState(normalized.actionData);
-    const updatedCardBlocks = submitBehavior === "keep_active"
-      ? sourceInteraction.data?.content_blocks ?? null
-      : markAdaptiveCardState(
-          sourceInteraction.data?.content_blocks,
-          normalized.cardId,
-          targetState,
-          submittedAt,
-          submissionMeta,
-        );
-    if (!updatedCardBlocks) {
-      return this.json({ error: "Adaptive card not found or no longer active" }, 409);
-    }
-
-    const threadId = normalized.threadId ?? sourceInteraction.data?.thread_id ?? sourceInteraction.id;
-    const submissionText = buildAdaptiveCardSubmissionText(
-      normalized.actionTitle,
-      normalized.cardId,
-      sanitizedSubmissionData,
-    );
-    const submissionBlock = buildAdaptiveCardSubmitBlock({
-      cardId: normalized.cardId,
-      sourcePostId,
-      title: normalized.actionTitle || undefined,
-      data: sanitizedSubmissionData,
-      submittedAt,
-    });
-
-    // ── Login/TOTP flow cards: handle without agent ───────────
-    const rawSubmissionData = normalized.actionData && typeof normalized.actionData === "object"
-      ? (normalized.actionData as Record<string, unknown>)
-      : null;
-    const submissionData = sanitizedSubmissionData as Record<string, unknown> | null;
-    const updateSourceCard = (contentBlocks: unknown[] | null) => {
-      if (!contentBlocks) return null;
-      const interaction = replaceMessageContent(chatJid, sourcePostId, sourceInteraction.data?.content || "", {
-        contentBlocks,
-        linkPreviews: Array.isArray(sourceInteraction.data?.link_previews) ? sourceInteraction.data.link_previews : undefined,
-        mediaIds: Array.isArray(sourceInteraction.data?.media_ids) ? sourceInteraction.data.media_ids : undefined,
-      });
-      if (interaction) {
-        this.interactionBroadcaster.broadcastInteractionUpdated(interaction);
-      }
-      return interaction;
-    };
-
-    const loginIntents = new Set(["login-step1", "login-step1-method", "login-step2", "login-step3"]);
-    const isLoginFlow = submissionData && typeof submissionData.intent === "string" && loginIntents.has(submissionData.intent);
-    if (isLoginFlow) {
-      // Update the source card to completed state (no separate user message needed)
-      const updatedCardInteraction = submitBehavior === "keep_active"
-        ? null
-        : updateSourceCard(updatedCardBlocks);
-
-      // Route through applyControlCommand to access authStorage/modelRegistry
-      const routePrefix = submissionData.intent === "login-step1" ? "__step1 "
-        : submissionData.intent === "login-step1-method" ? "__step1method "
-        : submissionData.intent === "login-step2" ? "__step2 "
-        : "__step3 ";
-      const authResult = await this.agentPool.applyControlCommand(chatJid, {
-        type: "login",
-        provider: `${routePrefix}${JSON.stringify(submissionData)}`,
-        raw: `/login ${routePrefix}`,
-      });
-
-      // Post result — with or without follow-up cards
-      const sendOpts: Record<string, unknown> = { threadId };
-      if (authResult.contentBlocks?.length) {
-        sendOpts.contentBlocks = authResult.contentBlocks;
-      }
-      this.sendMessage(chatJid, authResult.message, sendOpts);
-
-      if (authResult.status === "success" && authResult.model_label) {
-        let nextModel: string | null = authResult.model_label ?? null;
-        let thinkingLevel: string | null = authResult.thinking_level ?? null;
-        let supportsThinking: boolean | undefined = undefined;
-        try {
-          const modelState = await this.agentPool.getAvailableModels(chatJid);
-          if (!nextModel) nextModel = modelState.current ?? null;
-          if (thinkingLevel == null) thinkingLevel = modelState.thinking_level ?? null;
-          supportsThinking = modelState.supports_thinking;
-        } catch {
-          if (typeof this.agentPool.getCurrentModelLabel === "function") {
-            nextModel = await this.agentPool.getCurrentModelLabel(chatJid).catch(() => null);
-          }
-        }
-
-        this.broadcastEvent("model_changed", {
-          chat_jid: chatJid,
-          model: nextModel ?? null,
-          thinking_level: thinkingLevel ?? null,
-          supports_thinking: supportsThinking,
-        });
-        this.skipFailedOnModelSwitch(chatJid);
-      }
-
-      return this.json({
-        status: "ok",
-        card_updated: Boolean(updatedCardInteraction),
-        source_post_id: sourcePostId,
-        card_id: normalized.cardId,
-        submitted_at: submittedAt,
-        auth_result: authResult.status,
-      }, 200);
-    }
-
-    const isTotpFlow = rawSubmissionData && rawSubmissionData.intent === "totp-confirm";
-
-    // ── Autoresearch launch card action (model picker) ──────────
-    const isAutoresearchLaunch = rawSubmissionData && rawSubmissionData.intent === "autoresearch-launch";
-    if (isAutoresearchLaunch) {
-      updateSourceCard(
-        markAdaptiveCardState(
-          sourceInteraction.data?.content_blocks,
-          normalized.cardId,
-          "completed",
-          submittedAt,
-          { action_type: normalized.actionType, title: "Launch", data: { intent: "autoresearch-launch" }, submitted_at: submittedAt },
-        ),
-      );
-
-      const selectedModel = typeof rawSubmissionData.model === "string" ? rawSubmissionData.model.trim() : "";
-      const sandboxToggle = rawSubmissionData.sandbox;
-      const useSandbox = sandboxToggle === "true" || sandboxToggle === true;
-      if (!selectedModel) {
-        await this.sendMessage(chatJid, "No model selected.", { threadId });
-        return this.json({ status: "ok", card_updated: true, source_post_id: sourcePostId, card_id: normalized.cardId }, 200);
-      }
-
-      try {
-        const { consumePendingLaunch } = await import("../extensions/autoresearch-supervisor.js");
-        const pending = consumePendingLaunch();
-        if (!pending) {
-          await this.sendMessage(chatJid, "No pending experiment launch found. Use start_autoresearch to set one up.", { threadId });
-          return this.json({ status: "ok", card_updated: true, source_post_id: sourcePostId, card_id: normalized.cardId }, 200);
-        }
-
-        // Trigger the actual launch by sending the command to the agent
-        await this.sendMessage(chatJid, `Launching with model **${selectedModel}**…`, { threadId });
-
-        // Use the agent tool directly
-        const { startAutoresearchFromCard } = await import("../extensions/autoresearch-supervisor.js");
-        const result = await startAutoresearchFromCard({
-          project_dir: pending.project_dir,
-          prompt: pending.prompt,
-          model: selectedModel,
-          sandbox: useSandbox,
-          max_iterations: pending.max_iterations,
-          variables: pending.variables,
-          chat_jid: pending.chat_jid || chatJid,
-        });
-        await this.sendMessage(chatJid, result, { threadId });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        log.warn("Failed to launch autoresearch experiment from adaptive card", {
-          operation: "handle_adaptive_card_action.autoresearch_launch",
-          chatJid,
-          err,
-        });
-        await this.sendMessage(chatJid, `Failed to launch experiment: ${msg}`, { threadId });
-      }
-
-      return this.json({ status: "ok", card_updated: true, source_post_id: sourcePostId, card_id: normalized.cardId }, 200);
-    }
-
-    // ── Autoresearch stop card action ──────────────────────────
-    const isAutoresearchStop = rawSubmissionData && rawSubmissionData.intent === "autoresearch-stop";
-    if (isAutoresearchStop) {
-      updateSourceCard(
-        markAdaptiveCardState(
-          sourceInteraction.data?.content_blocks,
-          normalized.cardId,
-          "completed",
-          submittedAt,
-          { action_type: normalized.actionType, title: "Stop", data: { intent: "autoresearch-stop" }, submitted_at: submittedAt },
-        ),
-      );
-
-      // Trigger stop via the agent tool
-      const experimentId = typeof rawSubmissionData.experiment_id === "string" ? rawSubmissionData.experiment_id : "";
-      await this.sendMessage(chatJid, `Stopping autoresearch experiment${experimentId ? ` ${experimentId}` : ""}…`, { threadId });
-
-      // Import and invoke stop directly
-      try {
-        const { stopAutoresearchFromCard } = await import("./web/handlers/autoresearch-card-action.js");
-        const result = await stopAutoresearchFromCard();
-        await this.sendMessage(chatJid, result, { threadId });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        log.warn("Failed to stop autoresearch experiment from adaptive card", {
-          operation: "handle_adaptive_card_action.autoresearch_stop",
-          chatJid,
-          err,
-        });
-        await this.sendMessage(chatJid, `Failed to stop experiment: ${msg}`, { threadId });
-      }
-
-      return this.json({
-        status: "ok",
-        card_updated: true,
-        source_post_id: sourcePostId,
-        card_id: normalized.cardId,
-        submitted_at: submittedAt,
-      }, 200);
-    }
-
-    if (isTotpFlow) {
-      const safeSubmissionMeta = {
-        action_type: normalized.actionType,
-        title: normalized.actionTitle || undefined,
-        data: { intent: "totp-confirm" },
-        submitted_at: submittedAt,
-      };
-      const completeTotpCard = (state: "completed" | "failed") => updateSourceCard(
-        markAdaptiveCardState(
-          sourceInteraction.data?.content_blocks,
-          normalized.cardId,
-          state,
-          submittedAt,
-          safeSubmissionMeta,
-        ),
-      );
-      const sendTotpFeedback = async (message: string, state: "active" | "completed" | "failed", setCookie?: string | null) => {
-        await this.sendMessage(chatJid, message, { threadId });
-        const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (setCookie) headers["Set-Cookie"] = setCookie;
-        return new Response(JSON.stringify({
-          status: "ok",
-          source_post_id: sourcePostId,
-          card_id: normalized.cardId,
-          card_state: state,
-          submitted_at: submittedAt,
-          totp_result: state === "completed" ? "success" : "error",
-          message,
-        }), { status: 200, headers });
-      };
-
-      const confirmationCode = typeof rawSubmissionData.confirmation_code === "string"
-        ? rawSubmissionData.confirmation_code.trim()
-        : "";
-      const token = typeof rawSubmissionData.__totp_token === "string"
-        ? rawSubmissionData.__totp_token.trim()
-        : "";
-
-      if (!confirmationCode) {
-        return await sendTotpFeedback("TOTP validation failed: missing confirmation code. No changes were made.", "active");
-      }
-
-      const parsedTotp = parseTotpCardToken(token);
-      if (!parsedTotp.ok) {
-        completeTotpCard("failed");
-        const message = parsedTotp.error === "expired"
-          ? "TOTP validation failed: this confirmation card expired. No changes were made. Run /totp again."
-          : "TOTP validation failed: this confirmation card is invalid. No changes were made. Run /totp again.";
-        return await sendTotpFeedback(message, "failed");
-      }
-
-      const activeSecret = (this.webRuntimeConfig.totpSecret || "").trim();
-      if (hashTotpSecret(activeSecret) !== parsedTotp.state.previousSecretHash) {
-        completeTotpCard("failed");
-        return await sendTotpFeedback(
-          "TOTP validation failed: active TOTP state changed since this card was created. No changes were made. Run /totp again.",
-          "failed",
-        );
-      }
-
-      if (!verifyTotp(parsedTotp.state.secret, confirmationCode, this.webRuntimeConfig.totpWindow)) {
-        return await sendTotpFeedback(
-          "TOTP validation failed: the code did not match the secret shown in the card. No changes were made.",
-          "active",
-        );
-      }
-
-      const feedback = parsedTotp.state.flow === "setup"
-        ? (() => {
-            setWebTotpSecret(parsedTotp.state.secret);
-            this.authGateway.setTotpSecret(parsedTotp.state.secret);
-            return "TOTP setup confirmed. Secret saved. This browser is now TOTP-authenticated.";
-          })()
-        : parsedTotp.state.flow === "reset"
-          ? (() => {
-              setWebTotpSecret(parsedTotp.state.secret);
-              this.authGateway.setTotpSecret(parsedTotp.state.secret);
-              deleteAllWebSessions();
-              return "TOTP reset confirmed. New secret saved. Existing web sessions were invalidated. This browser is now TOTP-authenticated.";
-            })()
-          : "TOTP device validation succeeded. Existing secret unchanged. This browser is now TOTP-authenticated.";
-
-      completeTotpCard("completed");
-      const sessionToken = randomSessionToken();
-      createWebSession(sessionToken, DEFAULT_WEB_USER_ID, getWebSessionTtlSeconds(), "totp");
-      const setCookie = this.authGateway.createTotpContext().buildSessionCookie(sessionToken, req);
-      return await sendTotpFeedback(feedback, "completed", setCookie);
-    }
-
-    const forwardReq = new Request(`http://internal/agent/${DEFAULT_AGENT_ID}/message`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        content: submissionText,
-        thread_id: threadId,
-        content_blocks: [submissionBlock],
-      }),
-    });
-
-    const forwardRes = await handleAgentMessageRequest(this, forwardReq, `/agent/${DEFAULT_AGENT_ID}/message`, chatJid, DEFAULT_AGENT_ID);
-    if (!forwardRes.ok) {
-      return forwardRes;
-    }
-
-    // When debug card submissions is off, remove the visible "Card submission: ..."
-    // user message from the timeline. The submission data is preserved in the
-    // source card's last_submission and content_blocks.
-    if (!this.webRuntimeConfig.debugCardSubmissions) {
-      const forwardBody = await forwardRes.clone().json().catch(() => null);
-      const forwardBodyRecord = forwardBody as
-        | { id?: number | string; user_message?: { id?: number | string } }
-        | null;
-      const rawSubmissionPostId = forwardBodyRecord?.id ?? forwardBodyRecord?.user_message?.id;
-      const submissionPostId = typeof rawSubmissionPostId === "number"
-        ? rawSubmissionPostId
-        : typeof rawSubmissionPostId === "string"
-          ? Number(rawSubmissionPostId)
-          : NaN;
-      if (Number.isFinite(submissionPostId) && submissionPostId > 0) {
-        this.broadcastEvent("interaction_deleted", { chat_jid: chatJid, ids: [submissionPostId] });
-      }
-    }
-
-    const updatedInteraction = submitBehavior === "keep_active"
-      ? null
-      : replaceMessageContent(
-          chatJid,
-          sourcePostId,
-          sourceInteraction.data?.content || "",
-          {
-            contentBlocks: updatedCardBlocks,
-            linkPreviews: Array.isArray(sourceInteraction.data?.link_previews) ? sourceInteraction.data.link_previews : undefined,
-            mediaIds: Array.isArray(sourceInteraction.data?.media_ids) ? sourceInteraction.data.media_ids : undefined,
-          },
-        );
-    if (updatedInteraction) {
-      this.interactionBroadcaster.broadcastInteractionUpdated(updatedInteraction);
-    }
-
-    const responseBody = await forwardRes.json().catch(() => ({} as Record<string, unknown>));
-
-    return this.json({
-      ...responseBody,
-      card_updated: Boolean(updatedInteraction),
-      source_post_id: sourcePostId,
-      card_id: normalized.cardId,
-      card_state: submitBehavior === "keep_active" ? "active" : (updatedInteraction ? targetState : null),
-      submitted_at: submittedAt,
-    }, forwardRes.status);
+    return await getAdaptiveCardSidePromptService(this).handleAdaptiveCardAction(req);
   }
 
   async handleAgentSidePrompt(req: Request): Promise<Response> {
-    const parsed = await parseJsonObjectRequest(req);
-    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
-
-    const payload = parsed.payload as { prompt?: string; system_prompt?: string; chat_jid?: string };
-    const { prompt, systemPrompt, chatJid } = parseSidePromptPayload(payload);
-    if (!prompt) {
-      return this.json({ error: "Missing or invalid prompt" }, 400);
-    }
-
-    const result = await this.agentPool.runSidePrompt(chatJid, prompt, {
-      ...(systemPrompt ? { systemPrompt } : {}),
-    });
-
-    if (result.status === "error") {
-      return this.json(result, 502);
-    }
-
-    return this.json(result, 200);
+    return await getAdaptiveCardSidePromptService(this).handleAgentSidePrompt(req);
   }
 
   async handleAgentSidePromptStream(req: Request): Promise<Response> {
-    const parsed = await parseJsonObjectRequest(req);
-    if (!parsed.ok) return this.json({ error: parsed.error }, 400);
-
-    const payload = parsed.payload as { prompt?: string; system_prompt?: string; chat_jid?: string };
-    const { prompt, systemPrompt, chatJid } = parseSidePromptPayload(payload);
-    if (!prompt) {
-      return this.json({ error: "Missing or invalid prompt" }, 400);
-    }
-
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream<Uint8Array>({
-      start: (controller) => {
-        let closed = false;
-        const close = () => {
-          if (closed) return;
-          closed = true;
-          try {
-            controller.close();
-          } catch {
-            /* expected: ReadableStream controller may already be closed/cancelled. */
-          }
-        };
-        const send = (eventType: string, data: unknown) => {
-          if (closed) return;
-          try {
-            controller.enqueue(encoder.encode(formatSseEvent(eventType, data)));
-          } catch {
-            /* expected: enqueue may race a controller that was already closed via abort/cancel. */
-            close();
-          }
-        };
-
-        req.signal.addEventListener("abort", close, { once: true });
-
-        send("side_prompt_start", { chat_jid: chatJid });
-        void this.agentPool.runSidePrompt(chatJid, prompt, {
-          ...(systemPrompt ? { systemPrompt } : {}),
-          signal: req.signal,
-          onThinkingDelta: (delta) => send("side_prompt_thinking_delta", { delta }),
-          onTextDelta: (delta) => send("side_prompt_text_delta", { delta }),
-        }).then((result) => {
-          send(result.status === "success" ? "side_prompt_done" : "side_prompt_error", result);
-          close();
-        }).catch((error) => {
-          send("side_prompt_error", {
-            status: "error",
-            result: null,
-            thinking: null,
-            error: error instanceof Error ? error.message : String(error),
-            model: null,
-          });
-          close();
-        });
-      },
-      cancel: () => {
-        try {
-          req.signal.throwIfAborted();
-        } catch {
-          /* expected: cancellation frequently arrives from an already-aborted request signal. */
-        }
-      },
-    });
-
-    return new Response(stream, {
-      status: 200,
-      headers: {
-        "Content-Type": "text/event-stream; charset=utf-8",
-        "Cache-Control": "no-cache, no-transform",
-        Connection: "keep-alive",
-        "X-Accel-Buffering": "no",
-      },
-    });
+    return await getAdaptiveCardSidePromptService(this).handleAgentSidePromptStream(req);
   }
 
   async handleAgentMessage(req: Request, pathname: string): Promise<Response> {
