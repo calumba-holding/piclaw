@@ -7,7 +7,7 @@ import { dirname, relative, resolve } from "node:path";
 const RELEASE_VERSION = "v3.4.0";
 const ZIP_NAME = "FiraCode.zip";
 const RELEASE_URL = `https://github.com/ryanoasis/nerd-fonts/releases/download/${RELEASE_VERSION}/${ZIP_NAME}`;
-const CACHE_DIR = resolve(process.cwd(), ".cache", "vendor", "firacode-nerd-font", RELEASE_VERSION);
+const CACHE_DIR = resolve(process.cwd(), "generated", "cache", "vendor", "firacode-nerd-font", RELEASE_VERSION);
 const ARCHIVE_PATH = resolve(CACHE_DIR, ZIP_NAME);
 const OUTPUTS = [
   {

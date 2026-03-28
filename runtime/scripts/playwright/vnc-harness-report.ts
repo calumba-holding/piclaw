@@ -161,7 +161,10 @@ async function main() {
     const baseUrl = `http://${args.host}:${args.port}`;
     const startedAt = new Date().toISOString();
 
-    const standaloneScript = resolve('/workspace/piclaw/runtime/scripts/vnc-harness-standalone.ts');
+    const repoRoot = resolve(import.meta.dir, '..', '..', '..');
+    const standaloneScript = resolve(repoRoot, 'runtime', 'scripts', 'vnc-harness-standalone.ts');
+    const reportDir = resolve(repoRoot, 'artifacts', 'vnc-harness');
+
     const harnessProc = Bun.spawn({
         cmd: [
             'bun',
@@ -173,7 +176,7 @@ async function main() {
         ],
         stdout: 'pipe',
         stderr: 'pipe',
-        cwd: '/workspace/piclaw',
+        cwd: repoRoot,
     });
 
     const procStdoutPromise = new Response(harnessProc.stdout).text();
@@ -244,7 +247,6 @@ async function main() {
 
         snapshot = await page.evaluate(() => window.__VNC_HARNESS__.snapshot());
 
-        const reportDir = '/workspace/piclaw/runtime/reports';
         mkdirSync(reportDir, { recursive: true });
         const stamp = new Date().toISOString().replace(/[.:]/g, '-');
         screenshotPath = join(reportDir, `vnc-harness-${stamp}.png`);

@@ -61,7 +61,7 @@ Integrate draw.io as a self-hosted diagram editor extension using the extension 
 
 - Draw.io version: v29.6.1
 - Vendor files are gitignored (~35MB); reproduced via `bun run build:vendor:drawio`
-- The draw.io WAR is cached in `.cache/vendor/drawio/v29.6.1/`
+- The draw.io WAR is cached in `generated/cache/vendor/drawio/v29.6.1/`
 
 ## Links
 

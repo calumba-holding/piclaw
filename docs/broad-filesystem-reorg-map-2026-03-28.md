@@ -127,9 +127,14 @@ than inventing a separate competing plan.
 1. **`kanban/` → `workitems/`**
    - Rationale: the directory is the canonical work-item store, not just a kanban visualization.
 
-2. **`runtime/dist/`, `runtime/coverage/`, `runtime/reports/`, `runtime/tmp/`, `runtime/.cache/` under one generated-output boundary**
+2. **`runtime/dist/`, `runtime/coverage/`, and `runtime/.cache/` under one generated-output boundary**
    - Preferred target: `runtime/generated/`
    - Rationale: maintained implementation should not be visually mixed with disposable output.
+
+   `runtime/reports/` and `runtime/tmp/` need classification first:
+
+   - `runtime/reports/` may be durable repo evidence rather than transient runtime output.
+   - `runtime/tmp/` should only move under `runtime/generated/` if it contains emitted scratch output rather than operator-authored helper scripts.
 
 3. **Clarify and enforce root vs `runtime/` domain ownership**
    - `docs/` = repo/operator/architecture/install docs
@@ -198,12 +203,13 @@ paths.
 ### Scope
 
 - create `runtime/generated/`
-- move or alias:
+- move or alias the clearly transient areas:
   - `runtime/dist/`
   - `runtime/coverage/`
+  - `runtime/.cache/`
+- classify before moving:
   - `runtime/reports/`
   - `runtime/tmp/`
-  - `runtime/.cache/`
 - decide final placement for `runtime/artifacts/`
 
 ### Why second
@@ -313,9 +319,18 @@ Avoid indefinite dual-path support.
 
 ### Still to confirm during execution
 
-- whether `runtime/artifacts/` becomes durable repo-level artifacts or runtime-generated artifacts
 - whether any runtime docs should move out of `runtime/docs/` or simply be re-scoped/documented
 - whether some repo-level scripts should become packaged runtime scripts or vice versa
+
+### Stage 2 execution update — 2026-03-28
+
+- `runtime/dist/` moved to `runtime/generated/dist/`
+- `runtime/coverage/` now writes to `runtime/generated/coverage/`
+- `runtime/.cache/` now has a `runtime/generated/cache/` containment target; runtime-local `.cache/` remains tolerated as a compatibility leftover for local tool defaults
+- `runtime/reports/` was durable evidence, not transient runtime output; it moved to `artifacts/vnc-harness/`
+- `runtime/artifacts/` is also treated as durable repo evidence, and the runtime-local location is being retired
+- `runtime/tmp/` is not automatically generated output and should stay out of `runtime/generated/` unless its contents change class
+- `runtime/node_modules/` remains untouched as the Stage 2 toolchain exception
 
 ## First-batch recommendation
 

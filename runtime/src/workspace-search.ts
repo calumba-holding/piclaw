@@ -107,7 +107,7 @@ async function walkFiles(root: string): Promise<string[]> {
     for (const entry of entries) {
       const full = path.join(root, entry.name);
       if (entry.isDirectory()) {
-        if (entry.name === "node_modules" || entry.name === ".git" || entry.name === ".cache") continue;
+        if (entry.name === "node_modules" || entry.name === ".git" || entry.name === ".cache" || entry.name === "generated") continue;
         files.push(...(await walkFiles(full)));
       } else if (entry.isFile()) {
         files.push(full);

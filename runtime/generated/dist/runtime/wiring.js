@@ -1,0 +1,53 @@
+/**
+ * runtime/wiring.ts – Runtime message/scheduler wiring helpers.
+ */
+import { startIpcWatcher } from "../ipc.js";
+import { startSchedulerLoop } from "../task-scheduler.js";
+import { createLogger } from "../utils/logger.js";
+const log = createLogger("runtime.wiring");
+/** Build sendMessage/sendNudge closures for runtime workers. */
+export function createRuntimeSenders(web, whatsapp, pushover) {
+    const sendMessage = async (jid, text, options) => {
+        if (jid.startsWith("web:")) {
+            await web.sendMessage(jid, text, options);
+            return;
+        }
+        await whatsapp.sendMessage(jid, text);
+    };
+    const sendNudge = pushover
+        ? async (text) => {
+            await pushover.sendMessage("", text).catch((err) => log.error("Failed to send pushover nudge", {
+                operation: "send_nudge",
+                err,
+            }));
+        }
+        : undefined;
+    return { sendMessage, sendNudge };
+}
+/** Start IPC and scheduler background workers with runtime callbacks. */
+export function startRuntimeWorkers(queue, agentPool, web, senders) {
+    startIpcWatcher({
+        sendMessage: senders.sendMessage,
+        sendNudge: senders.sendNudge,
+        resolveModel: (input) => agentPool.resolveModelInput(input),
+        resumeChat: async (data) => {
+            const chatJid = typeof data.chatJid === "string" && data.chatJid.trim()
+                ? data.chatJid.trim()
+                : "web:default";
+            const threadRootId = typeof data.threadRootId === "number" ? data.threadRootId : null;
+            web.resumeChat(chatJid, threadRootId);
+        },
+        resumePending: async (data) => {
+            const chatJid = typeof data?.chatJid === "string" && data.chatJid.trim()
+                ? data.chatJid.trim()
+                : undefined;
+            web.resumePendingChats(chatJid);
+        },
+    });
+    startSchedulerLoop({
+        queue,
+        agentPool,
+        sendMessage: senders.sendMessage,
+        sendNudge: senders.sendNudge,
+    });
+}

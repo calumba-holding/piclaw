@@ -2,7 +2,7 @@
 
 - Command: `./scripts/audit-core-config-keychain-coverage.sh`
 - Targeted test log: `artifacts/add-tests-core-config-and-keychain/targeted-test-output.log`
-- Normalized merged LCOV report: `runtime/coverage/lcov.info`
+- Normalized merged LCOV report: `runtime/generated/coverage/lcov.info`
 - Coverage exclusions: `artifacts/add-tests-core-config-and-keychain/coverage-exclusions.json`
 - Component LCOV reports:
   - `artifacts/add-tests-core-config-and-keychain/base.lcov.info`

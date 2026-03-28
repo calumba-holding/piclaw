@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
-const BLOCKED_PREFIXES = ["coverage/", "test/", "dist/"];
-const BLOCKED_EXACT = new Set(["coverage/lcov.info"]);
+const BLOCKED_PREFIXES = ["coverage/", "test/", "dist/", "runtime/generated/"];
+const BLOCKED_EXACT = new Set(["coverage/lcov.info", "runtime/generated/coverage/lcov.info"]);
 
 export function extractPackedFiles(output: string): string[] {
   const files: string[] = [];

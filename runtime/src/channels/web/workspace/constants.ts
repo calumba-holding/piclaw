@@ -11,6 +11,7 @@
 export const EXCLUDE_DIRS = new Set([
   "node_modules",
   ".git",
+  "generated",
   "dist",
   "build",
   "output",

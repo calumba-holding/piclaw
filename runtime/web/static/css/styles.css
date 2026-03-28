@@ -3883,7 +3883,7 @@ body {
     text-align: left;
 }
 
-.post-content th:first-child,
+.post-content th,
 .post-content td:first-child {
     width: 1%;
     white-space: normal;

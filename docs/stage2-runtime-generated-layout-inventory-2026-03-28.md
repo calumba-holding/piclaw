@@ -25,7 +25,7 @@ Measured on 2026-03-28:
 Producer indicators:
 
 - root `package.json`:
-  - `build`: `cd runtime && rm -rf dist && tsc -p tsconfig.json`
+  - Stage 2 target: `cd runtime && rm -rf generated/dist && tsc -p tsconfig.json`
 - `Makefile` notes still mention `dist/` history and eventual removal from
   packaging concerns
 
@@ -120,7 +120,7 @@ Preferred containment target: `runtime/generated/`
 - `runtime/dist/` → `runtime/generated/dist/`
 - `runtime/.cache/` → `runtime/generated/cache/`
 - `runtime/coverage/` → `runtime/generated/coverage/`
-- `runtime/tmp/` → `runtime/generated/tmp/`
+- `runtime/tmp/` → `runtime/generated/tmp/` only if it truly contains emitted scratch output rather than maintained helper sources
 
 ### Decide explicitly in Stage 2
 
@@ -135,6 +135,16 @@ These need a durable-vs-transient policy decision before moving.
 
 This should be documented as an intentional exception unless later toolchain
 work makes relocation safe.
+
+## Stage 2 execution result
+
+- `runtime/dist/` → `runtime/generated/dist/` — moved as generated build output
+- `runtime/.cache/` → `runtime/generated/cache/` — containment target established; older `.cache/` is still ignored as a compatibility leftover for local tool defaults
+- `runtime/coverage/` → `runtime/generated/coverage/` — coverage writers updated to emit here
+- `runtime/reports/` → `artifacts/vnc-harness/` — classified as durable repo evidence, not transient runtime output
+- `runtime/tmp/` — classified as maintained operator scratch for now; intentionally *not* forced under `runtime/generated/` because the observed contents are authored helper scripts rather than emitted artifacts
+- `runtime/artifacts/` — classified as durable repo evidence; the runtime-local location is retired in favor of repo-level `artifacts/`, with any ignored local leftovers to be migrated manually if needed
+- `runtime/node_modules/` — intentionally left in place as the Stage 2 toolchain-sensitive exception
 
 ## Validation-sensitive surfaces
 

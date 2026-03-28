@@ -20,7 +20,7 @@ Likely move targets in this batch:
 - `runtime/dist/`
 - `runtime/.cache/`
 - `runtime/coverage/`
-- `runtime/tmp/`
+- `runtime/tmp/` only if it is confirmed to be emitted scratch rather than operator-authored helper source
 
 Decision-required targets:
 
@@ -72,8 +72,8 @@ Adopt a clear rule set such as:
 - `runtime/generated/dist/` — build output
 - `runtime/generated/cache/` — cache output
 - `runtime/generated/coverage/` — test coverage output
-- `runtime/generated/tmp/` — disposable temp/debug output
-- `runtime/generated/reports/` — runtime-generated reports (if classified transient)
+- `runtime/generated/tmp/` — disposable temp/debug output only, not operator-authored helper source
+- `runtime/generated/reports/` — runtime-generated reports only if they are classified transient
 
 If `runtime/reports/` or `runtime/artifacts/` are deemed durable repo evidence,
 move them elsewhere deliberately rather than forcing them under
@@ -86,7 +86,7 @@ Preferred initial move set:
 - `runtime/dist/`
 - `runtime/.cache/`
 - `runtime/coverage/`
-- `runtime/tmp/`
+- `runtime/tmp/` only when it is confirmed to be emitted scratch output
 
 Only move `runtime/reports/` / `runtime/artifacts/` in the same batch if the
 policy decision is clear and path updates are manageable.
@@ -126,6 +126,18 @@ Capture in the ticket:
 - what was intentionally left in place
 - whether `runtime/reports/` and `runtime/artifacts/` were classified as durable or transient
 - what Stage 3 should assume afterward
+
+## Stage 2 implementation result
+
+The bounded Stage 2 landing should leave the repo in this state:
+
+- `runtime/dist/` moved to `runtime/generated/dist/`
+- coverage writers moved from `runtime/coverage/` to `runtime/generated/coverage/`
+- `runtime/.cache/` was classified as transient/generated and given a `runtime/generated/cache/` containment target, while leaving compatibility ignores for older local cache paths
+- `runtime/reports/` was classified as durable repo evidence and moved to `artifacts/vnc-harness/`
+- `runtime/tmp/` was classified as maintained operator scratch and intentionally left out of `runtime/generated/`
+- `runtime/artifacts/` was classified as durable repo evidence and retired in favor of repo-level `artifacts/`
+- `runtime/node_modules/` stayed in place as the explicit Stage 2 exception
 
 ## Guardrails
 

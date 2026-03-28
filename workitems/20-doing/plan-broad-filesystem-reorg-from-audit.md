@@ -90,7 +90,7 @@ Potentially in scope, pending plan decisions:
 ## Definition of Done
 
 - [x] The broad reorg plan is approved and broken into executable stages.
-- [x] At least the first execution stage is clearly defined or landed. *(Stage 1 execution ticket + steplist exist; execution itself is still pending.)*
+- [x] At least the first execution stage is clearly defined or landed. *(Stage 1 and Stage 2 execution tickets both exist, and both batches have now been executed locally with validation green.)*
 - [x] The board reflects the new reorg sequence clearly enough for follow-up work.
 
 ## Updates
@@ -111,7 +111,11 @@ Potentially in scope, pending plan decisions:
   - `workitems/40-review/execute-stage1-board-rename-and-boundary-framing.md`
 - Additional reorg finding folded into the plan: internal extension and packaged skill paths also need clearer namespacing, tracked via:
   - `workitems/10-next/namespace-internal-extensions-and-skills-paths.md`
-- Stage 1 is now explicit enough to hand to an autoresearch run without redefining scope first.
+- Stage 1 was executed and landed on `main` via `75f7dedb` (`Rename kanban board paths to workitems`).
+- Stage 2 was executed locally as the next bounded batch, with the implementation and validation captured in:
+  - `docs/stage2-runtime-generated-layout-inventory-2026-03-28.md`
+  - `docs/stage2-runtime-generated-containment-steplist-2026-03-28.md`
+  - `workitems/40-review/execute-stage2-runtime-generated-containment.md`
 
 ## Links
 
@@ -122,7 +126,7 @@ Potentially in scope, pending plan decisions:
 - `docs/stage2-runtime-generated-layout-inventory-2026-03-28.md`
 - `docs/stage2-runtime-generated-containment-steplist-2026-03-28.md`
 - `workitems/40-review/execute-stage1-board-rename-and-boundary-framing.md`
-- `workitems/20-doing/execute-stage2-runtime-generated-containment.md`
+- `workitems/40-review/execute-stage2-runtime-generated-containment.md`
 - `workitems/40-review/audit-project-filesystem-layout.md`
 - `docs/filesystem-layout-audit-2026-03-28.md`
 - `workitems/10-next/clarify-root-vs-runtime-ownership-boundaries.md`

@@ -27,7 +27,7 @@ function walkFiles(baseDir: string, suffix: string): string[] {
 
 export function findStaleDistFiles(projectDir: string): string[] {
   const srcDir = join(projectDir, "src");
-  const distDir = join(projectDir, "dist");
+  const distDir = join(projectDir, "generated", "dist");
   if (!existsSync(distDir)) return [];
 
   const sourceTs = walkFiles(srcDir, ".ts");
@@ -53,7 +53,7 @@ if (import.meta.main) {
   const stale = findStaleDistFiles(process.cwd());
   const unexpected = filterUnexpectedStaleDistFiles(stale);
   if (unexpected.length > 0) {
-    console.error("[stale-dist] found unexpected dist files without matching src/*.ts:");
+    console.error("[stale-dist] found unexpected generated/dist files without matching src/*.ts:");
     for (const file of unexpected) {
       console.error(` - ${file}`);
     }

@@ -6,7 +6,7 @@ ARTIFACT_DIR="$ROOT_DIR/artifacts/add-tests-core-config-and-keychain"
 BASE_LCOV="$ARTIFACT_DIR/base.lcov.info"
 CONFIG_IMPORT_LCOV="$ARTIFACT_DIR/config-import.lcov.info"
 KEYCHAIN_IMPORT_LCOV="$ARTIFACT_DIR/keychain-import.lcov.info"
-MERGED_LCOV="$ROOT_DIR/runtime/coverage/lcov.info"
+MERGED_LCOV="$ROOT_DIR/runtime/generated/coverage/lcov.info"
 SUMMARY_JSON="$ARTIFACT_DIR/coverage-summary.json"
 SUMMARY_MD="$ARTIFACT_DIR/coverage-summary.md"
 EXCLUSIONS_JSON="$ARTIFACT_DIR/coverage-exclusions.json"
@@ -22,16 +22,16 @@ run_suite() {
 
   {
     echo "== $label =="
-    (cd "$ROOT_DIR/runtime" && rm -rf coverage && PICLAW_DB_IN_MEMORY=1 bun test --max-concurrency=1 "$@" --coverage --coverage-reporter=lcov)
+    (cd "$ROOT_DIR/runtime" && rm -rf generated/coverage && PICLAW_DB_IN_MEMORY=1 bun test --max-concurrency=1 "$@" --coverage --coverage-dir=generated/coverage --coverage-reporter=lcov)
     echo
   } >>"$TEST_LOG" 2>&1
 
-  if [[ ! -f "$ROOT_DIR/runtime/coverage/lcov.info" ]]; then
-    echo "Expected coverage report at $ROOT_DIR/runtime/coverage/lcov.info for $label" >&2
+  if [[ ! -f "$ROOT_DIR/runtime/generated/coverage/lcov.info" ]]; then
+    echo "Expected coverage report at $ROOT_DIR/runtime/generated/coverage/lcov.info for $label" >&2
     exit 1
   fi
 
-  cp "$ROOT_DIR/runtime/coverage/lcov.info" "$out_lcov"
+  cp "$ROOT_DIR/runtime/generated/coverage/lcov.info" "$out_lcov"
 }
 
 run_suite "base" "$BASE_LCOV" test/config/config.test.ts test/keychain.test.ts
@@ -161,7 +161,7 @@ const md = [
   "",
   "- Command: `./scripts/audit-core-config-keychain-coverage.sh`",
   "- Targeted test log: `artifacts/add-tests-core-config-and-keychain/targeted-test-output.log`",
-  "- Normalized merged LCOV report: `runtime/coverage/lcov.info`",
+  "- Normalized merged LCOV report: `runtime/generated/coverage/lcov.info`",
   "- Coverage exclusions: `artifacts/add-tests-core-config-and-keychain/coverage-exclusions.json`",
   "- Component LCOV reports:",
   "  - `artifacts/add-tests-core-config-and-keychain/base.lcov.info`",

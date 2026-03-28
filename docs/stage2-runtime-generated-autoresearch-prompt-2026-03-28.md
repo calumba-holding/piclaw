@@ -7,7 +7,7 @@ broad filesystem reorg.
 
 Work the Stage 2 runtime generated-output containment batch from:
 
-- `workitems/20-doing/execute-stage2-runtime-generated-containment.md`
+- `workitems/40-review/execute-stage2-runtime-generated-containment.md`
 - `docs/stage2-runtime-generated-layout-inventory-2026-03-28.md`
 - `docs/stage2-runtime-generated-containment-steplist-2026-03-28.md`
 - `docs/broad-filesystem-reorg-map-2026-03-28.md`
@@ -15,8 +15,8 @@ Work the Stage 2 runtime generated-output containment batch from:
 Your objective is to land a broad but still reviewable Stage 2 cleanup that:
 
 1. introduces a clear `runtime/generated/` containment boundary
-2. moves clearly transient runtime output under it (`runtime/dist/`, `runtime/.cache/`, `runtime/coverage/`, `runtime/tmp/`) where safe
-3. explicitly classifies `runtime/reports/` and `runtime/artifacts/` as either durable repo evidence or transient runtime-generated output before moving them
+2. moves clearly transient runtime output under it (`runtime/dist/`, `runtime/.cache/`, `runtime/coverage/`) and only moves `runtime/tmp/` there if it is truly emitted scratch output rather than authored helper source
+3. explicitly classifies `runtime/reports/` and `runtime/artifacts/` as either durable repo evidence or transient runtime-generated output before placing them under `artifacts/` or `runtime/generated/`
 4. updates path-sensitive docs, scripts, packaging references, and validation helpers accordingly
 5. leaves `runtime/node_modules/` alone unless strong evidence and validation prove that changing it is safe
 

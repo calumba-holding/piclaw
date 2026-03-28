@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-03-27T08:12:52.905Z",
+  "generatedAt": "2026-03-28T18:28:22.330Z",
   "command": "./scripts/audit-core-config-keychain-coverage.sh",
   "normalization": {
     "excluded_reasons": [

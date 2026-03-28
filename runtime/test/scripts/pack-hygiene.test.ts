@@ -22,13 +22,15 @@ describe("pack-hygiene", () => {
       "src/index.ts",
       "test/remote/ssrf.test.ts",
       "coverage/lcov.info",
-      "dist/runtime.js",
+      "runtime/generated/dist/runtime.js",
+      "runtime/generated/coverage/lcov.info",
     ];
 
     expect(findBlockedPackEntries(files)).toEqual([
       "test/remote/ssrf.test.ts",
       "coverage/lcov.info",
-      "dist/runtime.js",
+      "runtime/generated/dist/runtime.js",
+      "runtime/generated/coverage/lcov.info",
     ]);
   });
 
