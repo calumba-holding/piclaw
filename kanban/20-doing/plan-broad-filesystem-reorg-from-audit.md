@@ -74,11 +74,11 @@ Potentially in scope, pending plan decisions:
 
 ## Acceptance Criteria
 
-- [ ] A concrete target layout is documented from the audit findings.
-- [ ] The broad reorg is broken into explicit execution stages or committed as a justified one-shot migration plan.
-- [ ] Path-sensitive docs/helpers/tooling impacted by the reorg are identified up front.
-- [ ] Validation expectations are documented for each execution batch.
-- [ ] The plan clearly distinguishes must-move areas from acceptable current structure.
+- [x] A concrete target layout is documented from the audit findings.
+- [x] The broad reorg is broken into explicit execution stages or committed as a justified one-shot migration plan.
+- [x] Path-sensitive docs/helpers/tooling impacted by the reorg are identified up front.
+- [x] Validation expectations are documented for each execution batch.
+- [x] The plan clearly distinguishes must-move areas from acceptable current structure.
 
 ## Test / Validation Plan
 
@@ -89,9 +89,9 @@ Potentially in scope, pending plan decisions:
 
 ## Definition of Done
 
-- [ ] The broad reorg plan is approved and broken into executable stages.
-- [ ] At least the first execution stage is clearly defined or landed.
-- [ ] The board reflects the new reorg sequence clearly enough for follow-up work.
+- [x] The broad reorg plan is approved and broken into executable stages.
+- [x] At least the first execution stage is clearly defined or landed. *(Stage 1 execution ticket + steplist exist; execution itself is still pending.)*
+- [x] The board reflects the new reorg sequence clearly enough for follow-up work.
 
 ## Updates
 
@@ -105,12 +105,24 @@ Potentially in scope, pending plan decisions:
   - `kanban/10-next/group-web-channel-flat-files.md`
   - `kanban/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
 - Immediate next step: turn the audit into a target-state reorg map and decide whether execution should happen in 2–4 staged batches or a more aggressive single migration.
+- Completed planning artifacts:
+  - `docs/broad-filesystem-reorg-map-2026-03-28.md`
+  - `docs/stage1-broad-filesystem-reorg-steplist-2026-03-28.md`
+  - `kanban/20-doing/execute-stage1-board-rename-and-boundary-framing.md`
+- Additional reorg finding folded into the plan: internal extension and packaged skill paths also need clearer namespacing, tracked via:
+  - `kanban/10-next/namespace-internal-extensions-and-skills-paths.md`
+- Stage 1 is now explicit enough to hand to an autoresearch run without redefining scope first.
 
 ## Links
 
+- `docs/broad-filesystem-reorg-map-2026-03-28.md`
+- `docs/stage1-broad-filesystem-reorg-steplist-2026-03-28.md`
+- `docs/stage1-broad-filesystem-reorg-autoresearch-prompt-2026-03-28.md`
+- `kanban/20-doing/execute-stage1-board-rename-and-boundary-framing.md`
 - `kanban/40-review/audit-project-filesystem-layout.md`
 - `docs/filesystem-layout-audit-2026-03-28.md`
 - `kanban/10-next/clarify-root-vs-runtime-ownership-boundaries.md`
 - `kanban/10-next/rationalize-runtime-generated-output-layout.md`
+- `kanban/10-next/namespace-internal-extensions-and-skills-paths.md`
 - `kanban/10-next/group-web-channel-flat-files.md`
 - `kanban/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
