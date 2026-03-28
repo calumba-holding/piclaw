@@ -1,7 +1,7 @@
 ---
 id: execute-stage1-board-rename-and-boundary-framing
 title: Execute Stage 1 broad reorg batch — board rename and boundary framing
-status: doing
+status: review
 priority: high
 created: 2026-03-28
 updated: 2026-03-28
@@ -102,6 +102,7 @@ as the implementation map/steplist for this batch.
 - Remaining `kanban/` hits are intentional references in historical audit/planning docs and rename-tracking tickets, not stale live board paths.
 
 ### 2026-03-28
+- Lane change: `20-doing` → `40-review` after the Stage 1 rename landed on `main`.
 - Created as the first execution batch under `plan-broad-filesystem-reorg-from-audit`.
 - Intended to be suitable for either manual execution or an autoresearch run.
 - The detailed step order and guardrails live in:

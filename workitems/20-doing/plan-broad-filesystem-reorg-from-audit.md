@@ -108,7 +108,7 @@ Potentially in scope, pending plan decisions:
 - Completed planning artifacts:
   - `docs/broad-filesystem-reorg-map-2026-03-28.md`
   - `docs/stage1-broad-filesystem-reorg-steplist-2026-03-28.md`
-  - `workitems/20-doing/execute-stage1-board-rename-and-boundary-framing.md`
+  - `workitems/40-review/execute-stage1-board-rename-and-boundary-framing.md`
 - Additional reorg finding folded into the plan: internal extension and packaged skill paths also need clearer namespacing, tracked via:
   - `workitems/10-next/namespace-internal-extensions-and-skills-paths.md`
 - Stage 1 is now explicit enough to hand to an autoresearch run without redefining scope first.
@@ -119,7 +119,10 @@ Potentially in scope, pending plan decisions:
 - `docs/stage1-broad-filesystem-reorg-steplist-2026-03-28.md`
 - `docs/stage1-broad-filesystem-reorg-autoresearch-prompt-2026-03-28.md`
 - `docs/stage1-board-rename-reference-inventory-2026-03-28.md`
-- `workitems/20-doing/execute-stage1-board-rename-and-boundary-framing.md`
+- `docs/stage2-runtime-generated-layout-inventory-2026-03-28.md`
+- `docs/stage2-runtime-generated-containment-steplist-2026-03-28.md`
+- `workitems/40-review/execute-stage1-board-rename-and-boundary-framing.md`
+- `workitems/20-doing/execute-stage2-runtime-generated-containment.md`
 - `workitems/40-review/audit-project-filesystem-layout.md`
 - `docs/filesystem-layout-audit-2026-03-28.md`
 - `workitems/10-next/clarify-root-vs-runtime-ownership-boundaries.md`
