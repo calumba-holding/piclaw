@@ -14,7 +14,7 @@ import {
   type StoreWebMessageOptions,
   type StoreWebMessageParams,
 } from "./message-store.js";
-import type { WebChannelLike } from "../web-channel-contracts.js";
+import type { WebChannelLike } from "../core/web-channel-contracts.js";
 
 export interface WebChannelStoreMessageOptions {
   contentBlocks?: unknown[];

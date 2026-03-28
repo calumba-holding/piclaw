@@ -2,7 +2,7 @@
  * web/http/dispatch-agent.ts – Agent route dispatch helpers.
  */
 
-import type { WebChannelLike } from "../web-channel-contracts.js";
+import type { WebChannelLike } from "../core/web-channel-contracts.js";
 
 interface ExactAgentRoute {
   method: string;

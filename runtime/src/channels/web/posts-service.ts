@@ -8,7 +8,7 @@
  * Consumers: web/handlers/posts.ts calls parsePostPayload() and storePost().
  */
 
-import type { WebChannelLike } from "./web-channel-contracts.js";
+import type { WebChannelLike } from "./core/web-channel-contracts.js";
 
 /** Shape of the JSON body received from the compose box on POST /post. */
 export interface PostPayload {

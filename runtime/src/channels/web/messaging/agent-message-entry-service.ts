@@ -7,7 +7,7 @@
  */
 
 import { handleAgentMessage as handleAgentMessageRequest } from "../handlers/agent.js";
-import type { WebChannelLike } from "../web-channel-contracts.js";
+import type { WebChannelLike } from "../core/web-channel-contracts.js";
 
 export interface WebAgentMessageEntryServiceOptions {
   defaultChatJid: string;

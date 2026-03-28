@@ -1,7 +1,7 @@
 ---
 id: execute-stage5-web-channel-grouping
 title: Execute Stage 5 broad reorg batch — web-channel source-tree grouping cleanup
-status: doing
+status: review
 priority: high
 created: 2026-03-28
 updated: 2026-03-28
@@ -113,7 +113,24 @@ as the implementation map/steplist for this batch.
   - `bun run lint`
   - `bun run typecheck`
   - `bun run check:import-boundaries`
-- Stage 5 remains in progress because the original ticket target (15 or fewer files at the web root) still needs another later tranche.
+- Stage 5 remained in progress because the original ticket target (15 or fewer files at the web root) still needed one more tranche.
+
+### 2026-03-28 — third manual tranche
+- Landed a final broad cleanup pass for the next coherent seams:
+  - grouped endpoint/context helpers under `runtime/src/channels/web/endpoints/`
+  - grouped runtime/follow-up/state helpers under `runtime/src/channels/web/runtime/`
+  - grouped WebChannel constructor/contracts/surface services under `runtime/src/channels/web/core/`
+- Regrouped the matching direct module tests under:
+  - `runtime/test/channels/web/endpoints/`
+  - `runtime/test/channels/web/runtime/`
+  - `runtime/test/channels/web/core/`
+- The flat root under `runtime/src/channels/web/` dropped again, from 32 files to 12 files.
+- Validation run for the tranche:
+  - focused endpoint/runtime/core/web tests
+  - `bun run lint`
+  - `bun run typecheck`
+  - `bun run check:import-boundaries`
+- Stage 5 now satisfies the original flat-root acceptance target and is ready for review.
 
 ## Links
 

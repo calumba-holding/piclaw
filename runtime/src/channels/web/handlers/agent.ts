@@ -8,7 +8,7 @@
  * Consumers: web/request-router.ts routes agent paths to these handlers.
  */
 
-import type { WebChannelLike } from "../web-channel-contracts.js";
+import type { WebChannelLike } from "../core/web-channel-contracts.js";
 import {
   getAgentRuntimeConfig,
   getIdentityConfig,
@@ -39,7 +39,7 @@ import { resolveAvatarUrl } from "../media/avatar-service.js";
 import { createAgentEventEmitter, createStreamingEventHandler } from "../sse/agent-events.js";
 import { broadcastInteractionUpdated } from "../cards/interaction-service.js";
 import { storeAgentTurn } from "../messaging/agent-message-store.js";
-import { resolveThreadId, resolveThreadRootId } from "../threading.js";
+import { resolveThreadId, resolveThreadRootId } from "../runtime/threading.js";
 import { createUuid } from "../../../utils/ids.js";
 import { createLogger } from "../../../utils/logger.js";
 import type { AttachmentInfo } from "../../../agent-pool/attachments.js";

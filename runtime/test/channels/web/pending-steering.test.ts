@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { PendingSteeringStore } from "../../../src/channels/web/pending-steering.js";
+import { PendingSteeringStore } from "../../../src/channels/web/runtime/pending-steering.js";
 
 describe("web pending steering store", () => {
   test("ignores undefined timestamps", () => {

@@ -10,7 +10,7 @@ import type { AgentPool } from "../../../agent-pool.js";
 import { getChatBranchByChatJid } from "../../../db.js";
 import { handleAgentMessage as handleAgentMessageRequest } from "../handlers/agent.js";
 import { parseJsonObjectRequest } from "../json-body.js";
-import type { WebChannelLike } from "../web-channel-contracts.js";
+import type { WebChannelLike } from "../core/web-channel-contracts.js";
 
 type PeerRelayMode = "auto" | "queue" | "steer";
 

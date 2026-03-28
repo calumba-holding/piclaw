@@ -8,7 +8,7 @@
  * Consumers: channels/web.ts and web/agent-events.ts write to this store.
  */
 
-import type { WebChannelLike } from "../web-channel-contracts.js";
+import type { WebChannelLike } from "../core/web-channel-contracts.js";
 import type { AttachmentInfo } from "../../../agent-pool/attachments.js";
 import type { AgentEventEmitter } from "../sse/agent-events.js";
 import { formatOutbound, type ChatChannel } from "../../../router.js";

@@ -10,7 +10,7 @@
  */
 
 import type { AgentSessionEvent } from "@mariozechner/pi-coding-agent";
-import type { WebChannelLike } from "../web-channel-contracts.js";
+import type { WebChannelLike } from "../core/web-channel-contracts.js";
 import { buildPreview, createToolTitleTracker, type AgentProfileBuilder } from "../agent/agent-utils.js";
 
 /** Interface for broadcasting agent events to SSE clients. */

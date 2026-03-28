@@ -2,7 +2,7 @@
  * web/http/dispatch-content.ts – Timeline/post/search/thread route dispatch helpers.
  */
 
-import type { WebChannelLike } from "../web-channel-contracts.js";
+import type { WebChannelLike } from "../core/web-channel-contracts.js";
 
 /**
  * Dispatch primary content routes and return null when no primary route matches.

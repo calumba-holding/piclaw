@@ -124,11 +124,12 @@ Potentially in scope, pending plan decisions:
   - `docs/stage4-extension-skill-namespacing-steplist-2026-03-28.md`
   - `docs/stage4-extension-skill-namespacing-autoresearch-prompt-2026-03-28.md`
   - `workitems/40-review/execute-stage4-extension-and-skill-namespacing.md`
-- Stage 5 is now explicit enough for implementation or autoresearch, with execution inputs captured in:
+- Stage 5 was then executed in three bounded manual tranches, with the execution and validation captured in:
   - `docs/stage5-web-channel-grouping-inventory-2026-03-28.md`
   - `docs/stage5-web-channel-grouping-steplist-2026-03-28.md`
   - `docs/stage5-web-channel-grouping-autoresearch-prompt-2026-03-28.md`
   - `workitems/20-doing/execute-stage5-web-channel-grouping.md`
+- The original Stage 5 target is now satisfied: the flat root under `runtime/src/channels/web/` was reduced from 73 files to 12 files.
 
 ## Links
 

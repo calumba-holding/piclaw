@@ -2,7 +2,7 @@
  * web/http/dispatch-shell.ts – Shell/static/avatar route dispatch helpers.
  */
 
-import type { WebChannelLike } from "../web-channel-contracts.js";
+import type { WebChannelLike } from "../core/web-channel-contracts.js";
 import type { RouteFlags } from "./route-flags.js";
 
 /**

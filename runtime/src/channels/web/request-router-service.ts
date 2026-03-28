@@ -26,7 +26,7 @@
 
 import { extname, resolve } from "path";
 import { createUuid } from "../../utils/ids.js";
-import type { WebChannelLike } from "./web-channel-contracts.js";
+import type { WebChannelLike } from "./core/web-channel-contracts.js";
 import { rememberWebOrigin } from "./auth/request-origin.js";
 import { handleAgentRoutes } from "./http/dispatch-agent.js";
 import { handleAuthRoutes } from "./http/dispatch-auth.js";

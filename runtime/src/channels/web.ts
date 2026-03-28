@@ -17,19 +17,19 @@ import { AgentQueue } from "../queue.js";
 import type { AgentPool } from "../agent-pool.js";
 import { WebauthnChallengeTracker } from "./web/auth/webauthn-challenges.js";
 import { TotpFailureTracker } from "./web/auth/totp-failure-tracker.js";
-import type { WebChannelLike } from "./web/web-channel-contracts.js";
+import type { WebChannelLike } from "./web/core/web-channel-contracts.js";
 import type { RequestRouterService } from "./web/request-router-service.js";
 import type { WebSessionBroadcastService } from "./web/sse/session-broadcast-service.js";
 import { ResponseService } from "./web/http/response-service.js";
 import type { InteractionRow } from "../db.js";
-import type { QueuedFollowupItem } from "./web/followup-placeholders.js";
-import { QueuedFollowupLifecycleService } from "./web/queued-followup-lifecycle-service.js";
+import type { QueuedFollowupItem } from "./web/runtime/followup-placeholders.js";
+import { QueuedFollowupLifecycleService } from "./web/runtime/queued-followup-lifecycle-service.js";
 import type { SendMessageOptions } from "./web/messaging/message-write-flows.js";
 import type { WebMessageWriteService } from "./web/message-write-service.js";
 import type { WebAgentBufferEntry } from "./web/agent/agent-buffers.js";
-import type { WebChannelRuntimeStateService } from "./web/runtime-state-service.js";
-import type { WebChannelEndpointContexts } from "./web/channel-endpoint-context-factory.js";
-import type { WebChannelEndpointFacadeService } from "./web/channel-endpoint-facade-service.js";
+import type { WebChannelRuntimeStateService } from "./web/runtime/runtime-state-service.js";
+import type { WebChannelEndpointContexts } from "./web/endpoints/channel-endpoint-context-factory.js";
+import type { WebChannelEndpointFacadeService } from "./web/endpoints/channel-endpoint-facade-service.js";
 import type { WebAgentControlPlaneService } from "./web/agent/agent-control-plane-service.js";
 import type { InteractionBroadcaster } from "./web/interaction-broadcaster.js";
 import type { WebAuthGateway } from "./web/auth/auth-gateway.js";
@@ -50,27 +50,27 @@ import {
   type WebChannelHttpSurfaceChannel,
   type WebChannelHttpSurfaceService,
   type WebChannelHttpSurfaceServiceCarrier,
-} from "./web/web-channel-http-surface-service.js";
+} from "./web/core/web-channel-http-surface-service.js";
 import {
   createWebChannelRuntimePublicSurfaceService,
   getWebChannelRuntimePublicSurfaceService,
   type WebChannelRuntimePublicSurfaceChannel,
   type WebChannelRuntimePublicSurfaceService,
   type WebChannelRuntimePublicSurfaceServiceCarrier,
-} from "./web/web-channel-runtime-public-surface-service.js";
+} from "./web/core/web-channel-runtime-public-surface-service.js";
 import {
   createWebChannelLifecycleSpecialSurfaceService,
   getWebChannelLifecycleSpecialSurfaceService,
   type WebChannelLifecycleSpecialSurfaceChannel,
   type WebChannelLifecycleSpecialSurfaceService,
   type WebChannelLifecycleSpecialSurfaceServiceCarrier,
-} from "./web/web-channel-lifecycle-special-surface-service.js";
+} from "./web/core/web-channel-lifecycle-special-surface-service.js";
 import { TerminalSessionService } from "./web/terminal/terminal-session-service.js";
 import { VncSessionService } from "./web/vnc/vnc-session-service.js";
 import type { RemoteInteropService } from "../remote/service.js";
 import type { WebMessageProcessingStorageService } from "./web/messaging/message-processing-storage-service.js";
-import type { WebChannelRuntimeFollowupFacadeService } from "./web/runtime-followup-facade-service.js";
-import { initializeWebChannelConstructor } from "./web/web-channel-constructor-factory.js";
+import type { WebChannelRuntimeFollowupFacadeService } from "./web/runtime/runtime-followup-facade-service.js";
+import { initializeWebChannelConstructor } from "./web/core/web-channel-constructor-factory.js";
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
 const STATE_KEY = "last_agent_timestamp_web";

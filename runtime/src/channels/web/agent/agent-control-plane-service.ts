@@ -14,9 +14,9 @@ import {
   type InteractionRow,
 } from "../../../db.js";
 import { createLogger } from "../../../utils/logger.js";
-import type { QueuedFollowupItem } from "../followup-placeholders.js";
+import type { QueuedFollowupItem } from "../runtime/followup-placeholders.js";
 import { parseJsonObjectRequest } from "../json-body.js";
-import type { QueuedFollowupLifecycleService } from "../queued-followup-lifecycle-service.js";
+import type { QueuedFollowupLifecycleService } from "../runtime/queued-followup-lifecycle-service.js";
 
 const log = createLogger("web");
 

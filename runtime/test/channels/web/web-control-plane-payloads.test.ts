@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import "../../helpers.ts";
 import { WebChannel } from "../../../src/channels/web.ts";
 import { WebAgentControlPlaneService } from "../../../src/channels/web/agent/agent-control-plane-service.js";
-import type { QueuedFollowupLifecycleService } from "../../../src/channels/web/queued-followup-lifecycle-service.js";
+import type { QueuedFollowupLifecycleService } from "../../../src/channels/web/runtime/queued-followup-lifecycle-service.js";
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -57,12 +57,12 @@ describe("web control-plane payload guards", () => {
       endpointFacade: {
         handleThoughtVisibility: async (req: Request) => {
           const ctx = uiContext;
-          const mod = await import("../../../src/channels/web/ui-endpoints.js");
+          const mod = await import("../../../src/channels/web/endpoints/ui-endpoints.js");
           return await mod.handleThoughtVisibilityRequest(req, ctx as any);
         },
         handleAgentRespond: async (req: Request) => {
           const ctx = uiContext;
-          const mod = await import("../../../src/channels/web/ui-endpoints.js");
+          const mod = await import("../../../src/channels/web/endpoints/ui-endpoints.js");
           return await mod.handleAgentRespondRequest(req, ctx as any);
         },
       },

@@ -4,7 +4,7 @@ import {
   resumePendingChats,
   type WebRecoveryContext,
   type WebRecoveryStore,
-} from "../../../src/channels/web/recovery.js";
+} from "../../../src/channels/web/runtime/recovery.js";
 import { AgentQueue } from "../../../src/queue.js";
 import { waitFor } from "../../helpers.js";
 

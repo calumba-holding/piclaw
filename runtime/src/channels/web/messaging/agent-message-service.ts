@@ -7,7 +7,7 @@
  * Consumers: channels/web.ts calls this after agent runs complete.
  */
 
-import type { WebChannelLike } from "../web-channel-contracts.js";
+import type { WebChannelLike } from "../core/web-channel-contracts.js";
 import type { InteractionRow } from "../../../db.js";
 import { parseJsonObjectRequest } from "../json-body.js";
 import { normalizeMediaIds } from "../posts-service.js";

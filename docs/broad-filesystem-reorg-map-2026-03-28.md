@@ -389,7 +389,14 @@ Avoid indefinite dual-path support.
 - regrouped the matching direct module tests under `runtime/test/channels/web/auth/` and `runtime/test/channels/web/agent/` where straightforward
 - reduced the flat root under `runtime/src/channels/web/` again, from 47 files to 32 files
 - validated the second tranche with focused auth/agent/web tests, `bun run lint`, `bun run typecheck`, and `bun run check:import-boundaries`
-- still left a deliberate later-tranche remainder rather than forcing lifecycle/endpoint/routing files into the same batch
+- manually landed a third tranche for the next coherent seams:
+  - grouped endpoint/context helpers under `runtime/src/channels/web/endpoints/`
+  - grouped runtime/follow-up/state helpers under `runtime/src/channels/web/runtime/`
+  - grouped WebChannel constructor/contracts/surface services under `runtime/src/channels/web/core/`
+- regrouped the matching direct module tests under `runtime/test/channels/web/endpoints/`, `runtime/test/channels/web/runtime/`, and `runtime/test/channels/web/core/`
+- reduced the flat root under `runtime/src/channels/web/` again, from 32 files to 12 files
+- validated the third tranche with focused endpoint/runtime/core/web tests, `bun run lint`, `bun run typecheck`, and `bun run check:import-boundaries`
+- Stage 5 now satisfies its original flat-root acceptance target and is ready for review
 
 ## First-batch recommendation
 

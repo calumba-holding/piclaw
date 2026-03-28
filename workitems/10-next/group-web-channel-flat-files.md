@@ -1,7 +1,7 @@
 ---
 id: group-web-channel-flat-files
 title: "Group channels/web/ 56 flat files into sub-directories"
-status: next
+status: review
 priority: medium
 created: 2026-03-23
 updated: 2026-03-28
@@ -19,7 +19,7 @@ blocked-by:
 
 ## Summary
 
-`runtime/src/channels/web/` now has 73 files sitting at the root level with no sub-grouping, plus 6 existing sub-directories. The flat layout makes it hard to reason about module boundaries.
+`runtime/src/channels/web/` started this Stage 5 effort with 73 files sitting at the root level and is now down to 12 flat root files after three bounded grouping tranches. The layout is materially easier to scan and now satisfies the original root-count target.
 
 ## Current structure
 
@@ -45,10 +45,10 @@ runtime/src/channels/web/vnc/        1 file,    296 lines
 
 ## Acceptance criteria
 
-- [ ] No more than 15 files at the `web/` root level
-- [ ] All imports updated (no broken paths)
-- [ ] All tests still pass
-- [ ] Test file structure mirrors src structure
+- [x] No more than 15 files at the `web/` root level
+- [x] All imports updated (no broken paths)
+- [x] All tests still pass
+- [x] Test file structure mirrors src structure where it is straightforward
 
 ## Notes
 
@@ -72,7 +72,8 @@ runtime/src/channels/web/vnc/        1 file,    296 lines
 - Recommended first tranche is no longer “move everything blindly”, but to group the clearest semantic slices first: `auth/`, `sse/`, `cards/`, `media/`, `theming/`, and `messaging/`.
 - The first manual tranche landed the six broad capability directories and reduced the flat root from 73 files to 47 files.
 - A second manual tranche then grouped additional auth/agent/theming support files and reduced the flat root again, from 47 files to 32 files.
-- The ticket remains open because the original end-state target (15 or fewer files at the `web/` root) still needs at least one later tranche.
+- A third manual tranche grouped endpoint/context helpers, runtime/follow-up/state helpers, and WebChannel constructor/contracts/surface helpers, reducing the flat root again from 32 files to 12 files.
+- The ticket’s original acceptance target is now satisfied and the work is ready for review.
 
 ## Links
 

@@ -21,9 +21,9 @@ Measured on 2026-03-28:
 This means the existing `group-web-channel-flat-files` ticket is still valid,
 but its older 56-file number is stale.
 
-## Execution update — two manual tranches landed
+## Execution update — three manual tranches landed
 
-Two manual Stage 5 tranches have now landed in code.
+Three manual Stage 5 tranches have now landed in code.
 
 ### First tranche
 
@@ -46,13 +46,23 @@ Expanded the grouped layout with additional obvious support areas:
 - a new `agent/` directory for agent/status/control-plane support files
 - fallback `theme.ts` moved under `theming/`
 
+That second tranche reduced the flat root from 47 files to 32 files.
+
+### Third tranche
+
+Grouped the next clear structural seams:
+
+- endpoint/context files under `endpoints/`
+- runtime/follow-up/state files under `runtime/`
+- WebChannel constructor/contracts/surface files under `core/`
+
 Current post-move flat-root count:
 
-- `runtime/src/channels/web/` — **32 flat files**
+- `runtime/src/channels/web/` — **12 flat files**
 
-That is a meaningful reduction from the 73-file starting point, while still
-leaving a deliberate later-tranche remainder for the more ambiguous lifecycle,
-endpoint, and routing files.
+This clears the original acceptance target of 15 or fewer files at the web
+root while preserving a deliberate small remainder for still-central files like
+routing, post/timeline writes, and server lifecycle glue.
 
 ## Stable existing grouped areas
 
@@ -158,19 +168,19 @@ Why this cluster is attractive:
 - high semantic cohesion
 - likely to pay off quickly in navigation clarity
 
-## High-ambiguity remainder after the obvious clusters
+## Deliberate remainder after the landed tranches
 
-After the clusters above, the remaining flat files are more mixed and likely
-need a second pass or narrower child batches. These likely include:
+After the three landed tranches, the remaining flat files are now the smaller
+set that still read reasonably as top-level web-channel coordinator support,
+including things like:
 
-- control-plane / session orchestration
-- follow-up / queue / special wrapper services
-- channel endpoint context helpers
-- request routing adjuncts that are not already under `http/`
-- runtime lifecycle glue that still belongs at the web root
+- request routing glue
+- post/timeline write surfaces
+- server lifecycle / transport glue
+- a few compact utility modules still central to the root scan
 
-Stage 5 should assume the obvious clusters can land first without requiring the
-entire remainder to move in one shot.
+At this point the broad flattening goal has been met without forcing every last
+file into a subdirectory for its own sake.
 
 ## Recommended Stage 5 posture
 
@@ -185,16 +195,18 @@ Prefer moving these first:
 - `theming/`
 - `messaging/`
 
-### Deliberate second tranche
+### Deliberate later tranches
 
-Re-evaluate the remaining root files after the first tranche lands, then decide
-whether additional directories are justified.
+The second and third tranches were then used to group the next clearest support
+seams without forcing the final small remainder into artificial buckets.
 
 ## Success signal for Stage 5
 
-A good Stage 5 landing should materially reduce the flat root count and leave
-`runtime/src/channels/web/` easier to scan, even if the final root count is
-reached in more than one commit.
+A good Stage 5 landing materially reduces the flat root count and leaves
+`runtime/src/channels/web/` easier to scan.
+
+That success signal is now satisfied: the flat root dropped from 73 files to 12
+across three reviewable manual tranches.
 
 ## Related files
 

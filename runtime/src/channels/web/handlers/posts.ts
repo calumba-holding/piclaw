@@ -8,7 +8,7 @@
  * Consumers: web/request-router.ts routes post paths here.
  */
 
-import type { WebChannelLike } from "../web-channel-contracts.js";
+import type { WebChannelLike } from "../core/web-channel-contracts.js";
 import { parsePostPayload, storePost } from "../posts-service.js";
 
 /**
