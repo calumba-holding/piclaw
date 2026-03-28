@@ -25,7 +25,6 @@ import {
 import type { WebChannelLike } from "./web/web-channel-contracts.js";
 import { RequestRouterService } from "./web/request-router-service.js";
 import { handlePost as handlePostRequest } from "./web/handlers/posts.js";
-import { processChat as processAgentChat } from "./web/handlers/agent.js";
 import { WebSessionBroadcastService } from "./web/session-broadcast-service.js";
 import { ResponseService } from "./web/http/response-service.js";
 import {
@@ -36,7 +35,6 @@ import {
 import type { InteractionRow } from "../db.js";
 import type { QueuedFollowupItem } from "./web/followup-placeholders.js";
 import { QueuedFollowupLifecycleService } from "./web/queued-followup-lifecycle-service.js";
-import { storeWebMessage } from "./web/message-store.js";
 import type { SendMessageOptions } from "./web/message-write-flows.js";
 import { WebMessageWriteService } from "./web/message-write-service.js";
 import { ensureAvatarCache } from "./web/avatar-service.js";
@@ -74,6 +72,10 @@ import { getWebAgentMessageEntryService } from "./web/agent-message-entry-servic
 import { TerminalSessionService } from "./web/terminal/terminal-session-service.js";
 import { VncSessionService } from "./web/vnc/vnc-session-service.js";
 import { RemoteInteropService } from "../remote/service.js";
+import {
+  createWebMessageProcessingStorageService,
+  WebMessageProcessingStorageService,
+} from "./web/message-processing-storage-service.js";
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
 const STATE_KEY = "last_agent_timestamp_web";
@@ -126,6 +128,7 @@ export class WebChannel implements WebChannelLike {
   private readonly terminalVncHttpService: WebTerminalVncHttpService;
   private readonly adaptiveCardSidePromptService: WebAdaptiveCardSidePromptService;
   private readonly peerMessageRelayService: WebAgentPeerMessageRelayService;
+  private readonly messageProcessingStorageService: WebMessageProcessingStorageService;
   private readonly messageWriteService: WebMessageWriteService;
   private readonly endpointFacade: WebChannelEndpointFacadeService;
   private readonly controlPlaneService: WebAgentControlPlaneService;
@@ -174,6 +177,10 @@ export class WebChannel implements WebChannelLike {
         failureTracker: this.totpFailureTracker,
       }
     );
+    this.messageProcessingStorageService = createWebMessageProcessingStorageService(this, {
+      defaultAgentId: DEFAULT_AGENT_ID,
+      getAssistantName: () => getIdentityConfig().assistantName,
+    });
     this.messageWriteService = new WebMessageWriteService({
       defaultAgentId: DEFAULT_AGENT_ID,
       storeMessage: (chatJid, content, isBot, mediaIds, options) =>
@@ -603,7 +610,7 @@ export class WebChannel implements WebChannelLike {
   handleAgentMessage(req: Request, pathname: string): Promise<Response> { return getWebAgentMessageEntryService(this, { defaultChatJid: DEFAULT_CHAT_JID, defaultAgentId: DEFAULT_AGENT_ID }).handleAgentMessage(req, pathname); }
 
   async processChat(chatJid: string, agentId: string, threadRootId?: number | null): Promise<void> {
-    return processAgentChat(this, chatJid, agentId, threadRootId ?? undefined);
+    return this.messageProcessingStorageService.processChat(chatJid, agentId, threadRootId);
   }
 
   storeMessage(
@@ -619,24 +626,7 @@ export class WebChannel implements WebChannelLike {
       isSteeringMessage?: boolean;
     } = {}
   ): InteractionRow | null {
-    return storeWebMessage(
-      this,
-      {
-        chatJid,
-        content,
-        isBot,
-        mediaIds,
-        agentId: DEFAULT_AGENT_ID,
-        agentName: getIdentityConfig().assistantName,
-      },
-      {
-        contentBlocks: options.contentBlocks,
-        linkPreviews: options.linkPreviews,
-        threadId: options.threadId ?? null,
-        isTerminalAgentReply: options.isTerminalAgentReply,
-        isSteeringMessage: options.isSteeringMessage,
-      }
-    );
+    return this.messageProcessingStorageService.storeMessage(chatJid, content, isBot, mediaIds, options);
   }
 
   async handleRemote(req: Request): Promise<Response> {

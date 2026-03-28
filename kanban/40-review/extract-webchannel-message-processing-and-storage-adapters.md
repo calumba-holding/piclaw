@@ -1,7 +1,7 @@
 ---
 id: extract-webchannel-message-processing-and-storage-adapters
 title: Extract WebChannel message processing and storage adapters
-status: doing
+status: review
 priority: high
 created: 2026-03-28
 updated: 2026-03-28
@@ -70,16 +70,16 @@ Expected source surfaces:
 
 ## Acceptance Criteria
 
-- [ ] Message-processing/storage adapters move behind a focused service/module with a narrower interface than `WebChannel`.
-- [ ] Existing behavior remains unchanged for:
-  - [ ] `processChat()` delegation semantics
-  - [ ] `storeMessage()` persistence and identity shaping
-  - [ ] thread/media/content-block / steering / terminal-reply handling
-  - [ ] public WebChannel method signatures and status behavior relied on by handlers/tests
-- [ ] `runtime/src/channels/web.ts` loses another meaningful chunk of adapter glue.
-- [ ] Focused tests exist or are strengthened for the extracted seam.
-- [ ] Existing relevant `web-channel` integration tests still pass.
-- [ ] No new `any` usage is introduced.
+- [x] Message-processing/storage adapters move behind a focused service/module with a narrower interface than `WebChannel`.
+- [x] Existing behavior remains unchanged for:
+  - [x] `processChat()` delegation semantics
+  - [x] `storeMessage()` persistence and identity shaping
+  - [x] thread/media/content-block / steering / terminal-reply handling
+  - [x] public WebChannel method signatures and status behavior relied on by handlers/tests
+- [x] `runtime/src/channels/web.ts` loses another meaningful chunk of adapter glue.
+- [x] Focused tests exist or are strengthened for the extracted seam.
+- [x] Existing relevant `web-channel` integration tests still pass.
+- [x] No new `any` usage is introduced.
 
 ## Recommended Path
 
@@ -88,15 +88,15 @@ Extract a dedicated message-processing/storage adapter seam while keeping
 
 ## Test Plan
 
-- [ ] Add or strengthen focused tests for:
+- [x] Add or strengthen focused tests for:
   - `processChat()` delegation
   - `storeMessage()` identity/persistence shaping
   - handler compatibility with the extracted seam
-- [ ] Re-run affected integration coverage from:
+- [x] Re-run affected integration coverage from:
   - `runtime/test/channels/web/web-channel.test.ts`
   - `runtime/test/channels/web/web-agent-streaming.test.ts`
   - `runtime/test/channels/web/message-write-service.test.ts`
-- [ ] Run validation in repair-first order:
+- [x] Run validation in repair-first order:
   1. focused processing/storage tests
   2. targeted `web-channel` tests
   3. `bun run lint`
@@ -104,12 +104,37 @@ Extract a dedicated message-processing/storage adapter seam while keeping
 
 ## Definition of Done
 
-- [ ] Extracted message-processing/storage seam is mergeable back to `main`.
-- [ ] Focused and integration validation are green.
-- [ ] Ticket `## Updates` records commands, evidence, and files touched.
-- [ ] Parent WebChannel split ticket is updated to reflect the next chosen seam.
+- [x] Extracted message-processing/storage seam is mergeable back to `main`.
+- [x] Focused and integration validation are green.
+- [x] Ticket `## Updates` records commands, evidence, and files touched.
+- [x] Parent WebChannel split ticket is updated to reflect the next chosen seam.
 
 ## Updates
+
+### 2026-03-28
+- Lane change: `20-doing` → `40-review` after landing the slice on `main`.
+- Landed `runtime/src/channels/web/message-processing-storage-service.ts`, moving the public `processChat()` and `storeMessage()` adapter glue out of `WebChannel` while preserving handler/runtime-facing behavior.
+- Added focused seam coverage in:
+  - `runtime/test/channels/web/message-processing-storage-service.test.ts`
+  - `runtime/test/channels/web/web-channel-message-processing-storage-delegation.test.ts`
+- Updated deterministic audit grouping in:
+  - `scripts/audit-baseline-quality-deterministic.ts`
+  - `runtime/test/scripts/audit-baseline-quality-deterministic.test.ts`
+- Validation evidence:
+  - `bun test runtime/test/channels/web/message-processing-storage-service.test.ts runtime/test/channels/web/web-channel-message-processing-storage-delegation.test.ts runtime/test/channels/web/web-channel.test.ts runtime/test/channels/web/web-agent-streaming.test.ts runtime/test/channels/web/message-write-service.test.ts runtime/test/scripts/audit-baseline-quality-deterministic.test.ts`
+  - `bun run lint`
+  - `bun run typecheck`
+  - `bun run check:stale-dist`
+- Files touched:
+  - `runtime/src/channels/web.ts`
+  - `runtime/src/channels/web/message-processing-storage-service.ts`
+  - `runtime/test/channels/web/message-processing-storage-service.test.ts`
+  - `runtime/test/channels/web/web-channel-message-processing-storage-delegation.test.ts`
+  - `scripts/audit-baseline-quality-deterministic.ts`
+  - `runtime/test/scripts/audit-baseline-quality-deterministic.test.ts`
+- Next bounded seam split out explicitly instead of widening scope in-place:
+  - `kanban/20-doing/extract-webchannel-runtime-and-followup-facades.md`
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-28
 - Created as the next bounded execution slice under `split-webchannel-god-class` after the agent-message entry seam landed.
@@ -120,6 +145,7 @@ Extract a dedicated message-processing/storage adapter seam while keeping
 ## Links
 
 - `kanban/20-doing/split-webchannel-god-class.md`
+- `kanban/20-doing/extract-webchannel-runtime-and-followup-facades.md`
 - `kanban/40-review/extract-webchannel-agent-message-entry-wrapper.md`
 - `kanban/40-review/extract-webchannel-peer-message-relay-wrapper.md`
 - `/workspace/notes/piclaw-autoresearch-audit-checklist.md`

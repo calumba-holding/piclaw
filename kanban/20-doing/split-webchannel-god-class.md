@@ -79,9 +79,10 @@ Extract `WebChannel` into a composition of focused services:
 - The adaptive-card/side-prompt seam then landed behind `runtime/src/channels/web/adaptive-card-side-prompt-service.ts`, moving adaptive-card action orchestration and side-prompt request/stream wrappers out of `WebChannel` while preserving payload validation, login/TOTP flows, autoresearch card actions, and router-facing public methods.
 - The peer-message relay seam then landed behind `runtime/src/channels/web/agent-peer-message-relay-service.ts`, moving payload validation, target resolution, forwarded request shaping, and normal-path delegation out of `WebChannel` while preserving router-facing `handleAgentPeerMessage()` behavior.
 - The agent-message entry seam then landed behind `runtime/src/channels/web/agent-message-entry-service.ts`, moving `chat_jid` parsing/defaulting and `/agent/:agentId/message` forwarding out of `WebChannel` while preserving router-facing behavior.
+- The message-processing/storage seam then landed behind `runtime/src/channels/web/message-processing-storage-service.ts`, moving `processChat()` and `storeMessage()` adapter glue out of `WebChannel` while preserving runtime/handler-facing behavior.
 - Split the next bounded seam into:
-  - `kanban/20-doing/extract-webchannel-message-processing-and-storage-adapters.md`
-- Rationale: `processChat()` and `storeMessage()` remain the last substantive message-processing/storage adapters still living directly on `WebChannel` after the first eleven extractions.
+  - `kanban/20-doing/extract-webchannel-runtime-and-followup-facades.md`
+- Rationale: the remaining runtime-state and queued-followup public facade methods still account for a noticeable share of `WebChannel`'s remaining coordinator surface after the first twelve extractions.
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-27
@@ -113,4 +114,5 @@ Extract `WebChannel` into a composition of focused services:
   - `kanban/40-review/extract-webchannel-adaptive-card-actions-and-side-prompts.md`
   - `kanban/40-review/extract-webchannel-peer-message-relay-wrapper.md`
   - `kanban/40-review/extract-webchannel-agent-message-entry-wrapper.md`
-  - `kanban/20-doing/extract-webchannel-message-processing-and-storage-adapters.md`
+  - `kanban/40-review/extract-webchannel-message-processing-and-storage-adapters.md`
+  - `kanban/20-doing/extract-webchannel-runtime-and-followup-facades.md`
