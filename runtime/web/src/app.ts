@@ -168,6 +168,10 @@ import {
     closeFloatingWidgetState,
     openFloatingWidgetState,
 } from './ui/app-floating-widget.js';
+import {
+    buildFloatingWidgetDashboardSnapshot as buildFloatingWidgetDashboardData,
+    readFulfilledResult,
+} from './ui/app-floating-widget-dashboard.js';
 
 const CURRENT_APP_ASSET_VERSION = getCurrentAppAssetVersion();
 
@@ -1915,77 +1919,28 @@ function MainApp({ locationParams, navigate }) {
             api.getTimeline(20, null, currentChatJid),
         ]);
 
-        const statusPayload = statusRes.status === 'fulfilled' ? statusRes.value : null;
-        const contextPayload = contextRes.status === 'fulfilled' ? contextRes.value : null;
-        const queuePayload = queueRes.status === 'fulfilled' ? queueRes.value : null;
-        const modelsPayload = modelsRes.status === 'fulfilled' ? modelsRes.value : null;
-        const activeChatsPayload = activeChatsRes.status === 'fulfilled' ? activeChatsRes.value : null;
-        const branchesPayload = branchesRes.status === 'fulfilled' ? branchesRes.value : null;
-        const timelinePayload = timelineRes.status === 'fulfilled' ? timelineRes.value : null;
-
-        const posts = Array.isArray(timelinePayload?.posts)
-            ? timelinePayload.posts
-            : (Array.isArray(rawPosts) ? rawPosts : []);
-        const latestPost = posts.length ? posts[posts.length - 1] : null;
-        const botPosts = posts.filter((post) => post?.data?.is_bot_message).length;
-        const userPosts = posts.filter((post) => !post?.data?.is_bot_message).length;
-        const queueCount = Number(queuePayload?.count ?? followupQueueItemsRef.current.length ?? 0) || 0;
-        const activeChatsCount = Array.isArray(activeChatsPayload?.chats)
-            ? activeChatsPayload.chats.length
-            : activeChatAgents.length;
-        const branchCount = Array.isArray(branchesPayload?.chats)
-            ? branchesPayload.chats.length
-            : currentChatBranches.length;
-        const contextPercent = Number(contextPayload?.percent ?? contextUsage?.percent ?? 0) || 0;
-        const contextTokens = Number(contextPayload?.tokens ?? contextUsage?.tokens ?? 0) || 0;
-        const contextWindow = Number(contextPayload?.contextWindow ?? contextUsage?.contextWindow ?? 0) || 0;
-        const modelName = modelsPayload?.current ?? activeModel ?? null;
-        const thinkingLevel = modelsPayload?.thinking_level ?? activeThinkingLevel ?? null;
-        const supportsThinkingValue = modelsPayload?.supports_thinking ?? supportsThinking;
-        const agentState = statusPayload?.status || (isAgentTurnActive ? 'active' : 'idle');
-        const agentPhase = statusPayload?.data?.type || statusPayload?.type || null;
-
-        return {
+        return buildFloatingWidgetDashboardData({
             generatedAt: new Date().toISOString(),
             request: requestPayload,
-            chat: {
-                currentChatJid,
-                rootChatJid: currentRootChatJid,
-                activeChats: activeChatsCount,
-                branches: branchCount,
-            },
-            agent: {
-                status: agentState,
-                phase: agentPhase,
-                running: Boolean(isAgentTurnActive),
-            },
-            model: {
-                current: modelName,
-                thinkingLevel,
-                supportsThinking: Boolean(supportsThinkingValue),
-            },
-            context: {
-                tokens: contextTokens,
-                contextWindow,
-                percent: contextPercent,
-            },
-            queue: {
-                count: queueCount,
-            },
-            timeline: {
-                loadedPosts: posts.length,
-                botPosts,
-                userPosts,
-                latestPostId: latestPost?.id ?? null,
-                latestTimestamp: latestPost?.timestamp ?? null,
-            },
-            bars: [
-                { key: 'context', label: 'Context', value: Math.max(0, Math.min(100, Math.round(contextPercent))) },
-                { key: 'queue', label: 'Queue', value: Math.max(0, Math.min(100, queueCount * 18)) },
-                { key: 'activeChats', label: 'Active chats', value: Math.max(0, Math.min(100, activeChatsCount * 12)) },
-                { key: 'posts', label: 'Timeline load', value: Math.max(0, Math.min(100, posts.length * 5)) },
-            ],
-        };
+            currentChatJid,
+            currentRootChatJid,
+            statusPayload: readFulfilledResult(statusRes),
+            contextPayload: readFulfilledResult(contextRes),
+            queuePayload: readFulfilledResult(queueRes),
+            modelsPayload: readFulfilledResult(modelsRes),
+            activeChatsPayload: readFulfilledResult(activeChatsRes),
+            branchesPayload: readFulfilledResult(branchesRes),
+            timelinePayload: readFulfilledResult(timelineRes),
+            rawPosts,
+            activeChatAgents,
+            currentChatBranches,
+            contextUsage,
+            followupQueueItems: followupQueueItemsRef.current,
+            activeModel,
+            activeThinkingLevel,
+            supportsThinking,
+            isAgentTurnActive,
+        });
     }, [activeChatAgents, activeModel, activeThinkingLevel, contextUsage, currentChatBranches, currentChatJid, currentRootChatJid, isAgentTurnActive, rawPosts, supportsThinking]);
 
     const refreshModelAndQueueState = useCallback(() => {

@@ -47,6 +47,9 @@ fi
 if [[ -f runtime/test/web/app-profile-events.test.ts ]]; then
   tests+=(runtime/test/web/app-profile-events.test.ts)
 fi
+if [[ -f runtime/test/web/app-floating-widget-dashboard.test.ts ]]; then
+  tests+=(runtime/test/web/app-floating-widget-dashboard.test.ts)
+fi
 
 PICLAW_DB_IN_MEMORY=1 bun test --max-concurrency=1 "${tests[@]}"
 
@@ -95,6 +98,10 @@ rg -q "resolveModelStateUpdate" runtime/web/src/app.ts && seam_score=$((seam_sco
 [[ -f runtime/test/web/app-profile-events.test.ts ]] && seam_score=$((seam_score + 1))
 rg -q "resolveAgentProfilePatch" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
 rg -q "resolveUserProfileUpdate" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
+[[ -f runtime/web/src/ui/app-floating-widget-dashboard.ts ]] && seam_score=$((seam_score + 1))
+[[ -f runtime/test/web/app-floating-widget-dashboard.test.ts ]] && seam_score=$((seam_score + 1))
+rg -q "buildFloatingWidgetDashboardData" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
+rg -q "readFulfilledResult" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
 
 echo "METRIC seam_score=${seam_score}"
 echo "METRIC targeted_test_ms=${targeted_test_ms}"
