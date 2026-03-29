@@ -1,33 +1,24 @@
 #!/bin/bash
 set -euo pipefail
 
-cd /workspace/.piclaw/autoresearch-sessions/exp-mnbnq50s-6e3m/worktree
+cd "$(dirname "$0")"
 
-build_log=$(mktemp)
-lint_log=$(mktemp)
-typecheck_log=$(mktemp)
-stale_log=$(mktemp)
-cleanup() {
-  rm -f "$build_log" "$lint_log" "$typecheck_log" "$stale_log"
-}
-trap cleanup EXIT
-
-bun run build:web >"$build_log" 2>&1 || {
-  tail -80 "$build_log"
+run_check() {
+  local name="$1"
+  shift
+  local log_file
+  log_file="$(mktemp -t autoresearch-check-${name}.XXXXXX.log)"
+  if "$@" >"${log_file}" 2>&1; then
+    rm -f "${log_file}"
+    return 0
+  fi
+  echo "[${name}] failed"
+  tail -n 80 "${log_file}"
+  rm -f "${log_file}"
   exit 1
 }
 
-bun run lint >"$lint_log" 2>&1 || {
-  tail -80 "$lint_log"
-  exit 1
-}
-
-bun run typecheck >"$typecheck_log" 2>&1 || {
-  tail -80 "$typecheck_log"
-  exit 1
-}
-
-bun run check:stale-dist >"$stale_log" 2>&1 || {
-  tail -80 "$stale_log"
-  exit 1
-}
+run_check build-web bun run build:web
+run_check lint bun run lint
+run_check typecheck bun run typecheck
+run_check stale-dist bun run check:stale-dist

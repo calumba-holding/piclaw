@@ -1,42 +1,39 @@
 # Autoresearch: continue-decompose-web-app-shell
 
 ## Objective
-Continue decomposing `runtime/web/src/app.ts` into small behavior-based seams without changing UX semantics or payload shapes. The next bounded extraction focuses on agent draft/thought preview shaping: delta buffer application, inferred line counts, collapsed/expanded preview payloads, and plan text replacement/append behavior.
+Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while preserving UX semantics and payload shapes. This tranche targets active-branch roster shaping (normalization, merge precedence, and stable sorting) used by session/branch state refresh.
 
 ## Metrics
-- **Primary**: `seam_score` (unitless, higher is better) — structural completion for the extracted agent-preview seam
+- **Primary**: `seam_score` (unitless, higher is better) — structural completion for the extracted active-branch roster seam
 - **Secondary**: `targeted_test_ms` (ms, lower is better) — focused web shell test runtime
 
 ## How to Run
-`./autoresearch.sh` — runs focused web shell tests and emits structured `METRIC` lines.
+`./autoresearch.sh` — runs focused web tests and emits `METRIC` lines.
 
-`./autoresearch.checks.sh` — runs `build:web`, `lint`, `typecheck`, and `check:stale-dist` as correctness backpressure.
+`./autoresearch.checks.sh` — runs `build:web`, `lint`, `typecheck`, and `check:stale-dist`.
 
 ## Files in Scope
-- `runtime/web/src/app.ts` — main authenticated web shell still owning draft/thought preview shaping logic
-- `runtime/web/src/ui/app-agent-previews.ts` — new typed helper seam for preview shaping helpers
-- `runtime/test/web/app-agent-previews.test.ts` — focused coverage for the extracted seam
-- existing focused web shell tests under `runtime/test/web/` — regression coverage for adjacent extracted seams
+- `runtime/web/src/app.ts` — authenticated web shell orchestration, currently owns roster merge/sort logic
+- `runtime/web/src/ui/app-chat-agents.ts` — typed helper seam for active/branch roster normalization + merge ordering
+- `runtime/test/web/app-chat-agents.test.ts` — focused seam tests
+- Existing focused web seam tests under `runtime/test/web/`
 
 ## Off Limits
-- backend/runtime channel code
-- auth/login flows
-- branch/window/pane payload shape changes
-- broad UI rewrites or component tree changes
-- unrelated web-shell extraction work outside the targeted seam
+- Runtime/backend services and protocol contracts
+- Auth/login flows
+- Payload shape rewrites for queue/pane/extension surfaces
+- Broad UI architecture changes
 
 ## Constraints
-- Preserve draft/thought preview payload shapes and plan text behavior
-- Preserve inferred line-count behavior and delta-buffer semantics
-- Keep new helper modules in TypeScript (`.ts`) when extracting from `app.ts`
 - Keep slices small and mergeable
-- Validate each passing tranche with focused web tests, `bun run build:web`, `bun run lint`, `bun run typecheck`, and `bun run check:stale-dist`
+- Preserve roster behavior and branch/session UX ordering semantics
+- Keep newly extracted helpers in TypeScript (`.ts`)
 - No new dependencies
+- Keep focused web tests green and pass `build:web`, `lint`, `typecheck`, `check:stale-dist`
 
 ## What's Been Tried
-- Existing extracted seams now cover shell-state, branch actions, window actions, browser event watchers, chat-pane-state helpers, extension-status helpers, follow-up queue helpers, floating-widget helpers, and agent-preview helpers.
-- The last successful slice moved floating-widget runtime-state patching into typed helpers inside `runtime/web/src/ui/app-floating-widget.ts` with expanded focused tests.
-- Extracted the draft/thought preview shaping seam into typed `runtime/web/src/ui/app-agent-previews.ts`, centralizing delta-buffer updates, inferred line counts, collapsed/expanded preview payloads, and plan append/replace resolution.
-- Added focused coverage in `runtime/test/web/app-agent-previews.test.ts` for inferred totals, preview payload shaping, plan text behavior, and draft/thought delta semantics.
-- `app.ts` now keeps only the SSE/control-flow wiring for draft/thought events while delegating preview-state shaping to typed helpers.
-- Follow-on seams should keep the same pattern: move another clustered behavior into a typed helper/service without broad hook rewrites.
+- Prior tranches extracted typed seams for shell state, branch actions, window actions, browser events, pane state, chat-pane state, extension status, follow-up queue, floating widget, and agent previews.
+- Baseline in this worktree initially failed `build:web` checks due a missing `beautiful-mermaid` package in `node_modules`; installing it locally (`npm install --no-save beautiful-mermaid@1.1.3`) restored full checks.
+- Extracted active/branch roster normalization + merge/sort behavior from `app.ts` into typed `runtime/web/src/ui/app-chat-agents.ts`.
+- `refreshActiveChatAgents` now delegates filtering + merge precedence + ordering to helpers (`normalizeActiveChatRows`, `mergeActiveAndBranchChats`), and `refreshCurrentChatBranches` delegates row filtering to `normalizeCurrentRootBranchRows`.
+- Added focused seam coverage in `runtime/test/web/app-chat-agents.test.ts` for filtering rules, empty-branch fallback behavior, merge precedence, `is_active` nullish fallback semantics, and current/archived/activity sorting order.

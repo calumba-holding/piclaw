@@ -103,6 +103,11 @@ import {
     captureChatPaneStateSnapshot,
 } from './ui/app-chat-pane-state.js';
 import {
+    mergeActiveAndBranchChats,
+    normalizeActiveChatRows,
+    normalizeCurrentRootBranchRows,
+} from './ui/app-chat-agents.js';
+import {
     addPendingPanelAction,
     applyAutoresearchStatusPayload,
     applyStatusPanelWidgetEvent,
@@ -1682,9 +1687,6 @@ function MainApp({ locationParams, navigate }) {
 
     const refreshActiveChatAgents = useCallback(() => {
         const targetChatJid = currentChatJid;
-        const normalizeChats = (rows) => Array.isArray(rows)
-            ? rows.filter((chat) => chat && typeof chat.chat_jid === 'string' && typeof chat.agent_name === 'string' && chat.agent_name.trim())
-            : [];
 
         Promise.all([
             getActiveChatAgents().catch(() => ({ chats: [] /* expected: active-agent refresh is best-effort. */ })),
@@ -1693,33 +1695,9 @@ function MainApp({ locationParams, navigate }) {
             .then(([activePayload, branchPayload]) => {
                 if (activeChatJidRef.current !== targetChatJid) return;
 
-                const activeChats = normalizeChats(activePayload?.chats);
-                const branchChats = normalizeChats(branchPayload?.chats);
-
-                if (branchChats.length === 0) {
-                    setActiveChatAgents(activeChats);
-                    return;
-                }
-
-                const activeByChat = new Map(activeChats.map((chat) => [chat.chat_jid, chat]));
-                const merged = branchChats.map((chat) => {
-                    const active = activeByChat.get(chat.chat_jid);
-                    return active
-                        ? { ...chat, ...active, is_active: active.is_active ?? chat.is_active }
-                        : chat;
-                });
-
-                merged.sort((a, b) => {
-                    if (a.chat_jid === targetChatJid && b.chat_jid !== targetChatJid) return -1;
-                    if (b.chat_jid === targetChatJid && a.chat_jid !== targetChatJid) return 1;
-                    const aArchived = Boolean(a.archived_at);
-                    const bArchived = Boolean(b.archived_at);
-                    if (aArchived !== bArchived) return aArchived ? 1 : -1;
-                    if (Boolean(a.is_active) !== Boolean(b.is_active)) return a.is_active ? -1 : 1;
-                    return String(a.chat_jid).localeCompare(String(b.chat_jid));
-                });
-
-                setActiveChatAgents(merged);
+                const activeChats = normalizeActiveChatRows(activePayload?.chats);
+                const branchChats = normalizeActiveChatRows(branchPayload?.chats);
+                setActiveChatAgents(mergeActiveAndBranchChats(activeChats, branchChats, targetChatJid));
             })
             .catch(() => {
                 if (activeChatJidRef.current !== targetChatJid) return;
@@ -1729,10 +1707,7 @@ function MainApp({ locationParams, navigate }) {
     const refreshCurrentChatBranches = useCallback(() => {
         getChatBranches(currentRootChatJid)
             .then((payload) => {
-                const chats = Array.isArray(payload?.chats)
-                    ? payload.chats.filter((chat) => chat && typeof chat.chat_jid === 'string' && typeof chat.agent_name === 'string')
-                    : [];
-                setCurrentChatBranches(chats);
+                setCurrentChatBranches(normalizeCurrentRootBranchRows(payload?.chats));
             })
             .catch(() => {
                 /* expected: branch-list refresh is best-effort while the UI is already usable. */
