@@ -63,6 +63,11 @@ import {
     shouldAdoptIncomingTurn,
     shouldIgnoreMismatchedTurn,
 } from './ui/app-agent-turn-events.js';
+import {
+    readAgentTurnId,
+    resolveAgentPreviewRestoreState,
+    shouldKeepExistingPreview,
+} from './ui/app-agent-status-refresh.js';
 import { resolveFilePillOpenAction } from './ui/file-pill-open.js';
 import { parseBtwCommand, buildBtwInjectionText, resolveBtwChatJid } from './ui/btw.js';
 import {
@@ -1293,7 +1298,7 @@ function MainApp({ locationParams, navigate }) {
             wasAgentActiveRef.current = true;
             const payload = res.data;
             agentStatusRef.current = payload;
-            const activeTurn = payload.turn_id || payload.turnId;
+            const activeTurn = readAgentTurnId(payload);
             if (activeTurn) setActiveTurn(activeTurn);
             noteAgentActivity({ running: true, clearSilence: true });
             clearLastActivityFlag();
@@ -1301,18 +1306,20 @@ function MainApp({ locationParams, navigate }) {
 
             // Restore draft/thought buffers if the server has them and the
             // client doesn't (e.g. after reconnect or SSE gap).
-            if (res.thought && res.thought.text) {
+            const thoughtRestore = resolveAgentPreviewRestoreState(res.thought);
+            if (thoughtRestore) {
                 setAgentThought((prev) => {
-                    if (prev && prev.text && prev.text.length >= res.thought.text.length) return prev;
-                    thoughtBufferRef.current = res.thought.text;
-                    return { text: res.thought.text, totalLines: res.thought.totalLines || 0 };
+                    if (shouldKeepExistingPreview(prev, thoughtRestore.text)) return prev;
+                    thoughtBufferRef.current = thoughtRestore.text;
+                    return thoughtRestore;
                 });
             }
-            if (res.draft && res.draft.text) {
+            const draftRestore = resolveAgentPreviewRestoreState(res.draft);
+            if (draftRestore) {
                 setAgentDraft((prev) => {
-                    if (prev && prev.text && prev.text.length >= res.draft.text.length) return prev;
-                    draftBufferRef.current = res.draft.text;
-                    return { text: res.draft.text, totalLines: res.draft.totalLines || 0 };
+                    if (shouldKeepExistingPreview(prev, draftRestore.text)) return prev;
+                    draftBufferRef.current = draftRestore.text;
+                    return draftRestore;
                 });
             }
             return res;
@@ -2202,19 +2209,21 @@ function MainApp({ locationParams, navigate }) {
                     if (activeChatJidRef.current !== targetChatJid) return;
                     if (!res || res.status !== 'active' || !res.data) return;
                     const payload = res.data;
-                    const activeTurn = payload.turn_id || payload.turnId;
+                    const activeTurn = readAgentTurnId(payload);
                     if (activeTurn) setActiveTurn(activeTurn);
                     noteAgentActivity({ clearSilence: true });
                     showLastActivity(payload);
 
                     // Restore draft/thought buffers from enriched status
-                    if (res.thought && res.thought.text) {
-                        thoughtBufferRef.current = res.thought.text;
-                        setAgentThought({ text: res.thought.text, totalLines: res.thought.totalLines || 0 });
+                    const thoughtRestore = resolveAgentPreviewRestoreState(res.thought);
+                    if (thoughtRestore) {
+                        thoughtBufferRef.current = thoughtRestore.text;
+                        setAgentThought(thoughtRestore);
                     }
-                    if (res.draft && res.draft.text) {
-                        draftBufferRef.current = res.draft.text;
-                        setAgentDraft({ text: res.draft.text, totalLines: res.draft.totalLines || 0 });
+                    const draftRestore = resolveAgentPreviewRestoreState(res.draft);
+                    if (draftRestore) {
+                        draftBufferRef.current = draftRestore.text;
+                        setAgentDraft(draftRestore);
                     }
                 })
                 .catch((err) => {

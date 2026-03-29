@@ -1,7 +1,7 @@
 # Autoresearch: continue-decompose-web-app-shell
 
 ## Objective
-Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while preserving UX semantics and payload shapes. Current tranches target (1) active-branch roster shaping (normalization, merge precedence, stable sorting), (2) queued follow-up SSE row normalization/append behavior, (3) generated-widget SSE event routing/fallback mapping, (4) turn-scoped SSE gating/adoption semantics, (5) real-time timeline mutation gating/operations, and (6) extension-UI SSE chat/toast mapping.
+Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while preserving UX semantics and payload shapes. Current tranches target (1) active-branch roster shaping (normalization, merge precedence, stable sorting), (2) queued follow-up SSE row normalization/append behavior, (3) generated-widget SSE event routing/fallback mapping, (4) turn-scoped SSE gating/adoption semantics, (5) real-time timeline mutation gating/operations, (6) extension-UI SSE chat/toast mapping, and (7) agent-status preview/turn restore shaping.
 
 ## Metrics
 - **Primary**: `seam_score` (unitless, higher is better) — structural completion for the extracted active-branch roster seam
@@ -52,3 +52,6 @@ Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while 
 - Added focused tests in `runtime/test/web/app-extension-ui-sse.test.ts` for notify/error toast mapping and status-panel chat fallback.
 - Further extracted status-panel event classification into `resolveStatusPanelWidgetEventContext` so `app.ts` no longer hand-parses event type/surface/chat-id/panel-key fields inline.
 - Added focused coverage in `runtime/test/web/app-extension-ui-sse.test.ts` for status-panel widget context shaping.
+- Extracted agent-status restoration shaping into typed `runtime/web/src/ui/app-agent-status-refresh.ts` (`readAgentTurnId`, `resolveAgentPreviewRestoreState`, `shouldKeepExistingPreview`).
+- `refreshAgentStatus` and SSE `connected` recovery now delegate turn-id and draft/thought restore shaping to those helpers while preserving buffer updates and existing-length guard semantics.
+- Added focused tests in `runtime/test/web/app-agent-status-refresh.test.ts` for turn-id precedence, preview payload normalization, and existing-preview retention behavior.
