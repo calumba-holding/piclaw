@@ -34,23 +34,20 @@ import {
 import { streamSimple, type AssistantMessageEvent, type AssistantMessageEventStream, type Model, type Api, type Usage } from "@mariozechner/pi-ai";
 
 import { type AgentControlCommand, type AgentControlResult } from "./agent-control/index.js";
-import { SESSIONS_DIR, WORKSPACE_DIR, getAgentRuntimeConfig, getSessionStorageConfig } from "./core/config.js";
-import { detectChannel } from "./router.js";
+import { SESSIONS_DIR, WORKSPACE_DIR } from "./core/config.js";
 import { createTrackedBashOperations } from "./tools/tracked-bash.js";
 import { getAttachmentRegistry, type AttachmentInfo } from "./agent-pool/attachments.js";
-import { writeAgentLog } from "./agent-pool/logging.js";
-import { pruneOrphanToolResults } from "./agent-pool/orphan-tool-results.js";
 import { AgentBranchManager, type ActiveChatAgent } from "./agent-pool/branch-manager.js";
+import { runSidePrompt as runSidePromptInternal } from "./agent-pool/side-prompt-runner.js";
+import { runAgentPrompt } from "./agent-pool/run-agent-orchestrator.js";
 import { AgentRuntimeFacade, type AvailableModelsResult } from "./agent-pool/runtime-facade.js";
+import { AgentSessionBinder } from "./agent-pool/session-binder.js";
 import { AgentSessionManager, type PoolEntry } from "./agent-pool/session-manager.js";
 import { AgentToolFactory } from "./agent-pool/tool-factory.js";
 import { AgentTurnCoordinator } from "./agent-pool/turn-coordinator.js";
 import { recordMessageUsage } from "./agent-pool/usage.js";
-import { withChatContext } from "./core/chat-context.js";
-import { getSessionFileSize, rotateSession } from "./session-rotation.js";
 import { type ChatBranchRecord } from "./db.js";
 import { createLogger } from "./utils/logger.js";
-import { resolveModelRequestAuth } from "./utils/model-auth.js";
 
 const log = createLogger("agent-pool");
 
@@ -76,16 +73,6 @@ export interface SidePromptResult {
   model: string | null;
   usage?: Usage;
   stopReason?: string;
-}
-
-interface SideAssistantMessage {
-  stopReason?: string;
-  errorMessage?: string;
-  usage?: Usage;
-  content?: unknown[];
-  provider?: string;
-  model?: string;
-  api?: string;
 }
 
 export interface SidePromptOptions {
@@ -117,38 +104,6 @@ export interface AgentPoolOptions {
   ) => AssistantMessageEventStream;
 }
 
-function formatTimeoutDuration(timeoutMs: number): string {
-  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return `${timeoutMs}ms`;
-  if (timeoutMs % 1000 === 0) return `${Math.round(timeoutMs / 1000)}s`;
-  return `${(timeoutMs / 1000).toFixed(1)}s`;
-}
-
-function extractAssistantText(message: { content?: unknown[] } | null | undefined): string {
-  if (!Array.isArray(message?.content)) return "";
-  return message.content
-    .map((block) => block && typeof block === "object" && (block as { type?: unknown }).type === "text"
-      ? String((block as { text?: unknown }).text ?? "")
-      : "")
-    .join("")
-    .trim();
-}
-
-function extractAssistantThinking(message: { content?: unknown[] } | null | undefined): string {
-  if (!Array.isArray(message?.content)) return "";
-  return message.content
-    .map((block) => block && typeof block === "object" && (block as { type?: unknown }).type === "thinking"
-      ? String((block as { thinking?: unknown }).thinking ?? "")
-      : "")
-    .join("")
-    .trim();
-}
-
-function toSideReasoning(level: unknown): "minimal" | "low" | "medium" | "high" | "xhigh" | undefined {
-  return level === "minimal" || level === "low" || level === "medium" || level === "high" || level === "xhigh"
-    ? level
-    : undefined;
-}
-
 /** How long (ms) an idle session stays cached before being disposed. */
 const IDLE_TTL = 10 * 60 * 1000; // 10 minutes
 const CLEANUP_INTERVAL = 60 * 1000; // check every minute
@@ -173,7 +128,10 @@ export class AgentPool {
   private logsDir = join(WORKSPACE_DIR, "logs");
   private createSession?: AgentPoolOptions["createSession"];
   private createSideSession?: AgentPoolOptions["createSideSession"];
-  private sessionBinder?: (session: AgentSession, chatJid: string) => Promise<void> | void;
+  private sessionBinder = new AgentSessionBinder({
+    pool: this.pool,
+    onError: (message, details) => log.error(message, details),
+  });
   private bashOperations = createTrackedBashOperations();
   private attachments = getAttachmentRegistry();
   private toolFactory = new AgentToolFactory({
@@ -209,7 +167,7 @@ export class AgentPool {
       modelRegistry: this.modelRegistry,
       settingsManager: this.settingsManager,
       createDefaultTools: () => this.toolFactory.createDefaultTools(),
-      bindSession: (session, chatJid) => this.bindSession(session, chatJid),
+      bindSession: (session, chatJid) => this.sessionBinder.bindSession(session, chatJid),
       ensureBranchRegistration: (chatJid, session) => {
         this.branchManager.ensureBranchRegistration(chatJid, session);
       },
@@ -241,151 +199,25 @@ export class AgentPool {
   }
 
   setSessionBinder(binder?: (session: AgentSession, chatJid: string) => Promise<void> | void): void {
-    this.sessionBinder = binder;
-    if (!binder) return;
-    for (const [jid, entry] of this.pool) {
-      try {
-        void binder(entry.session, jid);
-      } catch (err) {
-        log.error("Failed to bind session", {
-          operation: "set_session_binder.bind_existing_session",
-          chatJid: jid,
-          err,
-        });
-      }
-    }
-  }
-
-  /** Attempt safe automatic session rotation before the next prompt when configured. */
-  private async maybeAutoRotateSession(session: AgentSession, chatJid: string): Promise<void> {
-    const sessionStorageConfig = getSessionStorageConfig();
-    const autoRotateEnabled = sessionStorageConfig.autoRotate
-      || ["1", "true", "yes", "on"].includes((process.env.PICLAW_SESSION_AUTO_ROTATE || "").trim().toLowerCase());
-    if (!autoRotateEnabled) return;
-
-    const envThresholdMb = parseInt(process.env.PICLAW_SESSION_MAX_SIZE_MB || "", 10);
-    const thresholdBytes = Number.isFinite(envThresholdMb) && envThresholdMb > 0
-      ? envThresholdMb * 1024 * 1024
-      : sessionStorageConfig.maxSizeBytes;
-
-    const sessionFileSize = getSessionFileSize(session.sessionFile);
-    if (sessionFileSize === null || sessionFileSize < thresholdBytes) return;
-
-    const result = await rotateSession(session, { reason: "automatic" });
-    if (result.status === "success") {
-      log.info("Auto-rotated oversized session", {
-        operation: "maybe_auto_rotate_session",
-        chatJid,
-        previousSize: result.previousSize ?? sessionFileSize,
-        nextSize: result.nextSize ?? "unknown",
-      });
-      return;
-    }
-
-    log.warn("Auto-rotation skipped", {
-      operation: "maybe_auto_rotate_session",
-      chatJid,
-      reason: result.message,
-    });
+    this.sessionBinder.setBinder(binder);
   }
 
   /** Run a prompt against the persistent session for `chatJid`. */
   async runAgent(prompt: string, chatJid: string, options: RunAgentOptions = {}): Promise<AgentOutput> {
-    const startTime = Date.now();
-    this.attachments.clear(chatJid);
-
-    try {
-      const session = await this.getOrCreate(chatJid);
-      await this.maybeAutoRotateSession(session, chatJid);
-      pruneOrphanToolResults(session, chatJid);
-      const forkBaseLeafId = typeof session.sessionManager?.getLeafId === "function"
-        ? session.sessionManager.getLeafId()
-        : null;
-      this.activeForkBaseLeafByChat.set(chatJid, forkBaseLeafId ?? null);
-      log.info("Prompting session", {
-        operation: "run_agent.prompt",
-        chatJid,
-        promptLength: prompt.length,
-      });
-
-      const tracker = this.turnCoordinator.createTracker(chatJid, options.onTurnComplete);
-      const unsub = this.turnCoordinator.subscribe(session, chatJid, tracker, options.onEvent);
-      const timeoutMs = typeof options.timeoutMs === "number" ? options.timeoutMs : getAgentRuntimeConfig().timeoutMs;
-      const { timeoutId, timedOutRef } = this.turnCoordinator.startPromptTimeout(session, chatJid, timeoutMs);
-
-      const channel = detectChannel(chatJid);
-      return await withChatContext(chatJid, channel, async () => {
-        try {
-          await session.prompt(prompt);
-          // Guard against premature waitForRetry() resolution:
-          // agent-session._resolveRetry() fires at message_end (first successful LLM
-          // response during auto-retry), while the retry _runLoop may still be executing
-          // tool calls (isStreaming=true). The upstream design assumes human-paced TUI
-          // callers where this is harmless. In our queue-based context it causes the
-          // next processChat to call session.prompt() while isStreaming is still true,
-          // producing "already processing" errors. Poll until truly idle.
-          // Wait until the session is truly idle. Auto-compaction can start
-          // after the main response finishes and may kick off a follow-up
-          // continue() call (e.g., overflow recovery). Keep listening until
-          // streaming + compaction fully settle.
-          const idleSettleTicks = 10;
-          let idleTicks = 0;
-          while (idleTicks < idleSettleTicks) {
-            if (!session.isStreaming && !session.isCompacting && !session.isRetrying) {
-              idleTicks += 1;
-            } else {
-              idleTicks = 0;
-            }
-            await Bun.sleep(50);
-          }
-        } finally {
-          if (timeoutId) clearTimeout(timeoutId);
-          unsub();
-        }
-
-        const duration = Date.now() - startTime;
-
-        // If onTurnComplete was used, intermediate turns were already flushed.
-        // The final turn's text is in tracker.getFinalText().
-        const finalText = tracker.getFinalText();
-        const finalAttachments = this.attachments.take(chatJid);
-
-        const timedOut = timedOutRef.value;
-        writeAgentLog(this.logsDir, chatJid, duration, timedOut, finalText, null);
-
-        if (timedOut) {
-          return { status: "error", result: null, error: `Timed out after ${formatTimeoutDuration(timeoutMs)}` };
-        }
-
-        log.info("Agent run completed", {
-          operation: "run_agent.complete",
-          chatJid,
-          durationMs: duration,
-          outputChars: finalText.length,
-          turns: tracker.getTurnCount() + 1,
-        });
-        return {
-          status: "success",
-          result: finalText || null,
-          attachments: finalAttachments.length ? finalAttachments : undefined,
-        };
-      });
-    } catch (err) {
-      this.attachments.clear(chatJid);
-      const duration = Date.now() - startTime;
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      writeAgentLog(this.logsDir, chatJid, duration, false, null, errorMsg);
-      log.error("Agent run failed", {
-        operation: "run_agent",
-        chatJid,
-        durationMs: duration,
-        errorMessage: errorMsg,
-        err,
-      });
-      return { status: "error", result: null, error: errorMsg };
-    } finally {
-      this.activeForkBaseLeafByChat.delete(chatJid);
-    }
+    return runAgentPrompt(prompt, chatJid, options, {
+      getOrCreate: (nextChatJid) => this.getOrCreate(nextChatJid),
+      turnCoordinator: this.turnCoordinator,
+      clearAttachments: (nextChatJid) => this.attachments.clear(nextChatJid),
+      takeAttachments: (nextChatJid) => this.attachments.take(nextChatJid),
+      logsDir: this.logsDir,
+      setActiveForkBaseLeaf: (nextChatJid, leafId) => this.activeForkBaseLeafByChat.set(nextChatJid, leafId),
+      clearActiveForkBaseLeaf: (nextChatJid) => {
+        this.activeForkBaseLeafByChat.delete(nextChatJid);
+      },
+      onInfo: (message, details) => log.info(message, details),
+      onWarn: (message, details) => log.warn(message, details),
+      onError: (message, details) => log.error(message, details),
+    });
   }
 
   async applyControlCommand(chatJid: string, command: AgentControlCommand): Promise<AgentControlResult> {
@@ -397,248 +229,14 @@ export class AgentPool {
   }
 
   async runSidePrompt(chatJid: string, prompt: string, options: SidePromptOptions = {}): Promise<SidePromptResult> {
-    const session = await this.getOrCreate(chatJid);
-    const model = session.model;
-    if (!model) {
-      return { status: "error", result: null, thinking: null, error: "No active model selected.", model: null };
-    }
-
-    if (this.sideStreamSimple) {
-      const auth = await resolveModelRequestAuth(this.modelRegistry, model);
-      if (!auth.ok) {
-        return {
-          status: "error",
-          result: null,
-          thinking: null,
-          error: auth.error || `No credentials available for ${model.provider}/${model.id}.`,
-          model: `${model.provider}/${model.id}`,
-        };
-      }
-
-      const stream = this.sideStreamSimple(
-        model,
-        {
-          ...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
-          messages: [
-            {
-              role: "user",
-              content: [{ type: "text", text: prompt }],
-              timestamp: Date.now(),
-            },
-          ],
-        },
-        {
-          apiKey: auth.apiKey,
-          headers: auth.headers,
-          reasoning: toSideReasoning((session as AgentSession & { thinkingLevel?: unknown }).thinkingLevel),
-          signal: options.signal,
-        },
-      );
-
-      let text = "";
-      let thinking = "";
-      let finalMessage: SideAssistantMessage | null = null;
-
-      for await (const event of stream) {
-        options.onEvent?.(event);
-        if (event.type === "text_delta") {
-          text += event.delta;
-          options.onTextDelta?.(event.delta);
-        } else if (event.type === "thinking_delta") {
-          thinking += event.delta;
-          options.onThinkingDelta?.(event.delta);
-        } else if (event.type === "done") {
-          finalMessage = event.message;
-        } else if (event.type === "error") {
-          finalMessage = event.error;
-        }
-      }
-
-      if (!finalMessage) {
-        return {
-          status: "error",
-          result: null,
-          thinking: null,
-          error: "Side prompt finished without a response.",
-          model: `${model.provider}/${model.id}`,
-        };
-      }
-
-      try {
-        recordMessageUsage(chatJid, finalMessage);
-      } catch (err) {
-        log.warn("Failed to persist side-prompt usage", {
-          operation: "run_side_prompt.persist_usage_stream",
-          chatJid,
-          err,
-        });
-      }
-
-      if (finalMessage.stopReason === "error" || finalMessage.stopReason === "aborted") {
-        return {
-          status: "error",
-          result: null,
-          thinking: thinking || extractAssistantThinking(finalMessage),
-          error: finalMessage.errorMessage || "Side prompt failed.",
-          model: `${model.provider}/${model.id}`,
-          usage: finalMessage.usage,
-          stopReason: finalMessage.stopReason,
-        };
-      }
-
-      return {
-        status: "success",
-        result: text || extractAssistantText(finalMessage) || null,
-        thinking: thinking || extractAssistantThinking(finalMessage) || null,
-        model: `${model.provider}/${model.id}`,
-        usage: finalMessage.usage,
-        stopReason: finalMessage.stopReason,
-      };
-    }
-
-    const sideSession = await this.getOrCreateSide(chatJid);
-    await this.syncSideSessionFromMain(session, sideSession);
-
-    let text = "";
-    let thinking = "";
-    let sawText = false;
-    let sawThinking = false;
-    let finalMessage: SideAssistantMessage | null = null;
-    let timedOut = false;
-    const channel = detectChannel(chatJid);
-    const timeoutMs = getAgentRuntimeConfig().timeoutMs;    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    const unsubscribe = sideSession.subscribe((event) => {
-      options.onEvent?.(event);
-
-      if (event.type === "message_update") {
-        const messageEvent = event.assistantMessageEvent;
-        if (messageEvent.type === "text_start") {
-          if (sawText && !text.endsWith("\n\n")) text += "\n\n";
-        } else if (messageEvent.type === "text_delta") {
-          sawText = true;
-          text += messageEvent.delta;
-          options.onTextDelta?.(messageEvent.delta);
-        } else if (messageEvent.type === "thinking_start") {
-          if (sawThinking && !thinking.endsWith("\n\n")) thinking += "\n\n";
-        } else if (messageEvent.type === "thinking_delta") {
-          sawThinking = true;
-          thinking += messageEvent.delta;
-          options.onThinkingDelta?.(messageEvent.delta);
-        }
-        return;
-      }
-
-      if (event.type === "message_end") {
-        const message = event.message as { role?: string; stopReason?: string; errorMessage?: string; usage?: Usage; content?: unknown[] } | undefined;
-        if (message?.role === "assistant") {
-          finalMessage = message as SideAssistantMessage;
-          try {
-            recordMessageUsage(chatJid, message);
-          } catch (err) {
-            log.warn("Failed to persist side-prompt usage", {
-              operation: "run_side_prompt.persist_usage_session",
-              chatJid,
-              err,
-            });
-          }
-        }
-      }
+    return runSidePromptInternal(chatJid, prompt, options, {
+      getOrCreate: (nextChatJid) => this.getOrCreate(nextChatJid),
+      getOrCreateSide: (nextChatJid) => this.getOrCreateSide(nextChatJid),
+      syncSideSessionFromMain: (mainSession, sideSession) => this.syncSideSessionFromMain(mainSession, sideSession),
+      modelRegistry: this.modelRegistry,
+      sideStreamSimple: this.sideStreamSimple,
+      onWarn: (message, details) => log.warn(message, details),
     });
-
-    const abortHandler = () => {
-      void sideSession.abort().catch(() => {
-        /* expected: side session may already be aborting when the outer signal fires. */
-      });
-    };
-    options.signal?.addEventListener("abort", abortHandler, { once: true });
-    if (timeoutMs > 0) {
-      timeoutId = setTimeout(() => {
-        timedOut = true;
-        void sideSession.abort().catch(() => {
-          /* expected: side session may already be aborting when the timeout fires. */
-        });
-      }, timeoutMs);
-    }
-
-    try {
-      await withChatContext(chatJid, channel, async () => {
-        const composedPrompt = options.systemPrompt
-          ? `${options.systemPrompt}\n\n${prompt}`
-          : prompt;
-        await sideSession.prompt(composedPrompt);
-        const idleSettleTicks = 10;
-        let idleTicks = 0;
-        while (idleTicks < idleSettleTicks) {
-          if (!sideSession.isStreaming && !sideSession.isCompacting && !sideSession.isRetrying) {
-            idleTicks += 1;
-          } else {
-            idleTicks = 0;
-          }
-          await Bun.sleep(50);
-        }
-      });
-    } catch (err) {
-      if (timeoutId) clearTimeout(timeoutId);
-      unsubscribe();
-      options.signal?.removeEventListener("abort", abortHandler);
-      return {
-        status: "error",
-        result: null,
-        thinking: thinking || null,
-        error: timedOut ? `Timed out after ${formatTimeoutDuration(timeoutMs)}` : (err instanceof Error ? err.message : String(err)),
-        model: `${model.provider}/${model.id}`,
-        stopReason: timedOut ? "aborted" : "error",
-      };
-    }
-
-    if (timeoutId) clearTimeout(timeoutId);
-    unsubscribe();
-    options.signal?.removeEventListener("abort", abortHandler);
-
-    if (!finalMessage) {
-      const fallbackText = text || sideSession.getLastAssistantText() || null;
-      if (!fallbackText) {
-        return {
-          status: "error",
-          result: null,
-          thinking: thinking || null,
-          error: timedOut ? `Timed out after ${formatTimeoutDuration(timeoutMs)}` : "Side prompt finished without a response.",
-          model: `${model.provider}/${model.id}`,
-          stopReason: timedOut ? "aborted" : "error",
-        };
-      }
-      return {
-        status: "success",
-        result: fallbackText,
-        thinking: thinking || null,
-        model: `${model.provider}/${model.id}`,
-        stopReason: "stop",
-      };
-    }
-
-    const completedMessage = finalMessage as SideAssistantMessage;
-
-    if (timedOut || completedMessage.stopReason === "error" || completedMessage.stopReason === "aborted") {
-      return {
-        status: "error",
-        result: null,
-        thinking: thinking || extractAssistantThinking(completedMessage) || null,
-        error: timedOut ? `Timed out after ${formatTimeoutDuration(timeoutMs)}` : (completedMessage.errorMessage || "Side prompt failed."),
-        model: `${model.provider}/${model.id}`,
-        usage: completedMessage.usage,
-        stopReason: timedOut ? "aborted" : completedMessage.stopReason,
-      };
-    }
-
-    return {
-      status: "success",
-      result: text || extractAssistantText(completedMessage) || sideSession.getLastAssistantText() || null,
-      thinking: thinking || extractAssistantThinking(completedMessage) || null,
-      model: `${model.provider}/${model.id}`,
-      usage: completedMessage.usage,
-      stopReason: completedMessage.stopReason,
-    };
   }
 
   /** Return available model labels and current model for a chat session. */
@@ -785,19 +383,6 @@ export class AgentPool {
 
   private async syncSideSessionFromMain(mainSession: AgentSession, sideSession: AgentSession): Promise<void> {
     return this.sessionManager.syncSideSessionFromMain(mainSession, sideSession);
-  }
-
-  private async bindSession(session: AgentSession, chatJid: string): Promise<void> {
-    if (!this.sessionBinder) return;
-    try {
-      await this.sessionBinder(session, chatJid);
-    } catch (err) {
-      log.error("Failed to bind session", {
-        operation: "bind_session",
-        chatJid,
-        err,
-      });
-    }
   }
 
   private evictIdle(): void {
