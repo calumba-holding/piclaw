@@ -40,10 +40,16 @@ import {
     SILENCE_REFRESH_MS,
     SILENCE_WARNING_MS,
     buildAgentsMap,
-    estimatePreviewLines,
     isIOSDevice,
     useTimestampRefresh,
 } from './ui/app-helpers.js';
+import {
+    applyDraftDeltaBuffer,
+    applyThoughtDeltaBuffer,
+    buildCollapsedAgentPreviewState,
+    buildExpandedAgentPreviewState,
+    resolveAgentPlanText,
+} from './ui/app-agent-previews.js';
 import { resolveFilePillOpenAction } from './ui/file-pill-open.js';
 import { parseBtwCommand, buildBtwInjectionText, resolveBtwChatJid } from './ui/btw.js';
 import {
@@ -2381,26 +2387,16 @@ function MainApp({ locationParams, navigate }) {
                 setActiveTurn(turnId);
             }
             noteAgentActivity({ running: true, clearSilence: true });
-            if (data?.reset) {
-                draftBufferRef.current = '';
-            }
-            if (data?.delta) {
-                draftBufferRef.current += data.delta;
-            }
+            draftBufferRef.current = applyDraftDeltaBuffer(draftBufferRef.current, data);
             // Throttle draft state updates to ~10fps to avoid re-render storms
             const now = Date.now();
             if (!draftThrottleRef.current || now - draftThrottleRef.current >= 100) {
                 draftThrottleRef.current = now;
                 const fullText = draftBufferRef.current;
-                const totalLines = estimatePreviewLines(fullText);
                 if (draftExpandedRef.current) {
-                    setAgentDraft((prev) => ({
-                        text: prev?.text || '',
-                        totalLines,
-                        fullText,
-                    }));
+                    setAgentDraft((prev) => buildExpandedAgentPreviewState(fullText, prev));
                 } else {
-                    setAgentDraft({ text: fullText, totalLines });
+                    setAgentDraft(buildCollapsedAgentPreviewState(fullText, null));
                 }
             }
             return;
@@ -2417,16 +2413,12 @@ function MainApp({ locationParams, navigate }) {
             noteAgentActivity({ running: true, clearSilence: true });
             const text = data.text || '';
             const mode = data.mode || (data.kind === 'plan' ? 'replace' : 'append');
-            const inferredTotal = Number.isFinite(data.total_lines)
-                ? data.total_lines
-                : (text ? text.replace(/\r\n/g, '\n').split('\n').length : 0);
 
             if (data.kind === 'plan') {
-                if (mode === 'replace') setAgentPlan(text);
-                else setAgentPlan((prev) => (prev || '') + text);
+                setAgentPlan((prev) => resolveAgentPlanText(prev, text, mode));
             } else if (!draftExpandedRef.current) {
                 draftBufferRef.current = text;
-                setAgentDraft({ text, totalLines: inferredTotal });
+                setAgentDraft(buildCollapsedAgentPreviewState(text, data.total_lines));
             }
             return;
         }
@@ -2440,22 +2432,13 @@ function MainApp({ locationParams, navigate }) {
                 setActiveTurn(turnId);
             }
             noteAgentActivity({ running: true, clearSilence: true });
-            if (data?.reset) {
-                thoughtBufferRef.current = '';
-            }
-            if (typeof data?.delta === 'string') {
-                thoughtBufferRef.current += data.delta;
-            }
+            thoughtBufferRef.current = applyThoughtDeltaBuffer(thoughtBufferRef.current, data);
             // Throttle thought state updates to ~10fps
             const now = Date.now();
             if (thoughtExpandedRef.current && (!thoughtThrottleRef.current || now - thoughtThrottleRef.current >= 100)) {
                 thoughtThrottleRef.current = now;
                 const fullText = thoughtBufferRef.current;
-                setAgentThought((prev) => ({
-                    text: prev?.text || '',
-                    totalLines: estimatePreviewLines(fullText),
-                    fullText,
-                }));
+                setAgentThought((prev) => buildExpandedAgentPreviewState(fullText, prev));
             }
             return;
         }
@@ -2470,12 +2453,9 @@ function MainApp({ locationParams, navigate }) {
             }
             noteAgentActivity({ running: true, clearSilence: true });
             const text = data.text || '';
-            const inferredTotal = Number.isFinite(data.total_lines)
-                ? data.total_lines
-                : (text ? text.replace(/\r\n/g, '\n').split('\n').length : 0);
             if (!thoughtExpandedRef.current) {
                 thoughtBufferRef.current = text;
-                setAgentThought({ text, totalLines: inferredTotal });
+                setAgentThought(buildCollapsedAgentPreviewState(text, data.total_lines));
             }
             return;
         }
