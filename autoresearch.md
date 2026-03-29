@@ -1,7 +1,7 @@
 # Autoresearch: continue-decompose-web-app-shell
 
 ## Objective
-Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while preserving UX semantics and payload shapes. Current tranches target (1) active-branch roster shaping (normalization, merge precedence, stable sorting), (2) queued follow-up SSE row normalization/append behavior, (3) generated-widget SSE event routing/fallback mapping, (4) turn-scoped SSE gating/adoption semantics, and (5) real-time timeline mutation gating/operations.
+Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while preserving UX semantics and payload shapes. Current tranches target (1) active-branch roster shaping (normalization, merge precedence, stable sorting), (2) queued follow-up SSE row normalization/append behavior, (3) generated-widget SSE event routing/fallback mapping, (4) turn-scoped SSE gating/adoption semantics, (5) real-time timeline mutation gating/operations, and (6) extension-UI SSE chat/toast mapping.
 
 ## Metrics
 - **Primary**: `seam_score` (unitless, higher is better) — structural completion for the extracted active-branch roster seam
@@ -47,3 +47,6 @@ Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while 
 - Extracted timeline mutation gating and immutable append/replace/remove operations from `app.ts` into typed `runtime/web/src/ui/app-realtime-timeline.ts`.
 - `handleSseEvent` now delegates main-timeline gating (`isMainTimelineView`), append-event eligibility (`shouldAppendRealtimeTimelinePost`), interaction mutation gating (`shouldMutateInteractionTimeline`), and list updates (`appendUniqueTimelinePost`, `replaceTimelinePostById`, `removeTimelinePostsByIds`).
 - Added focused tests in `runtime/test/web/app-realtime-timeline.test.ts` for view gating, event gating, unique append behavior, and no-op identity preservation for replace/remove operations.
+- Extracted extension-UI SSE chat-id fallback and toast mapping from `app.ts` into typed `runtime/web/src/ui/app-extension-ui-sse.ts` (`resolveStatusPanelEventChatJid`, `resolveExtensionUiToast`).
+- `handleSseEvent` status-panel and generic extension-ui branches now delegate to those helpers while preserving browser-event dispatch + payload semantics.
+- Added focused tests in `runtime/test/web/app-extension-ui-sse.test.ts` for notify/error toast mapping and status-panel chat fallback.

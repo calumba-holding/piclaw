@@ -32,6 +32,9 @@ fi
 if [[ -f runtime/test/web/app-realtime-timeline.test.ts ]]; then
   tests+=(runtime/test/web/app-realtime-timeline.test.ts)
 fi
+if [[ -f runtime/test/web/app-extension-ui-sse.test.ts ]]; then
+  tests+=(runtime/test/web/app-extension-ui-sse.test.ts)
+fi
 
 PICLAW_DB_IN_MEMORY=1 bun test --max-concurrency=1 "${tests[@]}"
 
@@ -59,6 +62,10 @@ rg -q "resolveSteerQueuedTurnId" runtime/web/src/app.ts && seam_score=$((seam_sc
 [[ -f runtime/test/web/app-realtime-timeline.test.ts ]] && seam_score=$((seam_score + 1))
 rg -q "shouldAppendRealtimeTimelinePost" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
 rg -q "replaceTimelinePostById" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
+[[ -f runtime/web/src/ui/app-extension-ui-sse.ts ]] && seam_score=$((seam_score + 1))
+[[ -f runtime/test/web/app-extension-ui-sse.test.ts ]] && seam_score=$((seam_score + 1))
+rg -q "resolveStatusPanelEventChatJid" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
+rg -q "resolveExtensionUiToast" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
 
 echo "METRIC seam_score=${seam_score}"
 echo "METRIC targeted_test_ms=${targeted_test_ms}"

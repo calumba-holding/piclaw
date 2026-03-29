@@ -79,6 +79,10 @@ import { resolveLiveGeneratedWidgetEvent } from './ui/app-generated-widget-event
 import { isCompactionStatus } from './ui/status-duration.js';
 import { installStandaloneMobileViewportFix } from './ui/mobile-viewport.js';
 import { resolveOptionalApi } from './ui/optional-api.js';
+import {
+    resolveExtensionUiToast,
+    resolveStatusPanelEventChatJid,
+} from './ui/app-extension-ui-sse.js';
 import { dispatchExtensionUiBrowserEvent, isExtensionUiEventType } from './ui/extension-ui-events.js';
 import { watchReturnToApp, watchStandaloneWebAppMode } from './ui/app-resume.js';
 import { watchDockToggleShortcut, watchPaneOpenEvents, watchZenModeShortcuts } from './ui/app-browser-events.js';
@@ -2444,7 +2448,7 @@ function MainApp({ locationParams, navigate }) {
         }
 
         if (eventType === 'extension_ui_widget' && data?.options?.surface === 'status-panel') {
-            const eventChatJid = typeof data?.chat_jid === 'string' && data.chat_jid.trim() ? data.chat_jid.trim() : currentChatJid;
+            const eventChatJid = resolveStatusPanelEventChatJid(data, currentChatJid);
             if (eventChatJid !== currentChatJid) return;
             const panelKey = typeof data?.key === 'string' ? data.key : '';
             if (!panelKey) return;
@@ -2467,11 +2471,9 @@ function MainApp({ locationParams, navigate }) {
         if (isExtensionUiEventType(eventType)) {
             if (!isCurrentChatEvent) return;
             dispatchExtensionUiBrowserEvent(eventType, data);
-            if (eventType === 'extension_ui_notify' && typeof data?.message === 'string') {
-                showIntentToast(data.message, null, data?.type || 'info');
-            }
-            if (eventType === 'extension_ui_error' && typeof data?.error === 'string') {
-                showIntentToast('Extension UI error', data.error, 'error', 5000);
+            const toast = resolveExtensionUiToast(eventType, data);
+            if (toast) {
+                showIntentToast(toast.title, toast.detail, toast.kind, toast.durationMs);
             }
             return;
         }
