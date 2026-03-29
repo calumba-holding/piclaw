@@ -85,6 +85,7 @@ import { isCompactionStatus } from './ui/status-duration.js';
 import { resolveModelStateUpdate } from './ui/app-model-state.js';
 import {
     resolveAgentProfilePatch,
+    resolveDefaultAgentBrandingPayload,
     resolveUserProfileFromAgentsPayload,
     resolveUserProfileUpdate,
 } from './ui/app-profile-events.js';
@@ -1617,8 +1618,8 @@ function MainApp({ locationParams, navigate }) {
             setAgents(buildAgentsMap(data));
             const nextUser = data?.user || {};
             setUserProfile((prev) => resolveUserProfileFromAgentsPayload(prev, nextUser));
-            const defaultAgent = (data?.agents || []).find((a) => a.id === 'default');
-            applyBranding(defaultAgent?.name, defaultAgent?.avatar_url);
+            const branding = resolveDefaultAgentBrandingPayload(data?.agents);
+            applyBranding(branding.name, branding.avatarUrl);
         } catch (e) {
             console.warn('Failed to load agents:', e);
         }

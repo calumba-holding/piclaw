@@ -2,9 +2,18 @@ import { expect, test } from 'bun:test';
 
 import {
   resolveAgentProfilePatch,
+  resolveDefaultAgentBrandingPayload,
   resolveUserProfileFromAgentsPayload,
   resolveUserProfileUpdate,
 } from '../../web/src/ui/app-profile-events.js';
+
+test('resolveDefaultAgentBrandingPayload picks default agent branding when present', () => {
+  expect(resolveDefaultAgentBrandingPayload([
+    { id: 'other', name: 'Other', avatar_url: 'other.png' },
+    { id: 'default', name: 'Pi', avatar_url: 'pi.png' },
+  ])).toEqual({ name: 'Pi', avatarUrl: 'pi.png' });
+  expect(resolveDefaultAgentBrandingPayload(null)).toEqual({ name: undefined, avatarUrl: undefined });
+});
 
 test('resolveAgentProfilePatch ignores invalid payloads and unchanged profile events', () => {
   expect(resolveAgentProfilePatch(null, null)).toBeNull();

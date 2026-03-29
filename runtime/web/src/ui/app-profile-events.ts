@@ -21,6 +21,20 @@ export interface UserProfileLike {
   avatar_background?: string | null;
 }
 
+export interface AgentBrandingPayload {
+  name: unknown;
+  avatarUrl: unknown;
+}
+
+export function resolveDefaultAgentBrandingPayload(agents: unknown): AgentBrandingPayload {
+  const list = Array.isArray(agents) ? agents : [];
+  const defaultAgent = list.find((agent) => agent?.id === 'default');
+  return {
+    name: defaultAgent?.name,
+    avatarUrl: defaultAgent?.avatar_url,
+  };
+}
+
 export function resolveAgentProfilePatch(
   payload: Record<string, unknown> | null | undefined,
   currentEntry: AgentProfileEntryLike | null | undefined,
