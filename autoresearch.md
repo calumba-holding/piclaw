@@ -50,3 +50,5 @@ Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while 
 - Extracted extension-UI SSE chat-id fallback and toast mapping from `app.ts` into typed `runtime/web/src/ui/app-extension-ui-sse.ts` (`resolveStatusPanelEventChatJid`, `resolveExtensionUiToast`).
 - `handleSseEvent` status-panel and generic extension-ui branches now delegate to those helpers while preserving browser-event dispatch + payload semantics.
 - Added focused tests in `runtime/test/web/app-extension-ui-sse.test.ts` for notify/error toast mapping and status-panel chat fallback.
+- Further extracted status-panel event classification into `resolveStatusPanelWidgetEventContext` so `app.ts` no longer hand-parses event type/surface/chat-id/panel-key fields inline.
+- Added focused coverage in `runtime/test/web/app-extension-ui-sse.test.ts` for status-panel widget context shaping.

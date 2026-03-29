@@ -81,7 +81,7 @@ import { installStandaloneMobileViewportFix } from './ui/mobile-viewport.js';
 import { resolveOptionalApi } from './ui/optional-api.js';
 import {
     resolveExtensionUiToast,
-    resolveStatusPanelEventChatJid,
+    resolveStatusPanelWidgetEventContext,
 } from './ui/app-extension-ui-sse.js';
 import { dispatchExtensionUiBrowserEvent, isExtensionUiEventType } from './ui/extension-ui-events.js';
 import { watchReturnToApp, watchStandaloneWebAppMode } from './ui/app-resume.js';
@@ -2447,14 +2447,13 @@ function MainApp({ locationParams, navigate }) {
             return;
         }
 
-        if (eventType === 'extension_ui_widget' && data?.options?.surface === 'status-panel') {
-            const eventChatJid = resolveStatusPanelEventChatJid(data, currentChatJid);
-            if (eventChatJid !== currentChatJid) return;
-            const panelKey = typeof data?.key === 'string' ? data.key : '';
-            if (!panelKey) return;
+        const statusPanelWidgetEvent = resolveStatusPanelWidgetEventContext(eventType, data, currentChatJid);
+        if (statusPanelWidgetEvent.isStatusPanelWidgetEvent) {
+            if (statusPanelWidgetEvent.eventChatJid !== currentChatJid) return;
+            if (!statusPanelWidgetEvent.panelKey) return;
             setExtensionStatusPanels((prev) => applyStatusPanelWidgetEvent(prev, data));
             if (shouldClearPendingPanelActions(data)) {
-                setPendingExtensionPanelActions((prev) => clearPendingPanelActionPrefix(prev, panelKey));
+                setPendingExtensionPanelActions((prev) => clearPendingPanelActionPrefix(prev, statusPanelWidgetEvent.panelKey));
             }
             dispatchExtensionUiBrowserEvent(eventType, data);
             return;

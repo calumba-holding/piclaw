@@ -5,6 +5,12 @@ export interface ExtensionUiToastLike {
   durationMs?: number;
 }
 
+export interface StatusPanelWidgetEventContext {
+  isStatusPanelWidgetEvent: boolean;
+  eventChatJid: string;
+  panelKey: string;
+}
+
 export function resolveStatusPanelEventChatJid(
   payload: Record<string, unknown> | null | undefined,
   currentChatJid: string,
@@ -12,6 +18,18 @@ export function resolveStatusPanelEventChatJid(
   return typeof payload?.chat_jid === 'string' && payload.chat_jid.trim()
     ? payload.chat_jid.trim()
     : currentChatJid;
+}
+
+export function resolveStatusPanelWidgetEventContext(
+  eventType: string | null | undefined,
+  payload: Record<string, unknown> | null | undefined,
+  currentChatJid: string,
+): StatusPanelWidgetEventContext {
+  return {
+    isStatusPanelWidgetEvent: eventType === 'extension_ui_widget' && payload?.options?.surface === 'status-panel',
+    eventChatJid: resolveStatusPanelEventChatJid(payload, currentChatJid),
+    panelKey: typeof payload?.key === 'string' ? payload.key : '',
+  };
 }
 
 export function resolveExtensionUiToast(

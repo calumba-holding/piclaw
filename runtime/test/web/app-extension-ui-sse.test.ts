@@ -3,12 +3,34 @@ import { expect, test } from 'bun:test';
 import {
   resolveExtensionUiToast,
   resolveStatusPanelEventChatJid,
+  resolveStatusPanelWidgetEventContext,
 } from '../../web/src/ui/app-extension-ui-sse.js';
 
 test('resolveStatusPanelEventChatJid prefers payload chat id and falls back to current chat', () => {
   expect(resolveStatusPanelEventChatJid({ chat_jid: ' chat:2 ' }, 'chat:1')).toBe('chat:2');
   expect(resolveStatusPanelEventChatJid({ chat_jid: '   ' }, 'chat:1')).toBe('chat:1');
   expect(resolveStatusPanelEventChatJid({}, 'chat:1')).toBe('chat:1');
+});
+
+test('resolveStatusPanelWidgetEventContext classifies status-panel widget events', () => {
+  expect(resolveStatusPanelWidgetEventContext('extension_ui_widget', {
+    key: 'panel:1',
+    options: { surface: 'status-panel' },
+    chat_jid: 'chat:2',
+  }, 'chat:1')).toEqual({
+    isStatusPanelWidgetEvent: true,
+    eventChatJid: 'chat:2',
+    panelKey: 'panel:1',
+  });
+
+  expect(resolveStatusPanelWidgetEventContext('extension_ui_status', {
+    key: 'panel:2',
+    options: { surface: 'status-panel' },
+  }, 'chat:1')).toEqual({
+    isStatusPanelWidgetEvent: false,
+    eventChatJid: 'chat:1',
+    panelKey: 'panel:2',
+  });
 });
 
 test('resolveExtensionUiToast maps notify and error events to expected toast payloads', () => {

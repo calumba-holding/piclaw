@@ -64,8 +64,10 @@ rg -q "shouldAppendRealtimeTimelinePost" runtime/web/src/app.ts && seam_score=$(
 rg -q "replaceTimelinePostById" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
 [[ -f runtime/web/src/ui/app-extension-ui-sse.ts ]] && seam_score=$((seam_score + 1))
 [[ -f runtime/test/web/app-extension-ui-sse.test.ts ]] && seam_score=$((seam_score + 1))
-rg -q "resolveStatusPanelEventChatJid" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
+rg -q "resolveStatusPanelWidgetEventContext" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
 rg -q "resolveExtensionUiToast" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
+rg -q "resolveStatusPanelWidgetEventContext" runtime/web/src/ui/app-extension-ui-sse.ts && seam_score=$((seam_score + 1))
+rg -q "resolveStatusPanelWidgetEventContext" runtime/test/web/app-extension-ui-sse.test.ts && seam_score=$((seam_score + 1))
 
 echo "METRIC seam_score=${seam_score}"
 echo "METRIC targeted_test_ms=${targeted_test_ms}"
