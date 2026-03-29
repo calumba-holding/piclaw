@@ -53,20 +53,24 @@ Split into:
 
 ### 2026-03-29
 - Began the split on branch `feature/split-agentpool-god-class`.
-- Extracted three helper modules out of `runtime/src/agent-pool.ts`:
+- Extracted five helper modules out of `runtime/src/agent-pool.ts`:
   - `runtime/src/agent-pool/tool-factory.ts`
   - `runtime/src/agent-pool/turn-coordinator.ts`
   - `runtime/src/agent-pool/session-manager.ts`
-- Rewired `AgentPool` to delegate default tool creation, turn tracking / prompt-timeout subscription wiring, and main/side session lifecycle management through those modules.
+  - `runtime/src/agent-pool/branch-manager.ts`
+  - `runtime/src/agent-pool/runtime-facade.ts`
+- Rewired `AgentPool` to delegate default tool creation, turn tracking / prompt-timeout subscription wiring, main/side session lifecycle management, chat-branch registration/fork/listing flows, plus model/status/control/queue/slash-command helpers through those modules.
 - Added focused tests for the extracted seams:
   - `runtime/test/agent-pool/tool-factory.test.ts`
   - `runtime/test/agent-pool/turn-coordinator.test.ts`
   - `runtime/test/agent-pool/session-manager.test.ts`
+  - `runtime/test/agent-pool/branch-manager.test.ts`
+  - `runtime/test/agent-pool/runtime-facade.test.ts`
 - Validation:
-  - `bun test test/agent-pool/agent-pool.test.ts test/agent-pool/tool-factory.test.ts test/agent-pool/turn-coordinator.test.ts test/agent-pool/session-manager.test.ts`
+  - `bun test test/agent-pool/agent-pool.test.ts test/agent-pool/tool-factory.test.ts test/agent-pool/turn-coordinator.test.ts test/agent-pool/session-manager.test.ts test/agent-pool/branch-manager.test.ts test/agent-pool/runtime-facade.test.ts`
   - `bun run lint`
   - `bun run typecheck`
-- Size reduction so far: `runtime/src/agent-pool.ts` `1632 → 1300` lines.
+- Size reduction so far: `runtime/src/agent-pool.ts` `1632 → 806` lines.
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 1, test: 2, deps: 2, risk: 1)
 
 ### 2026-03-28
