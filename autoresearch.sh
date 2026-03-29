@@ -23,6 +23,9 @@ tests=(
 if [[ -f runtime/test/web/app-chat-agents.test.ts ]]; then
   tests+=(runtime/test/web/app-chat-agents.test.ts)
 fi
+if [[ -f runtime/test/web/app-generated-widget-events.test.ts ]]; then
+  tests+=(runtime/test/web/app-generated-widget-events.test.ts)
+fi
 
 PICLAW_DB_IN_MEMORY=1 bun test --max-concurrency=1 "${tests[@]}"
 
@@ -38,6 +41,9 @@ rg -q "normalizeCurrentRootBranchRows" runtime/web/src/app.ts && seam_score=$((s
 rg -q "appendFollowupQueueItem" runtime/web/src/ui/app-followup-queue.ts && seam_score=$((seam_score + 1))
 rg -q "appendFollowupQueueItem" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
 rg -q "appendFollowupQueueItem" runtime/test/web/app-followup-queue.test.ts && seam_score=$((seam_score + 1))
+[[ -f runtime/web/src/ui/app-generated-widget-events.ts ]] && seam_score=$((seam_score + 1))
+[[ -f runtime/test/web/app-generated-widget-events.test.ts ]] && seam_score=$((seam_score + 1))
+rg -q "resolveLiveGeneratedWidgetEvent" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
 
 echo "METRIC seam_score=${seam_score}"
 echo "METRIC targeted_test_ms=${targeted_test_ms}"

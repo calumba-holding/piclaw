@@ -1,7 +1,7 @@
 # Autoresearch: continue-decompose-web-app-shell
 
 ## Objective
-Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while preserving UX semantics and payload shapes. Current tranches target (1) active-branch roster shaping (normalization, merge precedence, stable sorting) and (2) queued follow-up SSE row normalization/append behavior.
+Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while preserving UX semantics and payload shapes. Current tranches target (1) active-branch roster shaping (normalization, merge precedence, stable sorting), (2) queued follow-up SSE row normalization/append behavior, and (3) generated-widget SSE event routing/fallback mapping.
 
 ## Metrics
 - **Primary**: `seam_score` (unitless, higher is better) — structural completion for the extracted active-branch roster seam
@@ -39,3 +39,5 @@ Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while 
 - Added focused seam coverage in `runtime/test/web/app-chat-agents.test.ts` for filtering rules, empty-branch fallback behavior, merge precedence, `is_active` nullish fallback semantics, and current/archived/activity sorting order.
 - Extracted `agent_followup_queued` row-append shaping from `app.ts` into `appendFollowupQueueItem` in `runtime/web/src/ui/app-followup-queue.ts`, keeping dedupe + payload defaults identical.
 - Expanded `runtime/test/web/app-followup-queue.test.ts` with focused checks for valid append behavior plus identity-preserving no-op paths (duplicates/invalid payloads).
+- Extracted generated-widget SSE event-type routing from `app.ts` into typed `runtime/web/src/ui/app-generated-widget-events.ts` via `resolveLiveGeneratedWidgetEvent` (update/close mapping, fallback status, turn-adoption eligibility).
+- Added focused tests in `runtime/test/web/app-generated-widget-events.test.ts` to lock update-status mapping and close/unknown behavior.

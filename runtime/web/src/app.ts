@@ -62,6 +62,7 @@ import {
     getGeneratedWidgetSubmissionText,
     getGeneratedWidgetShouldCloseOnSubmit,
 } from './ui/generated-widget.js';
+import { resolveLiveGeneratedWidgetEvent } from './ui/app-generated-widget-events.js';
 import { isCompactionStatus } from './ui/status-duration.js';
 import { installStandaloneMobileViewportFix } from './ui/mobile-viewport.js';
 import { resolveOptionalApi } from './ui/optional-api.js';
@@ -2138,40 +2139,17 @@ function MainApp({ locationParams, navigate }) {
             return;
         }
 
-        if (eventType === 'generated_widget_open') {
+        const liveWidgetEvent = resolveLiveGeneratedWidgetEvent(eventType);
+        if (liveWidgetEvent.kind === 'update') {
             if (!isCurrentChatEvent) return;
-            if (turnId && !currentTurnIdRef.current) {
+            if (liveWidgetEvent.shouldAdoptTurn && turnId && !currentTurnIdRef.current) {
                 setActiveTurn(turnId);
             }
-            applyLiveGeneratedWidgetUpdate(data, 'loading');
+            applyLiveGeneratedWidgetUpdate(data, liveWidgetEvent.fallbackStatus || 'streaming');
             return;
         }
 
-        if (eventType === 'generated_widget_delta') {
-            if (!isCurrentChatEvent) return;
-            if (turnId && !currentTurnIdRef.current) {
-                setActiveTurn(turnId);
-            }
-            applyLiveGeneratedWidgetUpdate(data, 'streaming');
-            return;
-        }
-
-        if (eventType === 'generated_widget_final') {
-            if (!isCurrentChatEvent) return;
-            if (turnId && !currentTurnIdRef.current) {
-                setActiveTurn(turnId);
-            }
-            applyLiveGeneratedWidgetUpdate(data, 'final');
-            return;
-        }
-
-        if (eventType === 'generated_widget_error') {
-            if (!isCurrentChatEvent) return;
-            applyLiveGeneratedWidgetUpdate(data, 'error');
-            return;
-        }
-
-        if (eventType === 'generated_widget_close') {
+        if (liveWidgetEvent.kind === 'close') {
             if (!isCurrentChatEvent) return;
             setFloatingWidget((current) => clearLiveFloatingWidgetState(current, data));
             return;
