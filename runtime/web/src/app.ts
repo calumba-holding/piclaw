@@ -25,7 +25,7 @@ import { WorkspaceExplorer } from './components/workspace-explorer.js';
 import { TabStrip } from './components/tab-strip.js';
 import { MarkdownPreview } from './components/markdown-preview.js';
 import { paneRegistry, editorPaneExtension, preloadEditorBundle, terminalPaneExtension, terminalTabPaneExtension, TERMINAL_TAB_PATH, vncPaneExtension, VNC_TAB_PREFIX, workspacePreviewPaneExtension, workspaceMarkdownPreviewPaneExtension, officeViewerPaneExtension, csvViewerPaneExtension, pdfViewerPaneExtension, imageViewerPaneExtension, videoViewerPaneExtension, drawioPaneExtension, mindmapPaneExtension, kanbanPaneExtension, tabStore } from './panes/index.js';
-import { getLocalStorageBoolean, getLocalStorageItem, getLocalStorageNumber, setLocalStorageItem } from './utils/storage.js';
+import { getLocalStorageBoolean, getLocalStorageNumber, setLocalStorageItem } from './utils/storage.js';
 import { useSseConnection } from './ui/use-sse-connection.js';
 import { useNotifications } from './ui/use-notifications.js';
 import { useTimeline } from './ui/use-timeline.js';
@@ -47,17 +47,8 @@ import {
 import { resolveFilePillOpenAction } from './ui/file-pill-open.js';
 import { parseBtwCommand, buildBtwInjectionText, resolveBtwChatJid } from './ui/btw.js';
 import {
-    buildBranchLoaderUrl,
     buildChatWindowUrl,
-    buildPanePopoutUrl,
-    closeProvisionalChatWindow,
-    describeBranchOpenError,
-    getChatWindowOpenOptions,
-    getPaneWindowOpenOptions,
-    navigateProvisionalChatWindow,
-    openProvisionalChatWindow,
     isStandaloneWebAppMode,
-    primeProvisionalChatWindow,
 } from './ui/chat-window.js';
 import { resolveQueueActionChatJid, shouldClearQueuedSteerState } from './ui/queue-state.js';
 import {
@@ -71,84 +62,29 @@ import { installStandaloneMobileViewportFix } from './ui/mobile-viewport.js';
 import { resolveOptionalApi } from './ui/optional-api.js';
 import { dispatchExtensionUiBrowserEvent, isExtensionUiEventType } from './ui/extension-ui-events.js';
 import { watchReturnToApp, watchStandaloneWebAppMode } from './ui/app-resume.js';
-import { describeBranchRestoreResult, formatBranchPickerLabel, getBranchHandleDraftState } from './ui/branch-lifecycle.js';
-
-const BTW_SESSION_KEY = 'piclaw_btw_session';
-
-function getCurrentAppAssetVersion() {
-    try {
-        const direct = new URL(import.meta.url).searchParams.get('v');
-        if (direct && direct.trim()) return direct.trim();
-    } catch {
-        /* expected: import.meta.url may be unavailable in some bundle/debug contexts. */
-    }
-    try {
-        const script = Array.from(document.querySelectorAll('script[type="module"][src]'))
-            .find((node) => String(node.getAttribute('src') || '').includes('/static/dist/app.bundle.js'));
-        const src = script?.getAttribute('src') || '';
-        if (!src) return null;
-        const resolved = new URL(src, window.location.origin);
-        const fallback = resolved.searchParams.get('v');
-        return fallback && fallback.trim() ? fallback.trim() : null;
-    } catch {
-        return null;
-    }
-}
+import { formatBranchPickerLabel, getBranchHandleDraftState } from './ui/branch-lifecycle.js';
+import {
+    getCurrentAppAssetVersion,
+    getRenameBranchFormLock,
+    describeSearchScope,
+    loadStoredBtwSession,
+    readAppLocationModes,
+} from './ui/app-shell-state.js';
+import {
+    closeRenameBranchForm,
+    openRenameBranchForm,
+    pruneCurrentBranch,
+    renameCurrentBranch,
+    restoreBranch,
+    runBranchLoader,
+} from './ui/app-branch-actions.js';
+import {
+    createSessionFromCompose,
+    popOutChat,
+    popOutPane,
+} from './ui/app-window-actions.js';
 
 const CURRENT_APP_ASSET_VERSION = getCurrentAppAssetVersion();
-
-const RENAME_BRANCH_FORM_GUARD_MS = 900;
-const RENAME_BRANCH_FORM_LOCK_KEY = '__piclawRenameBranchFormLock__';
-
-/**
- * Shared lock object kept on `window` so duplicate rename forms/submits are blocked
- * even if this module gets re-evaluated (HMR/reload) or invoked via a different app
- * instance in the same page lifecycle.
- */
-const getRenameBranchFormLock = () => {
-    if (typeof window === 'undefined') return null;
-    const win = window;
-    const key = RENAME_BRANCH_FORM_LOCK_KEY;
-    const existing = (win as any)[key];
-    if (existing && typeof existing === 'object') {
-        return existing;
-    }
-    const created = { inFlight: false, cooldownUntil: 0 };
-    (win as any)[key] = created;
-    return created;
-};
-
-function describeSearchScope(scope) {
-    if (scope === 'root') return 'Branch family';
-    if (scope === 'all') return 'All chats';
-    return 'Current branch';
-}
-
-function loadStoredBtwSession() {
-    const raw = getLocalStorageItem(BTW_SESSION_KEY);
-    if (!raw) return null;
-    try {
-        const parsed = JSON.parse(raw);
-        if (!parsed || typeof parsed !== 'object') return null;
-        const question = typeof parsed.question === 'string' ? parsed.question : '';
-        const answer = typeof parsed.answer === 'string' ? parsed.answer : '';
-        const thinking = typeof parsed.thinking === 'string' ? parsed.thinking : '';
-        const error = typeof parsed.error === 'string' && parsed.error.trim() ? parsed.error : null;
-        const status = parsed.status === 'running'
-            ? 'error'
-            : (parsed.status === 'success' || parsed.status === 'error' ? parsed.status : 'success');
-        return {
-            question,
-            answer,
-            thinking,
-            error: status === 'error' ? (error || 'BTW stream interrupted. You can retry.') : error,
-            model: null,
-            status,
-        };
-    } catch {
-        return null;
-    }
-}
 
 const searchPosts = api.searchPosts;
 const deletePost = api.deletePost;
@@ -204,34 +140,15 @@ paneRegistry.register(terminalPaneExtension);
 paneRegistry.register(terminalTabPaneExtension);
 
 function MainApp({ locationParams, navigate }) {
-    const currentChatJid = useMemo(() => {
-        const raw = locationParams.get('chat_jid');
-        return raw && raw.trim() ? raw.trim() : 'web:default';
-    }, [locationParams]);
-    const chatOnlyMode = useMemo(() => {
-        const raw = (locationParams.get('chat_only') || locationParams.get('chat-only') || '').trim().toLowerCase();
-        return raw === '1' || raw === 'true' || raw === 'yes';
-    }, [locationParams]);
-    const panePopoutMode = useMemo(() => {
-        const raw = (locationParams.get('pane_popout') || '').trim().toLowerCase();
-        return raw === '1' || raw === 'true' || raw === 'yes';
-    }, [locationParams]);
-    const panePopoutPath = useMemo(() => {
-        const raw = locationParams.get('pane_path');
-        return raw && raw.trim() ? raw.trim() : '';
-    }, [locationParams]);
-    const panePopoutLabel = useMemo(() => {
-        const raw = locationParams.get('pane_label');
-        return raw && raw.trim() ? raw.trim() : '';
-    }, [locationParams]);
-    const branchLoaderMode = useMemo(() => {
-        const raw = (locationParams.get('branch_loader') || '').trim().toLowerCase();
-        return raw === '1' || raw === 'true' || raw === 'yes';
-    }, [locationParams]);
-    const branchLoaderSourceChatJid = useMemo(() => {
-        const raw = locationParams.get('branch_source_chat_jid');
-        return raw && raw.trim() ? raw.trim() : currentChatJid;
-    }, [currentChatJid, locationParams]);
+    const {
+        currentChatJid,
+        chatOnlyMode,
+        panePopoutMode,
+        panePopoutPath,
+        panePopoutLabel,
+        branchLoaderMode,
+        branchLoaderSourceChatJid,
+    } = useMemo(() => readAppLocationModes(locationParams), [locationParams]);
 
     const [connectionStatus, setConnectionStatus] = useState('disconnected');
     const [isWebAppMode, setIsWebAppMode] = useState(() => isStandaloneWebAppMode());
@@ -2869,188 +2786,86 @@ function MainApp({ locationParams, navigate }) {
     }, [chatOnlyMode, currentChatJid, navigate]);
 
     const openRenameCurrentBranchForm = useCallback(() => {
-        if (typeof window === 'undefined' || !currentBranchRecord?.chat_jid) return;
-
-        const now = Date.now();
-        const formLock = getRenameBranchFormLock();
-        if (!formLock) return;
-
-        if (
-            renameBranchInFlightRef.current
-            || now < renameBranchLockUntilRef.current
-            || formLock.inFlight
-            || now < formLock.cooldownUntil
-        ) {
-            return;
-        }
-
-        setRenameBranchNameDraft(currentBranchRecord.agent_name || '');
-        setIsRenameBranchFormOpen(true);
+        openRenameBranchForm({
+            hasWindow: typeof window !== 'undefined',
+            currentBranchRecord,
+            renameBranchInFlight: renameBranchInFlightRef.current,
+            renameBranchLockUntil: renameBranchLockUntilRef.current,
+            getFormLock: getRenameBranchFormLock,
+            setRenameBranchNameDraft,
+            setIsRenameBranchFormOpen,
+        });
     }, [currentBranchRecord]);
 
     const closeRenameCurrentBranchForm = useCallback(() => {
-        setIsRenameBranchFormOpen(false);
-        setRenameBranchNameDraft('');
+        closeRenameBranchForm({
+            setIsRenameBranchFormOpen,
+            setRenameBranchNameDraft,
+        });
     }, []);
 
     const handleRenameCurrentBranch = useCallback(async (nextName) => {
-        if (typeof window === 'undefined' || !currentBranchRecord?.chat_jid) return;
-
-        if (typeof nextName !== 'string') {
-            openRenameCurrentBranchForm();
-            return;
-        }
-
-        const now = Date.now();
-        const formLock = getRenameBranchFormLock();
-        if (!formLock) return;
-
-        if (
-            renameBranchInFlightRef.current
-            || now < renameBranchLockUntilRef.current
-            || formLock.inFlight
-            || now < formLock.cooldownUntil
-        ) {
-            return;
-        }
-
-        renameBranchInFlightRef.current = true;
-        formLock.inFlight = true;
-        setIsRenamingBranch(true);
-
-        try {
-            const currentHandle = currentBranchRecord.agent_name || '';
-            const draftState = getBranchHandleDraftState(nextName, currentHandle);
-            if (!draftState.canSubmit) {
-                showIntentToast('Could not rename branch', draftState.message || 'Enter a valid branch handle.', 'warning', 4000);
-                return;
-            }
-            const nextAgentName = draftState.normalized || currentHandle;
-
-            const response = await renameChatBranch(currentBranchRecord.chat_jid, {
-                agentName: nextAgentName,
-            });
-            await Promise.allSettled([
-                refreshActiveChatAgents(),
-                refreshCurrentChatBranches(),
-            ]);
-            const savedHandle = response?.branch?.agent_name || nextAgentName || currentHandle;
-            showIntentToast('Branch renamed', `@${savedHandle}`, 'info', 3500);
-            closeRenameCurrentBranchForm();
-        } catch (error) {
-            const rawMessage = error instanceof Error ? error.message : String(error || 'Could not rename branch.');
-            const message = /already in use/i.test(rawMessage || '')
-                ? `${rawMessage} Switch to or restore that existing session from the session manager.`
-                : rawMessage;
-            showIntentToast('Could not rename branch', message || 'Could not rename branch.', 'warning', 5000);
-        } finally {
-            renameBranchInFlightRef.current = false;
-            setIsRenamingBranch(false);
-            const unlockedAt = Date.now() + RENAME_BRANCH_FORM_GUARD_MS;
-            renameBranchLockUntilRef.current = unlockedAt;
-            const formLockRef = getRenameBranchFormLock();
-            if (formLockRef) {
-                formLockRef.inFlight = false;
-                formLockRef.cooldownUntil = unlockedAt;
-            }
-        }
+        await renameCurrentBranch({
+            hasWindow: typeof window !== 'undefined',
+            currentBranchRecord,
+            nextName,
+            openRenameForm: openRenameCurrentBranchForm,
+            renameBranchInFlightRef,
+            renameBranchLockUntilRef,
+            getFormLock: getRenameBranchFormLock,
+            setIsRenamingBranch,
+            renameChatBranch,
+            refreshActiveChatAgents,
+            refreshCurrentChatBranches,
+            showIntentToast,
+            closeRenameForm: closeRenameCurrentBranchForm,
+        });
     }, [closeRenameCurrentBranchForm, currentBranchRecord, refreshActiveChatAgents, refreshCurrentChatBranches, openRenameCurrentBranchForm, setIsRenamingBranch, showIntentToast]);
 
     const handlePruneCurrentBranch = useCallback(async (targetChatJid = null) => {
-        if (typeof window === 'undefined') return;
-
-        const requestedChatJid = typeof targetChatJid === 'string' && targetChatJid.trim()
-            ? targetChatJid.trim()
-            : '';
-        const fallbackCurrentChatJid = typeof currentChatJid === 'string' && currentChatJid.trim()
-            ? currentChatJid.trim()
-            : '';
-        const chatJid = requestedChatJid || currentBranchRecord?.chat_jid || fallbackCurrentChatJid;
-        if (!chatJid) {
-            showIntentToast('Could not prune branch', 'No active session is selected yet.', 'warning', 4000);
-            return;
-        }
-
-        const branch = (currentBranchRecord?.chat_jid === chatJid ? currentBranchRecord : null)
-            || currentChatBranches.find((item) => item?.chat_jid === chatJid)
-            || activeChatAgents.find((item) => item?.chat_jid === chatJid)
-            || null;
-
-        const isRootBranch = branch?.chat_jid === (branch?.root_chat_jid || branch?.chat_jid);
-        if (isRootBranch) {
-            showIntentToast('Cannot prune branch', 'The root chat branch cannot be pruned.', 'warning', 4000);
-            return;
-        }
-
-        const label = `@${branch?.agent_name || chatJid}${branch?.chat_jid ? ` — ${branch.chat_jid}` : ''}`;
-        const confirmed = window.confirm(`Prune ${label}?\n\nThis archives the branch agent and removes it from the branch picker. Chat history is preserved.`);
-        if (!confirmed) return;
-
-        try {
-            await pruneChatBranch(chatJid);
-            await Promise.allSettled([
-                refreshActiveChatAgents(),
-                refreshCurrentChatBranches(),
-            ]);
-            const fallbackChatJid = branch?.root_chat_jid || 'web:default';
-            showIntentToast('Branch pruned', `${label} has been archived.`, 'info', 3000);
-            const nextUrl = buildChatWindowUrl(window.location.href, fallbackChatJid, { chatOnly: chatOnlyMode });
-            navigate?.(nextUrl);
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error || 'Could not prune branch.');
-            showIntentToast('Could not prune branch', message || 'Could not prune branch.', 'warning', 5000);
-        }
+        await pruneCurrentBranch({
+            hasWindow: typeof window !== 'undefined',
+            targetChatJid,
+            currentChatJid,
+            currentBranchRecord,
+            currentChatBranches,
+            activeChatAgents,
+            pruneChatBranch,
+            refreshActiveChatAgents,
+            refreshCurrentChatBranches,
+            showIntentToast,
+            baseHref: typeof window !== 'undefined' ? window.location.href : 'http://localhost/',
+            chatOnlyMode,
+            navigate,
+        });
     }, [activeChatAgents, chatOnlyMode, currentBranchRecord, currentChatBranches, currentChatJid, navigate, refreshActiveChatAgents, refreshCurrentChatBranches, showIntentToast]);
 
     const handleRestoreBranch = useCallback(async (targetChatJid) => {
-        const normalized = typeof targetChatJid === 'string' ? targetChatJid.trim() : '';
-        if (!normalized || typeof restoreChatBranch !== 'function') return;
-
-        try {
-            const previousBranch = currentChatBranches.find((item) => item?.chat_jid === normalized) || null;
-            const response = await restoreChatBranch(normalized);
-            await Promise.allSettled([
-                refreshActiveChatAgents(),
-                refreshCurrentChatBranches(),
-            ]);
-            const branch = response?.branch;
-            const nextChatJid = typeof branch?.chat_jid === 'string' && branch.chat_jid.trim()
-                ? branch.chat_jid.trim()
-                : normalized;
-            const restoreDetail = describeBranchRestoreResult(previousBranch?.agent_name, branch?.agent_name, nextChatJid);
-            showIntentToast('Branch restored', restoreDetail, 'info', 4200);
-            const nextUrl = buildChatWindowUrl(window.location.href, nextChatJid, { chatOnly: chatOnlyMode });
-            navigate?.(nextUrl);
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error || 'Could not restore branch.');
-            showIntentToast('Could not restore branch', message || 'Could not restore branch.', 'warning', 5000);
-        }
+        await restoreBranch({
+            targetChatJid,
+            restoreChatBranch,
+            currentChatBranches,
+            refreshActiveChatAgents,
+            refreshCurrentChatBranches,
+            showIntentToast,
+            baseHref: typeof window !== 'undefined' ? window.location.href : 'http://localhost/',
+            chatOnlyMode,
+            navigate,
+        });
     }, [chatOnlyMode, currentChatBranches, navigate, refreshActiveChatAgents, refreshCurrentChatBranches, showIntentToast]);
 
     useEffect(() => {
         if (!branchLoaderMode || typeof window === 'undefined') return;
         let cancelled = false;
 
-        (async () => {
-            try {
-                setBranchLoaderState({ status: 'running', message: 'Preparing a new chat branch…' });
-                const response = await api.forkChatBranch(branchLoaderSourceChatJid);
-                if (cancelled) return;
-                const branch = response?.branch;
-                const nextChatJid = typeof branch?.chat_jid === 'string' && branch.chat_jid.trim() ? branch.chat_jid.trim() : null;
-                if (!nextChatJid) {
-                    throw new Error('Branch fork did not return a chat id.');
-                }
-                const url = buildChatWindowUrl(window.location.href, nextChatJid, { chatOnly: true });
-                navigate?.(url, { replace: true });
-            } catch (error) {
-                if (cancelled) return;
-                setBranchLoaderState({
-                    status: 'error',
-                    message: describeBranchOpenError(error),
-                });
-            }
-        })();
+        void runBranchLoader({
+            branchLoaderSourceChatJid,
+            forkChatBranch: api.forkChatBranch,
+            setBranchLoaderState,
+            navigate,
+            baseHref: window.location.href,
+            isCancelled: () => cancelled,
+        });
 
         return () => {
             cancelled = true;
@@ -3265,84 +3080,48 @@ function MainApp({ locationParams, navigate }) {
     }, [currentChatJid]);
 
     const handleCreateSessionFromCompose = useCallback(async () => {
-        if (typeof window === 'undefined') return;
-
-        try {
-            const response = await api.forkChatBranch(currentChatJid);
-            const branch = response?.branch;
-            const nextChatJid = typeof branch?.chat_jid === 'string' && branch.chat_jid.trim() ? branch.chat_jid.trim() : null;
-            if (!nextChatJid) {
-                throw new Error('Branch fork did not return a chat id.');
-            }
-
-            await Promise.allSettled([
-                refreshActiveChatAgents(),
-                refreshCurrentChatBranches(),
-            ]);
-
-            const label = branch?.agent_name ? `@${branch.agent_name}` : nextChatJid;
-            showIntentToast('New branch created', `Switched to ${label}.`, 'info', 2500);
-            const url = buildChatWindowUrl(window.location.href, nextChatJid, { chatOnly: chatOnlyMode });
-            navigate?.(url);
-        } catch (error) {
-            showIntentToast('Could not create branch', describeBranchOpenError(error), 'warning', 5000);
-        }
+        await createSessionFromCompose({
+            currentChatJid,
+            chatOnlyMode,
+            forkChatBranch: api.forkChatBranch,
+            refreshActiveChatAgents,
+            refreshCurrentChatBranches,
+            showIntentToast,
+            navigate,
+            baseHref: typeof window !== 'undefined' ? window.location.href : 'http://localhost/',
+        });
     }, [chatOnlyMode, currentChatJid, navigate, refreshActiveChatAgents, refreshCurrentChatBranches, showIntentToast]);
 
     const handlePopOutPane = useCallback(async (path, label) => {
-        if (typeof window === 'undefined' || isWebAppMode) return;
-        const panePath = typeof path === 'string' && path.trim() ? path.trim() : '';
-        if (!panePath) return;
-
-        const closeSourcePaneIfTransferred = () => {
-            const sourceTab = tabStore.get(panePath);
-            if (sourceTab && !sourceTab.dirty) {
-                handleTabClose(panePath);
-                return;
-            }
-            if (panePath === TERMINAL_TAB_PATH && dockVisible) {
-                setDockVisible(false);
-            }
-        };
-
-        const openOptions = getPaneWindowOpenOptions(panePath);
-        if (!openOptions) {
-            showIntentToast('Could not open pane window', 'Opening pane windows is unavailable in standalone webapp mode.', 'warning', 5000);
-            return;
-        }
-
-        const provisionalWindow = openProvisionalChatWindow(openOptions);
-        if (!provisionalWindow) {
-            showIntentToast('Could not open pane window', 'The browser blocked opening a new tab or window.', 'warning', 5000);
-            return;
-        }
-        primeProvisionalChatWindow(provisionalWindow, {
-            title: typeof label === 'string' && label.trim() ? `Opening ${label}…` : 'Opening pane…',
-            message: 'Preparing a standalone pane window. This should only take a moment.',
+        await popOutPane({
+            hasWindow: typeof window !== 'undefined',
+            isWebAppMode,
+            path,
+            label,
+            showIntentToast,
+            currentChatJid,
+            baseHref: typeof window !== 'undefined' ? window.location.href : 'http://localhost/',
+            resolveSourceTransfer: async (panePath) => {
+                const activePath = typeof tabStripActiveId === 'string' ? tabStripActiveId.trim() : '';
+                const sourceInstance = activePath === panePath
+                    ? editorInstanceRef.current
+                    : (panePath === TERMINAL_TAB_PATH ? dockInstanceRef.current : null);
+                if (typeof sourceInstance?.preparePopoutTransfer === 'function') {
+                    return await sourceInstance.preparePopoutTransfer();
+                }
+                return null;
+            },
+            closeSourcePaneIfTransferred: (panePath) => {
+                const sourceTab = tabStore.get(panePath);
+                if (sourceTab && !sourceTab.dirty) {
+                    handleTabClose(panePath);
+                    return;
+                }
+                if (panePath === TERMINAL_TAB_PATH && dockVisible) {
+                    setDockVisible(false);
+                }
+            },
         });
-
-        let popoutParams = null;
-        try {
-            const activePath = typeof tabStripActiveId === 'string' ? tabStripActiveId.trim() : '';
-            const sourceInstance = activePath === panePath
-                ? editorInstanceRef.current
-                : (panePath === TERMINAL_TAB_PATH ? dockInstanceRef.current : null);
-            if (typeof sourceInstance?.preparePopoutTransfer === 'function') {
-                popoutParams = await sourceInstance.preparePopoutTransfer();
-            }
-
-            const popoutUrl = buildPanePopoutUrl(window.location.href, panePath, {
-                label: typeof label === 'string' && label.trim() ? label.trim() : undefined,
-                chatJid: currentChatJid,
-                params: popoutParams,
-            });
-            navigateProvisionalChatWindow(provisionalWindow, popoutUrl);
-            closeSourcePaneIfTransferred();
-        } catch (error) {
-            closeProvisionalChatWindow(provisionalWindow);
-            const detail = error?.message || 'Could not transfer pane state to the new window.';
-            showIntentToast('Could not open pane window', detail, 'warning', 5000);
-        }
     }, [currentChatJid, dockVisible, handleTabClose, isWebAppMode, showIntentToast, tabStripActiveId]);
 
     // Listen for preview-card / pane events that request opening a tab or standalone pane window.
@@ -3378,58 +3157,19 @@ function MainApp({ locationParams, navigate }) {
     }, [handlePopOutPane, openEditor]);
 
     const handlePopOutChat = useCallback(async () => {
-        if (typeof window === 'undefined' || isWebAppMode) return;
-
-        const initialOpenOptions = getChatWindowOpenOptions(currentChatJid);
-        if (!initialOpenOptions) {
-            showIntentToast('Could not open branch window', 'Opening branch windows is unavailable in standalone webapp mode.', 'warning', 5000);
-            return;
-        }
-
-        if (initialOpenOptions.mode === 'tab') {
-            const loaderUrl = buildBranchLoaderUrl(window.location.href, currentChatJid, { chatOnly: true });
-            const opened = window.open(loaderUrl, initialOpenOptions.target);
-            if (!opened) {
-                showIntentToast('Could not open branch window', 'The browser blocked opening a new tab or window.', 'warning', 5000);
-            }
-            return;
-        }
-
-        const provisionalWindow = openProvisionalChatWindow(initialOpenOptions);
-        if (!provisionalWindow) {
-            showIntentToast('Could not open branch window', 'The browser blocked opening a new tab or window.', 'warning', 5000);
-            return;
-        }
-        primeProvisionalChatWindow(provisionalWindow, {
-            title: 'Opening branch…',
-            message: 'Preparing a new chat branch. This should only take a moment.',
+        await popOutChat({
+            hasWindow: typeof window !== 'undefined',
+            isWebAppMode,
+            currentChatJid,
+            currentRootChatJid,
+            forkChatBranch: api.forkChatBranch,
+            getActiveChatAgents: api.getActiveChatAgents,
+            getChatBranches,
+            setActiveChatAgents,
+            setCurrentChatBranches,
+            showIntentToast,
+            baseHref: typeof window !== 'undefined' ? window.location.href : 'http://localhost/',
         });
-
-        try {
-            const response = await api.forkChatBranch(currentChatJid);
-            const branch = response?.branch;
-            const nextChatJid = typeof branch?.chat_jid === 'string' && branch.chat_jid.trim() ? branch.chat_jid.trim() : null;
-            if (!nextChatJid) {
-                throw new Error('Branch fork did not return a chat id.');
-            }
-            try {
-                const active = await api.getActiveChatAgents();
-                setActiveChatAgents(Array.isArray(active?.chats) ? active.chats : []);
-            } catch {
-                /* expected: branch-window bootstrap can proceed even if active-agent refresh races. */
-            }
-            try {
-                const branches = await getChatBranches(currentRootChatJid);
-                setCurrentChatBranches(Array.isArray(branches?.chats) ? branches.chats : []);
-            } catch {
-                /* expected: branch-window bootstrap can proceed even if branch-list refresh races. */
-            }
-            const url = buildChatWindowUrl(window.location.href, nextChatJid, { chatOnly: true });
-            navigateProvisionalChatWindow(provisionalWindow, url);
-        } catch (error) {
-            closeProvisionalChatWindow(provisionalWindow);
-            showIntentToast('Could not open branch window', describeBranchOpenError(error), 'error', 5000);
-        }
     }, [currentChatJid, currentRootChatJid, isWebAppMode, showIntentToast]);
 
     useEffect(() => {
