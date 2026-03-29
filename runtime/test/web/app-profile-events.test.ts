@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test';
 
 import {
   resolveAgentProfilePatch,
+  resolveUserProfileFromAgentsPayload,
   resolveUserProfileUpdate,
 } from '../../web/src/ui/app-profile-events.js';
 
@@ -57,6 +58,30 @@ test('resolveAgentProfilePatch normalizes changed name/avatar updates', () => {
     avatarChanged: false,
     resolvedName: 'Numbered',
     resolvedAvatar: null,
+  });
+});
+
+test('resolveUserProfileFromAgentsPayload normalizes initial profile payloads and preserves no-op identity', () => {
+  const previous = {
+    name: 'You',
+    avatar_url: 'avatar-prev.png',
+    avatar_background: '#123456',
+  };
+
+  expect(resolveUserProfileFromAgentsPayload(previous, {
+    name: ' You ',
+    avatar_url: ' avatar-prev.png ',
+    avatar_background: '#123456',
+  })).toBe(previous);
+
+  expect(resolveUserProfileFromAgentsPayload(previous, {
+    name: ' Ada ',
+    avatar_url: ' avatar-next.png ',
+    avatar_background: ' #000000 ',
+  })).toEqual({
+    name: 'Ada',
+    avatar_url: 'avatar-next.png',
+    avatar_background: '#000000',
   });
 });
 

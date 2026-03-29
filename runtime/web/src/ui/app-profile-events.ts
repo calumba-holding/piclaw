@@ -68,6 +68,31 @@ export function resolveAgentProfilePatch(
   };
 }
 
+export function resolveUserProfileFromAgentsPayload(
+  previous: UserProfileLike,
+  payload: Record<string, unknown> | null | undefined,
+): UserProfileLike {
+  const nextName = typeof payload?.name === 'string' && payload.name.trim() ? payload.name.trim() : 'You';
+  const nextAvatar = typeof payload?.avatar_url === 'string' ? payload.avatar_url.trim() : null;
+  const nextBackground = typeof payload?.avatar_background === 'string' && payload.avatar_background.trim()
+    ? payload.avatar_background.trim()
+    : null;
+
+  if (
+    previous.name === nextName
+    && previous.avatar_url === nextAvatar
+    && previous.avatar_background === nextBackground
+  ) {
+    return previous;
+  }
+
+  return {
+    name: nextName,
+    avatar_url: nextAvatar,
+    avatar_background: nextBackground,
+  };
+}
+
 export function resolveUserProfileUpdate(
   previous: UserProfileLike,
   payload: Record<string, unknown> | null | undefined,

@@ -85,6 +85,7 @@ import { isCompactionStatus } from './ui/status-duration.js';
 import { resolveModelStateUpdate } from './ui/app-model-state.js';
 import {
     resolveAgentProfilePatch,
+    resolveUserProfileFromAgentsPayload,
     resolveUserProfileUpdate,
 } from './ui/app-profile-events.js';
 import { installStandaloneMobileViewportFix } from './ui/mobile-viewport.js';
@@ -1615,15 +1616,7 @@ function MainApp({ locationParams, navigate }) {
             const data = await getAgents();
             setAgents(buildAgentsMap(data));
             const nextUser = data?.user || {};
-            setUserProfile((prev) => {
-                const nextName = typeof nextUser.name === 'string' && nextUser.name.trim() ? nextUser.name.trim() : 'You';
-                const nextAvatar = typeof nextUser.avatar_url === 'string' ? nextUser.avatar_url.trim() : null;
-                const nextBg = typeof nextUser.avatar_background === 'string' && nextUser.avatar_background.trim()
-                    ? nextUser.avatar_background.trim()
-                    : null;
-                if (prev.name === nextName && prev.avatar_url === nextAvatar && prev.avatar_background === nextBg) return prev;
-                return { name: nextName, avatar_url: nextAvatar, avatar_background: nextBg };
-            });
+            setUserProfile((prev) => resolveUserProfileFromAgentsPayload(prev, nextUser));
             const defaultAgent = (data?.agents || []).find((a) => a.id === 'default');
             applyBranding(defaultAgent?.name, defaultAgent?.avatar_url);
         } catch (e) {
