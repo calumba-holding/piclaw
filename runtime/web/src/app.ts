@@ -83,6 +83,10 @@ import {
 import { resolveLiveGeneratedWidgetEvent } from './ui/app-generated-widget-events.js';
 import { isCompactionStatus } from './ui/status-duration.js';
 import { resolveModelStateUpdate } from './ui/app-model-state.js';
+import {
+    resolveAgentProfilePatch,
+    resolveUserProfileUpdate,
+} from './ui/app-profile-events.js';
 import { installStandaloneMobileViewportFix } from './ui/mobile-viewport.js';
 import { resolveOptionalApi } from './ui/optional-api.js';
 import {
@@ -1625,74 +1629,27 @@ function MainApp({ locationParams, navigate }) {
     const isComposeBoxAgentActive = isAgentTurnActive || agentStatus !== null;
 
     const updateAgentProfile = useCallback((payload) => {
-        if (!payload || typeof payload !== 'object') return;
-        const agentId = payload.agent_id;
-        if (!agentId) return;
-        const nextName = payload.agent_name;
-        const nextAvatar = payload.agent_avatar;
-        if (!nextName && nextAvatar === undefined) return;
-
-        const current = agentsRef.current?.[agentId] || { id: agentId };
-        let resolvedName = current.name || null;
-        let resolvedAvatar = current.avatar_url ?? current.avatarUrl ?? current.avatar ?? null;
-        let avatarChanged = false;
-        let nameChanged = false;
-
-        if (nextName && nextName !== current.name) {
-            resolvedName = nextName;
-            nameChanged = true;
-        }
-
-        if (nextAvatar !== undefined) {
-            const normalizedAvatar = typeof nextAvatar === 'string' ? nextAvatar.trim() : null;
-            const normalizedCurrent = typeof resolvedAvatar === 'string' ? resolvedAvatar.trim() : null;
-            const nextValue = normalizedAvatar || null;
-            const currentValue = normalizedCurrent || null;
-            if (nextValue !== currentValue) {
-                resolvedAvatar = nextValue;
-                avatarChanged = true;
-            }
-        }
-
-        if (!nameChanged && !avatarChanged) return;
+        const patch = resolveAgentProfilePatch(
+            payload,
+            payload?.agent_id ? agentsRef.current?.[payload.agent_id] || { id: payload.agent_id } : null,
+        );
+        if (!patch) return;
 
         setAgents((prev) => {
-            const currentEntry = prev[agentId] || { id: agentId };
+            const currentEntry = prev[patch.agentId] || { id: patch.agentId };
             const updated = { ...currentEntry };
-            if (nameChanged) updated.name = resolvedName;
-            if (avatarChanged) updated.avatar_url = resolvedAvatar;
-            return { ...prev, [agentId]: updated };
+            if (patch.nameChanged) updated.name = patch.resolvedName;
+            if (patch.avatarChanged) updated.avatar_url = patch.resolvedAvatar;
+            return { ...prev, [patch.agentId]: updated };
         });
 
-        if (agentId === 'default') {
-            applyBranding(resolvedName, resolvedAvatar, avatarChanged ? Date.now() : null);
+        if (patch.agentId === 'default') {
+            applyBranding(patch.resolvedName, patch.resolvedAvatar, patch.avatarChanged ? Date.now() : null);
         }
     }, [applyBranding]);
 
     const updateUserProfile = useCallback((payload) => {
-        if (!payload || typeof payload !== 'object') return;
-        const nextName = payload.user_name ?? payload.userName;
-        const nextAvatar = payload.user_avatar ?? payload.userAvatar;
-        const nextBg = payload.user_avatar_background ?? payload.userAvatarBackground;
-        if (nextName === undefined && nextAvatar === undefined && nextBg === undefined) return;
-
-        setUserProfile((prev) => {
-            const resolvedName = typeof nextName === 'string' && nextName.trim()
-                ? nextName.trim()
-                : prev.name || 'You';
-            const resolvedAvatar = nextAvatar === undefined
-                ? prev.avatar_url
-                : (typeof nextAvatar === 'string' && nextAvatar.trim() ? nextAvatar.trim() : null);
-            const resolvedBg = nextBg === undefined
-                ? prev.avatar_background
-                : (typeof nextBg === 'string' && nextBg.trim() ? nextBg.trim() : null);
-            if (
-                prev.name === resolvedName
-                && prev.avatar_url === resolvedAvatar
-                && prev.avatar_background === resolvedBg
-            ) return prev;
-            return { name: resolvedName, avatar_url: resolvedAvatar, avatar_background: resolvedBg };
-        });
+        setUserProfile((prev) => resolveUserProfileUpdate(prev, payload));
     }, []);
 
     const applyModelState = useCallback((payload) => {

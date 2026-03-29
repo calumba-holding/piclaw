@@ -44,6 +44,9 @@ fi
 if [[ -f runtime/test/web/app-model-state.test.ts ]]; then
   tests+=(runtime/test/web/app-model-state.test.ts)
 fi
+if [[ -f runtime/test/web/app-profile-events.test.ts ]]; then
+  tests+=(runtime/test/web/app-profile-events.test.ts)
+fi
 
 PICLAW_DB_IN_MEMORY=1 bun test --max-concurrency=1 "${tests[@]}"
 
@@ -88,6 +91,10 @@ rg -q "isNoisyAgentSseEvent" runtime/web/src/app.ts && seam_score=$((seam_score 
 [[ -f runtime/web/src/ui/app-model-state.ts ]] && seam_score=$((seam_score + 1))
 [[ -f runtime/test/web/app-model-state.test.ts ]] && seam_score=$((seam_score + 1))
 rg -q "resolveModelStateUpdate" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
+[[ -f runtime/web/src/ui/app-profile-events.ts ]] && seam_score=$((seam_score + 1))
+[[ -f runtime/test/web/app-profile-events.test.ts ]] && seam_score=$((seam_score + 1))
+rg -q "resolveAgentProfilePatch" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
+rg -q "resolveUserProfileUpdate" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
 
 echo "METRIC seam_score=${seam_score}"
 echo "METRIC targeted_test_ms=${targeted_test_ms}"
