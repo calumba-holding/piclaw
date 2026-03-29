@@ -68,6 +68,15 @@ import { resolveOptionalApi } from './ui/optional-api.js';
 import { dispatchExtensionUiBrowserEvent, isExtensionUiEventType } from './ui/extension-ui-events.js';
 import { watchReturnToApp, watchStandaloneWebAppMode } from './ui/app-resume.js';
 import { watchDockToggleShortcut, watchPaneOpenEvents, watchZenModeShortcuts } from './ui/app-browser-events.js';
+import {
+    getPanePopoutTitle,
+    hasPanePopoutMenuActions,
+    isVncPanePopoutPath,
+    resolveActivePaneOverrideId,
+    resolveActivePaneTab,
+    shouldHidePanePopoutControls,
+    shouldShowEditorPaneContainer,
+} from './ui/app-pane-state.js';
 import { formatBranchPickerLabel, getBranchHandleDraftState } from './ui/branch-lifecycle.js';
 import {
     getCurrentAppAssetVersion,
@@ -302,30 +311,36 @@ function MainApp({ locationParams, navigate }) {
         openEditor(VNC_TAB_PREFIX, { label: 'VNC' });
     }, [openEditor]);
     const activePaneTab = useMemo(
-        () => tabStripTabs.find((tab) => tab.id === tabStripActiveId) || tabStripTabs[0] || null,
+        () => resolveActivePaneTab(tabStripTabs, tabStripActiveId),
         [tabStripActiveId, tabStripTabs],
     );
     const activePaneOverrideId = useMemo(
-        () => (tabStripActiveId ? (tabPaneOverrides.get(tabStripActiveId) || null) : null),
+        () => resolveActivePaneOverrideId(tabPaneOverrides, tabStripActiveId),
         [tabPaneOverrides, tabStripActiveId],
     );
     const panePopoutTitle = useMemo(
-        () => panePopoutLabel || activePaneTab?.label || panePopoutPath || 'Pane',
-        [activePaneTab?.label, panePopoutLabel, panePopoutPath],
+        () => getPanePopoutTitle(panePopoutLabel, activePaneTab, panePopoutPath),
+        [activePaneTab, panePopoutLabel, panePopoutPath],
     );
     const panePopoutHasMenuActions = useMemo(
-        () => tabStripTabs.length > 1 || Boolean(tabStripActiveId && previewTabs.has(tabStripActiveId)),
-        [previewTabs, tabStripActiveId, tabStripTabs.length],
+        () => hasPanePopoutMenuActions(tabStripTabs, previewTabs, tabStripActiveId),
+        [previewTabs, tabStripActiveId, tabStripTabs],
     );
     const isVncPanePopout = useMemo(
-        () => panePopoutPath === VNC_TAB_PREFIX || panePopoutPath.startsWith(`${VNC_TAB_PREFIX}/`),
+        () => isVncPanePopoutPath(panePopoutPath, VNC_TAB_PREFIX),
         [panePopoutPath],
     );
     const hidePanePopoutControls = useMemo(
-        () => (panePopoutPath === TERMINAL_TAB_PATH && !panePopoutHasMenuActions) || isVncPanePopout,
+        () => shouldHidePanePopoutControls(panePopoutPath, TERMINAL_TAB_PATH, panePopoutHasMenuActions, isVncPanePopout),
         [isVncPanePopout, panePopoutHasMenuActions, panePopoutPath],
     );
-    const showEditorPaneContainer = panePopoutMode || (!chatOnlyMode && (editorOpen || (hasDockPanes && dockVisible)));
+    const showEditorPaneContainer = shouldShowEditorPaneContainer(
+        panePopoutMode,
+        chatOnlyMode,
+        editorOpen,
+        hasDockPanes,
+        dockVisible,
+    );
 
     // ── Zen mode ────────────────────────────────────────────────
     const [zenMode, setZenMode] = useState(false);
