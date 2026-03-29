@@ -66,6 +66,28 @@ Likely next seams:
 ## Updates
 
 ### 2026-03-29
+- Merged back autoresearch branch `autoresearch/exp-mnbnq50s-6e3m` into `feature/continue-decompose-web-app-shell` and assessed the result on the feature branch.
+- The merged autoresearch tranches added typed seams for:
+  - `runtime/web/src/ui/app-chat-pane-state.ts`
+  - `runtime/web/src/ui/app-extension-status.ts`
+  - `runtime/web/src/ui/app-followup-queue.ts`
+  - `runtime/web/src/ui/app-floating-widget.ts`
+  - `runtime/web/src/ui/app-agent-previews.ts`
+- Follow-up quality pass: converted the earlier manually extracted helper seams from `.js` to `.ts` so new shell extractions now stay typed by default:
+  - `runtime/web/src/ui/app-shell-state.ts`
+  - `runtime/web/src/ui/app-branch-actions.ts`
+  - `runtime/web/src/ui/app-window-actions.ts`
+  - `runtime/web/src/ui/app-browser-events.ts`
+- Current size reduction in this branch after the merge-back plus TS conversion: `runtime/web/src/app.ts` `3917 → 3422` lines.
+- Validation for the merged/typed branch state:
+  - `cd runtime && bun test test/web/app-shell-state.test.ts test/web/app-branch-actions.test.ts test/web/app-window-actions.test.ts test/web/app-browser-events.test.ts test/web/app-chat-pane-state.test.ts test/web/app-extension-status.test.ts test/web/app-followup-queue.test.ts test/web/app-floating-widget.test.ts test/web/app-agent-previews.test.ts test/web/app-resume.test.ts`
+  - `bun run build:web`
+  - `bun run lint`
+  - `bun run typecheck`
+  - `bun run check:stale-dist`
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
+
+### 2026-03-29
 - Continued again by extracting document-level pane/shortcut browser event wiring into `runtime/web/src/ui/app-browser-events.js`.
 - `runtime/web/src/app.ts` now delegates:
   - preview-card / pane custom event listeners
