@@ -88,6 +88,16 @@ import {
     applyChatPaneStateSnapshot,
     captureChatPaneStateSnapshot,
 } from './ui/app-chat-pane-state.js';
+import {
+    addPendingPanelAction,
+    applyAutoresearchStatusPayload,
+    applyStatusPanelWidgetEvent,
+    clearPendingPanelActionPrefix,
+    createPendingPanelActionKey,
+    removePendingPanelAction,
+    runExtensionStatusPanelAction,
+    shouldClearPendingPanelActions,
+} from './ui/app-extension-status.js';
 
 const CURRENT_APP_ASSET_VERSION = getCurrentAppAssetVersion();
 
@@ -1208,23 +1218,8 @@ function MainApp({ locationParams, navigate }) {
         try {
             const payload = await getAutoresearchStatus(targetChatJid);
             if (activeChatJidRef.current !== targetChatJid) return;
-            const panel = Array.isArray(payload?.content)
-                ? payload.content.find((item) => item?.type === 'status_panel' && item?.panel)
-                : null;
-            setExtensionStatusPanels((prev) => {
-                const next = new Map(prev);
-                if (payload?.key && panel?.panel) {
-                    next.set(payload.key, panel.panel);
-                } else {
-                    next.delete('autoresearch');
-                }
-                return next;
-            });
-            setPendingExtensionPanelActions((prev) => {
-                if (prev.size === 0) return prev;
-                const next = new Set(Array.from(prev).filter((key) => !String(key).startsWith('autoresearch:')));
-                return next.size === prev.size ? prev : next;
-            });
+            setExtensionStatusPanels((prev) => applyAutoresearchStatusPayload(prev, payload));
+            setPendingExtensionPanelActions((prev) => clearPendingPanelActionPrefix(prev, 'autoresearch'));
         } catch (err) {
             if (activeChatJidRef.current !== targetChatJid) return;
             console.warn('Failed to fetch autoresearch status:', err);
@@ -1794,42 +1789,28 @@ function MainApp({ locationParams, navigate }) {
     const handleExtensionPanelAction = useCallback(async (panel, action) => {
         const panelKey = typeof panel?.key === 'string' ? panel.key : '';
         const actionKey = typeof action?.key === 'string' ? action.key : '';
-        const pendingKey = `${panelKey}:${actionKey}`;
+        const pendingKey = createPendingPanelActionKey(panelKey, actionKey);
         if (!panelKey || !actionKey) return;
-        setPendingExtensionPanelActions((prev) => {
-            if (prev.has(pendingKey)) return prev;
-            const next = new Set(prev);
-            next.add(pendingKey);
-            return next;
-        });
+        setPendingExtensionPanelActions((prev) => addPendingPanelAction(prev, panelKey, actionKey));
         try {
-            if (action?.action_type === 'autoresearch.stop') {
-                await stopAutoresearch(currentChatJid, { generateReport: true });
+            const result = await runExtensionStatusPanelAction({
+                panel,
+                action,
+                currentChatJid,
+                stopAutoresearch,
+                dismissAutoresearch,
+                writeClipboard: (text) => navigator.clipboard.writeText(text),
+            });
+            if (result.refreshAutoresearchStatus) {
                 void refreshAutoresearchStatus();
-                return;
             }
-            if (action?.action_type === 'autoresearch.dismiss') {
-                await dismissAutoresearch(currentChatJid);
-                void refreshAutoresearchStatus();
-                return;
+            if (result.toast) {
+                showIntentToast(result.toast.title, result.toast.detail, result.toast.kind, result.toast.durationMs);
             }
-            if (action?.action_type === 'autoresearch.copy_tmux') {
-                const tmuxCommand = typeof panel?.tmux_command === 'string' ? panel.tmux_command.trim() : '';
-                if (!tmuxCommand) throw new Error('No tmux command available.');
-                await navigator.clipboard.writeText(tmuxCommand);
-                showIntentToast('Copied', 'tmux command copied to clipboard.', 'success');
-                return;
-            }
-            throw new Error(`Unsupported panel action: ${action?.action_type || actionKey}`);
         } catch (error) {
             showIntentToast('Panel action failed', error?.message || 'Could not complete that action.', 'warning');
         } finally {
-            setPendingExtensionPanelActions((prev) => {
-                if (!prev.has(pendingKey)) return prev;
-                const next = new Set(prev);
-                next.delete(pendingKey);
-                return next;
-            });
+            setPendingExtensionPanelActions((prev) => removePendingPanelAction(prev, pendingKey));
         }
     }, [currentChatJid, refreshAutoresearchStatus, showIntentToast]);
 
@@ -2560,25 +2541,10 @@ function MainApp({ locationParams, navigate }) {
             const eventChatJid = typeof data?.chat_jid === 'string' && data.chat_jid.trim() ? data.chat_jid.trim() : currentChatJid;
             if (eventChatJid !== currentChatJid) return;
             const panelKey = typeof data?.key === 'string' ? data.key : '';
-            const panel = Array.isArray(data?.content)
-                ? data.content.find((item) => item?.type === 'status_panel' && item?.panel)
-                : null;
             if (!panelKey) return;
-            setExtensionStatusPanels((prev) => {
-                const next = new Map(prev);
-                if (data?.options?.remove || !panel?.panel) {
-                    next.delete(panelKey);
-                } else {
-                    next.set(panelKey, panel.panel);
-                }
-                return next;
-            });
-            if (data?.options?.remove || panel?.panel?.state !== 'running') {
-                setPendingExtensionPanelActions((prev) => {
-                    if (prev.size === 0) return prev;
-                    const next = new Set(Array.from(prev).filter((key) => !String(key).startsWith(`${panelKey}:`)));
-                    return next.size === prev.size ? prev : next;
-                });
+            setExtensionStatusPanels((prev) => applyStatusPanelWidgetEvent(prev, data));
+            if (shouldClearPendingPanelActions(data)) {
+                setPendingExtensionPanelActions((prev) => clearPendingPanelActionPrefix(prev, panelKey));
             }
             dispatchExtensionUiBrowserEvent(eventType, data);
             return;
