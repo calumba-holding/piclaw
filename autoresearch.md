@@ -1,7 +1,7 @@
 # Autoresearch: continue-decompose-web-app-shell
 
 ## Objective
-Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while preserving UX semantics and payload shapes. Current tranches target (1) active-branch roster shaping (normalization, merge precedence, stable sorting), (2) queued follow-up SSE row normalization/append behavior, (3) generated-widget SSE event routing/fallback mapping, and (4) turn-scoped SSE gating/adoption semantics.
+Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while preserving UX semantics and payload shapes. Current tranches target (1) active-branch roster shaping (normalization, merge precedence, stable sorting), (2) queued follow-up SSE row normalization/append behavior, (3) generated-widget SSE event routing/fallback mapping, (4) turn-scoped SSE gating/adoption semantics, and (5) real-time timeline mutation gating/operations.
 
 ## Metrics
 - **Primary**: `seam_score` (unitless, higher is better) — structural completion for the extracted active-branch roster seam
@@ -44,3 +44,6 @@ Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while 
 - Extracted repeated turn-scoped SSE guard/adoption rules from `app.ts` into typed `runtime/web/src/ui/app-agent-turn-events.ts` (`shouldIgnoreMismatchedTurn`, `shouldAdoptIncomingTurn`, `resolveSteerQueuedTurnId`).
 - Updated generated-widget turn adoption and agent draft/thought/steer/status turn guards to delegate to the new helper while preserving existing truthy/fallback semantics.
 - Added focused tests in `runtime/test/web/app-agent-turn-events.test.ts` for mismatch-ignore, turn-adopt, and steer turn-id fallback behavior.
+- Extracted timeline mutation gating and immutable append/replace/remove operations from `app.ts` into typed `runtime/web/src/ui/app-realtime-timeline.ts`.
+- `handleSseEvent` now delegates main-timeline gating (`isMainTimelineView`), append-event eligibility (`shouldAppendRealtimeTimelinePost`), interaction mutation gating (`shouldMutateInteractionTimeline`), and list updates (`appendUniqueTimelinePost`, `replaceTimelinePostById`, `removeTimelinePostsByIds`).
+- Added focused tests in `runtime/test/web/app-realtime-timeline.test.ts` for view gating, event gating, unique append behavior, and no-op identity preservation for replace/remove operations.

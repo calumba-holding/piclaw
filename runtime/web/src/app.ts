@@ -30,6 +30,14 @@ import { useSseConnection } from './ui/use-sse-connection.js';
 import { useNotifications } from './ui/use-notifications.js';
 import { useTimeline } from './ui/use-timeline.js';
 import { dedupePosts } from './ui/timeline-utils.js';
+import {
+    appendUniqueTimelinePost,
+    isMainTimelineView,
+    removeTimelinePostsByIds,
+    replaceTimelinePostById,
+    shouldAppendRealtimeTimelinePost,
+    shouldMutateInteractionTimeline,
+} from './ui/app-realtime-timeline.js';
 import { useAgentState } from './ui/use-agent-state.js';
 import { useSplitters } from './ui/use-splitters.js';
 import { useEditorState } from './ui/use-editor-state.js';
@@ -2469,7 +2477,7 @@ function MainApp({ locationParams, navigate }) {
         }
 
         // Add new posts/replies to timeline (only when on main timeline) - append at end for chat style
-        const { currentHashtag: activeHashtag, searchQuery: activeSearch, searchOpen: activeSearchOpen } = viewStateRef.current;
+        const onMainTimeline = isMainTimelineView(viewStateRef.current);
         if (eventType === 'agent_response') {
             if (!isCurrentChatEvent) return;
             removeStalledPost();
@@ -2478,32 +2486,22 @@ function MainApp({ locationParams, navigate }) {
                 turnId: currentTurnIdRef.current,
             };
         }
-        if (!activeHashtag && !activeSearch && !activeSearchOpen && isCurrentChatEvent && (eventType === 'new_post' || eventType === 'new_reply' || eventType === 'agent_response')) {
-            setPosts((prev) => {
-                if (!prev) return [data];
-                if (prev.some((post) => post.id === data.id)) return prev;
-                return [...prev, data];
-            });
+        if (shouldAppendRealtimeTimelinePost(eventType, isCurrentChatEvent, onMainTimeline)) {
+            setPosts((prev) => appendUniqueTimelinePost(prev, data));
             scrollToBottomRef.current?.();
         }
         // Update existing post (e.g., when link previews are fetched)
         // Skip during search/hashtag views to avoid mutating search results.
         if (eventType === 'interaction_updated') {
-            if (!isCurrentChatEvent) return;
-            if (activeHashtag || activeSearch || activeSearchOpen) return;
-            setPosts(prev => {
-                if (!prev) return prev;
-                if (!prev.some((p) => p.id === data.id)) return prev;
-                return prev.map((p) => (p.id === data.id ? data : p));
-            });
+            if (!shouldMutateInteractionTimeline(isCurrentChatEvent, onMainTimeline)) return;
+            setPosts((prev) => replaceTimelinePostById(prev, data));
         }
         if (eventType === 'interaction_deleted') {
-            if (!isCurrentChatEvent) return;
-            if (activeHashtag || activeSearch || activeSearchOpen) return;
+            if (!shouldMutateInteractionTimeline(isCurrentChatEvent, onMainTimeline)) return;
             const ids = data?.ids || [];
             if (ids.length) {
                 preserveTimelineScrollTop(() => {
-                    setPosts(prev => prev ? prev.filter(p => !ids.includes(p.id)) : prev);
+                    setPosts((prev) => removeTimelinePostsByIds(prev, ids));
                 });
                 if (hasMoreRef.current) {
                     loadMoreRef.current?.({ preserveScroll: true, preserveMode: 'top' });
