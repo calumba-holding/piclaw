@@ -219,7 +219,7 @@ function computeScheduledNextRun(
 ): string | undefined {
   if (scheduleType === "cron") {
     try {
-      const timezone = getRuntimeTimingConfig().timezone;
+      const timezone = process.env.TZ || getRuntimeTimingConfig().timezone;
       const next = CronExpressionParser.parse(scheduleValue, { tz: timezone }).next().toISOString();
       return next ?? undefined;
     } catch {

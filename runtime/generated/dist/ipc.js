@@ -150,7 +150,7 @@ async function processIpcDir(dirPath, ipcDir, kind, handler) {
 function computeScheduledNextRun(scheduleType, scheduleValue) {
     if (scheduleType === "cron") {
         try {
-            const timezone = getRuntimeTimingConfig().timezone;
+            const timezone = process.env.TZ || getRuntimeTimingConfig().timezone;
             const next = CronExpressionParser.parse(scheduleValue, { tz: timezone }).next().toISOString();
             return next ?? undefined;
         }

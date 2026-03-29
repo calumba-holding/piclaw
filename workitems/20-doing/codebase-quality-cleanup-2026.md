@@ -77,7 +77,7 @@ These are desirable but not required to close this ticket:
 ## Completion criteria
 
 - [ ] All current blocker tickets are in `50-done/`
-- [ ] Full test suite passes (0 failures)
+- [x] Full test suite passes (0 failures)
 - [ ] No file in `src/` exceeds 800 lines
 - [ ] No class exceeds 400 lines
 - [ ] Silent catch ratio is below 1:1 (more named than silent)
@@ -85,6 +85,19 @@ These are desirable but not required to close this ticket:
 - [ ] Re-run quality assessment and confirm grade improvement
 
 ## Updates
+
+### 2026-03-29
+- Fixed the last two known full-suite failures under this umbrella:
+  - isolated in-memory SQLite reuse by workspace identity in `runtime/src/db/connection.ts`, which stopped cross-test keychain leakage between CLI and runtime suites
+  - made cron timezone resolution honor live `process.env.TZ` in `runtime/src/task-scheduler-utils.ts` and `runtime/src/ipc.ts`, which fixed the UTC scheduler expectation under test
+- Validation now passes end-to-end:
+  - `cd runtime && bun test` → `1307 pass`, `1 skip`, `0 fail`
+  - `bun run lint`
+  - `bun run typecheck`
+  - `bun run build`
+  - `bun run check:stale-dist`
+- Completion criteria update: the umbrella can now truthfully mark the full-suite gate as passed, though the ticket still cannot close until the remaining review-stage blockers are done and the structural/file-size criteria are met.
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-29
 - Picked this umbrella back up after pushing `main` through `b0bfb379`.

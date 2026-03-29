@@ -28,6 +28,7 @@ const log = createLogger("db.connection");
 /** Singleton database handle; set by initDatabase(), accessed via getDb(). */
 let db: Database | null = null;
 let dbMode: "memory" | "file" | null = null;
+/** Cache key for the currently-open database target or in-memory test identity. */
 let dbPathCache: string | null = null;
 
 /**
@@ -591,9 +592,12 @@ export function initDatabase(): void {
     process.env.PICLAW_STORE === ":memory:";
   const nextMode: "memory" | "file" = useMemory ? "memory" : "file";
   const nextPath = useMemory ? ":memory:" : path.join(STORE_DIR, "messages.db");
+  const nextCacheKey = useMemory
+    ? `memory:${process.env.PICLAW_WORKSPACE ?? ""}:${process.env.PICLAW_STORE ?? ""}:${process.env.PICLAW_DATA ?? ""}`
+    : nextPath;
 
   let reuse = false;
-  if (db && dbMode === nextMode && (nextMode === "memory" || dbPathCache === nextPath)) {
+  if (db && dbMode === nextMode && dbPathCache === nextCacheKey) {
     try {
       db.prepare("SELECT 1;").get();
       reuse = true;
@@ -622,7 +626,7 @@ export function initDatabase(): void {
       db = new Database(nextPath);
     }
     dbMode = nextMode;
-    dbPathCache = nextPath;
+    dbPathCache = nextCacheKey;
     log.info("Opened database connection", {
       operation: "init_database.open",
       mode: nextMode,

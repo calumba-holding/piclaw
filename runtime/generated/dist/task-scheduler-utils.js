@@ -16,7 +16,8 @@ import { getRuntimeTimingConfig } from "./core/config.js";
 export function computeNextRun(scheduleType, scheduleValue) {
     if (scheduleType === "cron") {
         try {
-            return CronExpressionParser.parse(scheduleValue, { tz: getRuntimeTimingConfig().timezone }).next().toISOString();
+            const timezone = process.env.TZ || getRuntimeTimingConfig().timezone;
+            return CronExpressionParser.parse(scheduleValue, { tz: timezone }).next().toISOString();
         }
         catch {
             return null;
