@@ -1,19 +1,5 @@
 // @ts-nocheck
-/**
- * app.ts - Main web UI entry point.
- *
- * This file is the root of the authenticated SPA. It imports all components,
- * the API client, and the markdown renderer, and is bundled to:
- *   web/static/dist/app.bundle.js
- *
- * Bundle split:
- *   - app.bundle.js   (authenticated web UI)
- *   - login.bundle.js (login page behavior only)
- *
- * Auth segmentation:
- *   request-router-service.ts only exposes login.bundle.js to unauthenticated
- *   visitors. app.bundle.js remains auth-gated.
- */
+// Main authenticated web UI entry point.
 import { html, render, useState, useEffect, useCallback, useRef, useMemo } from './vendor/preact-htm.js';
 import * as api from './api.js';
 import { ComposeBox, QueuedFollowupStack } from './components/compose-box.js';
@@ -47,7 +33,6 @@ import {
     SILENCE_FINALIZE_MS,
     SILENCE_REFRESH_MS,
     SILENCE_WARNING_MS,
-    buildAgentsMap,
     isIOSDevice,
     useTimestampRefresh,
 } from './ui/app-helpers.js';
@@ -68,27 +53,26 @@ import {
     resolveAgentPreviewRestoreState,
     shouldKeepExistingPreview,
 } from './ui/app-agent-status-refresh.js';
+import { handleAgentPanelToggle } from './ui/app-agent-panel-toggle.js';
 import { resolveFilePillOpenAction } from './ui/file-pill-open.js';
 import { parseBtwCommand, buildBtwInjectionText, resolveBtwChatJid } from './ui/btw.js';
 import {
     buildChatWindowUrl,
     isStandaloneWebAppMode,
 } from './ui/chat-window.js';
-import { resolveQueueActionChatJid, shouldClearQueuedSteerState } from './ui/queue-state.js';
-import {
-    getGeneratedWidgetSessionKey,
-    getGeneratedWidgetSubmissionText,
-    getGeneratedWidgetShouldCloseOnSubmit,
-} from './ui/generated-widget.js';
+import { shouldClearQueuedSteerState } from './ui/queue-state.js';
 import { resolveLiveGeneratedWidgetEvent } from './ui/app-generated-widget-events.js';
 import { isCompactionStatus } from './ui/status-duration.js';
-import { resolveModelStateUpdate } from './ui/app-model-state.js';
 import {
-    resolveAgentProfilePatch,
-    resolveDefaultAgentBrandingPayload,
-    resolveUserProfileFromAgentsPayload,
-    resolveUserProfileUpdate,
-} from './ui/app-profile-events.js';
+    applyModelStatePayload,
+    handleMessageResponseRefresh,
+    loadAgentsBootstrap,
+    refreshActiveChatAgents as refreshActiveChatAgentsState,
+    refreshCurrentChatBranches as refreshCurrentChatBranchesState,
+    refreshModelState as refreshModelStateForChat,
+    updateAgentProfileFromEvent,
+    updateUserProfileFromEvent,
+} from './ui/app-auth-bootstrap.js';
 import { installStandaloneMobileViewportFix } from './ui/mobile-viewport.js';
 import { resolveOptionalApi } from './ui/optional-api.js';
 import {
@@ -120,6 +104,11 @@ import {
     readAppLocationModes,
 } from './ui/app-shell-state.js';
 import {
+    handleConnectionStatusChangeEvent,
+    handleUiVersionDriftEvent,
+    runBackstopRefreshTick,
+} from './ui/app-connection-lifecycle.js';
+import {
     closeRenameBranchForm,
     openRenameBranchForm,
     pruneCurrentBranch,
@@ -137,11 +126,6 @@ import {
     captureChatPaneStateSnapshot,
 } from './ui/app-chat-pane-state.js';
 import {
-    mergeActiveAndBranchChats,
-    normalizeActiveChatRows,
-    normalizeCurrentRootBranchRows,
-} from './ui/app-chat-agents.js';
-import {
     addPendingPanelAction,
     applyAutoresearchStatusPayload,
     applyStatusPanelWidgetEvent,
@@ -157,35 +141,20 @@ import {
     haveSameFollowupQueueRows,
     normalizeFollowupQueueItems,
     removeFollowupQueueRow,
-    shouldRefreshQueueStateFromResponse,
 } from './ui/app-followup-queue.js';
+import { resolveFollowupQueueRemovalPlan } from './ui/app-followup-actions.js';
 import {
-    resolveFollowupActionFailureToast,
-    resolveFollowupQueueRemovalPlan,
-} from './ui/app-followup-actions.js';
-import {
-    applyFloatingWidgetDashboardFailure,
-    applyFloatingWidgetDashboardResult,
-    applyFloatingWidgetHostEvent,
-    applyFloatingWidgetSubmitPending,
-    applyFloatingWidgetSubmitResult,
     applyLiveFloatingWidgetUpdate,
     clearLiveFloatingWidgetState,
-    closeFloatingWidgetState,
-    openFloatingWidgetState,
 } from './ui/app-floating-widget.js';
 import {
-    buildFloatingWidgetDashboardSnapshot as buildFloatingWidgetDashboardData,
-    readFulfilledResult,
-} from './ui/app-floating-widget-dashboard.js';
-import {
-    resolveFloatingWidgetDashboardBuiltToast,
-    resolveFloatingWidgetDashboardFailureToast,
-    resolveFloatingWidgetHostRefreshContext,
-    resolveFloatingWidgetRefreshAckToast,
-    resolveFloatingWidgetSubmitFailureToast,
-    resolveFloatingWidgetSubmitToast,
-} from './ui/app-floating-widget-events.js';
+    buildFloatingWidgetDashboardData,
+    closeFloatingWidgetFromHost,
+    handleFloatingWidgetEventFromHost,
+    handleInjectQueuedFollowupAction,
+    handleRemoveQueuedFollowupAction,
+    openFloatingWidgetFromHost,
+} from './ui/app-floating-widget-followup.js';
 
 const CURRENT_APP_ASSET_VERSION = getCurrentAppAssetVersion();
 
@@ -210,7 +179,6 @@ const steerAgentQueueItem = resolveOptionalApi(api, 'steerAgentQueueItem', { rem
 const removeAgentQueueItem = resolveOptionalApi(api, 'removeAgentQueueItem', { removed: false });
 const streamSidePrompt = resolveOptionalApi(api, 'streamSidePrompt', null);
 
-// Configure marked for safe rendering
 if (window.marked) {
     marked.setOptions({
         breaks: true,  // Convert \n to <br>
@@ -218,10 +186,6 @@ if (window.marked) {
     });
 }
 
-/**
- * Main App component
- */
-// Register built-in pane extensions
 paneRegistry.register(editorPaneExtension);
 paneRegistry.register(workspacePreviewPaneExtension);
 paneRegistry.register(workspaceMarkdownPreviewPaneExtension);
@@ -234,12 +198,9 @@ paneRegistry.register(drawioPaneExtension);
 paneRegistry.register(mindmapPaneExtension);
 paneRegistry.register(kanbanPaneExtension);
 paneRegistry.register(vncPaneExtension);
-// Preload the editor bundle in the background so first file open is instant
 preloadEditorBundle();
 
-// Terminal dock pane is now part of the default web UI surface.
 paneRegistry.register(terminalPaneExtension);
-// Terminal can also be opened as a full tab via a synthetic path.
 paneRegistry.register(terminalTabPaneExtension);
 
 function MainApp({ locationParams, navigate }) {
@@ -322,8 +283,6 @@ function MainApp({ locationParams, navigate }) {
     const followupQueueRowIdsRef = useRef(new Set());
     const followupQueueItemsRef = useRef([]);
     // Row IDs that were locally dismissed (e.g. injected as steering).
-    // refreshQueueState filters these out so the server can't re-add them
-    // before the placeholder is actually consumed server-side.
     const dismissedQueueRowIdsRef = useRef(new Set());
     const queueRefreshGenRef = useRef(0);
     const silentRecoveryRef = useRef({ inFlight: false, lastAttemptAt: 0, turnId: null });
@@ -610,7 +569,6 @@ function MainApp({ locationParams, navigate }) {
         setIntentToast(null);
     }, []);
 
-    // Refresh timestamps every 30 seconds
     useTimestampRefresh(30000);
 
     useEffect(() => {
@@ -726,11 +684,6 @@ function MainApp({ locationParams, navigate }) {
         setFileRefs(deduped);
     }, []);
 
-    // TDZ-safe hook ordering note:
-    // - keep handler callbacks defined before they are passed downstream,
-    // - avoid forward references to uninitialized const callbacks,
-    // - use useRef.current for mutable forward refs when needed.
-    // See notes/piclaw-web-frontend-safety.md for the full checklist.
 
     const showIntentToast = useCallback((title, detail = null, kind = 'info', durationMs = 3000) => {
         clearIntentToast();
@@ -1044,55 +997,19 @@ function MainApp({ locationParams, navigate }) {
     }, [notify]);
 
     const handlePanelToggle = useCallback(async (panelKey, expanded) => {
-        if (panelKey !== 'thought' && panelKey !== 'draft') return;
-        const turnId = currentTurnIdRef.current;
-        if (panelKey === 'thought') {
-            thoughtExpandedRef.current = expanded;
-            if (turnId) {
-                try {
-                    await setAgentThoughtVisibility(turnId, 'thought', expanded);
-                } catch (error) {
-                    console.warn('Failed to update thought visibility:', error);
-                }
-            }
-            if (!expanded) return;
-            try {
-                const data = turnId ? await getAgentThought(turnId, 'thought') : null;
-                if (data?.text) {
-                    thoughtBufferRef.current = data.text;
-                }
-                setAgentThought((prev) => ({
-                    ...(prev || { text: '', totalLines: 0 }),
-                    fullText: thoughtBufferRef.current || prev?.fullText || '',
-                    totalLines: Number.isFinite(data?.total_lines) ? data.total_lines : prev?.totalLines || 0,
-                }));
-            } catch (error) {
-                console.warn('Failed to fetch full thought:', error);
-            }
-            return;
-        }
-        draftExpandedRef.current = expanded;
-        if (turnId) {
-            try {
-                await setAgentThoughtVisibility(turnId, 'draft', expanded);
-            } catch (error) {
-                console.warn('Failed to update draft visibility:', error);
-            }
-        }
-        if (!expanded) return;
-        try {
-            const data = turnId ? await getAgentThought(turnId, 'draft') : null;
-            if (data?.text) {
-                draftBufferRef.current = data.text;
-            }
-            setAgentDraft((prev) => ({
-                ...(prev || { text: '', totalLines: 0 }),
-                fullText: draftBufferRef.current || prev?.fullText || '',
-                totalLines: Number.isFinite(data?.total_lines) ? data.total_lines : prev?.totalLines || 0,
-            }));
-        } catch (error) {
-            console.warn('Failed to fetch full draft:', error);
-        }
+        await handleAgentPanelToggle({
+            panelKey,
+            expanded,
+            currentTurnIdRef,
+            thoughtExpandedRef,
+            draftExpandedRef,
+            setAgentThoughtVisibility,
+            getAgentThought,
+            thoughtBufferRef,
+            draftBufferRef,
+            setAgentThought,
+            setAgentDraft,
+        });
     }, []);
 
 
@@ -1170,10 +1087,7 @@ function MainApp({ locationParams, navigate }) {
         loadMoreRef,
     } = useTimeline({ preserveTimelineScroll, preserveTimelineScrollTop, chatJid: currentChatJid });
 
-    // Derive filtered posts: placeholder rows and their parent user messages
-    // are hidden.  Recomputes when rawPosts or followupQueueItems change;
-    // filterQueuedPosts is identity-stable (empty deps) so it never
-    // triggers a cascade through handleSseEvent → SSE reconnection.
+    // Derive filtered posts with queued placeholders hidden.
     const posts = useMemo(() => filterQueuedPosts(rawPosts), [rawPosts, followupQueueItems, filterQueuedPosts]);
 
     const removeStalledPost = useCallback(() => {
@@ -1384,9 +1298,7 @@ function MainApp({ locationParams, navigate }) {
         }
     }, [refreshAgentStatus, refreshQueueState, refreshTimeline]);
 
-    // Silence watchdog — detects when the agent stream goes quiet and
-    // triggers a server re-sync to surface missed terminal replies.
-    // Depends on reconcileSilentTurn which is defined above.
+    // Silence watchdog: detect stream quiet periods and trigger server re-sync.
     useEffect(() => {
         const intervalMs = Math.min(1000, Math.max(100, Math.floor(SILENCE_WARNING_MS / 2)));
         const interval = setInterval(() => {
@@ -1429,79 +1341,36 @@ function MainApp({ locationParams, navigate }) {
     }, [reconcileSilentTurn]);
 
     const handleUiVersionDrift = useCallback((serverVersion) => {
-        const normalizedServerVersion = typeof serverVersion === 'string' && serverVersion.trim() ? serverVersion.trim() : null;
-        if (!normalizedServerVersion || !CURRENT_APP_ASSET_VERSION || normalizedServerVersion === CURRENT_APP_ASSET_VERSION) {
-            return false;
-        }
-        if (staleUiVersionRef.current === normalizedServerVersion) {
-            return true;
-        }
-        staleUiVersionRef.current = normalizedServerVersion;
-
-        const composeDraft = typeof document !== 'undefined'
-            ? String(document.querySelector('.compose-box textarea')?.value || '').trim()
-            : '';
-        const canAutoReload = !tabStore.hasUnsaved()
-            && !composeDraft
-            && !isAgentRunningRef.current
-            && !pendingRequestRef.current;
-
-        if (canAutoReload && !staleUiReloadScheduledRef.current) {
-            staleUiReloadScheduledRef.current = true;
-            showIntentToast('Updating UI…', 'Reloading to apply the latest interface after restart.', 'info', 2500);
-            window.setTimeout(() => {
-                try {
-                    window.location.reload();
-                } catch {
-                    staleUiReloadScheduledRef.current = false;
-                }
-            }, 350);
-            return true;
-        }
-
-        showIntentToast('New UI available', 'Reload this page to apply the latest interface update.', 'warning', 8000);
-        return true;
+        return handleUiVersionDriftEvent({
+            serverVersion,
+            currentAppAssetVersion: CURRENT_APP_ASSET_VERSION,
+            staleUiVersionRef,
+            staleUiReloadScheduledRef,
+            tabStoreHasUnsaved: () => tabStore.hasUnsaved(),
+            isAgentRunningRef,
+            pendingRequestRef,
+            showIntentToast,
+        });
     }, [isAgentRunningRef, pendingRequestRef, showIntentToast]);
 
     const handleConnectionStatusChange = useCallback((status) => {
-        setConnectionStatus(status);
-        if (status !== 'connected') {
-            setAgentStatus(null);
-            setAgentDraft({ text: '', totalLines: 0 });
-            setAgentPlan('');
-            setAgentThought({ text: '', totalLines: 0 });
-            setPendingRequest(null);
-            pendingRequestRef.current = null;
-            clearAgentRunState();
-            return;
-        }
-        if (!hasConnectedOnceRef.current) {
-            hasConnectedOnceRef.current = true;
-            // On initial page load, restore current turn + queue state and do
-            // one immediate timeline resync. Reloads can land between the
-            // initial timeline fetch and SSE attach, which leaves already-
-            // persisted pending/follow-up messages invisible until a later
-            // user action triggers another refresh.
-            const { currentHashtag: activeHashtag, searchQuery: activeSearch, searchOpen: activeSearchOpen } = viewStateRef.current || {};
-            if (!activeHashtag && !activeSearch && !activeSearchOpen) {
-                refreshTimeline();
-            }
-            refreshAgentStatus();
-            refreshQueueState();
-            refreshContextUsage();
-            return;
-        }
-        // On reconnect: refresh timeline for any missed posts and restore
-        // in-progress agent state (status + draft/thought buffers).
-        // Also refresh queue state so queued follow-ups submitted before
-        // the reconnect gap are restored in the compose stack.
-        const { currentHashtag: activeHashtag, searchQuery: activeSearch, searchOpen: activeSearchOpen } = viewStateRef.current;
-        if (!activeHashtag && !activeSearch && !activeSearchOpen) {
-            refreshTimeline();
-        }
-        refreshAgentStatus();
-        refreshQueueState();
-        refreshContextUsage();
+        handleConnectionStatusChangeEvent({
+            status,
+            setConnectionStatus,
+            setAgentStatus,
+            setAgentDraft,
+            setAgentPlan,
+            setAgentThought,
+            setPendingRequest,
+            pendingRequestRef,
+            clearAgentRunState,
+            hasConnectedOnceRef,
+            viewStateRef,
+            refreshTimeline,
+            refreshAgentStatus,
+            refreshQueueState,
+            refreshContextUsage,
+        });
     }, [clearAgentRunState, refreshTimeline, refreshAgentStatus, refreshQueueState, refreshContextUsage]);
 
 
@@ -1613,16 +1482,12 @@ function MainApp({ locationParams, navigate }) {
     }, [currentChatJid, posts, preserveTimelineScrollTop]);
 
     const loadAgents = useCallback(async () => {
-        try {
-            const data = await getAgents();
-            setAgents(buildAgentsMap(data));
-            const nextUser = data?.user || {};
-            setUserProfile((prev) => resolveUserProfileFromAgentsPayload(prev, nextUser));
-            const branding = resolveDefaultAgentBrandingPayload(data?.agents);
-            applyBranding(branding.name, branding.avatarUrl);
-        } catch (e) {
-            console.warn('Failed to load agents:', e);
-        }
+        await loadAgentsBootstrap({
+            getAgents,
+            setAgents,
+            setUserProfile,
+            applyBranding,
+        });
     }, [applyBranding]);
 
     useEffect(() => {
@@ -1639,137 +1504,96 @@ function MainApp({ locationParams, navigate }) {
     const isComposeBoxAgentActive = isAgentTurnActive || agentStatus !== null;
 
     const updateAgentProfile = useCallback((payload) => {
-        const patch = resolveAgentProfilePatch(
+        updateAgentProfileFromEvent({
             payload,
-            payload?.agent_id ? agentsRef.current?.[payload.agent_id] || { id: payload.agent_id } : null,
-        );
-        if (!patch) return;
-
-        setAgents((prev) => {
-            const currentEntry = prev[patch.agentId] || { id: patch.agentId };
-            const updated = { ...currentEntry };
-            if (patch.nameChanged) updated.name = patch.resolvedName;
-            if (patch.avatarChanged) updated.avatar_url = patch.resolvedAvatar;
-            return { ...prev, [patch.agentId]: updated };
+            agentsRef,
+            setAgents,
+            applyBranding,
         });
-
-        if (patch.agentId === 'default') {
-            applyBranding(patch.resolvedName, patch.resolvedAvatar, patch.avatarChanged ? Date.now() : null);
-        }
     }, [applyBranding]);
 
     const updateUserProfile = useCallback((payload) => {
-        setUserProfile((prev) => resolveUserProfileUpdate(prev, payload));
+        updateUserProfileFromEvent({
+            payload,
+            setUserProfile,
+        });
     }, []);
 
     const applyModelState = useCallback((payload) => {
-        const modelUpdate = resolveModelStateUpdate(payload);
-        if (modelUpdate.hasModel) setActiveModel(modelUpdate.model);
-        if (modelUpdate.hasThinkingLevel) setActiveThinkingLevel(modelUpdate.thinkingLevel);
-        if (modelUpdate.hasSupportsThinking) setSupportsThinking(modelUpdate.supportsThinking);
-        if (modelUpdate.hasProviderUsage) setActiveModelUsage(modelUpdate.providerUsage);
+        applyModelStatePayload({
+            payload,
+            setActiveModel,
+            setActiveThinkingLevel,
+            setSupportsThinking,
+            setActiveModelUsage,
+        });
     }, []);
 
     const refreshModelState = useCallback(() => {
-        const targetChatJid = currentChatJid;
-        getAgentModels(targetChatJid)
-            .then((payload) => {
-                if (activeChatJidRef.current !== targetChatJid) return;
-                if (payload) applyModelState(payload);
-            })
-            .catch(() => {
-                /* expected: model-state refresh is best-effort during chat switches. */
-            });
+        refreshModelStateForChat({
+            currentChatJid,
+            getAgentModels,
+            activeChatJidRef,
+            applyModelState,
+        });
     }, [applyModelState, currentChatJid]);
 
     const refreshActiveChatAgents = useCallback(() => {
-        const targetChatJid = currentChatJid;
-
-        Promise.all([
-            getActiveChatAgents().catch(() => ({ chats: [] /* expected: active-agent refresh is best-effort. */ })),
-            getChatBranches(null, { includeArchived: true }).catch(() => ({ chats: [] /* expected: archived-branch refresh is best-effort. */ })),
-        ])
-            .then(([activePayload, branchPayload]) => {
-                if (activeChatJidRef.current !== targetChatJid) return;
-
-                const activeChats = normalizeActiveChatRows(activePayload?.chats);
-                const branchChats = normalizeActiveChatRows(branchPayload?.chats);
-                setActiveChatAgents(mergeActiveAndBranchChats(activeChats, branchChats, targetChatJid));
-            })
-            .catch(() => {
-                if (activeChatJidRef.current !== targetChatJid) return;
-                setActiveChatAgents([]);
-            });
+        refreshActiveChatAgentsState({
+            currentChatJid,
+            getActiveChatAgents,
+            getChatBranches,
+            activeChatJidRef,
+            setActiveChatAgents,
+        });
     }, [currentChatJid]);
+
     const refreshCurrentChatBranches = useCallback(() => {
-        getChatBranches(currentRootChatJid)
-            .then((payload) => {
-                setCurrentChatBranches(normalizeCurrentRootBranchRows(payload?.chats));
-            })
-            .catch(() => {
-                /* expected: branch-list refresh is best-effort while the UI is already usable. */
-            });
+        refreshCurrentChatBranchesState({
+            currentRootChatJid,
+            getChatBranches,
+            setCurrentChatBranches,
+        });
     }, [currentRootChatJid]);
+
     const handleInjectQueuedFollowup = useCallback((queuedItem) => {
-        const optimisticRemoval = resolveFollowupQueueRemovalPlan(followupQueueItemsRef.current, queuedItem);
-        if (!optimisticRemoval) return;
-        const { rowId } = optimisticRemoval;
-
-        // Optimistic removal
-        dismissedQueueRowIdsRef.current.add(rowId);
-        setFollowupQueueItems((current) => removeFollowupQueueRow(current, rowId).items);
-
-        // Atomically remove the queued item server-side and convert it into
-        // steering (or an immediate send if the active stream already ended).
-        steerAgentQueueItem(rowId, resolveQueueActionChatJid(currentChatJid))
-            .then(() => {
-                void refreshQueueState();
-            })
-            .catch((error) => {
-                console.warn('[queue] Failed to steer queued item:', error);
-                const failureToast = resolveFollowupActionFailureToast('steer');
-                showIntentToast(failureToast.title, failureToast.detail, 'warning');
-                dismissedQueueRowIdsRef.current.delete(rowId);
-                void refreshQueueState();
-            });
+        handleInjectQueuedFollowupAction({
+            queuedItem,
+            followupQueueItemsRef,
+            dismissedQueueRowIdsRef,
+            currentChatJid,
+            refreshQueueState,
+            setFollowupQueueItems,
+            showIntentToast,
+            steerAgentQueueItem,
+            removeAgentQueueItem,
+        });
     }, [currentChatJid, refreshQueueState, setFollowupQueueItems, showIntentToast]);
 
     const handleRemoveQueuedFollowup = useCallback((queuedItem) => {
-        const optimisticRemoval = resolveFollowupQueueRemovalPlan(followupQueueItemsRef.current, queuedItem);
-        if (!optimisticRemoval) return;
-        const { rowId } = optimisticRemoval;
-
-        // Optimistic removal
-        dismissedQueueRowIdsRef.current.add(rowId);
-        clearQueuedSteerStateIfStale(optimisticRemoval.remainingQueueCount);
-        setFollowupQueueItems((current) => removeFollowupQueueRow(current, rowId).items);
-
-        // Remove the queued item server-side without sending it as steering
-        // or converting it into a message.
-        removeAgentQueueItem(rowId, resolveQueueActionChatJid(currentChatJid))
-            .then(() => {
-                void refreshQueueState();
-            })
-            .catch((error) => {
-                console.warn('[queue] Failed to remove queued item:', error);
-                const failureToast = resolveFollowupActionFailureToast('remove');
-                showIntentToast(failureToast.title, failureToast.detail, 'warning');
-                dismissedQueueRowIdsRef.current.delete(rowId);
-                void refreshQueueState();
-            });
+        handleRemoveQueuedFollowupAction({
+            queuedItem,
+            followupQueueItemsRef,
+            dismissedQueueRowIdsRef,
+            currentChatJid,
+            refreshQueueState,
+            setFollowupQueueItems,
+            showIntentToast,
+            clearQueuedSteerStateIfStale,
+            steerAgentQueueItem,
+            removeAgentQueueItem,
+        });
     }, [clearQueuedSteerStateIfStale, currentChatJid, refreshQueueState, setFollowupQueueItems, showIntentToast]);
 
     const handleMessageResponse = useCallback((response) => {
-        if (!response || typeof response !== "object") return;
-
-        refreshActiveChatAgents();
-        refreshCurrentChatBranches();
-        void refreshContextUsage();
-        void refreshAutoresearchStatus();
-
-        if (shouldRefreshQueueStateFromResponse(response)) {
-            refreshQueueState();
-        }
+        handleMessageResponseRefresh({
+            response,
+            refreshActiveChatAgents,
+            refreshCurrentChatBranches,
+            refreshContextUsage,
+            refreshAutoresearchStatus,
+            refreshQueueState,
+        });
     }, [refreshActiveChatAgents, refreshAutoresearchStatus, refreshCurrentChatBranches, refreshContextUsage, refreshQueueState]);
 
     const handleExtensionPanelAction = useCallback(async (panel, action) => {
@@ -1920,28 +1744,17 @@ function MainApp({ locationParams, navigate }) {
     }, [btwSession, handleMessageResponse, isComposeBoxAgentActive, showIntentToast]);
 
     const buildFloatingWidgetDashboardSnapshot = useCallback(async (requestPayload = null) => {
-        const [statusRes, contextRes, queueRes, modelsRes, activeChatsRes, branchesRes, timelineRes] = await Promise.allSettled([
-            getAgentStatus(currentChatJid),
-            getAgentContext(currentChatJid),
-            getAgentQueueState(currentChatJid),
-            getAgentModels(currentChatJid),
-            getActiveChatAgents(),
-            getChatBranches(currentRootChatJid),
-            api.getTimeline(20, null, currentChatJid),
-        ]);
-
         return buildFloatingWidgetDashboardData({
-            generatedAt: new Date().toISOString(),
-            request: requestPayload,
+            requestPayload,
             currentChatJid,
             currentRootChatJid,
-            statusPayload: readFulfilledResult(statusRes),
-            contextPayload: readFulfilledResult(contextRes),
-            queuePayload: readFulfilledResult(queueRes),
-            modelsPayload: readFulfilledResult(modelsRes),
-            activeChatsPayload: readFulfilledResult(activeChatsRes),
-            branchesPayload: readFulfilledResult(branchesRes),
-            timelinePayload: readFulfilledResult(timelineRes),
+            getAgentStatus,
+            getAgentContext,
+            getAgentQueueState,
+            getAgentModels,
+            getActiveChatAgents,
+            getChatBranches,
+            getTimeline: api.getTimeline,
             rawPosts,
             activeChatAgents,
             currentChatBranches,
@@ -2148,9 +1961,7 @@ function MainApp({ locationParams, navigate }) {
                 });
             const { currentHashtag: activeHashtag, searchQuery: activeSearch, searchOpen: activeSearchOpen } = viewStateRef.current || {};
             if (!activeHashtag && !activeSearch && !activeSearchOpen) {
-                // One immediate timeline resync on SSE connect closes the race
-                // where the client restores draft/status state after a restart
-                // but misses already-persisted assistant posts from the same turn.
+                // One immediate timeline resync on SSE connect closes restart races.
                 refreshTimeline();
             }
             refreshModelAndQueueState();
@@ -2171,23 +1982,16 @@ function MainApp({ locationParams, navigate }) {
                 }
                 if (data.type === 'done') {
                     notifyForFinalResponse(turnId || currentTurnIdRef.current);
-                    // Refresh timeline to surface any final response that arrived
-                    // during an SSE gap (agent_response event may have been missed).
+                    // Refresh timeline to surface any final response missed during SSE gaps.
                     const { currentHashtag: ah, searchQuery: sq, searchOpen: so } = viewStateRef.current || {};
                     if (!ah && !sq && !so) refreshTimeline();
-                    // Update context usage indicator immediately from the done
-                    // payload when available, then re-fetch canonical state so
-                    // the compose pie stays in sync even if the SSE payload is
-                    // absent or stale.
+                    // Refresh context usage from payload + canonical API state.
                     if (data.context_usage) setContextUsage(data.context_usage);
                 }
                 void refreshContextUsage();
                 wasAgentActiveRef.current = false;
                 clearAgentRunState();
                 // Re-sync queue state from the server on terminal transitions.
-                // This preserves any queued follow-ups that still remain after
-                // an error or multi-step drain instead of blanking the stack
-                // optimistically and waiting for a later incidental refresh.
                 dismissedQueueRowIdsRef.current.clear();
                 void refreshActiveChatAgents();
                 void refreshQueueState();
@@ -2355,10 +2159,7 @@ function MainApp({ locationParams, navigate }) {
 
         if (eventType === 'model_changed') {
             if (!isCurrentChatEvent) return;
-            const modelUpdate = resolveModelStateUpdate(data);
-            if (modelUpdate.hasModel) setActiveModel(modelUpdate.model);
-            if (modelUpdate.hasThinkingLevel) setActiveThinkingLevel(modelUpdate.thinkingLevel);
-            if (modelUpdate.hasSupportsThinking) setSupportsThinking(modelUpdate.supportsThinking);
+            applyModelState(data);
             // Refresh context usage - the context window size changes with the model
             const targetChatJid = currentChatJid;
             getAgentContext(targetChatJid)
@@ -2483,56 +2284,36 @@ function MainApp({ locationParams, navigate }) {
     // Set up SSE connection
     useSseConnection({ handleSseEvent, handleConnectionStatusChange, loadPosts, onWake: refreshCurrentView, chatJid: currentChatJid });
 
-    // Scroll to hash-linked message on load (e.g. #msg-123)
+    // Scroll to hash-linked message on load.
     useEffect(() => {
         if (!posts || posts.length === 0) return;
         const hash = location.hash;
         if (!hash || !hash.startsWith('#msg-')) return;
-        const msgId = hash.slice(5); // strip '#msg-'
+        const msgId = hash.slice(5);
         scrollToMessage(msgId);
-        // Clear hash after scroll so it doesn't re-trigger
         history.replaceState(null, '', location.pathname + location.search);
     }, [posts, scrollToMessage]);
 
-    // Adaptive backstop poller - SSE is the primary event source; this is
-    // a safety net only. 15 s when a turn is active (keeps compaction status
-    // visible and catches SSE-gap missed turn completion or timeline updates,
-    // including recovery/resume turns). 60 s when idle (timeline + status
-    // refresh as a general backstop).
+    // Adaptive backstop poller: 15s while active, 60s while idle.
     const isAgentActive = agentStatus !== null;
     useEffect(() => {
         if (connectionStatus !== 'connected') return;
         const intervalMs = isAgentActive ? 15000 : 60000;
         const interval = setInterval(() => {
-            const { currentHashtag: activeHashtag, searchQuery: activeSearch, searchOpen: activeSearchOpen } = viewStateRef.current || {};
-            const onMainTimeline = !activeHashtag && !activeSearch && !activeSearchOpen;
-
-            if (isAgentActive) {
-                // Active turns still need an occasional timeline resync. This
-                // catches cases where the client saw draft/thought activity but
-                // missed the eventual persisted assistant posts during an SSE
-                // gap or restart-recovery window.
-                if (onMainTimeline) {
-                    refreshTimeline();
-                }
-                refreshQueueState();
-                refreshAgentStatus();
-                refreshContextUsage();
-                refreshAutoresearchStatus();
-            } else {
-                if (onMainTimeline) {
-                    refreshTimeline();
-                }
-                refreshAgentStatus();
-                refreshContextUsage();
-                refreshAutoresearchStatus();
-            }
+            runBackstopRefreshTick({
+                viewStateRef,
+                isAgentActive,
+                refreshTimeline,
+                refreshQueueState,
+                refreshAgentStatus,
+                refreshContextUsage,
+                refreshAutoresearchStatus,
+            });
         }, intervalMs);
         return () => clearInterval(interval);
     }, [connectionStatus, isAgentActive, refreshAgentStatus, refreshAutoresearchStatus, refreshContextUsage, refreshQueueState, refreshTimeline]);
 
-    // Returning to the tab/webapp should restore current context-affordance
-    // truth immediately instead of waiting for the 15s/60s backstop poller.
+    // Returning to the tab/webapp should restore context immediately.
     useEffect(() => {
         return watchReturnToApp(() => {
             refreshAgentStatus();
@@ -2642,117 +2423,33 @@ function MainApp({ locationParams, navigate }) {
     }, [branchLoaderMode, branchLoaderSourceChatJid, navigate]);
 
     const handleOpenFloatingWidget = useCallback((widget) => {
-        if (!widget || typeof widget !== 'object') return;
-        const sessionKey = getGeneratedWidgetSessionKey(widget);
-        if (sessionKey) {
-            dismissedLiveWidgetKeysRef.current.delete(sessionKey);
-        }
-        setFloatingWidget(openFloatingWidgetState(widget, new Date().toISOString()));
+        openFloatingWidgetFromHost({
+            widget,
+            dismissedLiveWidgetKeysRef,
+            setFloatingWidget,
+        });
     }, []);
 
     const handleCloseFloatingWidget = useCallback(() => {
-        setFloatingWidget((current) => {
-            const result = closeFloatingWidgetState(current);
-            if (result.dismissedSessionKey) {
-                dismissedLiveWidgetKeysRef.current.add(result.dismissedSessionKey);
-            }
-            return result.nextWidget;
+        closeFloatingWidgetFromHost({
+            dismissedLiveWidgetKeysRef,
+            setFloatingWidget,
         });
     }, []);
 
     const handleFloatingWidgetEvent = useCallback((event, widget) => {
-        const kind = typeof event?.kind === 'string' ? event.kind : '';
-        const sessionKey = getGeneratedWidgetSessionKey(widget);
-        if (!kind || !sessionKey) return;
-
-        if (kind === 'widget.close') {
-            handleCloseFloatingWidget();
-            return;
-        }
-
-        if (kind === 'widget.submit') {
-            const submissionText = getGeneratedWidgetSubmissionText(event?.payload);
-            const closeAfterSubmit = getGeneratedWidgetShouldCloseOnSubmit(event?.payload);
-            const submittedAt = new Date().toISOString();
-
-            setFloatingWidget((current) => applyFloatingWidgetSubmitPending(current, sessionKey, {
-                kind,
-                payload: event?.payload || null,
-                submittedAt,
-                submissionText,
-            }));
-
-            if (!submissionText) {
-                showIntentToast('Widget submission received', 'The widget submitted data without a message payload yet.', 'info', 3500);
-                if (closeAfterSubmit) handleCloseFloatingWidget();
-                return;
-            }
-
-            (async () => {
-                try {
-                    const response = await api.sendAgentMessage('default', submissionText, null, [], isComposeBoxAgentActive ? 'queue' : null, currentChatJid);
-                    handleMessageResponse(response);
-                    setFloatingWidget((current) => applyFloatingWidgetSubmitResult(current, sessionKey, {
-                        submittedAt,
-                        submissionText,
-                        queued: response?.queued || null,
-                    }));
-                    const submitToast = resolveFloatingWidgetSubmitToast(response?.queued);
-                    showIntentToast(submitToast.title, submitToast.detail, submitToast.kind, submitToast.durationMs);
-                    if (closeAfterSubmit) handleCloseFloatingWidget();
-                } catch (error) {
-                    setFloatingWidget((current) => applyFloatingWidgetSubmitResult(current, sessionKey, {
-                        submittedAt,
-                        submissionText,
-                        errorMessage: error?.message || 'Could not send the widget message.',
-                    }));
-                    const submitFailureToast = resolveFloatingWidgetSubmitFailureToast(error?.message);
-                    showIntentToast(submitFailureToast.title, submitFailureToast.detail, submitFailureToast.kind, submitFailureToast.durationMs);
-                }
-            })();
-            return;
-        }
-
-        if (kind === 'widget.ready' || kind === 'widget.request_refresh') {
-            const eventAt = new Date().toISOString();
-            const refreshContext = resolveFloatingWidgetHostRefreshContext(event?.payload || null, widget?.runtimeState?.refreshCount);
-            setFloatingWidget((current) => applyFloatingWidgetHostEvent(current, sessionKey, {
-                kind,
-                payload: event?.payload || null,
-                eventAt,
-                nextRefreshCount: refreshContext.nextRefreshCount,
-                shouldBuildDashboard: refreshContext.shouldBuildDashboard,
-            }));
-
-            if (kind === 'widget.request_refresh') {
-                if (refreshContext.shouldBuildDashboard) {
-                    (async () => {
-                        try {
-                            const dashboard = await buildFloatingWidgetDashboardSnapshot(event?.payload || null);
-                            setFloatingWidget((current) => applyFloatingWidgetDashboardResult(current, sessionKey, {
-                                dashboard,
-                                at: new Date().toISOString(),
-                                count: refreshContext.nextRefreshCount,
-                                echo: event?.payload || null,
-                            }));
-                            const successToast = resolveFloatingWidgetDashboardBuiltToast();
-                            showIntentToast(successToast.title, successToast.detail, successToast.kind, successToast.durationMs);
-                        } catch (error) {
-                            setFloatingWidget((current) => applyFloatingWidgetDashboardFailure(current, sessionKey, {
-                                errorMessage: error?.message || 'Could not build dashboard.',
-                                at: new Date().toISOString(),
-                                count: refreshContext.nextRefreshCount,
-                            }));
-                            const failureToast = resolveFloatingWidgetDashboardFailureToast(error?.message);
-                            showIntentToast(failureToast.title, failureToast.detail, failureToast.kind, failureToast.durationMs);
-                        }
-                    })();
-                } else {
-                    const ackToast = resolveFloatingWidgetRefreshAckToast();
-                    showIntentToast(ackToast.title, ackToast.detail, ackToast.kind, ackToast.durationMs);
-                }
-            }
-        }
+        handleFloatingWidgetEventFromHost({
+            event,
+            widget,
+            currentChatJid,
+            isComposeBoxAgentActive,
+            setFloatingWidget,
+            handleCloseFloatingWidget,
+            handleMessageResponse,
+            showIntentToast,
+            sendAgentMessage: api.sendAgentMessage,
+            buildFloatingWidgetDashboardSnapshot,
+        });
     }, [buildFloatingWidgetDashboardSnapshot, currentChatJid, handleCloseFloatingWidget, handleMessageResponse, isComposeBoxAgentActive, showIntentToast]);
 
     useEffect(() => {
