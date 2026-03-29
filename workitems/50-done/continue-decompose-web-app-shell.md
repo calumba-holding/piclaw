@@ -1,10 +1,11 @@
 ---
 id: continue-decompose-web-app-shell
 title: Continue decomposing the web app shell after post-release regrowth
-status: doing
+status: done
 priority: medium
 created: 2026-03-29
 updated: 2026-03-29
+completed: 2026-03-29
 estimate: L
 risk: medium
 tags:
@@ -27,10 +28,10 @@ A previous extraction tranche (`decompose-web-app-shell-and-resume-lifecycle`) p
 
 ## Acceptance Criteria
 
-- [ ] At least one coherent domain seam is extracted from `runtime/web/src/app.ts` into a dedicated module/hook/service.
-- [ ] `runtime/web/src/app.ts` is materially smaller after the slice.
-- [ ] Existing app-shell behavior is preserved.
-- [ ] Focused web tests and `bun run build:web` pass.
+- [x] At least one coherent domain seam is extracted from `runtime/web/src/app.ts` into a dedicated module/hook/service.
+- [x] `runtime/web/src/app.ts` is materially smaller after the slice.
+- [x] Existing app-shell behavior is preserved.
+- [x] Focused web tests and `bun run build:web` pass.
 
 ## Implementation Paths
 
@@ -42,18 +43,23 @@ Skip the helper tranche and immediately extract a bigger domain hook (queue reco
 
 ## Test Plan
 
-- [ ] Add focused tests for the new app-shell helper module under `runtime/test/web/`
-- [ ] Run focused web tests for the touched helper and prior app shell seam tests
-- [ ] Run `bun run build:web`
-- [ ] Run `bun run lint`
-- [ ] Run `bun run typecheck`
+- [x] Add focused tests for the new app-shell helper module under `runtime/test/web/`
+- [x] Run focused web tests for the touched helper and prior app shell seam tests
+- [x] Run `bun run build:web`
+- [x] Run `bun run lint`
+- [x] Run `bun run typecheck`
 
 ## Definition of Done
 
-- [ ] At least one extracted app-shell module/hook is landed on `main`
-- [ ] `runtime/web/src/app.ts` is smaller than at pickup time
-- [ ] Test/build evidence is recorded in `## Updates`
-- [ ] Any larger follow-up seams are explicitly called out instead of being implied
+- [x] At least one extracted app-shell module/hook is landed on `main`
+- [x] `runtime/web/src/app.ts` is smaller than at pickup time
+- [x] Test/build evidence is recorded in `## Updates`
+- [x] Any larger follow-up seams are explicitly called out instead of being implied
+
+## Implementation Paths Considered (historical)
+
+- Path A succeeded as the opening tranche: helper-first extraction kept regressions contained while creating typed seams that later autoresearch slices could build on safely.
+- Path B became selectively useful after the early helper split stabilized; later follow-up tranches extracted larger event- and widget-oriented seams while preserving behavior.
 
 ## Notes
 
@@ -64,6 +70,16 @@ Likely next seams:
 - autoresearch/status-pane orchestration
 
 ## Updates
+
+### 2026-03-29
+- Lane change: `20-doing` → `50-done` after the completed refactor series was merged to `main`, pushed upstream, and verified against the ticket acceptance criteria.
+- Completion evidence:
+  - landed on `main` at `d1729069`
+  - `runtime/web/src/app.ts` reduced from roughly `3917` lines to `3300` lines
+  - focused web validation: `113 pass, 0 fail`
+  - `bun run build:web`, `bun run lint`, `bun run typecheck`, and `bun run check:stale-dist` all passed
+- Follow-up explicitly opened at `workitems/10-next/continue-decompose-web-app-shell-below-3k-lines.md` for the next tranche instead of stretching this ticket indefinitely.
+- Quality: ★★★★★ 9/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 2)
 
 ### 2026-03-29
 - Merged back autoresearch branch `autoresearch/exp-mnbrkqnq-y33t` into `feature/continue-decompose-web-app-shell` and revalidated the result on the feature branch.
@@ -197,5 +213,6 @@ Likely next seams:
 ## Links
 
 - `workitems/50-done/decompose-web-app-shell-and-resume-lifecycle.md`
+- `workitems/10-next/continue-decompose-web-app-shell-below-3k-lines.md`
 - `runtime/web/src/app.ts`
 - `workitems/20-doing/codebase-quality-cleanup-2026.md`
