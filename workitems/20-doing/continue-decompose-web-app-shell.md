@@ -66,6 +66,22 @@ Likely next seams:
 ## Updates
 
 ### 2026-03-29
+- Continued again by extracting document-level pane/shortcut browser event wiring into `runtime/web/src/ui/app-browser-events.js`.
+- `runtime/web/src/app.ts` now delegates:
+  - preview-card / pane custom event listeners
+  - dock toggle shortcut registration
+  - zen-mode shortcut registration
+- Added focused coverage in `runtime/test/web/app-browser-events.test.ts`.
+- Current size reduction in this branch: `runtime/web/src/app.ts` `3917 → 3620` lines.
+- Validation for the expanded slice:
+  - `cd runtime && bun test test/web/app-shell-state.test.ts test/web/app-branch-actions.test.ts test/web/app-window-actions.test.ts test/web/app-browser-events.test.ts test/web/app-resume.test.ts`
+  - `bun run build:web`
+  - `bun run lint`
+  - `bun run typecheck`
+  - `bun run check:stale-dist`
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
+
+### 2026-03-29
 - Continued the active shell-decomposition tranche by extracting window/popup orchestration into `runtime/web/src/ui/app-window-actions.js`.
 - `runtime/web/src/app.ts` now delegates:
   - compose-driven branch creation

@@ -62,6 +62,7 @@ import { installStandaloneMobileViewportFix } from './ui/mobile-viewport.js';
 import { resolveOptionalApi } from './ui/optional-api.js';
 import { dispatchExtensionUiBrowserEvent, isExtensionUiEventType } from './ui/extension-ui-events.js';
 import { watchReturnToApp, watchStandaloneWebAppMode } from './ui/app-resume.js';
+import { watchDockToggleShortcut, watchPaneOpenEvents, watchZenModeShortcuts } from './ui/app-browser-events.js';
 import { formatBranchPickerLabel, getBranchHandleDraftState } from './ui/branch-lifecycle.js';
 import {
     getCurrentAppAssetVersion,
@@ -3125,36 +3126,12 @@ function MainApp({ locationParams, navigate }) {
     }, [currentChatJid, dockVisible, handleTabClose, isWebAppMode, showIntentToast, tabStripActiveId]);
 
     // Listen for preview-card / pane events that request opening a tab or standalone pane window.
-    useEffect(() => {
-        const openTabHandler = (e: CustomEvent) => {
-            const path = e.detail?.path;
-            const label = typeof e.detail?.label === 'string' && e.detail.label.trim() ? e.detail.label.trim() : undefined;
-            if (path) openEditor(path, label ? { label } : undefined);
-        };
-        const popoutHandler = (e: CustomEvent) => {
-            const path = e.detail?.path;
-            const label = typeof e.detail?.label === 'string' && e.detail.label.trim() ? e.detail.label.trim() : undefined;
-            if (path) handlePopOutPane(path, label);
-        };
-        document.addEventListener('office-viewer:open-tab', openTabHandler);
-        document.addEventListener('drawio:open-tab', openTabHandler);
-        document.addEventListener('csv-viewer:open-tab', openTabHandler);
-        document.addEventListener('pdf-viewer:open-tab', openTabHandler);
-        document.addEventListener('image-viewer:open-tab', openTabHandler);
-        document.addEventListener('video-viewer:open-tab', openTabHandler);
-        document.addEventListener('vnc:open-tab', openTabHandler);
-        document.addEventListener('pane:popout', popoutHandler);
-        return () => {
-            document.removeEventListener('office-viewer:open-tab', openTabHandler);
-            document.removeEventListener('drawio:open-tab', openTabHandler);
-            document.removeEventListener('csv-viewer:open-tab', openTabHandler);
-            document.removeEventListener('pdf-viewer:open-tab', openTabHandler);
-            document.removeEventListener('image-viewer:open-tab', openTabHandler);
-            document.removeEventListener('video-viewer:open-tab', openTabHandler);
-            document.removeEventListener('vnc:open-tab', openTabHandler);
-            document.removeEventListener('pane:popout', popoutHandler);
-        };
-    }, [handlePopOutPane, openEditor]);
+    useEffect(() => watchPaneOpenEvents({
+        openTab: (path, label) => openEditor(path, label ? { label } : undefined),
+        popOutPane: (path, label) => {
+            void handlePopOutPane(path, label);
+        },
+    }), [handlePopOutPane, openEditor]);
 
     const handlePopOutChat = useCallback(async () => {
         await popOutChat({
@@ -3194,32 +3171,18 @@ function MainApp({ locationParams, navigate }) {
     // Keyboard shortcut: Ctrl+` to toggle dock (only when dock panes exist)
     useEffect(() => {
         if (!hasDockPanes || chatOnlyMode) return;
-        const onKeyDown = (e) => {
-            if (e.ctrlKey && e.key === '`') {
-                e.preventDefault();
-                toggleDock();
-            }
-        };
-        document.addEventListener('keydown', onKeyDown);
-        return () => document.removeEventListener('keydown', onKeyDown);
+        return watchDockToggleShortcut(toggleDock);
     }, [toggleDock, hasDockPanes, chatOnlyMode]);
 
     // Keyboard shortcuts: Ctrl+Shift+Z to toggle zen mode, Esc to exit zen
     useEffect(() => {
         if (chatOnlyMode) return;
-        const onKeyDown = (e) => {
-            if (e.ctrlKey && e.shiftKey && (e.key === 'Z' || e.key === 'z')) {
-                e.preventDefault();
-                toggleZenMode();
-                return;
-            }
-            if (e.key === 'Escape' && zenMode) {
-                e.preventDefault();
-                exitZenMode();
-            }
-        };
-        document.addEventListener('keydown', onKeyDown);
-        return () => document.removeEventListener('keydown', onKeyDown);
+        return watchZenModeShortcuts({
+            toggleZenMode,
+            exitZenMode,
+            zenMode,
+            isZenModeActive: () => zenMode,
+        });
     }, [toggleZenMode, exitZenMode, zenMode, chatOnlyMode]);
 
     const steerQueued = Boolean(steerQueuedTurnId && (steerQueuedTurnId === (agentStatus?.turn_id || currentTurnId)));
