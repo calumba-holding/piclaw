@@ -52,7 +52,6 @@ import {
 } from './ui/chat-window.js';
 import { resolveQueueActionChatJid, shouldClearQueuedSteerState } from './ui/queue-state.js';
 import {
-    normalizeLiveGeneratedWidgetPayload,
     getGeneratedWidgetSessionKey,
     getGeneratedWidgetSubmissionText,
     getGeneratedWidgetShouldCloseOnSubmit,
@@ -105,6 +104,12 @@ import {
     removeFollowupQueueRow,
     shouldRefreshQueueStateFromResponse,
 } from './ui/app-followup-queue.js';
+import {
+    applyLiveFloatingWidgetUpdate,
+    clearLiveFloatingWidgetState,
+    closeFloatingWidgetState,
+    openFloatingWidgetState,
+} from './ui/app-floating-widget.js';
 
 const CURRENT_APP_ASSET_VERSION = getCurrentAppAssetVersion();
 
@@ -2106,34 +2111,13 @@ function MainApp({ locationParams, navigate }) {
     }, [refreshModelAndQueueState, refreshTimeline]);
 
     const applyLiveGeneratedWidgetUpdate = useCallback((data, fallbackStatus = 'streaming') => {
-        const payload = normalizeLiveGeneratedWidgetPayload({
-            ...data,
-            ...((data && data.status) ? {} : { status: fallbackStatus }),
-        });
-        if (!payload) return;
-
-        const sessionKey = getGeneratedWidgetSessionKey(payload);
-        if (sessionKey && dismissedLiveWidgetKeysRef.current.has(sessionKey)) {
-            return;
-        }
-
-        setFloatingWidget((current) => {
-            const currentKey = getGeneratedWidgetSessionKey(current);
-            const sameSession = Boolean(sessionKey && currentKey && sessionKey === currentKey);
-            const mergedArtifact = {
-                ...((sameSession && current?.artifact) ? current.artifact : {}),
-                ...(payload.artifact || {}),
-            };
-            return {
-                ...(sameSession && current ? current : {}),
-                ...payload,
-                artifact: mergedArtifact,
-                source: 'live',
-                originChatJid: payload.originChatJid || currentChatJid,
-                openedAt: sameSession && current?.openedAt ? current.openedAt : new Date().toISOString(),
-                liveUpdatedAt: new Date().toISOString(),
-            };
-        });
+        const updatedAt = new Date().toISOString();
+        setFloatingWidget((current) => applyLiveFloatingWidgetUpdate(current, data, {
+            fallbackStatus,
+            currentChatJid,
+            dismissedSessionKeys: dismissedLiveWidgetKeysRef.current,
+            updatedAt,
+        }));
     }, [currentChatJid]);
 
     const handleSseEvent = useCallback((eventType, data) => {
@@ -2187,13 +2171,7 @@ function MainApp({ locationParams, navigate }) {
 
         if (eventType === 'generated_widget_close') {
             if (!isCurrentChatEvent) return;
-            const sessionKey = getGeneratedWidgetSessionKey(data);
-            setFloatingWidget((current) => {
-                if (!current || current?.source !== 'live') return current;
-                const currentKey = getGeneratedWidgetSessionKey(current);
-                if (sessionKey && currentKey && sessionKey !== currentKey) return current;
-                return null;
-            });
+            setFloatingWidget((current) => clearLiveFloatingWidgetState(current, data));
             return;
         }
 
@@ -2803,19 +2781,16 @@ function MainApp({ locationParams, navigate }) {
         if (sessionKey) {
             dismissedLiveWidgetKeysRef.current.delete(sessionKey);
         }
-        setFloatingWidget({
-            ...widget,
-            openedAt: new Date().toISOString(),
-        });
+        setFloatingWidget(openFloatingWidgetState(widget, new Date().toISOString()));
     }, []);
 
     const handleCloseFloatingWidget = useCallback(() => {
         setFloatingWidget((current) => {
-            const sessionKey = getGeneratedWidgetSessionKey(current);
-            if (current?.source === 'live' && sessionKey) {
-                dismissedLiveWidgetKeysRef.current.add(sessionKey);
+            const result = closeFloatingWidgetState(current);
+            if (result.dismissedSessionKey) {
+                dismissedLiveWidgetKeysRef.current.add(result.dismissedSessionKey);
             }
-            return null;
+            return result.nextWidget;
         });
     }, []);
 
