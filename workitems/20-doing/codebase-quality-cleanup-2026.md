@@ -14,8 +14,6 @@ owner: pi
 blocked-by:
   - split-webchannel-god-class
   - split-agentpool-god-class
-  - finish-config-injection-and-mutable-identity-cleanup
-  - audit-exported-jsdoc-coverage-and-comment-quality
 ---
 
 # Master: codebase quality cleanup & refactoring (2026-Q1)
@@ -51,10 +49,7 @@ These are the open tickets that still block this umbrella from closing.
 
 ### Active supporting quality work
 
-| Ticket | Status | Description |
-|---|---|---|
-| `finish-config-injection-and-mutable-identity-cleanup` | doing | Finish the remaining config-consumer cleanup and mutable-identity seam work after typed config extraction landed |
-| `audit-exported-jsdoc-coverage-and-comment-quality` | doing | Re-establish the exported JSDoc/comment-quality review gate on active seams |
+_No open P1 supporting blockers remain right now._
 
 ### Former blockers now resolved
 
@@ -63,6 +58,8 @@ These are the open tickets that still block this umbrella from closing.
 | `fix-failing-tests-stale-assertions` | done | Closed after verifying the stale failures no longer reproduced |
 | `audit-silent-catch-blocks` | done | Completed and moved out of the blocker chain |
 | `add-tests-core-config-and-keychain` | done | Coverage work landed and no longer blocks the umbrella |
+| `finish-config-injection-and-mutable-identity-cleanup` | done | Config-consumer cleanup and mutable-identity seam work landed |
+| `audit-exported-jsdoc-coverage-and-comment-quality` | done | Documentation review gate was re-established and closed |
 
 ## Follow-up work (P2/P3 — not blocking)
 
@@ -88,6 +85,17 @@ These are desirable but not required to close this ticket:
 - [ ] Re-run quality assessment and confirm grade improvement
 
 ## Updates
+
+### 2026-03-29
+- Picked this umbrella back up after pushing `main` through `b0bfb379`.
+- Refreshed the blocker chain to match the actual board state:
+  - `split-webchannel-god-class` and `split-agentpool-god-class` are the only remaining tracked blockers, both in `40-review/`
+  - `finish-config-injection-and-mutable-identity-cleanup` and `audit-exported-jsdoc-coverage-and-comment-quality` were removed from `blocked-by` because they are already in `50-done/`
+- Revalidated the current quality gate state:
+  - full web-channel regression suite still passes via `bun test test/channels/web`
+  - full runtime suite is **not** yet green: `cd runtime && bun test` currently reports 2 failing tests (`stores, updates, lists, and deletes entries across supported types` and `computeNextRun handles invalid cron and timezone`)
+- Immediate next execution focus under this umbrella is no longer structural extraction; it is review/closeout of the two god-class tickets plus cleanup of the remaining full-suite failures before the umbrella can move toward review.
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 1, deps: 2, risk: 1)
 
 ### 2026-03-29
 - Refreshed blocker status after the WebChannel shell split moved from `20-doing` to `40-review`.
