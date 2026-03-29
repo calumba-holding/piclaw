@@ -1,10 +1,10 @@
 ---
 id: adaptive-card-submissions-outside-web-default-to-default-session
 title: Adaptive card submissions outside web must not fall back to the default session
-status: doing
+status: review
 priority: high
 created: 2026-03-28
-updated: 2026-03-28
+updated: 2026-03-29
 target_release: next
 estimate: M
 risk: high
@@ -53,11 +53,11 @@ conversation context that launched the card.
 
 ## Acceptance Criteria
 
-- [ ] Adaptive Card submissions from non-web channels are routed to the originating chat/session.
-- [ ] The default session is not used when valid originating chat/session metadata exists.
-- [ ] Submission handling preserves enough metadata on the card/message to recover the correct target chat.
-- [ ] At least one regression test covers non-web submission routing so the bug does not silently return.
-- [ ] Existing web Adaptive Card behavior remains unchanged.
+- [x] Adaptive Card submissions from non-web channels are routed to the originating chat/session.
+- [x] The default session is not used when valid originating chat/session metadata exists.
+- [x] Submission handling preserves enough metadata on the card/message to recover the correct target chat.
+- [x] At least one regression test covers non-web submission routing so the bug does not silently return.
+- [x] Existing web Adaptive Card behavior remains unchanged.
 
 ## Investigation hints
 
@@ -70,6 +70,18 @@ Likely surfaces to inspect:
 - prior autoresearch/card flows that were expected to post back to the originating chat
 
 ## Updates
+
+### 2026-03-29
+- Lane change: `20-doing` → `40-review` after the routing fix landed and passed focused validation.
+- Fix summary:
+  - added authoritative source-chat recovery by post row id in `runtime/src/db/messages.ts`
+  - re-exported the helper via `runtime/src/db.ts`
+  - updated `runtime/src/channels/web/cards/adaptive-card-side-prompt-service.ts` to resolve the source interaction by row id and route follow-up work back to the owning chat even when `chat_jid` is missing or wrong
+  - added focused regression coverage in `runtime/test/channels/web/cards/adaptive-card-side-prompt-service.test.ts`
+- Evidence:
+  - commit `6bc54efc` (`fix(adaptive-cards): route submissions to source chat`)
+  - validation passed: focused adaptive-card side-prompt test, `bun run lint`, and `bun run typecheck`
+- Quality: ★★★★★ 9/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 2)
 
 ### 2026-03-28
 - Created from a major UX bug report: submitting Adaptive Cards outside the web UI currently makes the submission appear in the default session.
