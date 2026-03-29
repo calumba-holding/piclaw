@@ -22,7 +22,7 @@ Prepare the next minor release once the remaining blocking issues are resolved.
 
 ## Blockers
 
-- `workitems/30-blocked/azure-model-routing-and-stability.md`
+- `workitems/10-next/azure-model-routing-and-stability.md`
 
 ## Acceptance Criteria
 
@@ -131,6 +131,6 @@ Once the Azure-model blocker clears, this should likely become the top release-p
 
 ## Links
 
-- `workitems/30-blocked/azure-model-routing-and-stability.md`
+- `workitems/10-next/azure-model-routing-and-stability.md`
 - `workitems/50-done/reverse-proxy-origin-validation.md`
 - `piclaw/VERSION`

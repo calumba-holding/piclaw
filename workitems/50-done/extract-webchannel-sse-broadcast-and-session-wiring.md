@@ -31,7 +31,7 @@ SSE payload shapes, event names, connection behavior, session binding, or
 timeline/update fanout semantics.
 
 This is the next bounded execution slice under:
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 
 after the queued follow-up lifecycle and server lifecycle/websocket gateway
 seams landed.
@@ -172,7 +172,7 @@ validation while keeping event semantics unchanged.
 
 ## Links
 
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 - `workitems/20-doing/extract-webchannel-recovery-and-runtime-state-wiring.md`
 - `workitems/40-review/extract-webchannel-queued-followup-service.md`
 - `workitems/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`

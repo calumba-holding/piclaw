@@ -2,6 +2,7 @@ import {
   DEFAULT_WEB_USER_ID,
   createWebSession,
   deleteAllWebSessions,
+  getMessageByAnyRowId,
   getMessageByRowId,
   replaceMessageContent,
 } from "../../../db.js";
@@ -169,7 +170,7 @@ export class WebAdaptiveCardSidePromptService {
 
     const payload = parsed.payload as AdaptiveCardActionPayload;
     const normalized = sanitizeAdaptiveCardActionPayload(payload);
-    const chatJid = normalized.chatJid ?? this.options.defaultChatJid;
+    const requestedChatJid = normalized.chatJid ?? null;
     if (!normalized.postId || normalized.postId <= 0) {
       return this.options.json({ error: "Missing or invalid post_id" }, 400);
     }
@@ -189,10 +190,14 @@ export class WebAdaptiveCardSidePromptService {
       return this.options.json({ error: `Unsupported action type: ${normalized.actionType}` }, 400);
     }
 
-    const sourceInteraction = getMessageByRowId(chatJid, sourcePostId);
+    const sourceInteraction = (requestedChatJid ? getMessageByRowId(requestedChatJid, sourcePostId) : undefined)
+      ?? getMessageByAnyRowId(sourcePostId);
     if (!sourceInteraction) {
       return this.options.json({ error: "Source post not found" }, 404);
     }
+    const chatJid = typeof sourceInteraction.chat_jid === "string" && sourceInteraction.chat_jid.trim()
+      ? sourceInteraction.chat_jid.trim()
+      : (requestedChatJid ?? this.options.defaultChatJid);
 
     const simulatedFailure = getAdaptiveCardTestFailure(normalized.cardId, normalized.actionData);
     if (simulatedFailure) {

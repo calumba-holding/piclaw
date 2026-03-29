@@ -33,7 +33,7 @@ Before changing anything:
 - the current source of truth docs exist:
   - `docs/filesystem-layout-audit-2026-03-28.md`
   - `docs/broad-filesystem-reorg-map-2026-03-28.md`
-  - `workitems/20-doing/plan-broad-filesystem-reorg-from-audit.md`
+  - `workitems/50-done/plan-broad-filesystem-reorg-from-audit.md`
 
 ## Primary deliverables
 

@@ -217,7 +217,7 @@ are not governed by one obvious placement rule.
 
 Two layout concerns are already captured and should be treated as existing roadmap items rather than re-audited indefinitely:
 
-- `workitems/10-next/group-web-channel-flat-files.md`
+- `workitems/40-review/group-web-channel-flat-files.md`
 - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
 
 That is good news: not every audit finding requires a new ticket.
@@ -266,7 +266,7 @@ To avoid churn, these should be treated as acceptable unless fresh evidence says
 
 ### Already existing
 
-- `workitems/10-next/group-web-channel-flat-files.md`
+- `workitems/40-review/group-web-channel-flat-files.md`
 - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
 
 ### New from this audit

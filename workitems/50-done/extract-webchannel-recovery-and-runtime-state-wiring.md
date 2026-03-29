@@ -32,7 +32,7 @@ agent-status persistence, panel-buffer behavior, or public API surfaces used by
 existing handlers/services.
 
 This is the next bounded execution slice under:
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 
 after the queued follow-up, server lifecycle/websocket gateway, and
 SSE/session-broadcast seams landed.
@@ -177,7 +177,7 @@ validation while keeping behavior and public surfaces unchanged.
 
 ## Links
 
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 - `workitems/20-doing/extract-webchannel-message-write-and-followup-coordination.md`
 - `workitems/40-review/extract-webchannel-queued-followup-service.md`
 - `workitems/40-review/extract-webchannel-server-lifecycle-and-websocket-gateway.md`

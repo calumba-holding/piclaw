@@ -30,7 +30,7 @@ Carve the Bun server lifecycle and websocket-upgrade gateway logic out of
 HTTP routes, upgrade behavior, auth checks, CSRF enforcement, or payload shapes.
 
 This is the next bounded execution slice under:
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 
 after the queued follow-up lifecycle extraction landed.
 
@@ -168,7 +168,7 @@ focused validation while keeping endpoint and transport behavior unchanged.
 
 ## Links
 
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 - `workitems/20-doing/extract-webchannel-sse-broadcast-and-session-wiring.md`
 - `workitems/40-review/extract-webchannel-queued-followup-service.md`
 - `/workspace/notes/piclaw-autoresearch-audit-checklist.md`

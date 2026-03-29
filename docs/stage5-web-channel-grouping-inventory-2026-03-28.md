@@ -211,5 +211,5 @@ across three reviewable manual tranches.
 ## Related files
 
 - `docs/broad-filesystem-reorg-map-2026-03-28.md`
-- `workitems/10-next/group-web-channel-flat-files.md`
-- `workitems/20-doing/plan-broad-filesystem-reorg-from-audit.md`
+- `workitems/40-review/group-web-channel-flat-files.md`
+- `workitems/50-done/plan-broad-filesystem-reorg-from-audit.md`

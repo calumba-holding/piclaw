@@ -58,7 +58,7 @@ Why partially applied: effective in principle, but practical work remained inter
 
 ## Follow-up moved out
 
-- `workitems/20-doing/azure-model-routing-and-stability.md`
+- `workitems/10-next/azure-model-routing-and-stability.md`
 
 ## Notes
 
@@ -66,5 +66,5 @@ Original detailed checklist lived in this ticket during the bug sweep. The remai
 
 ## Links
 
-- `workitems/20-doing/azure-model-routing-and-stability.md`
+- `workitems/10-next/azure-model-routing-and-stability.md`
 - `bugs.md`

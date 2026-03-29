@@ -365,7 +365,7 @@ Avoid indefinite dual-path support.
 - captured the current grouping inventory in `docs/stage5-web-channel-grouping-inventory-2026-03-28.md`
 - prepared the execution order in `docs/stage5-web-channel-grouping-steplist-2026-03-28.md`
 - prepared an execution brief in `docs/stage5-web-channel-grouping-autoresearch-prompt-2026-03-28.md`
-- opened `workitems/20-doing/execute-stage5-web-channel-grouping.md` as the active next batch
+- opened `workitems/50-done/execute-stage5-web-channel-grouping.md` as the active next batch at the time; the batch is now complete
 - current recommendation is to group the clearest semantic clusters first (`auth`, `sse`, `cards`, `media`, `theming`, `messaging`) rather than forcing the entire flat root into one move sweep
 
 ### Stage 5 execution update — 2026-03-28
@@ -411,11 +411,11 @@ output paths.
 
 ## Related tickets
 
-- `workitems/20-doing/plan-broad-filesystem-reorg-from-audit.md`
+- `workitems/50-done/plan-broad-filesystem-reorg-from-audit.md`
 - `workitems/50-done/audit-project-filesystem-layout.md`
 - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
 - `workitems/50-done/clarify-root-vs-runtime-ownership-boundaries.md`
 - `workitems/50-done/rationalize-runtime-generated-output-layout.md`
 - `workitems/50-done/namespace-internal-extensions-and-skills-paths.md`
 - `workitems/50-done/execute-stage4-extension-and-skill-namespacing.md`
-- `workitems/10-next/group-web-channel-flat-files.md`
+- `workitems/40-review/group-web-channel-flat-files.md`

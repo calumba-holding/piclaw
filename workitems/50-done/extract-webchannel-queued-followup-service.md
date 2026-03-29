@@ -28,7 +28,7 @@ focused service/module without changing request behavior, payload shapes, or the
 observable queue semantics used by the web UI.
 
 This is the first bounded execution slice under:
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 
 The goal is to reduce `WebChannel` size and coupling using a deterministic,
 reviewable seam rather than attempting a one-shot class rewrite.
@@ -159,6 +159,6 @@ keep the rest of `WebChannel` untouched in this slice.
 
 ## Links
 
-- `workitems/20-doing/split-webchannel-god-class.md`
+- `workitems/10-next/split-webchannel-god-class.md`
 - `workitems/20-doing/extract-webchannel-server-lifecycle-and-websocket-gateway.md`
 - `/workspace/notes/piclaw-autoresearch-audit-checklist.md`

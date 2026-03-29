@@ -40,7 +40,7 @@ Out-of-scope target for this batch unless proven safe:
 - source-of-truth docs exist:
   - `docs/broad-filesystem-reorg-map-2026-03-28.md`
   - `docs/stage2-runtime-generated-layout-inventory-2026-03-28.md`
-  - `workitems/20-doing/plan-broad-filesystem-reorg-from-audit.md`
+  - `workitems/50-done/plan-broad-filesystem-reorg-from-audit.md`
 
 ## Step-by-step execution plan
 

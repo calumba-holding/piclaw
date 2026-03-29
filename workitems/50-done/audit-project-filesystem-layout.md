@@ -159,7 +159,7 @@ into bounded follow-up tickets.
   - paired domains like `docs/` vs `runtime/docs/`, `scripts/` vs `runtime/scripts/`, and `artifacts/` vs `runtime/artifacts/` are the highest-friction confusion point
   - generated/transient runtime output (`runtime/dist/`, `runtime/.cache/`, `runtime/coverage/`, `runtime/reports/`, `runtime/tmp/`, `runtime/node_modules/`) is interleaved with maintained implementation directories and should get a clearer containment policy
   - existing tickets already cover two known structural follow-ons and should be reused rather than duplicated:
-    - `workitems/10-next/group-web-channel-flat-files.md`
+    - `workitems/40-review/group-web-channel-flat-files.md`
     - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
 - Split two new bounded follow-up tickets from the audit:
   - `workitems/50-done/clarify-root-vs-runtime-ownership-boundaries.md`
@@ -168,7 +168,7 @@ into bounded follow-up tickets.
 - Final outcome of this audit slice:
   - audit completed and recorded in `docs/filesystem-layout-audit-2026-03-28.md`
   - two existing downstream structure tickets explicitly reused:
-    - `workitems/10-next/group-web-channel-flat-files.md`
+    - `workitems/40-review/group-web-channel-flat-files.md`
     - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
   - two new bounded follow-up tickets created:
     - `workitems/50-done/clarify-root-vs-runtime-ownership-boundaries.md`
@@ -181,7 +181,7 @@ into bounded follow-up tickets.
 - `docs/filesystem-layout-audit-2026-03-28.md`
 - `workitems/50-done/clarify-root-vs-runtime-ownership-boundaries.md`
 - `workitems/50-done/rationalize-runtime-generated-output-layout.md`
-- `workitems/10-next/group-web-channel-flat-files.md`
+- `workitems/40-review/group-web-channel-flat-files.md`
 - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
 - `README.md`
 - `docs/quality-assessment-2026-03-23.md`

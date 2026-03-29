@@ -53,7 +53,7 @@ Out of scope:
 
 Use:
 
-- `workitems/10-next/group-web-channel-flat-files.md`
+- `workitems/40-review/group-web-channel-flat-files.md`
 - `docs/broad-filesystem-reorg-map-2026-03-28.md`
 - `docs/stage5-web-channel-grouping-inventory-2026-03-28.md`
 - `docs/stage5-web-channel-grouping-steplist-2026-03-28.md`
@@ -143,7 +143,7 @@ as the implementation map/steplist for this batch.
 ## Links
 
 - `workitems/50-done/plan-broad-filesystem-reorg-from-audit.md`
-- `workitems/10-next/group-web-channel-flat-files.md`
+- `workitems/40-review/group-web-channel-flat-files.md`
 - `docs/broad-filesystem-reorg-map-2026-03-28.md`
 - `docs/stage5-web-channel-grouping-inventory-2026-03-28.md`
 - `docs/stage5-web-channel-grouping-steplist-2026-03-28.md`

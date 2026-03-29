@@ -33,7 +33,7 @@ reason otherwise:
 - source-of-truth docs exist:
   - `docs/stage5-web-channel-grouping-inventory-2026-03-28.md`
   - `docs/broad-filesystem-reorg-map-2026-03-28.md`
-  - `workitems/10-next/group-web-channel-flat-files.md`
+  - `workitems/40-review/group-web-channel-flat-files.md`
 
 ## Step-by-step execution plan
 

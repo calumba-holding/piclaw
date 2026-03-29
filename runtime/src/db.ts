@@ -23,6 +23,7 @@ export {
   storeChatMetadata,
   storeMessage,
   getMessageByRowId,
+  getMessageByAnyRowId,
   getMessageRowIdById,
   getMessageThreadRootIdById,
   deleteMessageByRowId,

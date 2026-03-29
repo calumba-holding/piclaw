@@ -121,6 +121,69 @@ describe("Web adaptive-card/side-prompt service", () => {
     expect(await unsupportedResponse.json()).toEqual({ error: "Unsupported action type: Action.Fly" });
   });
 
+  test("routes adaptive-card submissions back to the source post chat when chat_jid is missing or wrong", async () => {
+    process.env.PICLAW_DB_IN_MEMORY = "1";
+    const db = await import("../../../../src/db.js");
+    db.initDatabase();
+    db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats; DELETE FROM chat_cursors;");
+
+    const sourcePostId = db.storeMessage({
+      id: "card-source-1",
+      chat_jid: "web:branch",
+      sender: "agent",
+      sender_name: "Agent",
+      content: "Card host",
+      timestamp: new Date().toISOString(),
+      is_from_me: true,
+      is_bot_message: true,
+      content_blocks: [
+        {
+          type: "adaptive_card",
+          card_id: "card-branch",
+          state: "active",
+          submit_behavior: "keep_active",
+          payload: {
+            type: "AdaptiveCard",
+            version: "1.5",
+            body: [],
+            actions: [{ type: "Action.Submit", title: "Go", data: { intent: "generic" } }],
+          },
+        },
+      ],
+    });
+
+    const forwardCalls: Array<{ chatJid: string; pathname: string }> = [];
+    const fixture = createFixture({
+      forwardAgentMessage: async (_req, pathname, chatJid) => {
+        forwardCalls.push({ chatJid, pathname });
+        return new Response(JSON.stringify({ status: "ok", id: 999 }), { status: 201 });
+      },
+    });
+
+    const missingChatRes = await fixture.service.handleAdaptiveCardAction(createRequest("/agent/card-action", {
+      method: "POST",
+      body: JSON.stringify({
+        post_id: sourcePostId,
+        card_id: "card-branch",
+        action: { type: "Action.Submit", title: "Go", data: { intent: "generic" } },
+      }),
+    }));
+    expect(missingChatRes.status).toBe(201);
+    expect(forwardCalls[0]?.chatJid).toBe("web:branch");
+
+    const wrongChatRes = await fixture.service.handleAdaptiveCardAction(createRequest("/agent/card-action", {
+      method: "POST",
+      body: JSON.stringify({
+        post_id: sourcePostId,
+        chat_jid: "web:default",
+        card_id: "card-branch",
+        action: { type: "Action.Submit", title: "Go", data: { intent: "generic" } },
+      }),
+    }));
+    expect(wrongChatRes.status).toBe(201);
+    expect(forwardCalls[1]?.chatJid).toBe("web:branch");
+  });
+
   test("delegates parsed side-prompt payloads and maps error results to 502", async () => {
     const fixture = createFixture();
 
