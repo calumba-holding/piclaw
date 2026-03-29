@@ -82,6 +82,7 @@ import {
 } from './ui/generated-widget.js';
 import { resolveLiveGeneratedWidgetEvent } from './ui/app-generated-widget-events.js';
 import { isCompactionStatus } from './ui/status-duration.js';
+import { resolveModelStateUpdate } from './ui/app-model-state.js';
 import { installStandaloneMobileViewportFix } from './ui/mobile-viewport.js';
 import { resolveOptionalApi } from './ui/optional-api.js';
 import {
@@ -1695,12 +1696,11 @@ function MainApp({ locationParams, navigate }) {
     }, []);
 
     const applyModelState = useCallback((payload) => {
-        if (!payload || typeof payload !== 'object') return;
-        const nextModel = payload.model ?? payload.current;
-        if (nextModel !== undefined) setActiveModel(nextModel);
-        if (payload.thinking_level !== undefined) setActiveThinkingLevel(payload.thinking_level ?? null);
-        if (payload.supports_thinking !== undefined) setSupportsThinking(Boolean(payload.supports_thinking));
-        if (payload.provider_usage !== undefined) setActiveModelUsage(payload.provider_usage ?? null);
+        const modelUpdate = resolveModelStateUpdate(payload);
+        if (modelUpdate.hasModel) setActiveModel(modelUpdate.model);
+        if (modelUpdate.hasThinkingLevel) setActiveThinkingLevel(modelUpdate.thinkingLevel);
+        if (modelUpdate.hasSupportsThinking) setSupportsThinking(modelUpdate.supportsThinking);
+        if (modelUpdate.hasProviderUsage) setActiveModelUsage(modelUpdate.providerUsage);
     }, []);
 
     const refreshModelState = useCallback(() => {
@@ -2434,9 +2434,10 @@ function MainApp({ locationParams, navigate }) {
 
         if (eventType === 'model_changed') {
             if (!isCurrentChatEvent) return;
-            if (data?.model !== undefined) setActiveModel(data.model);
-            if (data?.thinking_level !== undefined) setActiveThinkingLevel(data.thinking_level ?? null);
-            if (data?.supports_thinking !== undefined) setSupportsThinking(Boolean(data.supports_thinking));
+            const modelUpdate = resolveModelStateUpdate(data);
+            if (modelUpdate.hasModel) setActiveModel(modelUpdate.model);
+            if (modelUpdate.hasThinkingLevel) setActiveThinkingLevel(modelUpdate.thinkingLevel);
+            if (modelUpdate.hasSupportsThinking) setSupportsThinking(modelUpdate.supportsThinking);
             // Refresh context usage - the context window size changes with the model
             const targetChatJid = currentChatJid;
             getAgentContext(targetChatJid)

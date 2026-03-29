@@ -41,6 +41,9 @@ fi
 if [[ -f runtime/test/web/app-sse-event-routing.test.ts ]]; then
   tests+=(runtime/test/web/app-sse-event-routing.test.ts)
 fi
+if [[ -f runtime/test/web/app-model-state.test.ts ]]; then
+  tests+=(runtime/test/web/app-model-state.test.ts)
+fi
 
 PICLAW_DB_IN_MEMORY=1 bun test --max-concurrency=1 "${tests[@]}"
 
@@ -82,6 +85,9 @@ rg -q "readAgentTurnId" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
 [[ -f runtime/test/web/app-sse-event-routing.test.ts ]] && seam_score=$((seam_score + 1))
 rg -q "resolveSseEventRoutingContext" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
 rg -q "isNoisyAgentSseEvent" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
+[[ -f runtime/web/src/ui/app-model-state.ts ]] && seam_score=$((seam_score + 1))
+[[ -f runtime/test/web/app-model-state.test.ts ]] && seam_score=$((seam_score + 1))
+rg -q "resolveModelStateUpdate" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
 
 echo "METRIC seam_score=${seam_score}"
 echo "METRIC targeted_test_ms=${targeted_test_ms}"

@@ -1,7 +1,7 @@
 # Autoresearch: continue-decompose-web-app-shell
 
 ## Objective
-Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while preserving UX semantics and payload shapes. Current tranches target (1) active-branch roster shaping (normalization, merge precedence, stable sorting), (2) queued follow-up SSE row normalization/append behavior, (3) generated-widget SSE event routing/fallback mapping, (4) turn-scoped SSE gating/adoption semantics, (5) real-time timeline mutation gating/operations, (6) extension-UI SSE chat/toast mapping, (7) agent-status preview/turn restore shaping, and (8) SSE chat-scope/noisy-event routing context.
+Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while preserving UX semantics and payload shapes. Current tranches target (1) active-branch roster shaping (normalization, merge precedence, stable sorting), (2) queued follow-up SSE row normalization/append behavior, (3) generated-widget SSE event routing/fallback mapping, (4) turn-scoped SSE gating/adoption semantics, (5) real-time timeline mutation gating/operations, (6) extension-UI SSE chat/toast mapping, (7) agent-status preview/turn restore shaping, (8) SSE chat-scope/noisy-event routing context, and (9) model-state payload normalization.
 
 ## Metrics
 - **Primary**: `seam_score` (unitless, higher is better) — structural completion for the extracted active-branch roster seam
@@ -19,6 +19,8 @@ Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while 
 - Existing focused web seam tests under `runtime/test/web/`
 - `runtime/web/src/ui/app-sse-event-routing.ts` — typed SSE chat-scope/noisy-event routing helper seam
 - `runtime/test/web/app-sse-event-routing.test.ts` — focused routing seam tests
+- `runtime/web/src/ui/app-model-state.ts` — typed model payload normalization helper seam
+- `runtime/test/web/app-model-state.test.ts` — focused model-state normalization tests
 
 ## Off Limits
 - Runtime/backend services and protocol contracts
@@ -59,3 +61,5 @@ Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while 
 - Added focused tests in `runtime/test/web/app-agent-status-refresh.test.ts` for turn-id precedence, preview payload normalization, and existing-preview retention behavior.
 - Extracted SSE chat-scope routing/noisy-agent-event classification from `app.ts` into typed `runtime/web/src/ui/app-sse-event-routing.ts` (`resolveSseEventRoutingContext`, `isNoisyAgentSseEvent`) so `handleSseEvent` delegates chat targeting and activity-flag suppression decisions.
 - Added focused tests in `runtime/test/web/app-sse-event-routing.test.ts` for chat-jid trimming/global-event fallback behavior and noisy-agent event classification.
+- Extracted model-state payload normalization from `app.ts` into typed `runtime/web/src/ui/app-model-state.ts` (`resolveModelStateUpdate`) so both API refresh and `model_changed` SSE handling share the same nullish/boolean coercion semantics.
+- Added focused tests in `runtime/test/web/app-model-state.test.ts` to lock model/current fallback behavior plus `thinking_level`, `supports_thinking`, and `provider_usage` normalization.
