@@ -1,10 +1,10 @@
 ---
 id: split-webchannel-god-class
 title: "Refactor: split WebChannel god-class into composable services"
-status: next
+status: review
 priority: critical
 created: 2026-03-23
-updated: 2026-03-28
+updated: 2026-03-29
 tags:
   - refactor
   - modularity
@@ -35,11 +35,11 @@ Extract `WebChannel` into a composition of focused services:
 
 ## Acceptance criteria
 
-- [ ] No method in `WebChannel` exceeds 50 lines
-- [ ] `WebChannel` class is under 300 lines
-- [ ] Extracted services have their own test files
-- [ ] All existing web channel tests still pass
-- [ ] No new `any` usage introduced
+- [x] No method in `WebChannel` exceeds 50 lines
+- [x] `WebChannel` class is under 300 lines
+- [x] Extracted services have their own test files
+- [x] All existing web channel tests still pass
+- [x] No new `any` usage introduced
 
 ## Risks
 
@@ -53,6 +53,24 @@ Extract `WebChannel` into a composition of focused services:
 - This unblocks all future web-layer work
 
 ## Updates
+
+### 2026-03-29
+- Lane change: `20-doing` → `40-review` after finishing the remaining coordinator-shell extraction as a prototype installer seam.
+- Implementation summary:
+  - added `runtime/src/channels/web/core/web-channel-prototype.ts` to own the compatibility getters/wrapper methods and delegate them to the extracted HTTP/runtime/lifecycle services
+  - reduced `runtime/src/channels/web.ts` from 568 lines to 128 lines while preserving `WebChannel.prototype...` compatibility for bare-stub tests
+  - kept the constructor focused on collaborator assembly plus surface-service attachment
+  - regenerated dist output for the new prototype module
+- Evidence:
+  - `runtime/src/channels/web.ts`: 128 lines
+  - validation passed: `bun test test/channels/web`, `bun run lint`, `bun run typecheck`, `bun run build`, `bun run check:stale-dist`
+- Quality: ★★★★★ 9/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 2)
+
+### 2026-03-29
+- Lane change: `10-next` → `20-doing` after the AgentPool refactor moved to `40-review`, making WebChannel the highest-priority remaining structural split.
+- Reactivated as the next active P0 refactor because it is unblocked, still directly blocks the quality umbrella, and remains the largest maintainability hotspot in the runtime web layer.
+- Current starting point remains favorable for bounded slices rather than a rewrite: `runtime/src/channels/web.ts` is already a compatibility shell over extracted services, so the active work should focus on behavior-based seams and stable lifecycle/wiring cleanup.
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 1, deps: 2, risk: 1)
 
 ### 2026-03-28
 - Lane retained: `10-next` via web next-card decision.

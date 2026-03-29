@@ -46,7 +46,7 @@ These are the open tickets that still block this umbrella from closing.
 
 | Ticket | Status | Description |
 |---|---|---|
-| `split-webchannel-god-class` | next | Split 1,905-line WebChannel into composable services |
+| `split-webchannel-god-class` | review | Split 1,905-line WebChannel into composable services |
 | `split-agentpool-god-class` | review | Split 1,632-line AgentPool into session/tools/turn modules |
 
 ### Active supporting quality work
@@ -88,6 +88,16 @@ These are desirable but not required to close this ticket:
 - [ ] Re-run quality assessment and confirm grade improvement
 
 ## Updates
+
+### 2026-03-29
+- Refreshed blocker status after the WebChannel shell split moved from `20-doing` to `40-review`.
+- The umbrella now has both structural god-class blockers (`split-webchannel-god-class` and `split-agentpool-god-class`) sitting in review instead of active implementation.
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 1, deps: 2, risk: 1)
+
+### 2026-03-29
+- Refreshed blocker status again after promoting `split-webchannel-god-class` from `10-next` to `20-doing` as the next active P0 refactor.
+- The umbrella now has one structural blocker in active implementation (`split-webchannel-god-class`) and one in review (`split-agentpool-god-class`).
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 1, deps: 2, risk: 1)
 
 ### 2026-03-29
 - Refreshed blocker status after the AgentPool refactor tranche moved `split-agentpool-god-class` from active implementation to `40-review`.
