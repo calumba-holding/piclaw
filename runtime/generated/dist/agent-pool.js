@@ -22,165 +22,21 @@
  */
 import { mkdirSync } from "fs";
 import { join } from "path";
-import { AuthStorage, createBashTool, createEditTool, createReadTool, createWriteTool, ModelRegistry, SettingsManager, getAgentDir, } from "@mariozechner/pi-coding-agent";
-import { applyControlCommand } from "./agent-control/index.js";
-import { SESSIONS_DIR, WORKSPACE_DIR, getAgentRuntimeConfig, getIdentityConfig, getSessionStorageConfig } from "./core/config.js";
-import { detectChannel } from "./router.js";
+import { AuthStorage, ModelRegistry, SettingsManager, getAgentDir, } from "@mariozechner/pi-coding-agent";
+import { SESSIONS_DIR, WORKSPACE_DIR } from "./core/config.js";
 import { createTrackedBashOperations } from "./tools/tracked-bash.js";
 import { getAttachmentRegistry } from "./agent-pool/attachments.js";
-import { writeAgentLog } from "./agent-pool/logging.js";
-import { pruneOrphanToolResults } from "./agent-pool/orphan-tool-results.js";
-import { createDefaultSession, createSessionInDir, ensureNamedSessionDir, ensureSessionDir } from "./agent-pool/session.js";
-import { executeSlashCommand } from "./agent-pool/slash-command.js";
-import { getProviderUsage } from "./agent-pool/provider-usage.js";
+import { AgentBranchManager } from "./agent-pool/branch-manager.js";
+import { runSidePrompt as runSidePromptInternal } from "./agent-pool/side-prompt-runner.js";
+import { runAgentPrompt } from "./agent-pool/run-agent-orchestrator.js";
+import { AgentRuntimeFacade } from "./agent-pool/runtime-facade.js";
+import { AgentSessionBinder } from "./agent-pool/session-binder.js";
+import { AgentSessionManager } from "./agent-pool/session-manager.js";
+import { AgentToolFactory } from "./agent-pool/tool-factory.js";
+import { AgentTurnCoordinator } from "./agent-pool/turn-coordinator.js";
 import { recordMessageUsage } from "./agent-pool/usage.js";
-import { resolveModelLabel } from "./utils/model-utils.js";
-import { withChatContext } from "./core/chat-context.js";
-import { getSessionFileSize, rotateSession, seedRotatedSession, forcePersistSessionFile } from "./session-rotation.js";
-import { archiveChatBranch, ensureChatBranch, getChatBranchByAgentName, getChatBranchByChatJid, listChatBranches, renameChatBranchIdentity, restoreChatBranchIdentity, storeChatMetadata, } from "./db.js";
-import { createUuid } from "./utils/ids.js";
 import { createLogger } from "./utils/logger.js";
-import { resolveModelRequestAuth } from "./utils/model-auth.js";
 const log = createLogger("agent-pool");
-function formatTimeoutDuration(timeoutMs) {
-    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
-        return `${timeoutMs}ms`;
-    if (timeoutMs % 1000 === 0)
-        return `${Math.round(timeoutMs / 1000)}s`;
-    return `${(timeoutMs / 1000).toFixed(1)}s`;
-}
-function extractAssistantText(message) {
-    if (!Array.isArray(message?.content))
-        return "";
-    return message.content
-        .map((block) => block && typeof block === "object" && block.type === "text"
-        ? String(block.text ?? "")
-        : "")
-        .join("")
-        .trim();
-}
-function extractAssistantThinking(message) {
-    if (!Array.isArray(message?.content))
-        return "";
-    return message.content
-        .map((block) => block && typeof block === "object" && block.type === "thinking"
-        ? String(block.thinking ?? "")
-        : "")
-        .join("")
-        .trim();
-}
-function toSideReasoning(level) {
-    return level === "minimal" || level === "low" || level === "medium" || level === "high" || level === "xhigh"
-        ? level
-        : undefined;
-}
-function normalizeAgentHandlePart(value) {
-    return value
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9_-]+/g, "-")
-        .replace(/^-+|-+$/g, "")
-        .replace(/-{2,}/g, "-");
-}
-function deriveAgentHandle(chatJid, sessionName) {
-    const sessionHandle = sessionName ? normalizeAgentHandlePart(sessionName) : "";
-    if (sessionHandle)
-        return sessionHandle;
-    const jidTail = chatJid.split(/[:/]/).filter(Boolean).pop() || chatJid;
-    // Use configured assistant name for the root "default" branch
-    // instead of the generic "default" derived from web:default.
-    if (jidTail === "default") {
-        const configHandle = normalizeAgentHandlePart(getIdentityConfig().assistantName || "");
-        if (configHandle)
-            return configHandle;
-    }
-    const jidHandle = normalizeAgentHandlePart(jidTail);
-    if (jidHandle)
-        return jidHandle;
-    return "agent";
-}
-function buildForkedChatJid(sourceChatJid) {
-    const root = sourceChatJid.startsWith("web:") ? sourceChatJid : `web:${sourceChatJid}`;
-    return `${root}:branch:${createUuid("chat").split("-").pop()}`;
-}
-function createVolatileBranchRecord(chatJid, session) {
-    return {
-        branch_id: `volatile:${chatJid}`,
-        chat_jid: chatJid,
-        root_chat_jid: chatJid,
-        parent_branch_id: null,
-        agent_name: deriveAgentHandle(chatJid, session?.sessionName?.trim() || null),
-        display_name: null,
-        created_at: new Date(0).toISOString(),
-        updated_at: new Date(0).toISOString(),
-        archived_at: null,
-    };
-}
-function getStableForkSeed(sourceSession, stableLeafId) {
-    const branchEntries = stableLeafId === null
-        ? []
-        : (typeof sourceSession.sessionManager?.getBranch === "function"
-            ? sourceSession.sessionManager.getBranch(stableLeafId)
-            : []);
-    let sessionName = null;
-    let model = null;
-    let thinkingLevel = null;
-    for (const entry of branchEntries) {
-        if (entry?.type === "session_info" && typeof entry.name === "string" && entry.name.trim()) {
-            sessionName = entry.name.trim();
-        }
-        else if (entry?.type === "model_change" && typeof entry.provider === "string" && typeof entry.modelId === "string") {
-            model = { provider: entry.provider, modelId: entry.modelId };
-        }
-        else if (entry?.type === "thinking_level_change" && typeof entry.thinkingLevel === "string") {
-            thinkingLevel = entry.thinkingLevel;
-        }
-        else if (entry?.type === "message" && entry.message?.role === "assistant" && typeof entry.message?.provider === "string" && typeof entry.message?.model === "string") {
-            model = { provider: entry.message.provider, modelId: entry.message.model };
-        }
-    }
-    return { branchEntries, sessionName, model, thinkingLevel };
-}
-function seedSessionManagerFromBranchEntries(sessionManager, branchEntries, fallback) {
-    if (!Array.isArray(branchEntries) || branchEntries.length === 0) {
-        if (fallback.sessionName?.trim()) {
-            sessionManager.appendSessionInfo(fallback.sessionName.trim());
-        }
-        if (fallback.model) {
-            sessionManager.appendModelChange(fallback.model.provider, fallback.model.modelId);
-        }
-        return;
-    }
-    const sourceToNewId = new Map();
-    for (const entry of branchEntries) {
-        let newId = null;
-        if (entry?.type === "message" && entry.message) {
-            newId = sessionManager.appendMessage(entry.message);
-        }
-        else if (entry?.type === "thinking_level_change" && typeof entry.thinkingLevel === "string") {
-            newId = sessionManager.appendThinkingLevelChange(entry.thinkingLevel);
-        }
-        else if (entry?.type === "model_change" && typeof entry.provider === "string" && typeof entry.modelId === "string") {
-            newId = sessionManager.appendModelChange(entry.provider, entry.modelId);
-        }
-        else if (entry?.type === "compaction" && typeof entry.summary === "string") {
-            const firstKeptEntryId = sourceToNewId.get(entry.firstKeptEntryId) || sourceToNewId.get(branchEntries[0]?.id) || "rotated-context";
-            newId = sessionManager.appendCompaction(entry.summary, firstKeptEntryId, entry.tokensBefore ?? 0, entry.details, entry.fromHook);
-        }
-        else if (entry?.type === "session_info" && typeof entry.name === "string" && entry.name.trim()) {
-            newId = sessionManager.appendSessionInfo(entry.name.trim());
-        }
-        else if (entry?.type === "custom_message" && typeof entry.customType === "string") {
-            newId = sessionManager.appendCustomMessageEntry(entry.customType, entry.content, entry.display, entry.details);
-        }
-        else if (entry?.type === "custom_entry" && typeof entry.customType === "string") {
-            newId = sessionManager.appendCustomEntry(entry.customType, entry.data);
-        }
-        if (entry?.id && newId) {
-            sourceToNewId.set(entry.id, newId);
-        }
-    }
-}
 /** How long (ms) an idle session stays cached before being disposed. */
 const IDLE_TTL = 10 * 60 * 1000; // 10 minutes
 const CLEANUP_INTERVAL = 60 * 1000; // check every minute
@@ -203,848 +59,188 @@ export class AgentPool {
     logsDir = join(WORKSPACE_DIR, "logs");
     createSession;
     createSideSession;
-    sessionBinder;
+    sessionBinder = new AgentSessionBinder({
+        pool: this.pool,
+        onError: (message, details) => log.error(message, details),
+    });
     bashOperations = createTrackedBashOperations();
     attachments = getAttachmentRegistry();
+    toolFactory = new AgentToolFactory({
+        workspaceDir: WORKSPACE_DIR,
+        bashOperations: this.bashOperations,
+    });
+    turnCoordinator = new AgentTurnCoordinator({
+        takeAttachments: (chatJid) => this.attachments.take(chatJid),
+        touchSession: (chatJid) => {
+            const entry = this.pool.get(chatJid);
+            if (entry)
+                entry.lastUsed = Date.now();
+        },
+        recordMessageUsage,
+        onWarn: (message, details) => log.warn(message, details),
+        onError: (message, details) => log.error(message, details),
+    });
+    sessionManager;
+    branchManager;
+    runtimeFacade;
     sideStreamSimple;
     constructor(options = {}) {
         this.createSession = options.createSession;
         this.createSideSession = options.createSideSession;
         this.authStorage = AuthStorage.create();
         this.modelRegistry = options.modelRegistry ?? new ModelRegistry(this.authStorage);
+        this.sessionManager = new AgentSessionManager({
+            pool: this.pool,
+            sidePool: this.sidePool,
+            ...(this.createSession ? { createSession: this.createSession } : {}),
+            ...(this.createSideSession ? { createSideSession: this.createSideSession } : {}),
+            authStorage: this.authStorage,
+            modelRegistry: this.modelRegistry,
+            settingsManager: this.settingsManager,
+            createDefaultTools: () => this.toolFactory.createDefaultTools(),
+            bindSession: (session, chatJid) => this.sessionBinder.bindSession(session, chatJid),
+            ensureBranchRegistration: (chatJid, session) => {
+                this.branchManager.ensureBranchRegistration(chatJid, session);
+            },
+            onInfo: (message, details) => log.info(message, details),
+            onWarn: (message, details) => log.warn(message, details),
+            onError: (message, details) => log.error(message, details),
+        });
+        this.runtimeFacade = new AgentRuntimeFacade({
+            pool: this.pool,
+            getOrCreate: (chatJid) => this.getOrCreate(chatJid),
+            modelRegistry: this.modelRegistry,
+            authStorage: this.authStorage,
+            clearAttachments: (chatJid) => this.attachments.clear(chatJid),
+            onWarn: (message, details) => log.warn(message, details),
+            onError: (message, details) => log.error(message, details),
+        });
+        this.branchManager = new AgentBranchManager({
+            pool: this.pool,
+            sidePool: this.sidePool,
+            activeForkBaseLeafByChat: this.activeForkBaseLeafByChat,
+            getOrCreate: (chatJid) => this.getOrCreate(chatJid),
+            isActive: (chatJid) => this.runtimeFacade.isActive(chatJid),
+            onWarn: (message, details) => log.warn(message, details),
+        });
         this.sideStreamSimple = options.sideStreamSimple;
         mkdirSync(SESSIONS_DIR, { recursive: true });
         mkdirSync(this.logsDir, { recursive: true });
-        this.cleanupTimer = setInterval(() => this.evictIdle(), CLEANUP_INTERVAL);
+        this.cleanupTimer = setInterval(() => this.sessionManager.evictIdle(IDLE_TTL), CLEANUP_INTERVAL);
     }
     setSessionBinder(binder) {
-        this.sessionBinder = binder;
-        if (!binder)
-            return;
-        for (const [jid, entry] of this.pool) {
-            try {
-                void binder(entry.session, jid);
-            }
-            catch (err) {
-                log.error("Failed to bind session", {
-                    operation: "set_session_binder.bind_existing_session",
-                    chatJid: jid,
-                    err,
-                });
-            }
-        }
-    }
-    /** Attempt safe automatic session rotation before the next prompt when configured. */
-    async maybeAutoRotateSession(session, chatJid) {
-        const sessionStorageConfig = getSessionStorageConfig();
-        const autoRotateEnabled = sessionStorageConfig.autoRotate
-            || ["1", "true", "yes", "on"].includes((process.env.PICLAW_SESSION_AUTO_ROTATE || "").trim().toLowerCase());
-        if (!autoRotateEnabled)
-            return;
-        const envThresholdMb = parseInt(process.env.PICLAW_SESSION_MAX_SIZE_MB || "", 10);
-        const thresholdBytes = Number.isFinite(envThresholdMb) && envThresholdMb > 0
-            ? envThresholdMb * 1024 * 1024
-            : sessionStorageConfig.maxSizeBytes;
-        const sessionFileSize = getSessionFileSize(session.sessionFile);
-        if (sessionFileSize === null || sessionFileSize < thresholdBytes)
-            return;
-        const result = await rotateSession(session, { reason: "automatic" });
-        if (result.status === "success") {
-            log.info("Auto-rotated oversized session", {
-                operation: "maybe_auto_rotate_session",
-                chatJid,
-                previousSize: result.previousSize ?? sessionFileSize,
-                nextSize: result.nextSize ?? "unknown",
-            });
-            return;
-        }
-        log.warn("Auto-rotation skipped", {
-            operation: "maybe_auto_rotate_session",
-            chatJid,
-            reason: result.message,
-        });
+        this.sessionBinder.setBinder(binder);
     }
     /** Run a prompt against the persistent session for `chatJid`. */
     async runAgent(prompt, chatJid, options = {}) {
-        const startTime = Date.now();
-        this.attachments.clear(chatJid);
-        try {
-            const session = await this.getOrCreate(chatJid);
-            await this.maybeAutoRotateSession(session, chatJid);
-            pruneOrphanToolResults(session, chatJid);
-            const forkBaseLeafId = typeof session.sessionManager?.getLeafId === "function"
-                ? session.sessionManager.getLeafId()
-                : null;
-            this.activeForkBaseLeafByChat.set(chatJid, forkBaseLeafId ?? null);
-            log.info("Prompting session", {
-                operation: "run_agent.prompt",
-                chatJid,
-                promptLength: prompt.length,
-            });
-            const tracker = this.createTurnTracker(chatJid, options.onTurnComplete);
-            const unsub = this.subscribeToSession(session, chatJid, tracker, options.onEvent);
-            const timeoutMs = typeof options.timeoutMs === "number" ? options.timeoutMs : getAgentRuntimeConfig().timeoutMs;
-            const { timeoutId, timedOutRef } = this.startPromptTimeout(session, chatJid, timeoutMs);
-            const channel = detectChannel(chatJid);
-            return await withChatContext(chatJid, channel, async () => {
-                try {
-                    await session.prompt(prompt);
-                    // Guard against premature waitForRetry() resolution:
-                    // agent-session._resolveRetry() fires at message_end (first successful LLM
-                    // response during auto-retry), while the retry _runLoop may still be executing
-                    // tool calls (isStreaming=true). The upstream design assumes human-paced TUI
-                    // callers where this is harmless. In our queue-based context it causes the
-                    // next processChat to call session.prompt() while isStreaming is still true,
-                    // producing "already processing" errors. Poll until truly idle.
-                    // Wait until the session is truly idle. Auto-compaction can start
-                    // after the main response finishes and may kick off a follow-up
-                    // continue() call (e.g., overflow recovery). Keep listening until
-                    // streaming + compaction fully settle.
-                    const idleSettleTicks = 10;
-                    let idleTicks = 0;
-                    while (idleTicks < idleSettleTicks) {
-                        if (!session.isStreaming && !session.isCompacting && !session.isRetrying) {
-                            idleTicks += 1;
-                        }
-                        else {
-                            idleTicks = 0;
-                        }
-                        await Bun.sleep(50);
-                    }
-                }
-                finally {
-                    if (timeoutId)
-                        clearTimeout(timeoutId);
-                    unsub();
-                }
-                const duration = Date.now() - startTime;
-                // If onTurnComplete was used, intermediate turns were already flushed.
-                // The final turn's text is in tracker.getFinalText().
-                const finalText = tracker.getFinalText();
-                const finalAttachments = this.attachments.take(chatJid);
-                const timedOut = timedOutRef.value;
-                writeAgentLog(this.logsDir, chatJid, duration, timedOut, finalText, null);
-                if (timedOut) {
-                    return { status: "error", result: null, error: `Timed out after ${formatTimeoutDuration(timeoutMs)}` };
-                }
-                log.info("Agent run completed", {
-                    operation: "run_agent.complete",
-                    chatJid,
-                    durationMs: duration,
-                    outputChars: finalText.length,
-                    turns: tracker.getTurnCount() + 1,
-                });
-                return {
-                    status: "success",
-                    result: finalText || null,
-                    attachments: finalAttachments.length ? finalAttachments : undefined,
-                };
-            });
-        }
-        catch (err) {
-            this.attachments.clear(chatJid);
-            const duration = Date.now() - startTime;
-            const errorMsg = err instanceof Error ? err.message : String(err);
-            writeAgentLog(this.logsDir, chatJid, duration, false, null, errorMsg);
-            log.error("Agent run failed", {
-                operation: "run_agent",
-                chatJid,
-                durationMs: duration,
-                errorMessage: errorMsg,
-                err,
-            });
-            return { status: "error", result: null, error: errorMsg };
-        }
-        finally {
-            this.activeForkBaseLeafByChat.delete(chatJid);
-        }
+        return runAgentPrompt(prompt, chatJid, options, {
+            getOrCreate: (nextChatJid) => this.getOrCreate(nextChatJid),
+            turnCoordinator: this.turnCoordinator,
+            clearAttachments: (nextChatJid) => this.attachments.clear(nextChatJid),
+            takeAttachments: (nextChatJid) => this.attachments.take(nextChatJid),
+            logsDir: this.logsDir,
+            setActiveForkBaseLeaf: (nextChatJid, leafId) => this.activeForkBaseLeafByChat.set(nextChatJid, leafId),
+            clearActiveForkBaseLeaf: (nextChatJid) => {
+                this.activeForkBaseLeafByChat.delete(nextChatJid);
+            },
+            onInfo: (message, details) => log.info(message, details),
+            onWarn: (message, details) => log.warn(message, details),
+            onError: (message, details) => log.error(message, details),
+        });
     }
     async applyControlCommand(chatJid, command) {
-        const session = await this.getOrCreate(chatJid);
-        const channel = detectChannel(chatJid);
-        return await withChatContext(chatJid, channel, () => applyControlCommand(session, this.modelRegistry, command));
+        return this.runtimeFacade.applyControlCommand(chatJid, command);
     }
     async getCurrentModelLabel(chatJid) {
-        const session = await this.getOrCreate(chatJid);
-        const model = session.model;
-        return model ? `${model.provider}/${model.id}` : null;
+        return this.runtimeFacade.getCurrentModelLabel(chatJid);
     }
     async runSidePrompt(chatJid, prompt, options = {}) {
-        const session = await this.getOrCreate(chatJid);
-        const model = session.model;
-        if (!model) {
-            return { status: "error", result: null, thinking: null, error: "No active model selected.", model: null };
-        }
-        if (this.sideStreamSimple) {
-            const auth = await resolveModelRequestAuth(this.modelRegistry, model);
-            if (!auth.ok) {
-                return {
-                    status: "error",
-                    result: null,
-                    thinking: null,
-                    error: auth.error || `No credentials available for ${model.provider}/${model.id}.`,
-                    model: `${model.provider}/${model.id}`,
-                };
-            }
-            const stream = this.sideStreamSimple(model, {
-                ...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
-                messages: [
-                    {
-                        role: "user",
-                        content: [{ type: "text", text: prompt }],
-                        timestamp: Date.now(),
-                    },
-                ],
-            }, {
-                apiKey: auth.apiKey,
-                headers: auth.headers,
-                reasoning: toSideReasoning(session.thinkingLevel),
-                signal: options.signal,
-            });
-            let text = "";
-            let thinking = "";
-            let finalMessage = null;
-            for await (const event of stream) {
-                options.onEvent?.(event);
-                if (event.type === "text_delta") {
-                    text += event.delta;
-                    options.onTextDelta?.(event.delta);
-                }
-                else if (event.type === "thinking_delta") {
-                    thinking += event.delta;
-                    options.onThinkingDelta?.(event.delta);
-                }
-                else if (event.type === "done") {
-                    finalMessage = event.message;
-                }
-                else if (event.type === "error") {
-                    finalMessage = event.error;
-                }
-            }
-            if (!finalMessage) {
-                return {
-                    status: "error",
-                    result: null,
-                    thinking: null,
-                    error: "Side prompt finished without a response.",
-                    model: `${model.provider}/${model.id}`,
-                };
-            }
-            try {
-                recordMessageUsage(chatJid, finalMessage);
-            }
-            catch (err) {
-                log.warn("Failed to persist side-prompt usage", {
-                    operation: "run_side_prompt.persist_usage_stream",
-                    chatJid,
-                    err,
-                });
-            }
-            if (finalMessage.stopReason === "error" || finalMessage.stopReason === "aborted") {
-                return {
-                    status: "error",
-                    result: null,
-                    thinking: thinking || extractAssistantThinking(finalMessage),
-                    error: finalMessage.errorMessage || "Side prompt failed.",
-                    model: `${model.provider}/${model.id}`,
-                    usage: finalMessage.usage,
-                    stopReason: finalMessage.stopReason,
-                };
-            }
-            return {
-                status: "success",
-                result: text || extractAssistantText(finalMessage) || null,
-                thinking: thinking || extractAssistantThinking(finalMessage) || null,
-                model: `${model.provider}/${model.id}`,
-                usage: finalMessage.usage,
-                stopReason: finalMessage.stopReason,
-            };
-        }
-        const sideSession = await this.getOrCreateSide(chatJid);
-        await this.syncSideSessionFromMain(session, sideSession);
-        let text = "";
-        let thinking = "";
-        let sawText = false;
-        let sawThinking = false;
-        let finalMessage = null;
-        let timedOut = false;
-        const channel = detectChannel(chatJid);
-        const timeoutMs = getAgentRuntimeConfig().timeoutMs;
-        let timeoutId = null;
-        const unsubscribe = sideSession.subscribe((event) => {
-            options.onEvent?.(event);
-            if (event.type === "message_update") {
-                const messageEvent = event.assistantMessageEvent;
-                if (messageEvent.type === "text_start") {
-                    if (sawText && !text.endsWith("\n\n"))
-                        text += "\n\n";
-                }
-                else if (messageEvent.type === "text_delta") {
-                    sawText = true;
-                    text += messageEvent.delta;
-                    options.onTextDelta?.(messageEvent.delta);
-                }
-                else if (messageEvent.type === "thinking_start") {
-                    if (sawThinking && !thinking.endsWith("\n\n"))
-                        thinking += "\n\n";
-                }
-                else if (messageEvent.type === "thinking_delta") {
-                    sawThinking = true;
-                    thinking += messageEvent.delta;
-                    options.onThinkingDelta?.(messageEvent.delta);
-                }
-                return;
-            }
-            if (event.type === "message_end") {
-                const message = event.message;
-                if (message?.role === "assistant") {
-                    finalMessage = message;
-                    try {
-                        recordMessageUsage(chatJid, message);
-                    }
-                    catch (err) {
-                        log.warn("Failed to persist side-prompt usage", {
-                            operation: "run_side_prompt.persist_usage_session",
-                            chatJid,
-                            err,
-                        });
-                    }
-                }
-            }
+        return runSidePromptInternal(chatJid, prompt, options, {
+            getOrCreate: (nextChatJid) => this.getOrCreate(nextChatJid),
+            getOrCreateSide: (nextChatJid) => this.getOrCreateSide(nextChatJid),
+            syncSideSessionFromMain: (mainSession, sideSession) => this.syncSideSessionFromMain(mainSession, sideSession),
+            modelRegistry: this.modelRegistry,
+            sideStreamSimple: this.sideStreamSimple,
+            onWarn: (message, details) => log.warn(message, details),
         });
-        const abortHandler = () => {
-            void sideSession.abort().catch(() => {
-                /* expected: side session may already be aborting when the outer signal fires. */
-            });
-        };
-        options.signal?.addEventListener("abort", abortHandler, { once: true });
-        if (timeoutMs > 0) {
-            timeoutId = setTimeout(() => {
-                timedOut = true;
-                void sideSession.abort().catch(() => {
-                    /* expected: side session may already be aborting when the timeout fires. */
-                });
-            }, timeoutMs);
-        }
-        try {
-            await withChatContext(chatJid, channel, async () => {
-                const composedPrompt = options.systemPrompt
-                    ? `${options.systemPrompt}\n\n${prompt}`
-                    : prompt;
-                await sideSession.prompt(composedPrompt);
-                const idleSettleTicks = 10;
-                let idleTicks = 0;
-                while (idleTicks < idleSettleTicks) {
-                    if (!sideSession.isStreaming && !sideSession.isCompacting && !sideSession.isRetrying) {
-                        idleTicks += 1;
-                    }
-                    else {
-                        idleTicks = 0;
-                    }
-                    await Bun.sleep(50);
-                }
-            });
-        }
-        catch (err) {
-            if (timeoutId)
-                clearTimeout(timeoutId);
-            unsubscribe();
-            options.signal?.removeEventListener("abort", abortHandler);
-            return {
-                status: "error",
-                result: null,
-                thinking: thinking || null,
-                error: timedOut ? `Timed out after ${formatTimeoutDuration(timeoutMs)}` : (err instanceof Error ? err.message : String(err)),
-                model: `${model.provider}/${model.id}`,
-                stopReason: timedOut ? "aborted" : "error",
-            };
-        }
-        if (timeoutId)
-            clearTimeout(timeoutId);
-        unsubscribe();
-        options.signal?.removeEventListener("abort", abortHandler);
-        if (!finalMessage) {
-            const fallbackText = text || sideSession.getLastAssistantText() || null;
-            if (!fallbackText) {
-                return {
-                    status: "error",
-                    result: null,
-                    thinking: thinking || null,
-                    error: timedOut ? `Timed out after ${formatTimeoutDuration(timeoutMs)}` : "Side prompt finished without a response.",
-                    model: `${model.provider}/${model.id}`,
-                    stopReason: timedOut ? "aborted" : "error",
-                };
-            }
-            return {
-                status: "success",
-                result: fallbackText,
-                thinking: thinking || null,
-                model: `${model.provider}/${model.id}`,
-                stopReason: "stop",
-            };
-        }
-        const completedMessage = finalMessage;
-        if (timedOut || completedMessage.stopReason === "error" || completedMessage.stopReason === "aborted") {
-            return {
-                status: "error",
-                result: null,
-                thinking: thinking || extractAssistantThinking(completedMessage) || null,
-                error: timedOut ? `Timed out after ${formatTimeoutDuration(timeoutMs)}` : (completedMessage.errorMessage || "Side prompt failed."),
-                model: `${model.provider}/${model.id}`,
-                usage: completedMessage.usage,
-                stopReason: timedOut ? "aborted" : completedMessage.stopReason,
-            };
-        }
-        return {
-            status: "success",
-            result: text || extractAssistantText(completedMessage) || sideSession.getLastAssistantText() || null,
-            thinking: thinking || extractAssistantThinking(completedMessage) || null,
-            model: `${model.provider}/${model.id}`,
-            usage: completedMessage.usage,
-            stopReason: completedMessage.stopReason,
-        };
     }
     /** Return available model labels and current model for a chat session. */
     async getAvailableModels(chatJid) {
-        const session = await this.getOrCreate(chatJid);
-        const registry = session.modelRegistry ?? this.modelRegistry;
-        const available = registry.getAvailable();
-        const models = available.map((model) => `${model.provider}/${model.id}`);
-        const currentModel = session.model ? `${session.model.provider}/${session.model.id}` : null;
-        const thinkingLevel = session.thinkingLevel ?? null;
-        const supportsThinking = typeof session.supportsThinking === "function"
-            ? session.supportsThinking()
-            : Boolean(session.model?.reasoning);
-        const providerUsage = session.model?.provider
-            ? await getProviderUsage(this.authStorage, session.model.provider)
-            : null;
-        return {
-            current: currentModel,
-            models,
-            thinking_level: thinkingLevel,
-            supports_thinking: supportsThinking,
-            provider_usage: providerUsage,
-        };
+        return this.runtimeFacade.getAvailableModels(chatJid);
     }
     /** Return the current context token usage for a chat session, or null if unknown. */
     async getContextUsageForChat(chatJid) {
-        const entry = this.pool.get(chatJid);
-        if (!entry)
-            return null;
-        return entry.session.getContextUsage() ?? null;
+        return this.runtimeFacade.getContextUsageForChat(chatJid);
     }
     /**
      * Save the current session tree position so it can be restored later.
      * Used by the scheduler to isolate task execution in a side branch.
      */
     async saveSessionPosition(chatJid) {
-        const session = await this.getOrCreate(chatJid);
-        return session.sessionManager.getLeafId();
+        return this.runtimeFacade.saveSessionPosition(chatJid);
     }
     /**
      * Restore the session tree to a previously saved position.
      * Navigates back to the saved leaf, leaving the task's output in a side branch.
      */
     async restoreSessionPosition(chatJid, leafId) {
-        if (leafId === null)
-            return;
-        const session = await this.getOrCreate(chatJid);
-        const currentLeaf = session.sessionManager.getLeafId();
-        if (currentLeaf === leafId)
-            return; // already there
-        try {
-            await session.navigateTree(leafId);
-        }
-        catch (err) {
-            log.error("Failed to restore session position", {
-                operation: "restore_session_position",
-                chatJid,
-                leafId,
-                err,
-            });
-        }
+        return this.runtimeFacade.restoreSessionPosition(chatJid, leafId);
     }
     hasProviderModels(provider) {
-        return this.modelRegistry.getAll().some((model) => model.provider === provider);
+        return this.runtimeFacade.hasProviderModels(provider);
     }
     registerModelProvider(providerName, config) {
-        this.modelRegistry.registerProvider(providerName, config);
+        this.runtimeFacade.registerModelProvider(providerName, config);
     }
     resolveModelInput(input) {
-        return resolveModelLabel(this.modelRegistry, input);
+        return this.runtimeFacade.resolveModelInput(input);
     }
     isStreaming(chatJid) {
-        return this.pool.get(chatJid)?.session.isStreaming ?? false;
+        return this.runtimeFacade.isStreaming(chatJid);
     }
     isActive(chatJid) {
-        const session = this.pool.get(chatJid)?.session;
-        if (!session)
-            return false;
-        return Boolean(session.isStreaming || session.isCompacting || session.isRetrying || session.isBashRunning);
+        return this.runtimeFacade.isActive(chatJid);
     }
     ensureBranchRegistration(chatJid, session) {
-        try {
-            const existing = getChatBranchByChatJid(chatJid);
-            if (existing)
-                return existing;
-            const created = ensureChatBranch({
-                chat_jid: chatJid,
-                agent_name: deriveAgentHandle(chatJid, session?.sessionName?.trim() || null),
-            });
-            storeChatMetadata(chatJid, new Date().toISOString(), created.agent_name || chatJid);
-            return created;
-        }
-        catch (err) {
-            log.warn("Falling back to volatile branch record", {
-                operation: "ensure_branch_registration",
-                chatJid,
-                err,
-            });
-            return createVolatileBranchRecord(chatJid, session);
-        }
+        return this.branchManager.ensureBranchRegistration(chatJid, session);
     }
     async renameChatBranch(chatJid, options = {}) {
-        const session = this.pool.get(chatJid)?.session ?? null;
-        this.ensureBranchRegistration(chatJid, session);
-        const nextAgentName = options.agentName !== undefined ? options.agentName : undefined;
-        const renamed = renameChatBranchIdentity({
-            chat_jid: chatJid,
-            agent_name: nextAgentName,
-        });
-        if (session) {
-            try {
-                session.setSessionName(renamed.agent_name);
-            }
-            catch (err) {
-                log.warn("Failed to sync renamed branch session name", {
-                    operation: "rename_chat_branch.sync_session_name",
-                    chatJid,
-                    err,
-                });
-            }
-        }
-        return renamed;
+        return this.branchManager.renameChatBranch(chatJid, options);
     }
     async pruneChatBranch(chatJid) {
-        const session = this.pool.get(chatJid)?.session ?? null;
-        const existing = this.ensureBranchRegistration(chatJid, session);
-        if (existing.chat_jid === existing.root_chat_jid) {
-            throw new Error("Cannot prune the root chat branch.");
-        }
-        if (this.isActive(chatJid)) {
-            throw new Error("Cannot prune a branch while it is active.");
-        }
-        const archived = archiveChatBranch(chatJid);
-        const mainEntry = this.pool.get(chatJid);
-        if (mainEntry) {
-            try {
-                mainEntry.session.dispose();
-            }
-            catch (err) {
-                log.warn("Failed to dispose pruned session", {
-                    operation: "prune_chat_branch.dispose_main",
-                    chatJid,
-                    err,
-                });
-            }
-            this.pool.delete(chatJid);
-        }
-        const sideEntry = this.sidePool.get(chatJid);
-        if (sideEntry) {
-            try {
-                sideEntry.session.dispose();
-            }
-            catch (err) {
-                log.warn("Failed to dispose pruned side session", {
-                    operation: "prune_chat_branch.dispose_side",
-                    chatJid,
-                    err,
-                });
-            }
-            this.sidePool.delete(chatJid);
-        }
-        this.activeForkBaseLeafByChat.delete(chatJid);
-        return archived;
+        return this.branchManager.pruneChatBranch(chatJid);
     }
     async restoreChatBranch(chatJid, options = {}) {
-        const restored = restoreChatBranchIdentity({
-            chat_jid: chatJid,
-            ...(options.agentName !== undefined ? { agent_name: options.agentName } : {}),
-        });
-        // Warm session registration for restored branches so switching is immediate.
-        try {
-            await this.getOrCreate(chatJid);
-        }
-        catch (err) {
-            // Keep restore resilient even if session warmup fails.
-            log.warn("Restored branch but failed to warm its session", {
-                operation: "restore_chat_branch.warm_session",
-                chatJid,
-                err,
-            });
-        }
-        return restored;
+        return this.branchManager.restoreChatBranch(chatJid, options);
     }
     async createForkedChatBranch(sourceChatJid, options = {}) {
-        const sourceSession = await this.getOrCreate(sourceChatJid);
-        const sourceIsActive = Boolean(sourceSession.isStreaming || sourceSession.isCompacting || sourceSession.isRetrying || sourceSession.isBashRunning);
-        const stableForkLeafId = this.activeForkBaseLeafByChat.has(sourceChatJid)
-            ? this.activeForkBaseLeafByChat.get(sourceChatJid) ?? null
-            : null;
-        if (sourceIsActive && !this.activeForkBaseLeafByChat.has(sourceChatJid)) {
-            throw new Error("Cannot fork this branch yet because no stable turn boundary is available.");
-        }
-        const sourceBranch = this.ensureBranchRegistration(sourceChatJid, sourceSession);
-        const nextChatJid = buildForkedChatJid(sourceChatJid);
-        const requestedAgentName = typeof options.agentName === "string" && options.agentName.trim()
-            ? options.agentName.trim()
-            : sourceBranch.agent_name;
-        storeChatMetadata(nextChatJid, new Date().toISOString(), requestedAgentName || nextChatJid);
-        const nextBranch = ensureChatBranch({
-            chat_jid: nextChatJid,
-            root_chat_jid: sourceBranch.root_chat_jid || sourceBranch.chat_jid,
-            parent_branch_id: sourceBranch.branch_id,
-            agent_name: requestedAgentName,
-        });
-        const targetSession = await this.getOrCreate(nextChatJid);
-        const stableSeed = sourceIsActive
-            ? getStableForkSeed(sourceSession, stableForkLeafId)
-            : null;
-        const sourceContext = sourceSession.sessionManager.buildSessionContext();
-        const parentSession = sourceSession.sessionFile?.trim() || undefined;
-        const setupName = nextBranch.agent_name;
-        const sourceModel = stableSeed?.model || sourceContext.model || (sourceSession.model
-            ? { provider: sourceSession.model.provider, modelId: sourceSession.model.id }
-            : null);
-        const ok = await targetSession.newSession({
-            ...(parentSession ? { parentSession } : {}),
-            setup: async (sessionManager) => {
-                if (stableSeed) {
-                    seedSessionManagerFromBranchEntries(sessionManager, stableSeed.branchEntries, {
-                        sessionName: setupName,
-                        model: sourceModel,
-                    });
-                    return;
-                }
-                seedRotatedSession(sessionManager, sourceContext, {
-                    sessionName: setupName,
-                    model: sourceModel,
-                });
-            },
-        });
-        if (!ok) {
-            throw new Error("Branch fork was cancelled.");
-        }
-        if (sourceSession.model) {
-            try {
-                await targetSession.setModel(sourceSession.model);
-            }
-            catch (err) {
-                log.warn("Failed to copy model to forked branch", {
-                    operation: "create_forked_chat_branch.copy_model",
-                    chatJid: nextChatJid,
-                    err,
-                });
-            }
-        }
-        try {
-            targetSession.setThinkingLevel((stableSeed?.thinkingLevel || sourceContext.thinkingLevel || sourceSession.thinkingLevel));
-        }
-        catch (err) {
-            log.warn("Failed to copy thinking level to forked branch", {
-                operation: "create_forked_chat_branch.copy_thinking_level",
-                chatJid: nextChatJid,
-                err,
-            });
-        }
-        try {
-            targetSession.setSessionName(setupName);
-        }
-        catch (err) {
-            log.warn("Failed to copy session name to forked branch", {
-                operation: "create_forked_chat_branch.copy_session_name",
-                chatJid: nextChatJid,
-                err,
-            });
-        }
-        forcePersistSessionFile(targetSession);
-        return ensureChatBranch({
-            chat_jid: nextChatJid,
-            root_chat_jid: nextBranch.root_chat_jid,
-            parent_branch_id: nextBranch.parent_branch_id,
-            agent_name: nextBranch.agent_name,
-        });
+        return this.branchManager.createForkedChatBranch(sourceChatJid, options);
     }
     listActiveChats() {
-        const chats = [...this.pool.entries()]
-            .flatMap(([chatJid, entry]) => {
-            const branch = this.ensureBranchRegistration(chatJid, entry.session);
-            if (branch.archived_at) {
-                return [];
-            }
-            return [{
-                    branch_id: branch.branch_id,
-                    chat_jid: chatJid,
-                    root_chat_jid: branch.root_chat_jid,
-                    parent_branch_id: branch.parent_branch_id,
-                    agent_name: branch.agent_name,
-                    archived_at: branch.archived_at ?? null,
-                    session_id: entry.session.sessionId,
-                    session_name: entry.session.sessionName?.trim() || null,
-                    model: entry.session.model ? `${entry.session.model.provider}/${entry.session.model.id}` : null,
-                    is_active: Boolean(entry.session.isStreaming || entry.session.isCompacting || entry.session.isRetrying || entry.session.isBashRunning),
-                    has_side_session: this.sidePool.has(chatJid),
-                }];
-        })
-            .sort((a, b) => {
-            if (a.is_active !== b.is_active)
-                return a.is_active ? -1 : 1;
-            return a.chat_jid.localeCompare(b.chat_jid);
-        });
-        return chats;
+        return this.branchManager.listActiveChats();
     }
     listKnownChats(rootChatJid, options) {
-        const activeChats = this.listActiveChats();
-        const activeByChat = new Map(activeChats.map((chat) => [chat.chat_jid, chat]));
-        try {
-            return listChatBranches(rootChatJid || null, { includeArchived: Boolean(options?.includeArchived) })
-                .map((branch) => {
-                const active = activeByChat.get(branch.chat_jid);
-                return {
-                    branch_id: branch.branch_id,
-                    chat_jid: branch.chat_jid,
-                    root_chat_jid: branch.root_chat_jid,
-                    parent_branch_id: branch.parent_branch_id,
-                    agent_name: branch.agent_name,
-                    archived_at: branch.archived_at ?? null,
-                    session_id: active?.session_id ?? null,
-                    session_name: active?.session_name ?? null,
-                    model: active?.model ?? null,
-                    is_active: active?.is_active ?? false,
-                    has_side_session: active?.has_side_session ?? false,
-                };
-            })
-                .sort((a, b) => {
-                if (a.chat_jid === rootChatJid && b.chat_jid !== rootChatJid)
-                    return -1;
-                if (b.chat_jid === rootChatJid && a.chat_jid !== rootChatJid)
-                    return 1;
-                if (Boolean(a.archived_at) !== Boolean(b.archived_at))
-                    return a.archived_at ? 1 : -1;
-                if (a.is_active !== b.is_active)
-                    return a.is_active ? -1 : 1;
-                return a.chat_jid.localeCompare(b.chat_jid);
-            });
-        }
-        catch (err) {
-            log.warn("Failed to list known chats; falling back to active sessions only", {
-                operation: "list_known_chats",
-                rootChatJid: rootChatJid || null,
-                err,
-            });
-            return activeChats;
-        }
+        return this.branchManager.listKnownChats(rootChatJid, options);
     }
     findActiveChatByAgentName(agentName) {
-        const normalized = normalizeAgentHandlePart(agentName);
-        if (!normalized)
-            return null;
-        return this.listActiveChats().find((chat) => chat.agent_name === normalized) ?? null;
+        return this.branchManager.findActiveChatByAgentName(agentName);
     }
     findChatByAgentName(agentName) {
-        const normalized = normalizeAgentHandlePart(agentName);
-        if (!normalized)
-            return null;
-        try {
-            const branch = getChatBranchByAgentName(normalized);
-            if (branch)
-                return { chat_jid: branch.chat_jid, agent_name: branch.agent_name };
-        }
-        catch (err) {
-            log.warn("Failed to look up agent handle; falling back to active sessions", {
-                operation: "find_chat_by_agent_name",
-                agentHandle: normalized,
-                err,
-            });
-        }
-        const active = this.listActiveChats().find((chat) => chat.agent_name === normalized) ?? null;
-        return active ? { chat_jid: active.chat_jid, agent_name: active.agent_name } : null;
+        return this.branchManager.findChatByAgentName(agentName);
     }
     getAgentHandleForChat(chatJid) {
-        try {
-            return getChatBranchByChatJid(chatJid)?.agent_name ?? deriveAgentHandle(chatJid);
-        }
-        catch (err) {
-            log.warn("Failed to read stored handle; deriving one from chat id instead", {
-                operation: "get_agent_handle_for_chat",
-                chatJid,
-                err,
-            });
-            return deriveAgentHandle(chatJid);
-        }
+        return this.branchManager.getAgentHandleForChat(chatJid);
     }
     async queueStreamingMessage(chatJid, text, behavior) {
-        const session = await this.getOrCreate(chatJid);
-        if (!session.isStreaming)
-            return { queued: false };
-        const channel = detectChannel(chatJid);
-        try {
-            return await withChatContext(chatJid, channel, async () => {
-                await session.prompt(text, { streamingBehavior: behavior });
-                return { queued: true };
-            });
-        }
-        catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            return { queued: false, error: message };
-        }
+        return this.runtimeFacade.queueStreamingMessage(chatJid, text, behavior);
     }
     /** Remove one queued follow-up message (first content match) from an active session queue. */
     async removeQueuedFollowupMessage(chatJid, queuedContent) {
-        const session = await this.getOrCreate(chatJid);
-        if (!session.isStreaming)
-            return false;
-        const followups = [...session.getFollowUpMessages()];
-        if (followups.length === 0)
-            return false;
-        const normalized = typeof queuedContent === "string" ? queuedContent.trim() : "";
-        let removeIndex = -1;
-        if (normalized) {
-            removeIndex = followups.findIndex((item) => item === queuedContent || item.trim() === normalized);
-        }
-        if (removeIndex < 0)
-            removeIndex = 0;
-        const channel = detectChannel(chatJid);
-        try {
-            return await withChatContext(chatJid, channel, async () => {
-                const cleared = session.clearQueue();
-                const nextFollowups = cleared.followUp.filter((_, idx) => idx !== removeIndex);
-                for (const steer of cleared.steering) {
-                    await session.prompt(steer, { streamingBehavior: "steer" });
-                }
-                for (const followup of nextFollowups) {
-                    await session.prompt(followup, { streamingBehavior: "followUp" });
-                }
-                return true;
-            });
-        }
-        catch (error) {
-            log.warn("Failed to remove queued follow-up", {
-                operation: "remove_queued_follow_up",
-                chatJid,
-                err: error,
-            });
-            return false;
-        }
+        return this.runtimeFacade.removeQueuedFollowupMessage(chatJid, queuedContent);
     }
     /** Execute a raw slash command in the AgentSession (extension commands). */
     async applySlashCommand(chatJid, rawText) {
-        this.attachments.clear(chatJid);
-        const session = await this.getOrCreate(chatJid);
-        const channel = detectChannel(chatJid);
-        const result = await withChatContext(chatJid, channel, () => executeSlashCommand(session, chatJid, rawText));
-        this.attachments.clear(chatJid);
-        return result;
+        return this.runtimeFacade.applySlashCommand(chatJid, rawText);
     }
     /** Gracefully shut down all sessions. */
     async shutdown() {
@@ -1052,364 +248,19 @@ export class AgentPool {
             clearInterval(this.cleanupTimer);
             this.cleanupTimer = null;
         }
-        for (const [jid, entry] of this.pool) {
-            try {
-                entry.session.dispose();
-                log.info("Disposed session", {
-                    operation: "shutdown.dispose_main_session",
-                    chatJid: jid,
-                });
-            }
-            catch (err) {
-                log.error("Failed to dispose session during shutdown", {
-                    operation: "shutdown.dispose_main_session",
-                    chatJid: jid,
-                    err,
-                });
-            }
-        }
-        for (const [jid, entry] of this.sidePool) {
-            try {
-                entry.session.dispose();
-                log.info("Disposed side session", {
-                    operation: "shutdown.dispose_side_session",
-                    chatJid: jid,
-                });
-            }
-            catch (err) {
-                log.error("Failed to dispose side session during shutdown", {
-                    operation: "shutdown.dispose_side_session",
-                    chatJid: jid,
-                    err,
-                });
-            }
-        }
-        this.pool.clear();
-        this.sidePool.clear();
+        await this.sessionManager.shutdown();
     }
     // ── internal ────────────────────────────────────────────
-    createDefaultTools() {
-        return [
-            createReadTool(WORKSPACE_DIR),
-            createBashTool(WORKSPACE_DIR, { operations: this.bashOperations }),
-            createEditTool(WORKSPACE_DIR),
-            createWriteTool(WORKSPACE_DIR),
-        ];
-    }
     async getOrCreate(chatJid) {
-        const existing = this.pool.get(chatJid);
-        if (existing) {
-            existing.lastUsed = Date.now();
-            return existing.session;
-        }
-        log.info("Creating new session", {
-            operation: "get_or_create.create_main_session",
-            chatJid,
-        });
-        const chatSessionDir = ensureSessionDir(chatJid);
-        if (this.createSession) {
-            const session = await this.createSession(chatJid, chatSessionDir);
-            this.pool.set(chatJid, { session, lastUsed: Date.now() });
-            await this.applyDefaultModel(session);
-            await this.bindSession(session, chatJid);
-            this.ensureBranchRegistration(chatJid, session);
-            log.info("Session ready", {
-                operation: "get_or_create.create_main_session",
-                chatJid,
-                poolSize: this.pool.size,
-            });
-            return session;
-        }
-        const session = await createDefaultSession(chatJid, {
-            authStorage: this.authStorage,
-            modelRegistry: this.modelRegistry,
-            settingsManager: this.settingsManager,
-            tools: this.createDefaultTools(),
-        });
-        this.pool.set(chatJid, { session, lastUsed: Date.now() });
-        await this.applyDefaultModel(session);
-        await this.bindSession(session, chatJid);
-        this.ensureBranchRegistration(chatJid, session);
-        log.info("Session ready", {
-            operation: "get_or_create.create_default_session",
-            chatJid,
-            poolSize: this.pool.size,
-        });
-        return session;
+        return this.sessionManager.getOrCreate(chatJid);
     }
     async getOrCreateSide(chatJid) {
-        const existing = this.sidePool.get(chatJid);
-        if (existing) {
-            existing.lastUsed = Date.now();
-            return existing.session;
-        }
-        log.info("Creating new side session", {
-            operation: "get_or_create_side.create_session",
-            chatJid,
-        });
-        const sideSessionDir = ensureNamedSessionDir(chatJid, "btw-side");
-        const session = this.createSideSession
-            ? await this.createSideSession(chatJid, sideSessionDir)
-            : await createSessionInDir(sideSessionDir, {
-                authStorage: this.authStorage,
-                modelRegistry: this.modelRegistry,
-                settingsManager: this.settingsManager,
-                tools: this.createDefaultTools(),
-            });
-        this.sidePool.set(chatJid, { session, lastUsed: Date.now() });
-        return session;
+        return this.sessionManager.getOrCreateSide(chatJid);
     }
     async syncSideSessionFromMain(mainSession, sideSession) {
-        try {
-            const mainContext = mainSession.sessionManager.buildSessionContext();
-            await sideSession.newSession({
-                setup: async (sessionManager) => {
-                    seedRotatedSession(sessionManager, mainContext, {
-                        sessionName: "BTW",
-                        model: mainContext.model,
-                    });
-                },
-            });
-        }
-        catch (err) {
-            log.warn("Failed to reseed side session from main context", {
-                operation: "sync_side_session_from_main.reseed",
-                err,
-            });
-        }
-        const mainModel = mainSession.model;
-        const sideModel = sideSession.model;
-        if (mainModel && (!sideModel || sideModel.provider !== mainModel.provider || sideModel.id !== mainModel.id)) {
-            try {
-                await sideSession.setModel(mainModel);
-            }
-            catch (err) {
-                log.warn("Failed to sync side-session model", {
-                    operation: "sync_side_session_from_main.model",
-                    model: `${mainModel.provider}/${mainModel.id}`,
-                    err,
-                });
-            }
-        }
-        try {
-            sideSession.setThinkingLevel(mainSession.thinkingLevel);
-        }
-        catch (err) {
-            log.warn("Failed to sync side-session thinking level", {
-                operation: "sync_side_session_from_main.thinking_level",
-                err,
-            });
-        }
-        try {
-            sideSession.setActiveToolsByName(mainSession.getActiveToolNames());
-        }
-        catch (err) {
-            log.warn("Failed to sync side-session tool selection", {
-                operation: "sync_side_session_from_main.tools",
-                err,
-            });
-        }
-    }
-    async applyDefaultModel(session) {
-        const provider = this.settingsManager.getDefaultProvider();
-        const modelId = this.settingsManager.getDefaultModel();
-        if (!provider || !modelId)
-            return;
-        // Preserve each session's restored/inherited model. Only apply the shared
-        // default when a session has no model at all yet.
-        const current = session.model;
-        if (current)
-            return;
-        const sessionRegistry = session.modelRegistry ?? this.modelRegistry;
-        const resolved = sessionRegistry.find(provider, modelId);
-        if (!resolved)
-            return;
-        const setModel = session.setModel;
-        if (typeof setModel !== "function")
-            return;
-        try {
-            await setModel.call(session, resolved);
-        }
-        catch (err) {
-            log.warn("Failed to restore model", {
-                operation: "apply_default_model",
-                model: `${provider}/${modelId}`,
-                err,
-            });
-        }
-    }
-    createTurnTracker(chatJid, onTurnComplete) {
-        let currentTurnText = "";
-        let turnCount = 0;
-        let messageHasDelta = false;
-        const extractTextFromContent = (content) => {
-            if (!content)
-                return "";
-            if (typeof content === "string")
-                return content;
-            if (Array.isArray(content)) {
-                return content
-                    .map((block) => {
-                    const contentBlock = block;
-                    if (contentBlock?.type !== "text")
-                        return "";
-                    return typeof contentBlock.text === "string" ? contentBlock.text : "";
-                })
-                    .join("");
-            }
-            return "";
-        };
-        const flushTurn = () => {
-            const text = currentTurnText.trim();
-            if (!text && !onTurnComplete)
-                return;
-            if (text || turnCount > 0) {
-                const turnAttachments = this.attachments.take(chatJid);
-                onTurnComplete?.({
-                    text,
-                    attachments: turnAttachments,
-                });
-                turnCount++;
-            }
-            currentTurnText = "";
-            messageHasDelta = false;
-        };
-        const handleMessageUpdate = (event) => {
-            if (event.type === "message_update") {
-                if (event.assistantMessageEvent.type === "text_start") {
-                    if (onTurnComplete) {
-                        // A new text response is starting — flush the previous turn
-                        flushTurn();
-                    }
-                    else {
-                        messageHasDelta = false;
-                    }
-                }
-                if (event.assistantMessageEvent.type === "text_delta") {
-                    messageHasDelta = true;
-                    currentTurnText += event.assistantMessageEvent.delta;
-                }
-                return;
-            }
-            if (event.type === "message_end") {
-                const message = event.message;
-                if (message?.role === "assistant") {
-                    const text = extractTextFromContent(message.content);
-                    if (!messageHasDelta && text) {
-                        currentTurnText = text;
-                    }
-                }
-                messageHasDelta = false;
-            }
-        };
-        return {
-            handleMessageUpdate,
-            getFinalText: () => currentTurnText.trim(),
-            getTurnCount: () => turnCount,
-        };
-    }
-    subscribeToSession(session, chatJid, tracker, onEvent) {
-        return session.subscribe((event) => {
-            const entry = this.pool.get(chatJid);
-            if (entry)
-                entry.lastUsed = Date.now();
-            if (onEvent) {
-                try {
-                    onEvent(event);
-                }
-                catch (err) {
-                    log.warn("Event handler error", {
-                        operation: "subscribe_to_session.on_event",
-                        chatJid,
-                        err,
-                    });
-                }
-            }
-            tracker.handleMessageUpdate(event);
-            if (event.type === "message_end") {
-                recordMessageUsage(chatJid, event.message);
-            }
-        });
-    }
-    startPromptTimeout(session, chatJid, timeoutMs) {
-        const timedOutRef = { value: false };
-        if (!timeoutMs || timeoutMs <= 0) {
-            return { timeoutId: null, timedOutRef };
-        }
-        const timeoutId = setTimeout(async () => {
-            timedOutRef.value = true;
-            log.error("Prompt timed out; aborting session", {
-                operation: "start_prompt_timeout",
-                chatJid,
-                timeoutMs,
-            });
-            await session.abort();
-        }, timeoutMs);
-        return { timeoutId, timedOutRef };
-    }
-    async bindSession(session, chatJid) {
-        if (!this.sessionBinder)
-            return;
-        try {
-            await this.sessionBinder(session, chatJid);
-        }
-        catch (err) {
-            log.error("Failed to bind session", {
-                operation: "bind_session",
-                chatJid,
-                err,
-            });
-        }
+        return this.sessionManager.syncSideSessionFromMain(mainSession, sideSession);
     }
     evictIdle() {
-        const now = Date.now();
-        for (const [jid, entry] of this.pool) {
-            const session = entry.session;
-            if (session.isStreaming || session.isBashRunning || session.isCompacting) {
-                entry.lastUsed = now;
-                continue;
-            }
-            if (now - entry.lastUsed > IDLE_TTL) {
-                log.info("Evicting idle session", {
-                    operation: "evict_idle.main_session",
-                    chatJid: jid,
-                });
-                try {
-                    session.dispose();
-                }
-                catch (err) {
-                    log.warn("Failed to dispose evicted session", {
-                        operation: "evict_idle.main_session",
-                        chatJid: jid,
-                        err,
-                    });
-                }
-                this.pool.delete(jid);
-            }
-        }
-        for (const [jid, entry] of this.sidePool) {
-            const session = entry.session;
-            if (session.isStreaming || session.isBashRunning || session.isCompacting) {
-                entry.lastUsed = now;
-                continue;
-            }
-            if (now - entry.lastUsed > IDLE_TTL) {
-                log.info("Evicting idle side session", {
-                    operation: "evict_idle.side_session",
-                    chatJid: jid,
-                });
-                try {
-                    session.dispose();
-                }
-                catch (err) {
-                    log.warn("Failed to dispose evicted side session", {
-                        operation: "evict_idle.side_session",
-                        chatJid: jid,
-                        err,
-                    });
-                }
-                this.sidePool.delete(jid);
-            }
-        }
+        this.sessionManager.evictIdle(IDLE_TTL);
     }
 }

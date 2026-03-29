@@ -5,7 +5,9 @@
  * top-level AgentPool coordinator while preserving the existing branch semantics.
  */
 
-import type { AgentSession } from "@mariozechner/pi-coding-agent";
+import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
+import type { ImageContent, Message, TextContent } from "@mariozechner/pi-ai";
+import type { AgentSession, SessionEntry, SessionManager } from "@mariozechner/pi-coding-agent";
 
 import { getIdentityConfig } from "../core/config.js";
 import {
@@ -92,10 +94,66 @@ function createVolatileBranchRecord(chatJid: string, session?: AgentSession | nu
   };
 }
 
+type LegacyCustomEntry = {
+  type: "custom_entry";
+  id?: string;
+  customType: string;
+  data?: unknown;
+};
+
+type SeedBranchEntry = SessionEntry | LegacyCustomEntry;
+
+type AppendableAgentMessage = Message | {
+  role: "bashExecution";
+  command: string;
+  output: string;
+  exitCode: number | undefined;
+  cancelled: boolean;
+  truncated: boolean;
+  fullOutputPath?: string;
+  timestamp: number;
+  excludeFromContext?: boolean;
+} | {
+  role: "custom";
+  customType: string;
+  content: string | (TextContent | ImageContent)[];
+  display: boolean;
+  details?: unknown;
+  timestamp: number;
+};
+
+type SeedSessionManager = Pick<
+  SessionManager,
+  | "appendMessage"
+  | "appendThinkingLevelChange"
+  | "appendModelChange"
+  | "appendCompaction"
+  | "appendSessionInfo"
+  | "appendCustomMessageEntry"
+  | "appendCustomEntry"
+>;
+
+function normalizeThinkingLevel(value: string | null | undefined): ThinkingLevel | null {
+  return value === "off" || value === "minimal" || value === "low" || value === "medium" || value === "high" || value === "xhigh"
+    ? value
+    : null;
+}
+
+function isAppendableAgentMessage(message: unknown): message is AppendableAgentMessage {
+  if (!message || typeof message !== "object") return false;
+  const role = (message as { role?: unknown }).role;
+  return role === "user"
+    || role === "assistant"
+    || role === "system"
+    || role === "tool"
+    || role === "bashExecution"
+    || role === "custom";
+}
+
 function getStableForkSeed(sourceSession: AgentSession, stableLeafId: string | null): {
-  branchEntries: any[];
+  branchEntries: SeedBranchEntry[];
   model: { provider: string; modelId: string } | null;
-  thinkingLevel: string | null;
+  thinkingLevel: ThinkingLevel | null;
 } {
   const branchEntries = stableLeafId === null
     ? []
@@ -104,13 +162,13 @@ function getStableForkSeed(sourceSession: AgentSession, stableLeafId: string | n
         : []);
 
   let model: { provider: string; modelId: string } | null = null;
-  let thinkingLevel: string | null = null;
+  let thinkingLevel: ThinkingLevel | null = null;
 
   for (const entry of branchEntries) {
     if (entry?.type === "model_change" && typeof entry.provider === "string" && typeof entry.modelId === "string") {
       model = { provider: entry.provider, modelId: entry.modelId };
     } else if (entry?.type === "thinking_level_change" && typeof entry.thinkingLevel === "string") {
-      thinkingLevel = entry.thinkingLevel;
+      thinkingLevel = normalizeThinkingLevel(entry.thinkingLevel);
     } else if (entry?.type === "message" && entry.message?.role === "assistant" && typeof entry.message?.provider === "string" && typeof entry.message?.model === "string") {
       model = { provider: entry.message.provider, modelId: entry.message.model };
     }
@@ -120,8 +178,8 @@ function getStableForkSeed(sourceSession: AgentSession, stableLeafId: string | n
 }
 
 function seedSessionManagerFromBranchEntries(
-  sessionManager: any,
-  branchEntries: any[],
+  sessionManager: SeedSessionManager,
+  branchEntries: SeedBranchEntry[],
   fallback: { sessionName?: string | null; model?: { provider: string; modelId: string } | null },
 ): void {
   if (!Array.isArray(branchEntries) || branchEntries.length === 0) {
@@ -137,14 +195,16 @@ function seedSessionManagerFromBranchEntries(
   const sourceToNewId = new Map<string, string>();
   for (const entry of branchEntries) {
     let newId: string | null = null;
-    if (entry?.type === "message" && entry.message) {
+    if (entry?.type === "message" && isAppendableAgentMessage(entry.message)) {
       newId = sessionManager.appendMessage(entry.message);
     } else if (entry?.type === "thinking_level_change" && typeof entry.thinkingLevel === "string") {
       newId = sessionManager.appendThinkingLevelChange(entry.thinkingLevel);
     } else if (entry?.type === "model_change" && typeof entry.provider === "string" && typeof entry.modelId === "string") {
       newId = sessionManager.appendModelChange(entry.provider, entry.modelId);
     } else if (entry?.type === "compaction" && typeof entry.summary === "string") {
-      const firstKeptEntryId = sourceToNewId.get(entry.firstKeptEntryId) || sourceToNewId.get(branchEntries[0]?.id) || "rotated-context";
+      const firstKeptEntryId = sourceToNewId.get(entry.firstKeptEntryId)
+        ?? sourceToNewId.get(branchEntries[0]?.id ?? "")
+        ?? "rotated-context";
       newId = sessionManager.appendCompaction(entry.summary, firstKeptEntryId, entry.tokensBefore ?? 0, entry.details, entry.fromHook);
     } else if (entry?.type === "session_info" && typeof entry.name === "string" && entry.name.trim()) {
       newId = sessionManager.appendSessionInfo(entry.name.trim());
@@ -350,7 +410,12 @@ export class AgentBranchManager {
       }
     }
     try {
-      targetSession.setThinkingLevel((stableSeed?.thinkingLevel || sourceContext.thinkingLevel || sourceSession.thinkingLevel) as any);
+      const nextThinkingLevel = normalizeThinkingLevel(
+        stableSeed?.thinkingLevel || sourceContext.thinkingLevel || sourceSession.thinkingLevel,
+      );
+      if (nextThinkingLevel) {
+        targetSession.setThinkingLevel(nextThinkingLevel);
+      }
     } catch (err) {
       this.options.onWarn?.("Failed to copy thinking level to forked branch", {
         operation: "create_forked_chat_branch.copy_thinking_level",

@@ -1,7 +1,7 @@
 /**
  * web/http/request-guards.ts – Auth/CSRF/rate-limit pre-dispatch guards.
  */
-import { handleAuthVerifyEndpoint, redirectToLoginResponse, serveLoginPageResponse, } from "../auth-endpoints.js";
+import { handleAuthVerifyEndpoint, redirectToLoginResponse, serveLoginPageResponse, } from "../auth/auth-endpoints.js";
 import { getClientKey } from "./client.js";
 import { isRateLimited } from "./rate-limit.js";
 import { AUTH_RATE_LIMIT, AUTH_RATE_WINDOW_MS, DATA_RATE_WINDOW_MS, ENROLL_RATE_LIMIT, ENROLL_RATE_WINDOW_MS, getDataRateLimitRule, } from "./rate-limit-rules.js";

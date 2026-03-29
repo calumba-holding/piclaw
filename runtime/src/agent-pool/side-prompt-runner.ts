@@ -2,7 +2,7 @@
  * agent-pool/side-prompt-runner.ts – runSidePrompt orchestration helpers.
  */
 
-import type { AgentSession, AgentSessionEvent } from "@mariozechner/pi-coding-agent";
+import type { AgentSession, AgentSessionEvent, ModelRegistry } from "@mariozechner/pi-coding-agent";
 import { type AssistantMessageEvent, streamSimple, type AssistantMessageEventStream, type Model, type Api, type Usage } from "@mariozechner/pi-ai";
 
 import { getAgentRuntimeConfig } from "../core/config.js";
@@ -25,7 +25,7 @@ export interface SidePromptRunnerOptions {
   getOrCreate: (chatJid: string) => Promise<AgentSession>;
   getOrCreateSide: (chatJid: string) => Promise<AgentSession>;
   syncSideSessionFromMain: (mainSession: AgentSession, sideSession: AgentSession) => Promise<void>;
-  modelRegistry: any;
+  modelRegistry: ModelRegistry;
   sideStreamSimple?: (
     model: Model<Api>,
     context: Parameters<typeof streamSimple>[1],

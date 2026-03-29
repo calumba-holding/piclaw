@@ -12,16 +12,16 @@
  *   - runtime.ts creates and starts the WebChannel.
  *   - The web UI (web/src/) connects via SSE and REST API.
  */
-import { WebauthnChallengeTracker } from "./web/webauthn-challenges.js";
-import { TotpFailureTracker } from "./web/totp-failure-tracker.js";
+import { WebauthnChallengeTracker } from "./web/auth/webauthn-challenges.js";
+import { TotpFailureTracker } from "./web/auth/totp-failure-tracker.js";
 import { ResponseService } from "./web/http/response-service.js";
-import { QueuedFollowupLifecycleService } from "./web/queued-followup-lifecycle-service.js";
-import { createWebChannelHttpSurfaceService, getWebChannelHttpSurfaceService, } from "./web/web-channel-http-surface-service.js";
-import { createWebChannelRuntimePublicSurfaceService, getWebChannelRuntimePublicSurfaceService, } from "./web/web-channel-runtime-public-surface-service.js";
-import { createWebChannelLifecycleSpecialSurfaceService, getWebChannelLifecycleSpecialSurfaceService, } from "./web/web-channel-lifecycle-special-surface-service.js";
+import { QueuedFollowupLifecycleService } from "./web/runtime/queued-followup-lifecycle-service.js";
+import { createWebChannelHttpSurfaceService, getWebChannelHttpSurfaceService, } from "./web/core/web-channel-http-surface-service.js";
+import { createWebChannelRuntimePublicSurfaceService, getWebChannelRuntimePublicSurfaceService, } from "./web/core/web-channel-runtime-public-surface-service.js";
+import { createWebChannelLifecycleSpecialSurfaceService, getWebChannelLifecycleSpecialSurfaceService, } from "./web/core/web-channel-lifecycle-special-surface-service.js";
 import { TerminalSessionService } from "./web/terminal/terminal-session-service.js";
 import { VncSessionService } from "./web/vnc/vnc-session-service.js";
-import { initializeWebChannelConstructor } from "./web/web-channel-constructor-factory.js";
+import { initializeWebChannelConstructor } from "./web/core/web-channel-constructor-factory.js";
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
 const STATE_KEY = "last_agent_timestamp_web";

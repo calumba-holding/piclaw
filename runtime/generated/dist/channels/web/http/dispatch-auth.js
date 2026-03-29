@@ -1,7 +1,7 @@
 /**
  * web/http/dispatch-auth.ts – WebAuthn/TOTP auth route dispatch helpers.
  */
-import { handleWebauthnEnrollPageEndpoint, handleWebauthnLoginFinishEndpoint, handleWebauthnLoginStartEndpoint, handleWebauthnRegisterFinishEndpoint, handleWebauthnRegisterStartEndpoint, redirectToLoginResponse, } from "../auth-endpoints.js";
+import { handleWebauthnEnrollPageEndpoint, handleWebauthnLoginFinishEndpoint, handleWebauthnLoginStartEndpoint, handleWebauthnRegisterFinishEndpoint, handleWebauthnRegisterStartEndpoint, redirectToLoginResponse, } from "../auth/auth-endpoints.js";
 /**
  * Dispatch WebAuthn auth routes and return null when no auth route matches.
  * @param channel Auth dispatcher contract exposing session checks and endpoint contexts.

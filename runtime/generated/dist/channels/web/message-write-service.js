@@ -6,7 +6,7 @@
  * queued follow-up placeholder behavior isolated behind a narrower service.
  */
 import { postDashboardWidget as postDashboardWidgetMessage } from "./dashboard-widget.js";
-import { queueFollowupPlaceholderMessage, replaceQueuedFollowupPlaceholderMessage, sendWebMessage, } from "./message-write-flows.js";
+import { queueFollowupPlaceholderMessage, replaceQueuedFollowupPlaceholderMessage, sendWebMessage, } from "./messaging/message-write-flows.js";
 export function createMessageWriteContext(deps) {
     return {
         defaultAgentId: deps.defaultAgentId,

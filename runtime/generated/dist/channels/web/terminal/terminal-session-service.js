@@ -3,7 +3,7 @@ import { openSync, closeSync, readlinkSync, readdirSync, readFileSync } from "no
 import { FFIType, dlopen } from "bun:ffi";
 import { WORKSPACE_DIR } from "../../../core/config.js";
 import { DEFAULT_WEB_USER_ID, getWebSession } from "../../../db.js";
-import { getSessionTokenFromRequest } from "../session-auth.js";
+import { getSessionTokenFromRequest } from "../auth/session-auth.js";
 const DEFAULT_COLS = 120;
 const DEFAULT_ROWS = 30;
 const TERMINAL_FONT_FAMILY = "FiraCode Nerd Font Mono";

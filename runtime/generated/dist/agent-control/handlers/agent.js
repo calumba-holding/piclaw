@@ -8,7 +8,7 @@
  */
 import { statSync } from "fs";
 import { getIdentityConfig, setAssistantAvatar, setAssistantName } from "../../core/config.js";
-import { ensureAvatarCache } from "../../channels/web/avatar-service.js";
+import { ensureAvatarCache } from "../../channels/web/media/avatar-service.js";
 import { updateAssistantConfig } from "../agent-control-helpers.js";
 /** Handle /agent-name: update the assistant display name. */
 export async function handleAgentName(_session, command) {

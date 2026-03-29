@@ -8,7 +8,7 @@
  */
 import { getWebRuntimeConfig } from "../../core/config.js";
 import { getChatChannel, getChatJid } from "../../core/chat-context.js";
-import { getWebOrigin } from "../../channels/web/request-origin.js";
+import { getWebOrigin } from "../../channels/web/auth/request-origin.js";
 import { createWebauthnEnrollment, listWebauthnCredentials, findWebauthnCredentialsByPrefix, deleteWebauthnCredential, DEFAULT_WEB_USER_ID, } from "../../db.js";
 const MAX_LINK_MINUTES = 5;
 const isPasskeysEnabled = () => (getWebRuntimeConfig().passkeyMode || "").toLowerCase() !== "totp-only";

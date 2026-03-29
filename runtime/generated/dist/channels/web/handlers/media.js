@@ -8,7 +8,7 @@
  *
  * Consumers: web/http/dispatch-media.ts routes media paths here.
  */
-import { MediaService } from "../media-service.js";
+import { MediaService } from "../media/media-service.js";
 const mediaService = new MediaService();
 /**
  * Handle POST `/media` requests for media upload.

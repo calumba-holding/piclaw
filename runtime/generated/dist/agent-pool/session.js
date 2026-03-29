@@ -31,11 +31,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  */
 const EXTENSIONS_DIR = resolve(__dirname, "../../extensions");
 const OPTIONAL_EXTENSIONS = [
-    { path: resolve(EXTENSIONS_DIR, "azure-openai.ts"), envGate: "AOAI_BASE_URL" },
-    { path: resolve(EXTENSIONS_DIR, "context-mode.ts") },
-    { path: resolve(EXTENSIONS_DIR, "cdp-browser", "index.ts") },
-    { path: resolve(EXTENSIONS_DIR, "win-ui", "index.ts") },
-    { path: resolve(EXTENSIONS_DIR, "office-viewer", "index.ts") },
+    { path: resolve(EXTENSIONS_DIR, "integrations", "azure-openai.ts"), envGate: "AOAI_BASE_URL" },
+    { path: resolve(EXTENSIONS_DIR, "integrations", "context-mode.ts") },
+    { path: resolve(EXTENSIONS_DIR, "browser", "cdp-browser", "index.ts") },
+    { path: resolve(EXTENSIONS_DIR, "platform", "windows", "win-ui", "index.ts") },
+    { path: resolve(EXTENSIONS_DIR, "viewers", "office-viewer", "index.ts") },
+    { path: resolve(EXTENSIONS_DIR, "viewers", "drawio-editor", "index.ts") },
 ];
 /** Walk up from startDir looking for a node_modules that contains @mariozechner/pi-ai. */
 function findNodeModules(startDir) {

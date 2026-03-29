@@ -5,7 +5,7 @@
  * /tint <#hex>    → tint the default light/dark theme
  * /tint off       → clear tint and restore default light/dark
  */
-import { formatThemeList, labelForTheme, normalizeTheme } from "../channels/web/ui-theme-data.js";
+import { formatThemeList, labelForTheme, normalizeTheme } from "../channels/web/theming/ui-theme-data.js";
 const CLEAR_VALUES = new Set(["off", "clear", "none", "reset", "default"]);
 function normalizeHex(input) {
     const raw = input.trim();

@@ -4,7 +4,7 @@ title: "Master: codebase quality cleanup & refactoring (2026-Q1)"
 status: doing
 priority: critical
 created: 2026-03-23
-updated: 2026-03-28
+updated: 2026-03-29
 tags:
   - master
   - refactor
@@ -47,7 +47,7 @@ These are the open tickets that still block this umbrella from closing.
 | Ticket | Status | Description |
 |---|---|---|
 | `split-webchannel-god-class` | next | Split 1,905-line WebChannel into composable services |
-| `split-agentpool-god-class` | next | Split 1,632-line AgentPool into session/tools/turn modules |
+| `split-agentpool-god-class` | review | Split 1,632-line AgentPool into session/tools/turn modules |
 
 ### Active supporting quality work
 
@@ -88,6 +88,11 @@ These are desirable but not required to close this ticket:
 - [ ] Re-run quality assessment and confirm grade improvement
 
 ## Updates
+
+### 2026-03-29
+- Refreshed blocker status after the AgentPool refactor tranche moved `split-agentpool-god-class` from active implementation to `40-review`.
+- The umbrella now treats the AgentPool god-class split as review-stage work instead of an untouched P0 blocker, while `split-webchannel-god-class` remains the other open structural blocker.
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 1, deps: 2, risk: 1)
 
 ### 2026-03-28
 - Lane change: `30-blocked` → `20-doing` via web blocked-card decision.

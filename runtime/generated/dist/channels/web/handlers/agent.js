@@ -9,16 +9,16 @@
  */
 import { getAgentRuntimeConfig, getIdentityConfig, getRoutingConfig, } from "../../../core/config.js";
 import { parseControlCommand } from "../../../agent-control/index.js";
-import { normalizeAgentMessagePayload, parseAgentMessageRequest, storeAgentUserMessage, } from "../agent-message-service.js";
-import { handleUiThemeCommand } from "../ui-theme-commands.js";
+import { normalizeAgentMessagePayload, parseAgentMessageRequest, storeAgentUserMessage, } from "../messaging/agent-message-service.js";
+import { handleUiThemeCommand } from "../theming/ui-theme-commands.js";
 import { beginChatRun, endChatRun, endChatRunWithError, getChatCursor, getInflightMessageId, getMessageRowIdById, getMessagesSince, getDb, rollbackInflightRun, setChatCursor, } from "../../../db.js";
 import { detectChannel, formatMessages, formatOutbound } from "../../../router.js";
-import { createAgentProfileBuilder } from "../agent-utils.js";
-import { resolveAvatarUrl } from "../avatar-service.js";
-import { createAgentEventEmitter, createStreamingEventHandler } from "../agent-events.js";
-import { broadcastInteractionUpdated } from "../interaction-service.js";
-import { storeAgentTurn } from "../agent-message-store.js";
-import { resolveThreadId, resolveThreadRootId } from "../threading.js";
+import { createAgentProfileBuilder } from "../agent/agent-utils.js";
+import { resolveAvatarUrl } from "../media/avatar-service.js";
+import { createAgentEventEmitter, createStreamingEventHandler } from "../sse/agent-events.js";
+import { broadcastInteractionUpdated } from "../cards/interaction-service.js";
+import { storeAgentTurn } from "../messaging/agent-message-store.js";
+import { resolveThreadId, resolveThreadRootId } from "../runtime/threading.js";
 import { createUuid } from "../../../utils/ids.js";
 import { createLogger } from "../../../utils/logger.js";
 import { checkPendingShutdown } from "../../../runtime/shutdown-registry.js";

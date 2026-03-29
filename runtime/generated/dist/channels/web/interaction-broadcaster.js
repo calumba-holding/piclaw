@@ -1,7 +1,7 @@
 /**
  * channels/web/interaction-broadcaster.ts – profile-aware interaction broadcast helpers.
  */
-import { broadcastAgentResponse, broadcastInteractionUpdated, } from "./interaction-service.js";
+import { broadcastAgentResponse, broadcastInteractionUpdated, } from "./cards/interaction-service.js";
 /** Create an interaction broadcaster bound to a channel and profile metadata.
  *  The profile can be an object or a getter function; when a function is
  *  provided the profile is resolved at broadcast-time so runtime identity

@@ -8,7 +8,7 @@
  *   - /pdf-viewer/source?... -> inline PDF stream for attachment previews
  */
 import { registerExtensionRoute } from "./extension-routes.js";
-import { MediaService } from "../media-service.js";
+import { MediaService } from "../media/media-service.js";
 const ROUTE_PREFIX = "/pdf-viewer";
 const mediaService = new MediaService();
 const VIEWER_CSP = [

@@ -145,7 +145,7 @@ export function getMessageThreadRootIdById(chatJid, messageId) {
     return row.thread_id ?? row.rowid ?? null;
 }
 /**
- * Fetch a single message by its rowid, returning it as an InteractionRow.
+ * Fetch a single message by its rowid within a known chat, returning it as an InteractionRow.
  * Used by replaceMessageContent and the web channel's post-detail views.
  */
 export function getMessageByRowId(chatJid, rowId) {
@@ -153,6 +153,21 @@ export function getMessageByRowId(chatJid, rowId) {
     const row = db
         .prepare(`SELECT ${MESSAGE_COLUMNS} FROM messages WHERE chat_jid = ? AND rowid = ?`)
         .get(chatJid, rowId);
+    if (!row)
+        return undefined;
+    const mediaIds = getMediaIdsForMessage(row.rowid);
+    return buildInteraction(row, mediaIds);
+}
+/**
+ * Fetch a single message by its rowid across all chats.
+ * Used when callers only have a persisted source post id and must recover the
+ * authoritative owning chat before applying updates or routing follow-up work.
+ */
+export function getMessageByAnyRowId(rowId) {
+    const db = getDb();
+    const row = db
+        .prepare(`SELECT ${MESSAGE_COLUMNS} FROM messages WHERE rowid = ?`)
+        .get(rowId);
     if (!row)
         return undefined;
     const mediaIds = getMediaIdsForMessage(row.rowid);

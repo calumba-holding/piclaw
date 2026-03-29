@@ -25,7 +25,7 @@
  */
 import { extname, resolve } from "path";
 import { createUuid } from "../../utils/ids.js";
-import { rememberWebOrigin } from "./request-origin.js";
+import { rememberWebOrigin } from "./auth/request-origin.js";
 import { handleAgentRoutes } from "./http/dispatch-agent.js";
 import { handleAuthRoutes } from "./http/dispatch-auth.js";
 import { handleContentPrimaryRoutes, handleContentSecondaryRoutes } from "./http/dispatch-content.js";

@@ -1,7 +1,7 @@
 import { createConnection } from "node:net";
 import { DEFAULT_WEB_USER_ID, getWebSession } from "../../../db.js";
 import { WebSocketTcpBridge } from "../remote-display/websocket-tcp-bridge.js";
-import { getSessionTokenFromRequest } from "../session-auth.js";
+import { getSessionTokenFromRequest } from "../auth/session-auth.js";
 const FALLBACK_VNC_OWNER = {
     token: "web-vnc-local-default",
     userId: DEFAULT_WEB_USER_ID,

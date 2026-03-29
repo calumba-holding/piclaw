@@ -6,7 +6,7 @@
  *
  * Consumers: channels/web.ts creates a UIContext for each agent session.
  */
-import { UiBridge } from "./ui-bridge.js";
+import { UiBridge } from "./theming/ui-bridge.js";
 function getBridge(channel) {
     return channel.uiBridge ?? new UiBridge(channel);
 }

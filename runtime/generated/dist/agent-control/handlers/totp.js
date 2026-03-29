@@ -8,8 +8,8 @@
  */
 import { getIdentityConfig, getWebRuntimeConfig } from "../../core/config.js";
 import { getChatChannel } from "../../core/chat-context.js";
-import { verifyTotp } from "../../channels/web/auth.js";
-import { buildTotpAdaptiveCard, createTotpCardToken, hashTotpSecret, } from "../../channels/web/totp-card.js";
+import { verifyTotp } from "../../channels/web/auth/auth.js";
+import { buildTotpAdaptiveCard, createTotpCardToken, hashTotpSecret, } from "../../channels/web/auth/totp-card.js";
 import { generateTotpQr } from "../../utils/totp-qr.js";
 function createCandidateSecret(issuer, label) {
     return generateTotpQr({ issuer, label }).secret;
