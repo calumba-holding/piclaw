@@ -65,6 +65,33 @@ export function removeFollowupQueueRow<T extends FollowupQueueItemLike>(
   };
 }
 
+export function appendFollowupQueueItem(
+  items: FollowupQueueItemLike[] | null | undefined,
+  payload: Record<string, unknown> | null | undefined,
+): FollowupQueueItemLike[] {
+  const currentItems = Array.isArray(items) ? items : [];
+  const rowId = payload?.row_id as string | number | null | undefined;
+  const content = payload?.content;
+
+  if (rowId == null || typeof content !== 'string' || !content.trim()) {
+    return currentItems;
+  }
+
+  if (currentItems.some((item) => item?.row_id === rowId)) {
+    return currentItems;
+  }
+
+  return [
+    ...currentItems,
+    {
+      row_id: rowId,
+      content,
+      timestamp: payload?.timestamp || null,
+      thread_id: payload?.thread_id ?? null,
+    },
+  ];
+}
+
 export function shouldRefreshQueueStateFromResponse(response: Record<string, any> | null | undefined): boolean {
   if (!response || typeof response !== 'object') return false;
   if (response.queued === 'followup' || response.queued === 'steer') return true;

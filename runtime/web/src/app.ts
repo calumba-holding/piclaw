@@ -118,6 +118,7 @@ import {
     shouldClearPendingPanelActions,
 } from './ui/app-extension-status.js';
 import {
+    appendFollowupQueueItem,
     filterQueuedTimelinePosts,
     haveSameFollowupQueueRows,
     normalizeFollowupQueueItems,
@@ -2315,24 +2316,7 @@ function MainApp({ locationParams, navigate }) {
 
         if (eventType === 'agent_followup_queued') {
             if (!isCurrentChatEvent) return;
-            const rowId = data?.row_id;
-            const content = data?.content;
-            if (rowId != null && typeof content === 'string' && content.trim()) {
-                setFollowupQueueItems((current) => {
-                    if (current.some((item) => item?.row_id === rowId)) {
-                        return current;
-                    }
-                    return [
-                        ...current,
-                        {
-                            row_id: rowId,
-                            content,
-                            timestamp: data?.timestamp || null,
-                            thread_id: data?.thread_id ?? null,
-                        },
-                    ];
-                });
-            }
+            setFollowupQueueItems((current) => appendFollowupQueueItem(current, data));
             void refreshQueueState();
             return;
         }

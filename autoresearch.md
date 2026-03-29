@@ -1,7 +1,7 @@
 # Autoresearch: continue-decompose-web-app-shell
 
 ## Objective
-Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while preserving UX semantics and payload shapes. This tranche targets active-branch roster shaping (normalization, merge precedence, and stable sorting) used by session/branch state refresh.
+Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while preserving UX semantics and payload shapes. Current tranches target (1) active-branch roster shaping (normalization, merge precedence, stable sorting) and (2) queued follow-up SSE row normalization/append behavior.
 
 ## Metrics
 - **Primary**: `seam_score` (unitless, higher is better) — structural completion for the extracted active-branch roster seam
@@ -37,3 +37,5 @@ Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while 
 - Extracted active/branch roster normalization + merge/sort behavior from `app.ts` into typed `runtime/web/src/ui/app-chat-agents.ts`.
 - `refreshActiveChatAgents` now delegates filtering + merge precedence + ordering to helpers (`normalizeActiveChatRows`, `mergeActiveAndBranchChats`), and `refreshCurrentChatBranches` delegates row filtering to `normalizeCurrentRootBranchRows`.
 - Added focused seam coverage in `runtime/test/web/app-chat-agents.test.ts` for filtering rules, empty-branch fallback behavior, merge precedence, `is_active` nullish fallback semantics, and current/archived/activity sorting order.
+- Extracted `agent_followup_queued` row-append shaping from `app.ts` into `appendFollowupQueueItem` in `runtime/web/src/ui/app-followup-queue.ts`, keeping dedupe + payload defaults identical.
+- Expanded `runtime/test/web/app-followup-queue.test.ts` with focused checks for valid append behavior plus identity-preserving no-op paths (duplicates/invalid payloads).

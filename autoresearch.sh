@@ -35,6 +35,9 @@ seam_score=0
 rg -q "./ui/app-chat-agents.js" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
 rg -q "mergeActiveAndBranchChats" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
 rg -q "normalizeCurrentRootBranchRows" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
+rg -q "appendFollowupQueueItem" runtime/web/src/ui/app-followup-queue.ts && seam_score=$((seam_score + 1))
+rg -q "appendFollowupQueueItem" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
+rg -q "appendFollowupQueueItem" runtime/test/web/app-followup-queue.test.ts && seam_score=$((seam_score + 1))
 
 echo "METRIC seam_score=${seam_score}"
 echo "METRIC targeted_test_ms=${targeted_test_ms}"

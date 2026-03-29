@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 
 import {
+  appendFollowupQueueItem,
   filterQueuedTimelinePosts,
   haveSameFollowupQueueRows,
   LEGACY_QUEUE_STATUS,
@@ -58,6 +59,36 @@ test('removeFollowupQueueRow returns filtered rows and the remaining queue count
     items: [{ row_id: 'a' }],
     remainingQueueCount: 1,
   });
+});
+
+test('appendFollowupQueueItem appends normalized rows for valid queue payloads', () => {
+  const existing = [{ row_id: 'queue:1', content: 'first' }];
+  const appended = appendFollowupQueueItem(existing, {
+    row_id: 'queue:2',
+    content: 'second',
+    timestamp: '2026-03-29T12:00:00.000Z',
+    thread_id: 9,
+  });
+
+  expect(appended).toEqual([
+    { row_id: 'queue:1', content: 'first' },
+    {
+      row_id: 'queue:2',
+      content: 'second',
+      timestamp: '2026-03-29T12:00:00.000Z',
+      thread_id: 9,
+    },
+  ]);
+  expect(appended).not.toBe(existing);
+});
+
+test('appendFollowupQueueItem keeps array identity for duplicate or invalid payloads', () => {
+  const existing = [{ row_id: 'queue:1', content: 'first' }];
+
+  expect(appendFollowupQueueItem(existing, { row_id: 'queue:1', content: 'duplicate' })).toBe(existing);
+  expect(appendFollowupQueueItem(existing, { row_id: null, content: 'missing row' })).toBe(existing);
+  expect(appendFollowupQueueItem(existing, { row_id: 'queue:2', content: '   ' })).toBe(existing);
+  expect(appendFollowupQueueItem(existing, null)).toBe(existing);
 });
 
 test('shouldRefreshQueueStateFromResponse detects queued responses and queued commands', () => {
