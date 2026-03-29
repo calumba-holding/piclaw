@@ -4,7 +4,7 @@ title: "Refactor: split AgentPool into session, tools, and turn modules"
 status: doing
 priority: critical
 created: 2026-03-23
-updated: 2026-03-28
+updated: 2026-03-29
 tags:
   - refactor
   - modularity
@@ -50,6 +50,24 @@ Split into:
 - 17 `catch(e)` + 15 `catch {}` blocks — error handling needs attention during extraction
 
 ## Updates
+
+### 2026-03-29
+- Began the split on branch `feature/split-agentpool-god-class`.
+- Extracted three helper modules out of `runtime/src/agent-pool.ts`:
+  - `runtime/src/agent-pool/tool-factory.ts`
+  - `runtime/src/agent-pool/turn-coordinator.ts`
+  - `runtime/src/agent-pool/session-manager.ts`
+- Rewired `AgentPool` to delegate default tool creation, turn tracking / prompt-timeout subscription wiring, and main/side session lifecycle management through those modules.
+- Added focused tests for the extracted seams:
+  - `runtime/test/agent-pool/tool-factory.test.ts`
+  - `runtime/test/agent-pool/turn-coordinator.test.ts`
+  - `runtime/test/agent-pool/session-manager.test.ts`
+- Validation:
+  - `bun test test/agent-pool/agent-pool.test.ts test/agent-pool/tool-factory.test.ts test/agent-pool/turn-coordinator.test.ts test/agent-pool/session-manager.test.ts`
+  - `bun run lint`
+  - `bun run typecheck`
+- Size reduction so far: `runtime/src/agent-pool.ts` `1632 → 1300` lines.
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 1, test: 2, deps: 2, risk: 1)
 
 ### 2026-03-28
 - Lane change: `10-next` → `20-doing` via web next-card decision.
