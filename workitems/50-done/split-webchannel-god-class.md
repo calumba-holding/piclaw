@@ -1,10 +1,11 @@
 ---
 id: split-webchannel-god-class
 title: "Refactor: split WebChannel god-class into composable services"
-status: review
+status: done
 priority: critical
 created: 2026-03-23
 updated: 2026-03-29
+completed: 2026-03-29
 tags:
   - refactor
   - modularity
@@ -53,6 +54,15 @@ Extract `WebChannel` into a composition of focused services:
 - This unblocks all future web-layer work
 
 ## Updates
+
+### 2026-03-29
+- Lane change: `40-review` → `50-done` after the prototype-shell extraction held up under the full runtime test suite and all ticket acceptance criteria stayed satisfied.
+- Completion evidence:
+  - `runtime/src/channels/web.ts` remains at 128 lines
+  - the compatibility-shell split preserved `WebChannel.prototype...` behavior while the broader runtime suite now passes via `cd runtime && bun test` → `1307 pass`, `1 skip`, `0 fail`
+  - prior web-focused validation for this refactor remains in place: `bun test test/channels/web`, `bun run lint`, `bun run typecheck`, `bun run build`, `bun run check:stale-dist`
+- Outcome: the WebChannel god-class split is fully landed on `main` and no further review-lane follow-up is required for this umbrella ticket.
+- Quality: ★★★★★ 9/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 2)
 
 ### 2026-03-29
 - Lane change: `20-doing` → `40-review` after finishing the remaining coordinator-shell extraction as a prototype installer seam.

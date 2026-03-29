@@ -11,9 +11,7 @@ tags:
   - quality
   - quality-assessment
 owner: pi
-blocked-by:
-  - split-webchannel-god-class
-  - split-agentpool-god-class
+blocked-by: []
 ---
 
 # Master: codebase quality cleanup & refactoring (2026-Q1)
@@ -42,10 +40,7 @@ These are the open tickets that still block this umbrella from closing.
 
 ### P0 — Critical structural refactors
 
-| Ticket | Status | Description |
-|---|---|---|
-| `split-webchannel-god-class` | review | Split 1,905-line WebChannel into composable services |
-| `split-agentpool-god-class` | review | Split 1,632-line AgentPool into session/tools/turn modules |
+_All previously tracked structural blockers are now in `50-done/`._
 
 ### Active supporting quality work
 
@@ -60,6 +55,8 @@ _No open P1 supporting blockers remain right now._
 | `add-tests-core-config-and-keychain` | done | Coverage work landed and no longer blocks the umbrella |
 | `finish-config-injection-and-mutable-identity-cleanup` | done | Config-consumer cleanup and mutable-identity seam work landed |
 | `audit-exported-jsdoc-coverage-and-comment-quality` | done | Documentation review gate was re-established and closed |
+| `split-webchannel-god-class` | done | WebChannel was reduced to a thin 128-line coordinator shell over extracted services |
+| `split-agentpool-god-class` | done | AgentPool was reduced to a thin 322-line coordinator over extracted session/tool/turn services |
 
 ## Follow-up work (P2/P3 — not blocking)
 
@@ -70,13 +67,13 @@ These are desirable but not required to close this ticket:
 | P2 | `adopt-pino-structured-logging` | Adopt structured logging and explicit error-handling guards |
 | P2 | `group-web-channel-flat-files` | Group 56 flat files into sub-directories |
 | P2 | `extract-typed-config-objects` | Extract 45 constants into typed config objects *(done — follow-up now tracked by `finish-config-injection-and-mutable-identity-cleanup`)* |
-| P3 | — | Split `web/src/app.ts` (3,571 lines) |
-| P3 | — | Split `web/static/css/styles.css` (5,942 lines) |
+| P3 | `continue-decompose-web-app-shell` | Continue decomposing `runtime/web/src/app.ts` after regrowth past 3.9k lines |
+| P3 | `split-web-styles-monolith` | Split `runtime/web/static/css/styles.css` into layered stylesheets |
 | P3 | — | Fix `ipc.ts → MediaService` dependency direction violation |
 
 ## Completion criteria
 
-- [ ] All current blocker tickets are in `50-done/`
+- [x] All current blocker tickets are in `50-done/`
 - [x] Full test suite passes (0 failures)
 - [ ] No file in `src/` exceeds 800 lines
 - [ ] No class exceeds 400 lines
@@ -85,6 +82,19 @@ These are desirable but not required to close this ticket:
 - [ ] Re-run quality assessment and confirm grade improvement
 
 ## Updates
+
+### 2026-03-29
+- Closed out the last two tracked P0 blocker tickets by moving `split-webchannel-god-class` and `split-agentpool-god-class` from `40-review/` to `50-done/`.
+- The umbrella `blocked-by` list is now empty because every explicitly tracked blocker has landed.
+- Converted the remaining P3 placeholder follow-ups into explicit tickets:
+  - `workitems/10-next/continue-decompose-web-app-shell.md`
+  - `workitems/10-next/split-web-styles-monolith.md`
+- Remaining work under this umbrella is now criteria-driven rather than blocker-driven:
+  - reduce the remaining >800-line source files
+  - reduce any remaining >400-line classes
+  - improve the silent-catch ratio
+  - refresh quality-assessment evidence
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
 
 ### 2026-03-29
 - Fixed the last two known full-suite failures under this umbrella:

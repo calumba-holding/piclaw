@@ -1,10 +1,11 @@
 ---
 id: split-agentpool-god-class
 title: "Refactor: split AgentPool into session, tools, and turn modules"
-status: review
+status: done
 priority: critical
 created: 2026-03-23
 updated: 2026-03-29
+completed: 2026-03-29
 tags:
   - refactor
   - modularity
@@ -50,6 +51,15 @@ Split into:
 - 17 `catch(e)` + 15 `catch {}` blocks — error handling needs attention during extraction
 
 ## Updates
+
+### 2026-03-29
+- Lane change: `40-review` → `50-done` after the follow-up contract/wiring extraction held up under broader validation and the full runtime suite is now green again.
+- Completion evidence:
+  - `runtime/src/agent-pool.ts` remains at 322 lines
+  - the extracted contract and service-wiring seams stayed stable after `cd runtime && bun test` returned `1307 pass`, `1 skip`, `0 fail`
+  - prior focused validation for the refactor remains in place: agent-pool seam tests, `bun run lint`, `bun run typecheck`, `bun run build`, `bun run check:stale-dist`
+- Outcome: the public `AgentPool` façade is preserved, the god-class split is landed on `main`, and this ticket no longer needs review-lane tracking.
+- Quality: ★★★★★ 9/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 2)
 
 ### 2026-03-29
 - Follow-up refinement on branch `feature/agentpool-contracts-and-wiring`: extracted the remaining public contracts into `runtime/src/agent-pool/contracts.ts` and constructor/service assembly into `runtime/src/agent-pool/service-factory.ts`.
