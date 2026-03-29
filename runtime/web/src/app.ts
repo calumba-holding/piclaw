@@ -172,6 +172,14 @@ import {
     buildFloatingWidgetDashboardSnapshot as buildFloatingWidgetDashboardData,
     readFulfilledResult,
 } from './ui/app-floating-widget-dashboard.js';
+import {
+    resolveFloatingWidgetDashboardBuiltToast,
+    resolveFloatingWidgetDashboardFailureToast,
+    resolveFloatingWidgetHostRefreshContext,
+    resolveFloatingWidgetRefreshAckToast,
+    resolveFloatingWidgetSubmitFailureToast,
+    resolveFloatingWidgetSubmitToast,
+} from './ui/app-floating-widget-events.js';
 
 const CURRENT_APP_ASSET_VERSION = getCurrentAppAssetVersion();
 
@@ -2688,14 +2696,8 @@ function MainApp({ locationParams, navigate }) {
                         submissionText,
                         queued: response?.queued || null,
                     }));
-                    showIntentToast(
-                        response?.queued === 'followup' ? 'Widget submission queued' : 'Widget submission sent',
-                        response?.queued === 'followup'
-                            ? 'The widget message was queued because the agent is busy.'
-                            : 'The widget message was sent to the chat.',
-                        'info',
-                        3500,
-                    );
+                    const submitToast = resolveFloatingWidgetSubmitToast(response?.queued);
+                    showIntentToast(submitToast.title, submitToast.detail, submitToast.kind, submitToast.durationMs);
                     if (closeAfterSubmit) handleCloseFloatingWidget();
                 } catch (error) {
                     setFloatingWidget((current) => applyFloatingWidgetSubmitResult(current, sessionKey, {
@@ -2703,7 +2705,8 @@ function MainApp({ locationParams, navigate }) {
                         submissionText,
                         errorMessage: error?.message || 'Could not send the widget message.',
                     }));
-                    showIntentToast('Widget submission failed', error?.message || 'Could not send the widget message.', 'warning', 5000);
+                    const submitFailureToast = resolveFloatingWidgetSubmitFailureToast(error?.message);
+                    showIntentToast(submitFailureToast.title, submitFailureToast.detail, submitFailureToast.kind, submitFailureToast.durationMs);
                 }
             })();
             return;
@@ -2711,39 +2714,41 @@ function MainApp({ locationParams, navigate }) {
 
         if (kind === 'widget.ready' || kind === 'widget.request_refresh') {
             const eventAt = new Date().toISOString();
-            const shouldBuildDashboard = Boolean(event?.payload?.buildDashboard || event?.payload?.dashboardKind === 'internal-state');
-            const nextRefreshCount = Number(widget?.runtimeState?.refreshCount || 0) + 1;
+            const refreshContext = resolveFloatingWidgetHostRefreshContext(event?.payload || null, widget?.runtimeState?.refreshCount);
             setFloatingWidget((current) => applyFloatingWidgetHostEvent(current, sessionKey, {
                 kind,
                 payload: event?.payload || null,
                 eventAt,
-                nextRefreshCount,
-                shouldBuildDashboard,
+                nextRefreshCount: refreshContext.nextRefreshCount,
+                shouldBuildDashboard: refreshContext.shouldBuildDashboard,
             }));
 
             if (kind === 'widget.request_refresh') {
-                if (shouldBuildDashboard) {
+                if (refreshContext.shouldBuildDashboard) {
                     (async () => {
                         try {
                             const dashboard = await buildFloatingWidgetDashboardSnapshot(event?.payload || null);
                             setFloatingWidget((current) => applyFloatingWidgetDashboardResult(current, sessionKey, {
                                 dashboard,
                                 at: new Date().toISOString(),
-                                count: nextRefreshCount,
+                                count: refreshContext.nextRefreshCount,
                                 echo: event?.payload || null,
                             }));
-                            showIntentToast('Dashboard built', 'Live dashboard state pushed into the widget.', 'info', 3000);
+                            const successToast = resolveFloatingWidgetDashboardBuiltToast();
+                            showIntentToast(successToast.title, successToast.detail, successToast.kind, successToast.durationMs);
                         } catch (error) {
                             setFloatingWidget((current) => applyFloatingWidgetDashboardFailure(current, sessionKey, {
                                 errorMessage: error?.message || 'Could not build dashboard.',
                                 at: new Date().toISOString(),
-                                count: nextRefreshCount,
+                                count: refreshContext.nextRefreshCount,
                             }));
-                            showIntentToast('Dashboard build failed', error?.message || 'Could not build dashboard.', 'warning', 5000);
+                            const failureToast = resolveFloatingWidgetDashboardFailureToast(error?.message);
+                            showIntentToast(failureToast.title, failureToast.detail, failureToast.kind, failureToast.durationMs);
                         }
                     })();
                 } else {
-                    showIntentToast('Widget refresh requested', 'The widget received a host acknowledgement update.', 'info', 3000);
+                    const ackToast = resolveFloatingWidgetRefreshAckToast();
+                    showIntentToast(ackToast.title, ackToast.detail, ackToast.kind, ackToast.durationMs);
                 }
             }
         }
