@@ -158,6 +158,10 @@ import {
     shouldRefreshQueueStateFromResponse,
 } from './ui/app-followup-queue.js';
 import {
+    resolveFollowupActionFailureToast,
+    resolveFollowupQueueRemovalPlan,
+} from './ui/app-followup-actions.js';
+import {
     applyFloatingWidgetDashboardFailure,
     applyFloatingWidgetDashboardResult,
     applyFloatingWidgetHostEvent,
@@ -1713,8 +1717,10 @@ function MainApp({ locationParams, navigate }) {
             });
     }, [currentRootChatJid]);
     const handleInjectQueuedFollowup = useCallback((queuedItem) => {
-        const rowId = queuedItem?.row_id;
-        if (rowId == null) return;
+        const optimisticRemoval = resolveFollowupQueueRemovalPlan(followupQueueItemsRef.current, queuedItem);
+        if (!optimisticRemoval) return;
+        const { rowId } = optimisticRemoval;
+
         // Optimistic removal
         dismissedQueueRowIdsRef.current.add(rowId);
         setFollowupQueueItems((current) => removeFollowupQueueRow(current, rowId).items);
@@ -1727,16 +1733,18 @@ function MainApp({ locationParams, navigate }) {
             })
             .catch((error) => {
                 console.warn('[queue] Failed to steer queued item:', error);
-                showIntentToast('Failed to steer message', 'The queued message could not be sent as steering.', 'warning');
+                const failureToast = resolveFollowupActionFailureToast('steer');
+                showIntentToast(failureToast.title, failureToast.detail, 'warning');
                 dismissedQueueRowIdsRef.current.delete(rowId);
                 void refreshQueueState();
             });
     }, [currentChatJid, refreshQueueState, setFollowupQueueItems, showIntentToast]);
 
     const handleRemoveQueuedFollowup = useCallback((queuedItem) => {
-        const rowId = queuedItem?.row_id;
-        if (rowId == null) return;
-        const optimisticRemoval = removeFollowupQueueRow(followupQueueItemsRef.current, rowId);
+        const optimisticRemoval = resolveFollowupQueueRemovalPlan(followupQueueItemsRef.current, queuedItem);
+        if (!optimisticRemoval) return;
+        const { rowId } = optimisticRemoval;
+
         // Optimistic removal
         dismissedQueueRowIdsRef.current.add(rowId);
         clearQueuedSteerStateIfStale(optimisticRemoval.remainingQueueCount);
@@ -1750,7 +1758,8 @@ function MainApp({ locationParams, navigate }) {
             })
             .catch((error) => {
                 console.warn('[queue] Failed to remove queued item:', error);
-                showIntentToast('Failed to remove message', 'The queued message could not be removed.', 'warning');
+                const failureToast = resolveFollowupActionFailureToast('remove');
+                showIntentToast(failureToast.title, failureToast.detail, 'warning');
                 dismissedQueueRowIdsRef.current.delete(rowId);
                 void refreshQueueState();
             });
@@ -2241,11 +2250,10 @@ function MainApp({ locationParams, navigate }) {
 
         if (eventType === 'agent_followup_consumed') {
             if (!isCurrentChatEvent) return;
-            const rowId = data?.row_id;
-            if (rowId != null) {
-                const optimisticRemoval = removeFollowupQueueRow(followupQueueItemsRef.current, rowId);
+            const optimisticRemoval = resolveFollowupQueueRemovalPlan(followupQueueItemsRef.current, data);
+            if (optimisticRemoval) {
                 clearQueuedSteerStateIfStale(optimisticRemoval.remainingQueueCount);
-                setFollowupQueueItems((current) => removeFollowupQueueRow(current, rowId).items);
+                setFollowupQueueItems((current) => removeFollowupQueueRow(current, optimisticRemoval.rowId).items);
             }
             void refreshQueueState();
             // Refresh timeline so the replaced placeholder (now the real response)
@@ -2259,12 +2267,11 @@ function MainApp({ locationParams, navigate }) {
 
         if (eventType === 'agent_followup_removed') {
             if (!isCurrentChatEvent) return;
-            const rowId = data?.row_id;
-            if (rowId != null) {
-                const optimisticRemoval = removeFollowupQueueRow(followupQueueItemsRef.current, rowId);
-                dismissedQueueRowIdsRef.current.add(rowId);
+            const optimisticRemoval = resolveFollowupQueueRemovalPlan(followupQueueItemsRef.current, data);
+            if (optimisticRemoval) {
+                dismissedQueueRowIdsRef.current.add(optimisticRemoval.rowId);
                 clearQueuedSteerStateIfStale(optimisticRemoval.remainingQueueCount);
-                setFollowupQueueItems((current) => removeFollowupQueueRow(current, rowId).items);
+                setFollowupQueueItems((current) => removeFollowupQueueRow(current, optimisticRemoval.rowId).items);
             }
             void refreshQueueState();
             return;

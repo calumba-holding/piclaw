@@ -1,7 +1,7 @@
 # Autoresearch: continue-decompose-web-app-shell
 
 ## Objective
-Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while preserving UX semantics and payload shapes. Current tranches target (1) active-branch roster shaping (normalization, merge precedence, stable sorting), (2) queued follow-up SSE row normalization/append behavior, (3) generated-widget SSE event routing/fallback mapping, (4) turn-scoped SSE gating/adoption semantics, (5) real-time timeline mutation gating/operations, (6) extension-UI SSE chat/toast mapping, (7) agent-status preview/turn restore shaping, (8) SSE chat-scope/noisy-event routing context, (9) model-state payload normalization, (10) agent/user profile event normalization, (11) floating-widget dashboard snapshot shaping, and (12) floating-widget host/submit event toast/context mapping.
+Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while preserving UX semantics and payload shapes. Current tranches target (1) active-branch roster shaping (normalization, merge precedence, stable sorting), (2) queued follow-up SSE row normalization/append behavior, (3) generated-widget SSE event routing/fallback mapping, (4) turn-scoped SSE gating/adoption semantics, (5) real-time timeline mutation gating/operations, (6) extension-UI SSE chat/toast mapping, (7) agent-status preview/turn restore shaping, (8) SSE chat-scope/noisy-event routing context, (9) model-state payload normalization, (10) agent/user profile event normalization, (11) floating-widget dashboard snapshot shaping, (12) floating-widget host/submit event toast/context mapping, and (13) queued-followup removal/action failure mapping.
 
 ## Metrics
 - **Primary**: `seam_score` (unitless, higher is better) — structural completion for the extracted active-branch roster seam
@@ -27,6 +27,8 @@ Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while 
 - `runtime/test/web/app-floating-widget-dashboard.test.ts` — focused dashboard shaping seam tests
 - `runtime/web/src/ui/app-floating-widget-events.ts` — typed floating-widget event/host-toast mapping seam
 - `runtime/test/web/app-floating-widget-events.test.ts` — focused floating-widget event mapping tests
+- `runtime/web/src/ui/app-followup-actions.ts` — typed queued-followup removal/action helper seam
+- `runtime/test/web/app-followup-actions.test.ts` — focused queued-followup helper tests
 
 ## Off Limits
 - Runtime/backend services and protocol contracts
@@ -75,3 +77,5 @@ Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while 
 - Added focused tests in `runtime/test/web/app-floating-widget-dashboard.test.ts` for settled-result extraction, payload-first/fallback snapshot behavior, and progress-bar clamp semantics.
 - Extracted floating-widget submit/refresh toast text and refresh-context shaping from `app.ts` into typed `runtime/web/src/ui/app-floating-widget-events.ts` (`resolveFloatingWidgetSubmitToast`, `resolveFloatingWidgetHostRefreshContext`, etc.).
 - Added focused tests in `runtime/test/web/app-floating-widget-events.test.ts` for submission outcome mapping, host refresh context derivation, and dashboard/ack/failure toast defaults.
+- Extracted queued-followup removal planning and action-failure toast mapping from `app.ts` into typed `runtime/web/src/ui/app-followup-actions.ts` (`resolveFollowupQueueRemovalPlan`, `resolveFollowupActionFailureToast`) and reused it in both queue action handlers and followup SSE removal branches.
+- Added focused tests in `runtime/test/web/app-followup-actions.test.ts` for row-id validation/removal metadata and steer/remove failure-copy mapping.

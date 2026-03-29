@@ -53,6 +53,9 @@ fi
 if [[ -f runtime/test/web/app-floating-widget-events.test.ts ]]; then
   tests+=(runtime/test/web/app-floating-widget-events.test.ts)
 fi
+if [[ -f runtime/test/web/app-followup-actions.test.ts ]]; then
+  tests+=(runtime/test/web/app-followup-actions.test.ts)
+fi
 
 PICLAW_DB_IN_MEMORY=1 bun test --max-concurrency=1 "${tests[@]}"
 
@@ -109,6 +112,10 @@ rg -q "readFulfilledResult" runtime/web/src/app.ts && seam_score=$((seam_score +
 [[ -f runtime/test/web/app-floating-widget-events.test.ts ]] && seam_score=$((seam_score + 1))
 rg -q "resolveFloatingWidgetSubmitToast" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
 rg -q "resolveFloatingWidgetHostRefreshContext" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
+[[ -f runtime/web/src/ui/app-followup-actions.ts ]] && seam_score=$((seam_score + 1))
+[[ -f runtime/test/web/app-followup-actions.test.ts ]] && seam_score=$((seam_score + 1))
+rg -q "resolveFollowupQueueRemovalPlan" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
+rg -q "resolveFollowupActionFailureToast" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
 
 echo "METRIC seam_score=${seam_score}"
 echo "METRIC targeted_test_ms=${targeted_test_ms}"
