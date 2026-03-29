@@ -98,6 +98,13 @@ import {
     runExtensionStatusPanelAction,
     shouldClearPendingPanelActions,
 } from './ui/app-extension-status.js';
+import {
+    filterQueuedTimelinePosts,
+    haveSameFollowupQueueRows,
+    normalizeFollowupQueueItems,
+    removeFollowupQueueRow,
+    shouldRefreshQueueStateFromResponse,
+} from './ui/app-followup-queue.js';
 
 const CURRENT_APP_ASSET_VERSION = getCurrentAppAssetVersion();
 
@@ -1062,24 +1069,7 @@ function MainApp({ locationParams, navigate }) {
      *  Reads from refs so callback identity never changes — this breaks the
      *  re-render cascade that previously destabilised handleSseEvent → SSE.
      *  Returns the same array reference when nothing is filtered. */
-    const LEGACY_QUEUE_STATUS = 'Queued as a follow-up (one-at-a-time).';
-    const QUEUE_PLACEHOLDER_MARKER = '\u2063';
-    const filterQueuedPosts = useCallback((items) => {
-        if (!items || !Array.isArray(items)) return items;
-        const queueRowIds = followupQueueRowIdsRef.current;
-        const hiddenIds = new Set(queueRowIds);
-
-        const filtered = items.filter((post) => {
-            if (hiddenIds.has(post?.id)) return false;
-            // Hide queue placeholder rows from timeline permanently.
-            if (post?.data?.is_bot_message) {
-                const content = post?.data?.content;
-                if (content === LEGACY_QUEUE_STATUS || content === QUEUE_PLACEHOLDER_MARKER) return false;
-            }
-            return true;
-        });
-        return filtered.length === items.length ? items : filtered;
-    }, []);
+    const filterQueuedPosts = useCallback((items) => filterQueuedTimelinePosts(items, followupQueueRowIdsRef.current), []);
 
     const {
         posts: rawPosts,
@@ -1176,14 +1166,10 @@ function MainApp({ locationParams, navigate }) {
                 if (gen !== queueRefreshGenRef.current) return;
                 if (activeChatJidRef.current !== targetChatJid) return;
                 const dismissed = dismissedQueueRowIdsRef.current;
-                const items = Array.isArray(payload?.items)
-                    ? payload.items
-                        .map((item) => ({ ...item }))
-                        .filter((item) => !dismissed.has(item.row_id))
-                    : [];
+                const items = normalizeFollowupQueueItems(payload?.items, dismissed);
                 if (items.length) {
                     setFollowupQueueItems((prev) => {
-                        if (prev.length === items.length && prev.every((p, i) => p.row_id === items[i].row_id)) return prev;
+                        if (haveSameFollowupQueueRows(prev, items)) return prev;
                         return items;
                     });
                     return;
@@ -1726,7 +1712,7 @@ function MainApp({ locationParams, navigate }) {
         if (rowId == null) return;
         // Optimistic removal
         dismissedQueueRowIdsRef.current.add(rowId);
-        setFollowupQueueItems((current) => current.filter((item) => item?.row_id !== rowId));
+        setFollowupQueueItems((current) => removeFollowupQueueRow(current, rowId).items);
 
         // Atomically remove the queued item server-side and convert it into
         // steering (or an immediate send if the active stream already ended).
@@ -1745,11 +1731,11 @@ function MainApp({ locationParams, navigate }) {
     const handleRemoveQueuedFollowup = useCallback((queuedItem) => {
         const rowId = queuedItem?.row_id;
         if (rowId == null) return;
-        const remainingQueueCount = followupQueueItemsRef.current.filter((item) => item?.row_id !== rowId).length;
+        const optimisticRemoval = removeFollowupQueueRow(followupQueueItemsRef.current, rowId);
         // Optimistic removal
         dismissedQueueRowIdsRef.current.add(rowId);
-        clearQueuedSteerStateIfStale(remainingQueueCount);
-        setFollowupQueueItems((current) => current.filter((item) => item?.row_id !== rowId));
+        clearQueuedSteerStateIfStale(optimisticRemoval.remainingQueueCount);
+        setFollowupQueueItems((current) => removeFollowupQueueRow(current, rowId).items);
 
         // Remove the queued item server-side without sending it as steering
         // or converting it into a message.
@@ -1773,15 +1759,7 @@ function MainApp({ locationParams, navigate }) {
         void refreshContextUsage();
         void refreshAutoresearchStatus();
 
-        if (response?.queued === "followup" || response?.queued === "steer") {
-            refreshQueueState();
-            return;
-        }
-
-        const commandResult = response?.command;
-        if (commandResult && typeof commandResult === "object" && (
-            commandResult?.queued_followup || commandResult?.queued_steer
-        )) {
+        if (shouldRefreshQueueStateFromResponse(response)) {
             refreshQueueState();
         }
     }, [refreshActiveChatAgents, refreshAutoresearchStatus, refreshCurrentChatBranches, refreshContextUsage, refreshQueueState]);
@@ -2384,9 +2362,9 @@ function MainApp({ locationParams, navigate }) {
             if (!isCurrentChatEvent) return;
             const rowId = data?.row_id;
             if (rowId != null) {
-                const remainingQueueCount = followupQueueItemsRef.current.filter((item) => item.row_id !== rowId).length;
-                clearQueuedSteerStateIfStale(remainingQueueCount);
-                setFollowupQueueItems((current) => current.filter((item) => item.row_id !== rowId));
+                const optimisticRemoval = removeFollowupQueueRow(followupQueueItemsRef.current, rowId);
+                clearQueuedSteerStateIfStale(optimisticRemoval.remainingQueueCount);
+                setFollowupQueueItems((current) => removeFollowupQueueRow(current, rowId).items);
             }
             void refreshQueueState();
             // Refresh timeline so the replaced placeholder (now the real response)
@@ -2402,10 +2380,10 @@ function MainApp({ locationParams, navigate }) {
             if (!isCurrentChatEvent) return;
             const rowId = data?.row_id;
             if (rowId != null) {
-                const remainingQueueCount = followupQueueItemsRef.current.filter((item) => item.row_id !== rowId).length;
+                const optimisticRemoval = removeFollowupQueueRow(followupQueueItemsRef.current, rowId);
                 dismissedQueueRowIdsRef.current.add(rowId);
-                clearQueuedSteerStateIfStale(remainingQueueCount);
-                setFollowupQueueItems((current) => current.filter((item) => item.row_id !== rowId));
+                clearQueuedSteerStateIfStale(optimisticRemoval.remainingQueueCount);
+                setFollowupQueueItems((current) => removeFollowupQueueRow(current, rowId).items);
             }
             void refreshQueueState();
             return;
