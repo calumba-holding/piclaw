@@ -88,6 +88,10 @@ import {
     resolveExtensionUiToast,
     resolveStatusPanelWidgetEventContext,
 } from './ui/app-extension-ui-sse.js';
+import {
+    isNoisyAgentSseEvent,
+    resolveSseEventRoutingContext,
+} from './ui/app-sse-event-routing.js';
 import { dispatchExtensionUiBrowserEvent, isExtensionUiEventType } from './ui/extension-ui-events.js';
 import { watchReturnToApp, watchStandaloneWebAppMode } from './ui/app-resume.js';
 import { watchDockToggleShortcut, watchPaneOpenEvents, watchZenModeShortcuts } from './ui/app-browser-events.js';
@@ -2148,10 +2152,7 @@ function MainApp({ locationParams, navigate }) {
     }, [currentChatJid]);
 
     const handleSseEvent = useCallback((eventType, data) => {
-        const turnId = data?.turn_id;
-        const eventChatJid = typeof data?.chat_jid === 'string' && data.chat_jid.trim() ? data.chat_jid.trim() : null;
-        const isGlobalUiEvent = eventType === 'connected' || eventType === 'workspace_update';
-        const isCurrentChatEvent = eventChatJid ? eventChatJid === currentChatJid : isGlobalUiEvent;
+        const { turnId, isCurrentChatEvent } = resolveSseEventRoutingContext(eventType, data, currentChatJid);
 
         if (isCurrentChatEvent) {
             updateAgentProfile(data);
@@ -2179,15 +2180,8 @@ function MainApp({ locationParams, navigate }) {
             return;
         }
 
-        if (eventType?.startsWith('agent_')) {
-            const noisyAgentEvent =
-                eventType === 'agent_draft_delta' ||
-                eventType === 'agent_thought_delta' ||
-                eventType === 'agent_draft' ||
-                eventType === 'agent_thought';
-            if (!noisyAgentEvent) {
-                clearLastActivityFlag();
-            }
+        if (eventType?.startsWith('agent_') && !isNoisyAgentSseEvent(eventType)) {
+            clearLastActivityFlag();
         }
 
         // Handle agent status updates
