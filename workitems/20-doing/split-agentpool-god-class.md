@@ -33,11 +33,11 @@ Split into:
 
 ## Acceptance criteria
 
-- [ ] `agent-pool.ts` is under 400 lines
-- [ ] Each extracted module has focused tests
-- [ ] All existing agent-pool tests still pass
+- [x] `agent-pool.ts` is under 400 lines
+- [x] Each extracted module has focused tests
+- [x] All existing agent-pool tests still pass
 - [ ] No new `any` usage introduced
-- [ ] Helper functions move to their natural modules
+- [x] Helper functions move to their natural modules
 
 ## Risks
 
@@ -73,11 +73,13 @@ Split into:
   - `runtime/test/agent-pool/prompt-utils.test.ts`
   - `runtime/test/agent-pool/run-agent-orchestrator.test.ts`
   - `runtime/test/agent-pool/side-prompt-runner.test.ts`
+  - `runtime/test/agent-pool/session-binder.test.ts`
 - Validation:
-  - `bun test test/agent-pool/agent-pool.test.ts test/agent-pool/tool-factory.test.ts test/agent-pool/turn-coordinator.test.ts test/agent-pool/session-manager.test.ts test/agent-pool/branch-manager.test.ts test/agent-pool/runtime-facade.test.ts test/agent-pool/prompt-utils.test.ts test/agent-pool/run-agent-orchestrator.test.ts test/agent-pool/side-prompt-runner.test.ts`
+  - `bun test test/agent-pool/agent-pool.test.ts test/agent-pool/tool-factory.test.ts test/agent-pool/turn-coordinator.test.ts test/agent-pool/session-manager.test.ts test/agent-pool/branch-manager.test.ts test/agent-pool/runtime-facade.test.ts test/agent-pool/prompt-utils.test.ts test/agent-pool/run-agent-orchestrator.test.ts test/agent-pool/side-prompt-runner.test.ts test/agent-pool/session-binder.test.ts`
   - `bun run lint`
   - `bun run typecheck`
 - Size reduction so far: `runtime/src/agent-pool.ts` `1632 → 391` lines, satisfying the ticket’s main file-size target.
+- Review-readiness note: 4/5 acceptance criteria are now satisfied; the remaining gap before promotion is the `no new any` cleanup / audit pass.
 - Quality: ★★★★☆ 8/10 (problem: 2, scope: 1, test: 2, deps: 2, risk: 1)
 
 ### 2026-03-28
