@@ -25,84 +25,41 @@ import { mkdirSync } from "fs";
 import { join } from "path";
 import {
   type AgentSession,
-  type AgentSessionEvent,
   AuthStorage,
   ModelRegistry,
   SettingsManager,
   getAgentDir,
 } from "@mariozechner/pi-coding-agent";
-import { streamSimple, type AssistantMessageEvent, type AssistantMessageEventStream, type Model, type Api, type Usage } from "@mariozechner/pi-ai";
 
 import { type AgentControlCommand, type AgentControlResult } from "./agent-control/index.js";
 import { SESSIONS_DIR, WORKSPACE_DIR } from "./core/config.js";
 import { createTrackedBashOperations } from "./tools/tracked-bash.js";
-import { getAttachmentRegistry, type AttachmentInfo } from "./agent-pool/attachments.js";
-import { AgentBranchManager, type ActiveChatAgent } from "./agent-pool/branch-manager.js";
+import { type ActiveChatAgent } from "./agent-pool/branch-manager.js";
+import {
+  type AgentOutput,
+  type AgentPoolOptions,
+  type RunAgentOptions,
+  type SidePromptOptions,
+  type SidePromptResult,
+} from "./agent-pool/contracts.js";
 import { runSidePrompt as runSidePromptInternal } from "./agent-pool/side-prompt-runner.js";
 import { runAgentPrompt } from "./agent-pool/run-agent-orchestrator.js";
-import { AgentRuntimeFacade, type AvailableModelsResult } from "./agent-pool/runtime-facade.js";
-import { AgentSessionBinder } from "./agent-pool/session-binder.js";
-import { AgentSessionManager, type PoolEntry } from "./agent-pool/session-manager.js";
-import { AgentToolFactory } from "./agent-pool/tool-factory.js";
-import { AgentTurnCoordinator } from "./agent-pool/turn-coordinator.js";
-import { recordMessageUsage } from "./agent-pool/usage.js";
+import { type AvailableModelsResult } from "./agent-pool/runtime-facade.js";
+import { createAgentPoolServices, type AgentPoolServices } from "./agent-pool/service-factory.js";
+import { type PoolEntry } from "./agent-pool/session-manager.js";
 import { type ChatBranchRecord } from "./db.js";
 import { createLogger } from "./utils/logger.js";
 
 const log = createLogger("agent-pool");
 
-/** Output from an agent run: response text, status, and token usage. */
-export interface AgentOutput {
-  status: "success" | "error";
-  result: string | null;
-  error?: string;
-  attachments?: AttachmentInfo[];
-}
-
-/** A single turn's output within a multi-turn agent run. */
-export interface TurnOutput {
-  text: string;
-  attachments: AttachmentInfo[];
-}
-
-export interface SidePromptResult {
-  status: "success" | "error";
-  result: string | null;
-  thinking: string | null;
-  error?: string;
-  model: string | null;
-  usage?: Usage;
-  stopReason?: string;
-}
-
-export interface SidePromptOptions {
-  systemPrompt?: string;
-  signal?: AbortSignal;
-  onEvent?: (event: AssistantMessageEvent | AgentSessionEvent) => void;
-  onTextDelta?: (delta: string) => void;
-  onThinkingDelta?: (delta: string) => void;
-}
-
-/** Options for AgentPool.runAgent(): chatJid, messages, callbacks. */
-export interface RunAgentOptions {
-  onEvent?: (event: AgentSessionEvent) => void;
-  /** Called when a turn completes (text_start → next text_start or end). */
-  onTurnComplete?: (turn: TurnOutput) => void;
-  /** Override the default timeout (ms). Use 0 or a negative value to disable. */
-  timeoutMs?: number;
-}
-
-/** Construction options for creating an AgentPool. */
-export interface AgentPoolOptions {
-  createSession?: (chatJid: string, sessionDir: string) => Promise<AgentSession>;
-  createSideSession?: (chatJid: string, sessionDir: string) => Promise<AgentSession>;
-  modelRegistry?: ModelRegistry;
-  sideStreamSimple?: (
-    model: Model<Api>,
-    context: Parameters<typeof streamSimple>[1],
-    options?: Parameters<typeof streamSimple>[2]
-  ) => AssistantMessageEventStream;
-}
+export type {
+  AgentOutput,
+  AgentPoolOptions,
+  RunAgentOptions,
+  SidePromptOptions,
+  SidePromptResult,
+  TurnOutput,
+} from "./agent-pool/contracts.js";
 
 /** How long (ms) an idle session stays cached before being disposed. */
 const IDLE_TTL = 10 * 60 * 1000; // 10 minutes
@@ -128,29 +85,14 @@ export class AgentPool {
   private logsDir = join(WORKSPACE_DIR, "logs");
   private createSession?: AgentPoolOptions["createSession"];
   private createSideSession?: AgentPoolOptions["createSideSession"];
-  private sessionBinder = new AgentSessionBinder({
-    pool: this.pool,
-    onError: (message, details) => log.error(message, details),
-  });
   private bashOperations = createTrackedBashOperations();
-  private attachments = getAttachmentRegistry();
-  private toolFactory = new AgentToolFactory({
-    workspaceDir: WORKSPACE_DIR,
-    bashOperations: this.bashOperations,
-  });
-  private turnCoordinator = new AgentTurnCoordinator({
-    takeAttachments: (chatJid) => this.attachments.take(chatJid),
-    touchSession: (chatJid) => {
-      const entry = this.pool.get(chatJid);
-      if (entry) entry.lastUsed = Date.now();
-    },
-    recordMessageUsage,
-    onWarn: (message, details) => log.warn(message, details),
-    onError: (message, details) => log.error(message, details),
-  });
-  private sessionManager: AgentSessionManager;
-  private branchManager: AgentBranchManager;
-  private runtimeFacade: AgentRuntimeFacade;
+  private attachments: AgentPoolServices["attachments"];
+  private sessionBinder: AgentPoolServices["sessionBinder"];
+  private toolFactory: AgentPoolServices["toolFactory"];
+  private turnCoordinator: AgentPoolServices["turnCoordinator"];
+  private sessionManager: AgentPoolServices["sessionManager"];
+  private branchManager: AgentPoolServices["branchManager"];
+  private runtimeFacade: AgentPoolServices["runtimeFacade"];
   private sideStreamSimple?: NonNullable<AgentPoolOptions["sideStreamSimple"]>;
 
   constructor(options: AgentPoolOptions = {}) {
@@ -158,40 +100,29 @@ export class AgentPool {
     this.createSideSession = options.createSideSession;
     this.authStorage = AuthStorage.create();
     this.modelRegistry = options.modelRegistry ?? new ModelRegistry(this.authStorage);
-    this.sessionManager = new AgentSessionManager({
-      pool: this.pool,
-      sidePool: this.sidePool,
-      ...(this.createSession ? { createSession: this.createSession } : {}),
-      ...(this.createSideSession ? { createSideSession: this.createSideSession } : {}),
-      authStorage: this.authStorage,
-      modelRegistry: this.modelRegistry,
-      settingsManager: this.settingsManager,
-      createDefaultTools: () => this.toolFactory.createDefaultTools(),
-      bindSession: (session, chatJid) => this.sessionBinder.bindSession(session, chatJid),
-      ensureBranchRegistration: (chatJid, session) => {
-        this.branchManager.ensureBranchRegistration(chatJid, session);
-      },
-      onInfo: (message, details) => log.info(message, details),
-      onWarn: (message, details) => log.warn(message, details),
-      onError: (message, details) => log.error(message, details),
-    });
-    this.runtimeFacade = new AgentRuntimeFacade({
-      pool: this.pool,
-      getOrCreate: (chatJid) => this.getOrCreate(chatJid),
-      modelRegistry: this.modelRegistry,
-      authStorage: this.authStorage,
-      clearAttachments: (chatJid) => this.attachments.clear(chatJid),
-      onWarn: (message, details) => log.warn(message, details),
-      onError: (message, details) => log.error(message, details),
-    });
-    this.branchManager = new AgentBranchManager({
+    ({
+      attachments: this.attachments,
+      sessionBinder: this.sessionBinder,
+      toolFactory: this.toolFactory,
+      turnCoordinator: this.turnCoordinator,
+      sessionManager: this.sessionManager,
+      runtimeFacade: this.runtimeFacade,
+      branchManager: this.branchManager,
+    } = createAgentPoolServices({
       pool: this.pool,
       sidePool: this.sidePool,
       activeForkBaseLeafByChat: this.activeForkBaseLeafByChat,
-      getOrCreate: (chatJid) => this.getOrCreate(chatJid),
-      isActive: (chatJid) => this.runtimeFacade.isActive(chatJid),
+      authStorage: this.authStorage,
+      modelRegistry: this.modelRegistry,
+      settingsManager: this.settingsManager,
+      workspaceDir: WORKSPACE_DIR,
+      bashOperations: this.bashOperations,
+      createSession: this.createSession,
+      createSideSession: this.createSideSession,
+      onInfo: (message, details) => log.info(message, details),
       onWarn: (message, details) => log.warn(message, details),
-    });
+      onError: (message, details) => log.error(message, details),
+    }));
     this.sideStreamSimple = options.sideStreamSimple;
     mkdirSync(SESSIONS_DIR, { recursive: true });
     mkdirSync(this.logsDir, { recursive: true });

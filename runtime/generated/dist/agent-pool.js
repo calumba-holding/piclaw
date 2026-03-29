@@ -25,16 +25,9 @@ import { join } from "path";
 import { AuthStorage, ModelRegistry, SettingsManager, getAgentDir, } from "@mariozechner/pi-coding-agent";
 import { SESSIONS_DIR, WORKSPACE_DIR } from "./core/config.js";
 import { createTrackedBashOperations } from "./tools/tracked-bash.js";
-import { getAttachmentRegistry } from "./agent-pool/attachments.js";
-import { AgentBranchManager } from "./agent-pool/branch-manager.js";
 import { runSidePrompt as runSidePromptInternal } from "./agent-pool/side-prompt-runner.js";
 import { runAgentPrompt } from "./agent-pool/run-agent-orchestrator.js";
-import { AgentRuntimeFacade } from "./agent-pool/runtime-facade.js";
-import { AgentSessionBinder } from "./agent-pool/session-binder.js";
-import { AgentSessionManager } from "./agent-pool/session-manager.js";
-import { AgentToolFactory } from "./agent-pool/tool-factory.js";
-import { AgentTurnCoordinator } from "./agent-pool/turn-coordinator.js";
-import { recordMessageUsage } from "./agent-pool/usage.js";
+import { createAgentPoolServices } from "./agent-pool/service-factory.js";
 import { createLogger } from "./utils/logger.js";
 const log = createLogger("agent-pool");
 /** How long (ms) an idle session stays cached before being disposed. */
@@ -59,27 +52,11 @@ export class AgentPool {
     logsDir = join(WORKSPACE_DIR, "logs");
     createSession;
     createSideSession;
-    sessionBinder = new AgentSessionBinder({
-        pool: this.pool,
-        onError: (message, details) => log.error(message, details),
-    });
     bashOperations = createTrackedBashOperations();
-    attachments = getAttachmentRegistry();
-    toolFactory = new AgentToolFactory({
-        workspaceDir: WORKSPACE_DIR,
-        bashOperations: this.bashOperations,
-    });
-    turnCoordinator = new AgentTurnCoordinator({
-        takeAttachments: (chatJid) => this.attachments.take(chatJid),
-        touchSession: (chatJid) => {
-            const entry = this.pool.get(chatJid);
-            if (entry)
-                entry.lastUsed = Date.now();
-        },
-        recordMessageUsage,
-        onWarn: (message, details) => log.warn(message, details),
-        onError: (message, details) => log.error(message, details),
-    });
+    attachments;
+    sessionBinder;
+    toolFactory;
+    turnCoordinator;
     sessionManager;
     branchManager;
     runtimeFacade;
@@ -89,40 +66,29 @@ export class AgentPool {
         this.createSideSession = options.createSideSession;
         this.authStorage = AuthStorage.create();
         this.modelRegistry = options.modelRegistry ?? new ModelRegistry(this.authStorage);
-        this.sessionManager = new AgentSessionManager({
-            pool: this.pool,
-            sidePool: this.sidePool,
-            ...(this.createSession ? { createSession: this.createSession } : {}),
-            ...(this.createSideSession ? { createSideSession: this.createSideSession } : {}),
-            authStorage: this.authStorage,
-            modelRegistry: this.modelRegistry,
-            settingsManager: this.settingsManager,
-            createDefaultTools: () => this.toolFactory.createDefaultTools(),
-            bindSession: (session, chatJid) => this.sessionBinder.bindSession(session, chatJid),
-            ensureBranchRegistration: (chatJid, session) => {
-                this.branchManager.ensureBranchRegistration(chatJid, session);
-            },
-            onInfo: (message, details) => log.info(message, details),
-            onWarn: (message, details) => log.warn(message, details),
-            onError: (message, details) => log.error(message, details),
-        });
-        this.runtimeFacade = new AgentRuntimeFacade({
-            pool: this.pool,
-            getOrCreate: (chatJid) => this.getOrCreate(chatJid),
-            modelRegistry: this.modelRegistry,
-            authStorage: this.authStorage,
-            clearAttachments: (chatJid) => this.attachments.clear(chatJid),
-            onWarn: (message, details) => log.warn(message, details),
-            onError: (message, details) => log.error(message, details),
-        });
-        this.branchManager = new AgentBranchManager({
+        ({
+            attachments: this.attachments,
+            sessionBinder: this.sessionBinder,
+            toolFactory: this.toolFactory,
+            turnCoordinator: this.turnCoordinator,
+            sessionManager: this.sessionManager,
+            runtimeFacade: this.runtimeFacade,
+            branchManager: this.branchManager,
+        } = createAgentPoolServices({
             pool: this.pool,
             sidePool: this.sidePool,
             activeForkBaseLeafByChat: this.activeForkBaseLeafByChat,
-            getOrCreate: (chatJid) => this.getOrCreate(chatJid),
-            isActive: (chatJid) => this.runtimeFacade.isActive(chatJid),
+            authStorage: this.authStorage,
+            modelRegistry: this.modelRegistry,
+            settingsManager: this.settingsManager,
+            workspaceDir: WORKSPACE_DIR,
+            bashOperations: this.bashOperations,
+            createSession: this.createSession,
+            createSideSession: this.createSideSession,
+            onInfo: (message, details) => log.info(message, details),
             onWarn: (message, details) => log.warn(message, details),
-        });
+            onError: (message, details) => log.error(message, details),
+        }));
         this.sideStreamSimple = options.sideStreamSimple;
         mkdirSync(SESSIONS_DIR, { recursive: true });
         mkdirSync(this.logsDir, { recursive: true });

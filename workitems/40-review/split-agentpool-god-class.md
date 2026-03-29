@@ -52,6 +52,18 @@ Split into:
 ## Updates
 
 ### 2026-03-29
+- Follow-up refinement on branch `feature/agentpool-contracts-and-wiring`: extracted the remaining public contracts into `runtime/src/agent-pool/contracts.ts` and constructor/service assembly into `runtime/src/agent-pool/service-factory.ts`.
+- This reduced `runtime/src/agent-pool.ts` further from 391 lines to 322 lines without changing the public `AgentPool` façade.
+- Added focused coverage for the new constructor wiring seam in `runtime/test/agent-pool/service-factory.test.ts`.
+- Validation:
+  - `bun test test/agent-pool/agent-pool.test.ts test/agent-pool/tool-factory.test.ts test/agent-pool/turn-coordinator.test.ts test/agent-pool/session-manager.test.ts test/agent-pool/branch-manager.test.ts test/agent-pool/runtime-facade.test.ts test/agent-pool/prompt-utils.test.ts test/agent-pool/run-agent-orchestrator.test.ts test/agent-pool/side-prompt-runner.test.ts test/agent-pool/session-binder.test.ts test/agent-pool/service-factory.test.ts`
+  - `bun run lint`
+  - `bun run typecheck`
+  - `bun run build`
+  - `bun run check:stale-dist`
+- Review-readiness remains good: the public entry point stayed stable while the remaining constructor and contract density moved into dedicated modules.
+
+### 2026-03-29
 - Lane change: `20-doing` → `40-review` after the refactor reduced `runtime/src/agent-pool.ts` to 391 lines, landed focused seam tests, and passed lint/typecheck plus the focused agent-pool regression suite.
 - Dist regeneration check completed: `bun run build` and `bun run check:stale-dist`.
 - Review ask: verify the extracted module boundaries feel stable enough to keep, and confirm no hidden behavior drift in broader integration surfaces beyond the focused agent-pool suite.

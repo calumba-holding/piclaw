@@ -14,7 +14,7 @@ import { getSessionFileSize, rotateSession } from "../session-rotation.js";
 import { withChatContext } from "../core/chat-context.js";
 import { formatTimeoutDuration, waitForSessionIdle } from "./prompt-utils.js";
 import type { AgentTurnCoordinator } from "./turn-coordinator.js";
-import type { AgentOutput, RunAgentOptions } from "../agent-pool.js";
+import type { AgentOutput, RunAgentOptions } from "./contracts.js";
 
 /** Dependencies required to run a main agent prompt. */
 export interface RunAgentOrchestratorOptions {

@@ -18,7 +18,7 @@ import {
   toSideReasoning,
   waitForSessionIdle,
 } from "./prompt-utils.js";
-import type { SidePromptOptions, SidePromptResult } from "../agent-pool.js";
+import type { SidePromptOptions, SidePromptResult } from "./contracts.js";
 
 /** Dependencies required to run side prompts. */
 export interface SidePromptRunnerOptions {
