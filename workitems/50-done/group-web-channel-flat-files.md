@@ -1,10 +1,11 @@
 ---
 id: group-web-channel-flat-files
 title: "Group channels/web/ 56 flat files into sub-directories"
-status: review
+status: done
 priority: medium
 created: 2026-03-23
-updated: 2026-03-28
+updated: 2026-03-29
+completed: 2026-03-29
 tags:
   - refactor
   - modularity
@@ -61,6 +62,10 @@ runtime/src/channels/web/vnc/        1 file,    296 lines
 - Repo-status audit refreshed the current layout counts to match the repo as it stands now.
 - Ticket remains valid and explicitly downstream of `split-webchannel-god-class`; the flat root has grown to 56 files rather than shrinking.
 - Quality: ★★★☆☆ 6/10 (problem: 2, scope: 1, test: 1, deps: 1, risk: 1)
+
+### 2026-03-29
+- Card submission accepted with decision `done`.
+- Lane change: `40-review` → `50-done` because the Stage 5 grouping work satisfied the ticket’s original acceptance target and was explicitly closed by board decision.
 
 ### 2026-03-28
 - Lane change: `10-next` → `40-review` via web next-card decision.

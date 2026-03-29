@@ -108,7 +108,7 @@ Potentially in scope, pending plan decisions:
   - `docs/filesystem-layout-audit-2026-03-28.md`
   - `workitems/50-done/clarify-root-vs-runtime-ownership-boundaries.md`
   - `workitems/50-done/rationalize-runtime-generated-output-layout.md`
-  - `workitems/40-review/group-web-channel-flat-files.md`
+  - `workitems/50-done/group-web-channel-flat-files.md`
   - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
 - Immediate next step: turn the audit into a target-state reorg map and decide whether execution should happen in 2–4 staged batches or a more aggressive single migration.
 - Completed planning artifacts:
@@ -155,6 +155,6 @@ Potentially in scope, pending plan decisions:
 - `workitems/50-done/rationalize-runtime-generated-output-layout.md`
 - `workitems/50-done/namespace-internal-extensions-and-skills-paths.md`
 - `workitems/50-done/execute-stage4-extension-and-skill-namespacing.md`
-- `workitems/40-review/group-web-channel-flat-files.md`
+- `workitems/50-done/group-web-channel-flat-files.md`
 - `workitems/50-done/execute-stage5-web-channel-grouping.md`
 - `workitems/10-next/rename-project-kanban-to-workitems-and-update-skilling.md`
