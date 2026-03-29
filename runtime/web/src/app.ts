@@ -84,6 +84,10 @@ import {
     popOutChat,
     popOutPane,
 } from './ui/app-window-actions.js';
+import {
+    applyChatPaneStateSnapshot,
+    captureChatPaneStateSnapshot,
+} from './ui/app-chat-pane-state.js';
 
 const CURRENT_APP_ASSET_VERSION = getCurrentAppAssetVersion();
 
@@ -809,64 +813,34 @@ function MainApp({ locationParams, navigate }) {
         setSteerQueuedTurnId(null);
     }, [isAgentTurnActive, setSteerQueuedTurnId]);
 
-    const createEmptyChatPaneState = useCallback(() => ({
-        agentStatus: null,
-        agentDraft: { text: '', totalLines: 0 },
-        agentPlan: '',
-        agentThought: { text: '', totalLines: 0 },
-        pendingRequest: null,
-        currentTurnId: null,
-        steerQueuedTurnId: null,
-        isAgentTurnActive: false,
-        followupQueueItems: [],
-        activeModel: null,
-        activeThinkingLevel: null,
-        supportsThinking: false,
-        activeModelUsage: null,
-        contextUsage: null,
-        isAgentRunning: false,
-        wasAgentActive: false,
-        draftBuffer: '',
-        thoughtBuffer: '',
-        lastAgentEvent: null,
-        lastSilenceNotice: 0,
-        lastAgentResponse: null,
-        currentTurnIdRef: null,
-        steerQueuedTurnIdRef: null,
-        thoughtExpanded: false,
-        draftExpanded: false,
-        agentStatusRef: null,
-        silentRecovery: { inFlight: false, lastAttemptAt: 0, turnId: null },
-    }), []);
-
-    const snapshotCurrentChatPaneState = useCallback(() => ({
+    const snapshotCurrentChatPaneState = useCallback(() => captureChatPaneStateSnapshot({
         agentStatus,
-        agentDraft: agentDraft ? { ...agentDraft } : { text: '', totalLines: 0 },
-        agentPlan: agentPlan || '',
-        agentThought: agentThought ? { ...agentThought } : { text: '', totalLines: 0 },
+        agentDraft,
+        agentPlan,
+        agentThought,
         pendingRequest,
         currentTurnId,
         steerQueuedTurnId,
-        isAgentTurnActive: Boolean(isAgentTurnActive),
-        followupQueueItems: Array.isArray(followupQueueItems) ? followupQueueItems.map((item) => ({ ...item })) : [],
+        isAgentTurnActive,
+        followupQueueItems,
         activeModel,
         activeThinkingLevel,
-        supportsThinking: Boolean(supportsThinking),
+        supportsThinking,
         activeModelUsage,
         contextUsage,
-        isAgentRunning: Boolean(isAgentRunningRef.current),
-        wasAgentActive: Boolean(wasAgentActiveRef.current),
-        draftBuffer: draftBufferRef.current || '',
-        thoughtBuffer: thoughtBufferRef.current || '',
-        lastAgentEvent: lastAgentEventRef.current || null,
-        lastSilenceNotice: lastSilenceNoticeRef.current || 0,
-        lastAgentResponse: lastAgentResponseRef.current || null,
-        currentTurnIdRef: currentTurnIdRef.current || null,
-        steerQueuedTurnIdRef: steerQueuedTurnIdRef.current || null,
-        thoughtExpanded: Boolean(thoughtExpandedRef.current),
-        draftExpanded: Boolean(draftExpandedRef.current),
-        agentStatusRef: agentStatusRef.current || null,
-        silentRecovery: { ...(silentRecoveryRef.current || { inFlight: false, lastAttemptAt: 0, turnId: null }) },
+        isAgentRunning: isAgentRunningRef.current,
+        wasAgentActive: wasAgentActiveRef.current,
+        draftBuffer: draftBufferRef.current,
+        thoughtBuffer: thoughtBufferRef.current,
+        lastAgentEvent: lastAgentEventRef.current,
+        lastSilenceNotice: lastSilenceNoticeRef.current,
+        lastAgentResponse: lastAgentResponseRef.current,
+        currentTurnIdRef: currentTurnIdRef.current,
+        steerQueuedTurnIdRef: steerQueuedTurnIdRef.current,
+        thoughtExpanded: thoughtExpandedRef.current,
+        draftExpanded: draftExpandedRef.current,
+        agentStatusRef: agentStatusRef.current,
+        silentRecovery: silentRecoveryRef.current,
     }), [
         activeModel,
         activeModelUsage,
@@ -885,37 +859,43 @@ function MainApp({ locationParams, navigate }) {
     ]);
 
     const restoreChatPaneState = useCallback((snapshot) => {
-        const next = snapshot || createEmptyChatPaneState();
-        clearLastActivityTimer();
-        isAgentRunningRef.current = Boolean(next.isAgentRunning);
-        wasAgentActiveRef.current = Boolean(next.wasAgentActive);
-        setIsAgentTurnActive(Boolean(next.isAgentTurnActive));
-        lastAgentEventRef.current = next.lastAgentEvent || null;
-        lastSilenceNoticeRef.current = Number(next.lastSilenceNotice || 0);
-        draftBufferRef.current = next.draftBuffer || '';
-        thoughtBufferRef.current = next.thoughtBuffer || '';
-        pendingRequestRef.current = next.pendingRequest || null;
-        lastAgentResponseRef.current = next.lastAgentResponse || null;
-        currentTurnIdRef.current = next.currentTurnIdRef || null;
-        steerQueuedTurnIdRef.current = next.steerQueuedTurnIdRef || null;
-        agentStatusRef.current = next.agentStatusRef || null;
-        silentRecoveryRef.current = next.silentRecovery || { inFlight: false, lastAttemptAt: 0, turnId: null };
-        thoughtExpandedRef.current = Boolean(next.thoughtExpanded);
-        draftExpandedRef.current = Boolean(next.draftExpanded);
-        setAgentStatus(next.agentStatus || null);
-        setAgentDraft(next.agentDraft ? { ...next.agentDraft } : { text: '', totalLines: 0 });
-        setAgentPlan(next.agentPlan || '');
-        setAgentThought(next.agentThought ? { ...next.agentThought } : { text: '', totalLines: 0 });
-        setPendingRequest(next.pendingRequest || null);
-        setCurrentTurnId(next.currentTurnId || null);
-        setSteerQueuedTurnId(next.steerQueuedTurnId || null);
-        setFollowupQueueItems(Array.isArray(next.followupQueueItems) ? next.followupQueueItems.map((item) => ({ ...item })) : []);
-        setActiveModel(next.activeModel || null);
-        setActiveThinkingLevel(next.activeThinkingLevel || null);
-        setSupportsThinking(Boolean(next.supportsThinking));
-        setActiveModelUsage(next.activeModelUsage ?? null);
-        setContextUsage(next.contextUsage ?? null);
-    }, [clearLastActivityTimer, createEmptyChatPaneState, setCurrentTurnId, setFollowupQueueItems, setIsAgentTurnActive, setSteerQueuedTurnId]);
+        applyChatPaneStateSnapshot({
+            snapshot,
+            clearLastActivityTimer,
+            refs: {
+                isAgentRunningRef,
+                wasAgentActiveRef,
+                lastAgentEventRef,
+                lastSilenceNoticeRef,
+                draftBufferRef,
+                thoughtBufferRef,
+                pendingRequestRef,
+                lastAgentResponseRef,
+                currentTurnIdRef,
+                steerQueuedTurnIdRef,
+                agentStatusRef,
+                silentRecoveryRef,
+                thoughtExpandedRef,
+                draftExpandedRef,
+            },
+            setters: {
+                setIsAgentTurnActive,
+                setAgentStatus,
+                setAgentDraft,
+                setAgentPlan,
+                setAgentThought,
+                setPendingRequest,
+                setCurrentTurnId,
+                setSteerQueuedTurnId,
+                setFollowupQueueItems,
+                setActiveModel,
+                setActiveThinkingLevel,
+                setSupportsThinking,
+                setActiveModelUsage,
+                setContextUsage,
+            },
+        });
+    }, [clearLastActivityTimer, setCurrentTurnId, setFollowupQueueItems, setIsAgentTurnActive, setSteerQueuedTurnId]);
 
     const setActiveTurn = useCallback((turnId) => {
         if (!turnId) return;
