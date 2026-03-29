@@ -17,7 +17,7 @@
       "repository": "https://github.com/chartjs/Chart.js.git"
     },
     "pptxviewjs": {
-      "version": "1.1.9",
+      "version": "1.1.8",
       "license": "MIT",
       "repository": null
     },
@@ -58,8 +58,8 @@
       "package_name": "pptxviewjs",
       "package_path": "dist/PptxViewJS.min.js",
       "output_file": "extensions/viewers/office-viewer/vendor/PptxViewJS.min.js",
-      "sha256": "f38d4b2d5fc4b526fd69eaf6da4068f466d92e12019c866f2bee4ce9a3b02681",
-      "size_bytes": 621122
+      "sha256": "a67648e689a27195ba9d77a6422653c314e765ca1712c7b7321c046f1f5b4295",
+      "size_bytes": 618170
     },
     {
       "package_name": "jszip",
@@ -84,5 +84,5 @@
     }
   ],
   "metadata_file": "extensions/viewers/office-viewer/vendor/office-viewer-libs.meta.json",
-  "total_size_bytes": 2016640
+  "total_size_bytes": 2013688
 }

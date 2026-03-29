@@ -66,6 +66,25 @@ Likely next seams:
 ## Updates
 
 ### 2026-03-29
+- Merged back autoresearch branch `autoresearch/exp-mnbpsap4-90we` into `feature/continue-decompose-web-app-shell` and revalidated the result on the feature branch.
+- The merged autoresearch tranches added typed seams for:
+  - `runtime/web/src/ui/app-chat-agents.ts`
+  - `runtime/web/src/ui/app-followup-queue.ts` (additional SSE append shaping extraction)
+  - `runtime/web/src/ui/app-generated-widget-events.ts`
+  - `runtime/web/src/ui/app-agent-turn-events.ts`
+  - `runtime/web/src/ui/app-realtime-timeline.ts`
+  - `runtime/web/src/ui/app-extension-ui-sse.ts`
+  - `runtime/web/src/ui/app-agent-status-refresh.ts`
+- Current size reduction in this branch after the second merge-back: `runtime/web/src/app.ts` `3917 → 3387` lines.
+- Validation for the merged branch state:
+  - `cd runtime && bun test test/web/compose-session-switcher.test.ts test/web/popup-typeahead.test.ts test/web/tab-source-editor.test.ts test/web/workspace-auto-open.test.ts test/web/app-pane-state.test.ts test/web/app-shell-state.test.ts test/web/app-branch-actions.test.ts test/web/app-window-actions.test.ts test/web/app-browser-events.test.ts test/web/app-chat-agents.test.ts test/web/app-chat-pane-state.test.ts test/web/app-extension-status.test.ts test/web/app-extension-ui-sse.test.ts test/web/app-followup-queue.test.ts test/web/app-floating-widget.test.ts test/web/app-generated-widget-events.test.ts test/web/app-agent-turn-events.test.ts test/web/app-agent-previews.test.ts test/web/app-agent-status-refresh.test.ts test/web/app-realtime-timeline.test.ts test/web/app-resume.test.ts`
+  - `bun run build:web`
+  - `bun run lint`
+  - `bun run typecheck`
+  - `bun run check:stale-dist`
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
+
+### 2026-03-29
 - Converted the remaining plain-JS helpers under `runtime/web/src/ui/` to TypeScript:
   - `compose-session-switcher.ts`
   - `popup-typeahead.ts`
