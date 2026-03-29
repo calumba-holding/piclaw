@@ -50,6 +50,11 @@ import {
     buildExpandedAgentPreviewState,
     resolveAgentPlanText,
 } from './ui/app-agent-previews.js';
+import {
+    resolveSteerQueuedTurnId,
+    shouldAdoptIncomingTurn,
+    shouldIgnoreMismatchedTurn,
+} from './ui/app-agent-turn-events.js';
 import { resolveFilePillOpenAction } from './ui/file-pill-open.js';
 import { parseBtwCommand, buildBtwInjectionText, resolveBtwChatJid } from './ui/btw.js';
 import {
@@ -2142,7 +2147,7 @@ function MainApp({ locationParams, navigate }) {
         const liveWidgetEvent = resolveLiveGeneratedWidgetEvent(eventType);
         if (liveWidgetEvent.kind === 'update') {
             if (!isCurrentChatEvent) return;
-            if (liveWidgetEvent.shouldAdoptTurn && turnId && !currentTurnIdRef.current) {
+            if (liveWidgetEvent.shouldAdoptTurn && shouldAdoptIncomingTurn(turnId, currentTurnIdRef.current)) {
                 setActiveTurn(turnId);
             }
             applyLiveGeneratedWidgetUpdate(data, liveWidgetEvent.fallbackStatus || 'streaming');
@@ -2223,7 +2228,7 @@ function MainApp({ locationParams, navigate }) {
                 return;
             }
             if (data.type === 'done' || data.type === 'error') {
-                if (turnId && currentTurnIdRef.current && turnId !== currentTurnIdRef.current) {
+                if (shouldIgnoreMismatchedTurn(turnId, currentTurnIdRef.current)) {
                     return;
                 }
                 if (data.type === 'done') {
@@ -2282,10 +2287,10 @@ function MainApp({ locationParams, navigate }) {
 
         if (eventType === 'agent_steer_queued') {
             if (!isCurrentChatEvent) return;
-            if (turnId && currentTurnIdRef.current && turnId !== currentTurnIdRef.current) {
+            if (shouldIgnoreMismatchedTurn(turnId, currentTurnIdRef.current)) {
                 return;
             }
-            const targetTurn = turnId || currentTurnIdRef.current;
+            const targetTurn = resolveSteerQueuedTurnId(turnId, currentTurnIdRef.current);
             if (!targetTurn) return;
             steerQueuedTurnIdRef.current = targetTurn;
             setSteerQueuedTurnId(targetTurn);
@@ -2332,10 +2337,10 @@ function MainApp({ locationParams, navigate }) {
 
         if (eventType === 'agent_draft_delta') {
             if (!isCurrentChatEvent) return;
-            if (turnId && currentTurnIdRef.current && turnId !== currentTurnIdRef.current) {
+            if (shouldIgnoreMismatchedTurn(turnId, currentTurnIdRef.current)) {
                 return;
             }
-            if (turnId && !currentTurnIdRef.current) {
+            if (shouldAdoptIncomingTurn(turnId, currentTurnIdRef.current)) {
                 setActiveTurn(turnId);
             }
             noteAgentActivity({ running: true, clearSilence: true });
@@ -2356,10 +2361,10 @@ function MainApp({ locationParams, navigate }) {
 
         if (eventType === 'agent_draft') {
             if (!isCurrentChatEvent) return;
-            if (turnId && currentTurnIdRef.current && turnId !== currentTurnIdRef.current) {
+            if (shouldIgnoreMismatchedTurn(turnId, currentTurnIdRef.current)) {
                 return;
             }
-            if (turnId && !currentTurnIdRef.current) {
+            if (shouldAdoptIncomingTurn(turnId, currentTurnIdRef.current)) {
                 setActiveTurn(turnId);
             }
             noteAgentActivity({ running: true, clearSilence: true });
@@ -2377,10 +2382,10 @@ function MainApp({ locationParams, navigate }) {
 
         if (eventType === 'agent_thought_delta') {
             if (!isCurrentChatEvent) return;
-            if (turnId && currentTurnIdRef.current && turnId !== currentTurnIdRef.current) {
+            if (shouldIgnoreMismatchedTurn(turnId, currentTurnIdRef.current)) {
                 return;
             }
-            if (turnId && !currentTurnIdRef.current) {
+            if (shouldAdoptIncomingTurn(turnId, currentTurnIdRef.current)) {
                 setActiveTurn(turnId);
             }
             noteAgentActivity({ running: true, clearSilence: true });
@@ -2397,10 +2402,10 @@ function MainApp({ locationParams, navigate }) {
 
         if (eventType === 'agent_thought') {
             if (!isCurrentChatEvent) return;
-            if (turnId && currentTurnIdRef.current && turnId !== currentTurnIdRef.current) {
+            if (shouldIgnoreMismatchedTurn(turnId, currentTurnIdRef.current)) {
                 return;
             }
-            if (turnId && !currentTurnIdRef.current) {
+            if (shouldAdoptIncomingTurn(turnId, currentTurnIdRef.current)) {
                 setActiveTurn(turnId);
             }
             noteAgentActivity({ running: true, clearSilence: true });

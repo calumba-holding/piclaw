@@ -26,6 +26,9 @@ fi
 if [[ -f runtime/test/web/app-generated-widget-events.test.ts ]]; then
   tests+=(runtime/test/web/app-generated-widget-events.test.ts)
 fi
+if [[ -f runtime/test/web/app-agent-turn-events.test.ts ]]; then
+  tests+=(runtime/test/web/app-agent-turn-events.test.ts)
+fi
 
 PICLAW_DB_IN_MEMORY=1 bun test --max-concurrency=1 "${tests[@]}"
 
@@ -44,6 +47,11 @@ rg -q "appendFollowupQueueItem" runtime/test/web/app-followup-queue.test.ts && s
 [[ -f runtime/web/src/ui/app-generated-widget-events.ts ]] && seam_score=$((seam_score + 1))
 [[ -f runtime/test/web/app-generated-widget-events.test.ts ]] && seam_score=$((seam_score + 1))
 rg -q "resolveLiveGeneratedWidgetEvent" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
+[[ -f runtime/web/src/ui/app-agent-turn-events.ts ]] && seam_score=$((seam_score + 1))
+[[ -f runtime/test/web/app-agent-turn-events.test.ts ]] && seam_score=$((seam_score + 1))
+rg -q "shouldIgnoreMismatchedTurn" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
+rg -q "shouldAdoptIncomingTurn" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
+rg -q "resolveSteerQueuedTurnId" runtime/web/src/app.ts && seam_score=$((seam_score + 1))
 
 echo "METRIC seam_score=${seam_score}"
 echo "METRIC targeted_test_ms=${targeted_test_ms}"

@@ -1,7 +1,7 @@
 # Autoresearch: continue-decompose-web-app-shell
 
 ## Objective
-Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while preserving UX semantics and payload shapes. Current tranches target (1) active-branch roster shaping (normalization, merge precedence, stable sorting), (2) queued follow-up SSE row normalization/append behavior, and (3) generated-widget SSE event routing/fallback mapping.
+Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while preserving UX semantics and payload shapes. Current tranches target (1) active-branch roster shaping (normalization, merge precedence, stable sorting), (2) queued follow-up SSE row normalization/append behavior, (3) generated-widget SSE event routing/fallback mapping, and (4) turn-scoped SSE gating/adoption semantics.
 
 ## Metrics
 - **Primary**: `seam_score` (unitless, higher is better) — structural completion for the extracted active-branch roster seam
@@ -41,3 +41,6 @@ Continue decomposing `runtime/web/src/app.ts` into bounded behavior seams while 
 - Expanded `runtime/test/web/app-followup-queue.test.ts` with focused checks for valid append behavior plus identity-preserving no-op paths (duplicates/invalid payloads).
 - Extracted generated-widget SSE event-type routing from `app.ts` into typed `runtime/web/src/ui/app-generated-widget-events.ts` via `resolveLiveGeneratedWidgetEvent` (update/close mapping, fallback status, turn-adoption eligibility).
 - Added focused tests in `runtime/test/web/app-generated-widget-events.test.ts` to lock update-status mapping and close/unknown behavior.
+- Extracted repeated turn-scoped SSE guard/adoption rules from `app.ts` into typed `runtime/web/src/ui/app-agent-turn-events.ts` (`shouldIgnoreMismatchedTurn`, `shouldAdoptIncomingTurn`, `resolveSteerQueuedTurnId`).
+- Updated generated-widget turn adoption and agent draft/thought/steer/status turn guards to delegate to the new helper while preserving existing truthy/fallback semantics.
+- Added focused tests in `runtime/test/web/app-agent-turn-events.test.ts` for mismatch-ignore, turn-adopt, and steer turn-id fallback behavior.
