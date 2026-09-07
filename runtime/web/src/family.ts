@@ -8,6 +8,7 @@ import { FamilyResults } from './family-results.js';
 import { FamilyTasks } from './family-tasks.js';
 import { FamilyMemory, validMemorySource } from './family-memory.js';
 import { FamilyNotifications } from './family-notifications.js';
+import { initialiseFamilyPanelNavigation } from './family-panel-navigation.js';
 
 function element<T extends HTMLElement>(id: string): T {
   const value = document.getElementById(id);
@@ -21,6 +22,7 @@ const home = element<HTMLButtonElement>('go-home'), refresh = element<HTMLButton
 const notify = element<HTMLButtonElement>('toggle-notifications');
 const recovery = element<HTMLElement>('message-recovery'), recoveryStatus = element<HTMLElement>('recovery-status'), recoveryActions = element<HTMLElement>('recovery-actions');
 const retry = element<HTMLButtonElement>('retry-message'), skip = element<HTMLButtonElement>('skip-message'), confirmSkip = element<HTMLInputElement>('confirm-skip');
+const panelNavigation = initialiseFamilyPanelNavigation();
 let heldRow: number | null = null;
 let legacyHeld = false;
 let recoveryRequest: { row: number; action: 'retry' | 'skip' | 'dismiss-legacy'; requestId: string } | null = null;
@@ -38,6 +40,7 @@ let directoryGeneration = 0;
 let refreshing: symbol | null = null, polling: ReturnType<typeof setInterval> | undefined;
 let pending: { text: string; chat: string; requestId: string } | null = null;
 function controls(enabled: boolean): void {
+  panelNavigation.setLocked(busy);
   tasks?.setExecutionBlocked(busy);
   memory?.setBlocked(busy);
   for (const button of timeline.querySelectorAll<HTMLButtonElement>('.memory-preview')) button.disabled = !enabled;
@@ -92,7 +95,7 @@ function renderPosts(posts: unknown): void {
     const source = post.memory_source;
     if (validMemorySource(source) && source.chat_jid === current && source.message_rowid === post.id) {
       const button = document.createElement('button'); button.type = 'button'; button.className = 'memory-preview'; button.textContent = 'Preview for family memory';
-      button.disabled = busy || paused || stopped; button.addEventListener('click', () => { if (!busy && !paused && !stopped) void memory?.previewSource(source); }); article.append(button);
+      button.disabled = busy || paused || stopped; button.addEventListener('click', () => { if (!busy && !paused && !stopped) { panelNavigation.activate('family-memory'); void memory?.previewSource(source); } }); article.append(button);
     }
     fragment.append(article);
   }
