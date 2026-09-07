@@ -15,7 +15,8 @@ function element<T extends HTMLElement>(id: string): T {
   if (!value) throw new Error(`Missing family shell element: ${id}`);
   return value as T;
 }
-const account = element<HTMLElement>('account-name'), status = element<HTMLElement>('family-status'), error = element<HTMLElement>('family-error');
+const account = element<HTMLElement>('account-name'), modeBadge = element<HTMLElement>('deployment-mode');
+const status = element<HTMLElement>('family-status'), error = element<HTMLElement>('family-error');
 const timeline = element<HTMLElement>('timeline'), select = element<HTMLSelectElement>('session-select');
 const form = element<HTMLFormElement>('compose-form'), compose = element<HTMLTextAreaElement>('message-text'), send = element<HTMLButtonElement>('send-message');
 const home = element<HTMLButtonElement>('go-home'), refresh = element<HTMLButtonElement>('refresh'), logout = element<HTMLButtonElement>('sign-out');
@@ -51,7 +52,7 @@ function controls(enabled: boolean): void {
 }
 function mask(): void {
   // Backgrounded tabs retain no visible conversation/draft until the cookie is revalidated.
-  generation++; refreshing = null; timeline.replaceChildren(); account.textContent = ''; status.textContent = ''; error.textContent = '';
+  generation++; refreshing = null; timeline.replaceChildren(); account.textContent = ''; modeBadge.textContent = ''; modeBadge.hidden = true; status.textContent = ''; error.textContent = '';
   directoryGeneration++;
   confirmSkip.checked = false;
   element('recovery-warning').textContent = ''; recoveryStatus.textContent = '';
@@ -126,6 +127,7 @@ async function loadTimeline(): Promise<void> {
     if (stopped || expected !== generation || current !== target || paused || document.hidden) return;
     renderPosts(result.posts); renderRecovery(recoveryState); status.textContent = `Session: ${target}${result.has_more ? ' · Showing the most recent messages' : ''}`;
     account.textContent = `${api.identity.displayName} (@${api.identity.username})`;
+    modeBadge.textContent = 'Family shared'; modeBadge.title = 'family-shared mode · shared process and filesystem'; modeBadge.hidden = false;
     element<HTMLButtonElement>('open-account').disabled = false; settings?.resume();
     element<HTMLButtonElement>('open-sessions').disabled = false; sessionSettings?.resume();
     administration?.resume();

@@ -87,7 +87,7 @@ A **Recovery is blocked** notice needs operator inspection; do not invent an inp
 
 ## Manage your account
 
-The family workspace groups settings under **Personal**, **Sessions and work** and **Shared family**. Notifications, sign-out and sign-in remain separate account actions. On a phone these groups form one vertical list; wider screens show three columns. Only one settings panel stays open; selecting another closes the previous panel and discards its unsaved private draft. Opening a group control does not change its permissions or move data between scopes.
+The authenticated header shows **Family shared** so this preview cannot be mistaken for the normal single-user interface. It is a read-only label, not a mode selector. The family workspace groups settings under **Personal**, **Sessions and work** and **Shared family**. Notifications, account switching and sign-out remain separate account actions. On a phone these groups form one vertical list; wider screens show three columns. Only one settings panel stays open; selecting another closes the previous panel and discards its unsaved private draft. Opening a group control does not change its permissions or move data between scopes.
 
 Open **My account**. A disabled control can mean the operation is prohibited, your authentication is too old, the browser lacks support, or the server is still loading. **Refresh account** reloads the current permissions and values.
 
