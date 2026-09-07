@@ -87,7 +87,7 @@
       "semanticReaderOccurrences": 67
     },
     "docsDeploy": {
-      "referencedNames": 123,
+      "referencedNames": 124,
       "directReaderNames": 16,
       "directReaderOccurrences": 32,
       "helperReaderNames": 0,
@@ -763,6 +763,7 @@
           "helperReaders": 0,
           "semanticReaders": 0,
           "files": [
+            "docs/getting-started.md",
             "docs/release.md"
           ],
           "readerFiles": []
@@ -1335,6 +1336,21 @@
           "files": [
             "runtime/src/core/config-sources.ts",
             "runtime/src/core/config-web.ts"
+          ],
+          "readerFiles": []
+        }
+      }
+    },
+    {
+      "name": "PICLAW_DESKTOP_URL",
+      "scopes": {
+        "docsDeploy": {
+          "referenced": true,
+          "directReaders": 0,
+          "helperReaders": 0,
+          "semanticReaders": 0,
+          "files": [
+            "docs/desktop.md"
           ],
           "readerFiles": []
         }
@@ -4416,6 +4432,7 @@
           "helperReaders": 0,
           "semanticReaders": 0,
           "files": [
+            "docs/getting-started.md",
             "docs/release.md"
           ],
           "readerFiles": []
@@ -5765,6 +5782,7 @@
           "semanticReaders": 0,
           "files": [
             "docs/configuration.md",
+            "docs/getting-started.md",
             "docs/reverse-proxy.md"
           ],
           "readerFiles": []
@@ -7316,6 +7334,7 @@
             ".github/workflows/e2e.yml",
             "docs/azure/README.md",
             "docs/configuration.md",
+            "docs/desktop.md",
             "skel/.pi/skills/bootstrap-container/SKILL.md",
             "skel/.pi/skills/bootstrap-container/bootstrap-container.sh",
             "skel/.pi/skills/situate-daily-notes/agent-memory-sidecar.ts",
