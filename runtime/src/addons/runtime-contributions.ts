@@ -2,6 +2,8 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSyn
 import { join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { getDataDir, getWorkspaceDir as getConfiguredWorkspaceDir } from "../core/config.js";
+import { readAccessConfig } from "../core/config-access.js";
+import { getExecutionIdentity } from "../core/execution-context.js";
 import { createMedia, getMediaById } from "../db/media.js";
 import { postMessagesToolMessage } from "../extensions/messages-crud.js";
 import type { RuntimeAgentMessageRequest, RuntimeAgentMessageResult } from "../channels/web/core/web-channel-runtime-public-surface-service.js";
@@ -287,6 +289,9 @@ async function deliverPeerMessage(input: AddonPeerMessageDeliveryRequest): Promi
 }
 
 async function enqueueAgentMessageViaRuntime(request: RuntimeAgentMessageRequest): Promise<RuntimeAgentMessageResult> {
+  const mode = readAccessConfig().mode;
+  const identity = getExecutionIdentity();
+  if (mode !== "single-user" || (identity && identity.mode !== "single-user")) throw new Error("Add-on agent-message enqueue is unavailable in multi-user mode.");
   if (!agentMessageEnqueuer) throw new Error("Piclaw runtime agent-message enqueue API is not available yet.");
   return await agentMessageEnqueuer(request);
 }
