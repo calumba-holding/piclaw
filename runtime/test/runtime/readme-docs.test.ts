@@ -7,6 +7,8 @@ import { spawnSync } from "node:child_process";
 const root = resolve(import.meta.dir, "../../..");
 const documents = [
   "README.md",
+  "README.zh-CN.md",
+  "README.ja.md",
   "docs/README.md",
   "docs/getting-started.md",
   "docs/desktop.md",
@@ -62,4 +64,32 @@ test("newcomer setup retains loopback, persistence and deployment boundaries", (
   expect(guide).toContain("atomic database snapshot");
   expect(guide).toContain("does not restart a running process");
   expect(read("docs/install-from-repo.md")).not.toMatch(/github:rcarmo\/piclaw#v\d/);
+});
+
+test("README translations preserve commands, documentation links and credits", () => {
+  const english = read("README.md");
+  const codeBlocks = (text: string) => [...text.matchAll(/^```[^\n]*\n[\s\S]*?^```/gm)].map((match) => match[0]);
+  const targets = (text: string) => [...new Set([...stripCode(text).matchAll(/\[[^\]]*\]\(([^\s)]+)\)/g)]
+    .map((match) => match[1]!)
+    .filter((href) => !href.startsWith("#") && !/^README(?:\.[\w-]+)?\.md$/.test(href)))].sort();
+  for (const path of ["README.zh-CN.md", "README.ja.md"]) {
+    const text = read(path);
+    expect(codeBlocks(text), path).toEqual(codeBlocks(english));
+    expect(targets(text), path).toEqual(targets(english));
+    expect(text).toContain("[rcarmo/vibes](https://github.com/rcarmo/vibes)");
+    expect(text).not.toContain("rcarmo/agentbox");
+    expect(text).toContain("workspace/.piclaw/store/messages.db");
+    expect(text.indexOf("> [!WARNING]")).toBeLessThan(text.indexOf("```bash"));
+  }
+  const chinese = read("README.zh-CN.md");
+  const japanese = read("README.ja.md");
+  for (const text of [chinese, japanese]) {
+    expect(text).toContain("`family-shared`");
+    expect(text).toContain("docs/multi-user/README.md");
+    expect(text).toContain("docs/multi-user/user-guide.md");
+  }
+  expect(chinese).toContain("默认采用单用户模式");
+  expect(chinese).toContain("隔离容器模式不可用");
+  expect(japanese).toContain("デフォルトはシングルユーザーです");
+  expect(japanese).toContain("隔離コンテナーモードは利用できません");
 });

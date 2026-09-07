@@ -4,7 +4,7 @@
 
 Languages: **English** · [简体中文](README.zh-CN.md) · [日本語](README.ja.md)
 
-PiClaw is a self-hosted AI workspace for one user, built on the [Pi Coding Agent](https://github.com/badlogic/pi-mono). Work with an agent, edit files, run commands and inspect the results in the same browser window. Conversations, files and scheduled tasks persist between visits; model requests go to the provider you configure, including local OpenAI-compatible servers.
+PiClaw is a self-hosted AI workspace, single-user by default, built on the [Pi Coding Agent](https://github.com/badlogic/pi-mono). Work with an agent, edit files, run commands and inspect the results in the same browser window. Conversations, files and scheduled tasks persist between visits; model requests go to the provider you configure, including local OpenAI-compatible servers.
 
 The web UI supports English, Simplified Chinese and Japanese, with desktop and mobile layouts. Use a container, VM or dedicated machine to limit the files and services available to the agent.
 
@@ -90,7 +90,7 @@ Use the issue templates when reporting a problem. For code changes, read [develo
 ## Credits
 
 - [pi.dev](http://pi.dev) for the Pi core used by piclaw
-- [rcarmo/agentbox](https://github.com/rcarmo/agentbox)
+- [rcarmo/vibes](https://github.com/rcarmo/vibes)
 - [qwibitai/nanoclaw](https://github.com/qwibitai/nanoclaw)
 - [badlogic/pi-mono](https://github.com/badlogic/pi-mono)
 - [davebcn87/pi-autoresearch](https://github.com/davebcn87/pi-autoresearch) — autonomous experiment loop by Tobi Lutke and David Cortés (now carried by the autoresearch add-on in `rcarmo/piclaw-addons`)
