@@ -32,6 +32,7 @@ test('family guides cover user controls, destructive effects and gated operator 
   for(const label of ['Scheduled results','Inspect result','Publish result','Refresh results','Close results','Cancel execution authority']){
     expect(user).toContain(`**${label}**`);expect(source).toContain(label);
   }
+  expect(user).toContain('**Enable notifications**'); expect(user).toContain('**Disable notifications**'); expect(source).toContain('Enable notifications');
   expect(user).toContain('Conversations and saved settings persist on the server');
   const memorySource=read('runtime/web/src/family-memory.ts')+source;
   for(const label of ['Family memory','Preview for family memory','Publish memory','Refresh memory history','Inspect memory','View shared memory','Retry same memory publication','Discard memory draft','Withdraw memory','Close memory']){

@@ -27,6 +27,7 @@ import { authoriseOwnedMedia, readOwnedMediaInfo, exportOwnedArchivedTranscript 
 import { handleMedia } from "../handlers/media.js";
 import { buildContentDisposition } from "./content-disposition.js";
 import { requireAccountActor } from "../../../db/account-administration.js";
+import { handleFamilyWebPush } from "../push/web-push-routes.js";
 
 /** Absent selects the live home; explicit empty/duplicate selectors never fall back. */
 function selector(url: URL, key: string): string | undefined {
@@ -83,6 +84,7 @@ export async function handleFamilyRequest(channel: WebChannelLike, req: Request,
     return principalResponse(req, principal?.mode === "family-shared" ? principal : null);
   }
 
+  if (flags.isGetOrHead && path === "/family-sw.js") return channel.serveStatic("sw.js", req);
   const publicAsset = flags.isGetOrHead && ["/static/common/dist/login.bundle.js", "/static/common/dist/login.bundle.css", "/static/common/dist/invitation.bundle.js"].includes(path);
   const login = flags.isLoginPage || flags.isAuthVerify || flags.isWebauthnLoginStart || flags.isWebauthnLoginFinish;
   if (login || publicAsset || (!principal && flags.isIndex)) {
@@ -118,6 +120,7 @@ export async function handleFamilyRequest(channel: WebChannelLike, req: Request,
   if (path === "/agent/scheduled-results" || path.startsWith("/agent/scheduled-results/")) return handleFamilyScheduledResults(channel, req, principal);
   if (path === "/agent/scheduled-tasks" || path.startsWith("/agent/scheduled-tasks/")) return handleFamilyScheduledTasks(channel, req, principal);
   if (path === "/agent/family-memory" || path.startsWith("/agent/family-memory/")) return handleFamilyMemory(channel, req, principal);
+  if (path.startsWith("/agent/push/")) return handleFamilyWebPush(channel, req, principal);
   if (/^\/agent\/[^/]+\/message$/.test(path)) return handleFamilyMessageIngress(channel, req, principal);
   const accountResponse = await handleFamilyAccountRoutes(channel, req, principal);
   if (accountResponse) return accountResponse;
