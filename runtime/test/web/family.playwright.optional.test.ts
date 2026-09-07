@@ -44,6 +44,20 @@ browserTest('family notification control uses pinned account headers and clears 
 },20000);
 async function ready(page: Page) { await page.waitForFunction(() => document.getElementById("timeline")?.textContent?.includes("Alice private text")); }
 
+browserTest('authenticated header exposes the read-only family mode and clears it with identity state', async () => {
+  const page = await browser.newPage({ viewport: { width: 375, height: 740 } });
+  try {
+    const state = await fixture(page); await page.goto(base); await ready(page);
+    expect(await page.locator('#deployment-mode').textContent()).toBe('Family shared');
+    expect(await page.locator('#deployment-mode').getAttribute('title')).toContain('family-shared mode');
+    expect(await page.locator('#deployment-mode').isVisible()).toBe(true);
+    expect(await page.locator('#deployment-mode').evaluate(node => node.getBoundingClientRect().right <= innerWidth)).toBe(true);
+    state.identity = { principal: { ...state.identity.principal, mode: 'single-user' }, capabilities: { manage_users: false } } as any;
+    await page.locator('#refresh').click(); await page.waitForFunction(() => document.getElementById('family-status')?.textContent?.includes('no longer bound'));
+    expect(await page.locator('#deployment-mode').isHidden()).toBe(true); expect(await page.locator('#deployment-mode').textContent()).toBe('');
+  } finally { await page.close(); }
+}, 20000);
+
 browserTest('switch account is distinct from session switching and sign out and clears private state before login navigation', async () => {
   const page = await browser.newPage({ viewport: { width: 375, height: 740 } });
   try {

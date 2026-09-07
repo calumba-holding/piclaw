@@ -9,6 +9,7 @@ body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 syst
 .family-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .family-shell > section > header { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 .family-identity, .family-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
+.mode-badge { color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px; font-size: 13px; font-weight: 650; white-space: nowrap; }
 h1 { font-size: 24px; margin: 0; }
 .family-actions a { padding: 8px 0; }
 a { color: var(--accent); }
