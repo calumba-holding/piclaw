@@ -25,6 +25,8 @@ import { withChatContext } from "../core/chat-context.js";
 import { sanitiseJid } from "./session.js";
 import type { PoolEntry } from "./session-manager.js";
 import { probeCompactionModel, type CompactionModelProbeResult } from "./compaction-model-probe.js";
+import { readAccessConfig } from "../core/config-access.js";
+import { getExecutionIdentity } from "../core/execution-context.js";
 
 const MAX_PERSISTED_MODEL_STATE_CACHE_CHATS = 512;
 const persistedModelStateCache = new Map<string, {
@@ -32,6 +34,13 @@ const persistedModelStateCache = new Map<string, {
   current: string | null;
   thinkingLevel: string | null;
 }>();
+
+/** Direct session mutations have no owner-aware admission contract yet. */
+function requireSingleUserDirectExecution(label: string): void {
+  const mode = readAccessConfig().mode;
+  const identity = getExecutionIdentity();
+  if (mode !== "single-user" || (identity && identity.mode !== "single-user")) throw new Error(`${label} is unavailable in multi-user mode.`);
+}
 
 function setPersistedModelStateCache(
   chatJid: string,
@@ -306,6 +315,7 @@ export class AgentRuntimeFacade {
   }
 
   async applyControlCommand(chatJid: string, command: AgentControlCommand): Promise<AgentControlResult> {
+    requireSingleUserDirectExecution("Direct control commands");
     const runtime = await this.options.getOrCreateRuntime(chatJid);
     const session = runtime.session;
     const previousSessionGeneration = typeof session.sessionId === "string" ? session.sessionId : null;
@@ -533,6 +543,7 @@ export class AgentRuntimeFacade {
     text: string,
     behavior: "steer" | "followUp",
   ): Promise<{ queued: boolean; error?: string }> {
+    requireSingleUserDirectExecution("Direct queue mutation");
     const session = (await this.options.getOrCreateRuntime(chatJid)).session;
     if (!session.isStreaming) return { queued: false };
 
@@ -553,6 +564,7 @@ export class AgentRuntimeFacade {
   }
 
   async removeQueuedFollowupMessage(chatJid: string, queuedContent?: string): Promise<boolean> {
+    requireSingleUserDirectExecution("Direct queue mutation");
     const session = (await this.options.getOrCreateRuntime(chatJid)).session;
     if (!session.isStreaming) return false;
 
@@ -615,6 +627,7 @@ export class AgentRuntimeFacade {
   }
 
   async applySlashCommand(chatJid: string, rawText: string): Promise<AgentControlResult> {
+    requireSingleUserDirectExecution("Direct slash commands");
     this.options.clearAttachments(chatJid);
     const runtime = await this.options.getOrCreateRuntime(chatJid);
     const session = runtime.session;
