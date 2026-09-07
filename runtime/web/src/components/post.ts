@@ -1369,8 +1369,15 @@ function highlightHtml(html, query) {
 /**
  * Single post component
  */
-export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMessage, agentName, agentAvatarUrl, userName, userAvatarUrl, userAvatarBackground, onDelete, isThreadReply, isThreadPrev, isThreadNext, isRemoving, highlightQuery, onFileRef, onOpenWidget, onOpenAttachmentPreview }) {
+export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMessage, agentName, agentAvatarUrl, userName, userAvatarUrl, userAvatarBackground, onDelete, isThreadReply, isThreadPrev, isThreadNext, isRemoving, highlightQuery, onFileRef, onOpenWidget, onOpenAttachmentPreview, accessory, capabilities = null }) {
     const { t } = useTranslation();
+    const postCapabilities = capabilities && typeof capabilities === 'object' ? capabilities : {};
+    const allowMedia = postCapabilities.media !== false;
+    const allowCards = postCapabilities.cards !== false;
+    const allowWidgets = postCapabilities.widgets !== false;
+    const allowAnnotations = postCapabilities.annotations !== false;
+    const allowThinking = postCapabilities.thinking !== false;
+    const allowDelete = postCapabilities.delete !== false;
     const [zoomedImage, setZoomedImage] = useState(null);
     const [annotatingImage, setAnnotatingImage] = useState(null);
     const [annotationResult, setAnnotationResult] = useState(null); // { id, url } after Done
@@ -1461,8 +1468,8 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
     };
     const { content: cleanedWithAttachments, attachments } = extractAttachmentRefs(cleanedWithMsgRefs);
     displayContent = cleanedWithAttachments;
-    const directCardBlocks = extractCardBlocks(blocks);
-    const submissionBlocks = extractAdaptiveCardSubmissionBlocks(blocks);
+    const directCardBlocks = allowCards ? extractCardBlocks(blocks) : [];
+    const submissionBlocks = allowCards ? extractAdaptiveCardSubmissionBlocks(blocks) : [];
     const recoveryMarkerBlocks = extractRecoveryMarkerBlocks(blocks);
     const recoveryMarker = recoveryMarkerBlocks[0] || null;
     const timeoutMarkerBlocks = extractTimeoutMarkerBlocks(blocks);
@@ -1471,7 +1478,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
     const outcomeMarker = outcomeMarkerBlocks[0] || null;
     const agentTimingBlock = extractAgentTimingBlock(blocks);
     const postTimeTooltip = buildPostTimeTooltip(post, agentTimingBlock);
-    const thinkingRef = blocks.find(b => b?.type === 'thinking_ref');
+    const thinkingRef = allowThinking ? blocks.find(b => b?.type === 'thinking_ref') : undefined;
     const singleCardFallback = directCardBlocks.length === 1 && typeof directCardBlocks[0]?.fallback_text === 'string'
         ? directCardBlocks[0].fallback_text.trim()
         : '';
@@ -1499,7 +1506,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
     const handleImageClick = (e, mediaId, mimeType) => {
         e.stopPropagation();
         const src = getMediaUrl(mediaId);
-        if (canAnnotate()) {
+        if (allowAnnotations && canAnnotate()) {
             setAnnotatingImage({ src, mimeType });
         } else {
             setZoomedImage(src);
@@ -1650,22 +1657,22 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
 
     if (blocks.length > 0) {
         blocks.forEach((block) => {
-            if (block?.type === 'text' && block.annotations) {
+            if (allowAnnotations && block?.type === 'text' && block.annotations) {
                 textAnnotations.push(block.annotations);
             }
-            if (block?.type === 'generated_widget') {
+            if (allowWidgets && block?.type === 'generated_widget') {
                 generatedWidgets.push(block);
-            } else if (block?.type === 'resource_link') {
+            } else if (allowMedia && block?.type === 'resource_link') {
                 resourceLinks.push(block);
-            } else if (block?.type === 'resource') {
+            } else if (allowMedia && block?.type === 'resource') {
                 resources.push(block);
-            } else if (block?.type === 'file') {
+            } else if (allowMedia && block?.type === 'file') {
                 const id = mediaIds[mediaIndex++];
                 if (id) {
                     fileIds.push(id);
                     attachmentEntries.push({ id, name: block?.name || block?.filename || block?.title });
                 }
-            } else if (block?.type === 'image' || !block?.type) {
+            } else if (allowMedia && (block?.type === 'image' || !block?.type)) {
                 const id = mediaIds[mediaIndex++];
                 if (id) {
                     const mimeType =
@@ -1675,7 +1682,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                 }
             }
         });
-    } else if (mediaIds.length > 0) {
+    } else if (allowMedia && mediaIds.length > 0) {
         const treatAsFiles = attachments.length > 0;
         mediaIds.forEach((id, index) => {
             const ref = attachments[index] || null;
@@ -1713,8 +1720,8 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
         }));
 
     // Extract adaptive card blocks from content_blocks
-    const cardBlocks = useMemo(() => extractCardBlocks(blocks), [blocks]);
-    const cardSubmissionBlocks = useMemo(() => extractAdaptiveCardSubmissionBlocks(blocks), [blocks]);
+    const cardBlocks = useMemo(() => allowCards ? extractCardBlocks(blocks) : [], [allowCards, blocks]);
+    const cardSubmissionBlocks = useMemo(() => allowCards ? extractAdaptiveCardSubmissionBlocks(blocks) : [], [allowCards, blocks]);
 
     // Stable identity key for card blocks so the render effect only fires when
     // a card's identity or lifecycle state actually changes — not on every
@@ -1734,7 +1741,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
 
     // Re-apply saved text highlights and asides after content renders
     useEffect(() => {
-        if (!contentRef.current) return;
+        if (!allowAnnotations || !contentRef.current) return;
         // Remove any previously inserted pills/asides/marks before re-applying
         contentRef.current.querySelectorAll('.post-aside-pill, .post-aside-content, mark.post-highlight').forEach((el) => {
             // Unwrap marks back to text
@@ -1777,10 +1784,11 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                 }
             }, { once: true });
         });
-    }, [renderedHtml, highlightVersion]);
+    }, [allowAnnotations, renderedHtml, highlightVersion]);
 
     // Listen for text selection to show highlight popup
     useEffect(() => {
+        if (!allowAnnotations) return;
         const el = contentRef.current;
         if (!el) return;
         const onSelectionChange = () => {
@@ -1810,7 +1818,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
             }
             highlightPopupInteractionRef.current = false;
         };
-    }, [renderedHtml]);
+    }, [allowAnnotations, renderedHtml]);
 
     const highlightPopupIsDocked = highlightPopup
         ? isIOSDevice() || hasCoarseAnnotationPointer(typeof window === 'undefined' ? null : window)
@@ -1940,7 +1948,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                                 ? html`<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle><path d="M9 9l6 6M15 9l-6 6"></path></svg>`
                                 : html`<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="9" y="9" width="10" height="10" rx="2"></rect><path d="M7 15H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1"></path></svg>`}
                     </button>
-                    <button
+                    ${allowDelete && onDelete && html`<button
                         class="post-action-btn post-delete-btn"
                         type="button"
                         title=${t('post.deleteMessage')}
@@ -1950,7 +1958,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                             <path d="M18 6L6 18M6 6l12 12" />
                         </svg>
-                    </button>
+                    </button>`}
                 </div>
                 <div class="post-meta">
                     <span class="post-author">${displayName}</span>
@@ -2089,7 +2097,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                     </div>
                 `}
                 ${shouldRenderContent && html`
-                    <div 
+                    <div
                         ref=${contentRef}
                         class="post-content"
                         dangerouslySetInnerHTML=${{ __html: renderedHtml }}
@@ -2217,6 +2225,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                         `)}
                     </div>
                 `}
+                ${accessory}
             </div>
         </div>
         ${zoomedImage && html`<${ImageModal} src=${zoomedImage} onClose=${() => setZoomedImage(null)} />`}

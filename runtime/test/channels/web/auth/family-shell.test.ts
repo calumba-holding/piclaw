@@ -41,12 +41,12 @@ test("family gets a separate no-store shell, versioned private bundles, no legac
   for (const path of ["/", "/index.html"]) {
     const response = await router.handle(request(path)); expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store"); expect(response.headers.get("vary")).toContain("Cookie");
-    const html = await response.text(); expect(html).toContain("family.bundle.js?v="); expect(html).not.toContain("__FAMILY_ASSET_VERSION__");
-    expect(html).not.toContain("app.bundle"); expect(html).not.toContain("localStorage");
+    const html = await response.text(); expect(html).toContain("family.bundle.js?v="); expect(html).toContain("classic/dist/app.bundle.css?v="); expect(html).not.toContain("__FAMILY_ASSET_VERSION__");
+    expect(html).not.toContain("app.bundle.js"); expect(html).not.toContain("localStorage");
     expect(await (await router.handle(request(path, { method: "HEAD" }))).text()).toBe("");
     expect((await router.handle(request(path, { method: "POST" }))).status).toBe(403);
   }
-  for (const path of ["/static/common/dist/family.bundle.js", "/static/common/dist/family.bundle.css"]) {
+  for (const path of ["/static/common/dist/family.bundle.js", "/static/common/dist/family.bundle.css", "/static/classic/dist/app.bundle.css"]) {
     expect((await router.handle(request(path))).status).toBe(200);
     expect(await (await router.handle(request(path, { method: "HEAD" }))).text()).toBe("");
     expect((await router.handle(request(path, { token: "invalid" }))).status).toBe(401);

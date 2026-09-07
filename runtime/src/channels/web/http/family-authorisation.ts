@@ -124,13 +124,13 @@ export async function handleFamilyRequest(channel: WebChannelLike, req: Request,
   if (/^\/agent\/[^/]+\/message$/.test(path)) return handleFamilyMessageIngress(channel, req, principal);
   const accountResponse = await handleFamilyAccountRoutes(channel, req, principal);
   if (accountResponse) return accountResponse;
-  // The family shell never loads the legacy app, add-ons, panes, vendor scripts or maps.
+  // The family shell loads the shared standard chat CSS/components, but never the single-user app entrypoint, add-ons, terminal panes or source maps.
   if (flags.isIndex) {
     const response = await channel.serveStatic("family.html", req);
     if (req.method === "HEAD") { await response.body?.cancel(); return new Response(null, { status: response.status, headers: response.headers }); }
     return response;
   }
-  if (flags.isGetOrHead && ["/static/common/dist/family.bundle.js", "/static/common/dist/family.bundle.css"].includes(path)) {
+  if (flags.isGetOrHead && ["/static/common/dist/family.bundle.js", "/static/common/dist/family.bundle.css", "/static/classic/dist/app.bundle.css"].includes(path)) {
     const response = await handleShellRoutes(channel, req, path, flags, serveStaticAsset) ?? deny();
     if (req.method === "HEAD") { await response.body?.cancel(); return new Response(null, { status: response.status, headers: response.headers }); }
     return response;
