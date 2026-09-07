@@ -9,6 +9,7 @@ import { FamilyTasks } from './family-tasks.js';
 import { FamilyMemory, validMemorySource } from './family-memory.js';
 import { FamilyNotifications } from './family-notifications.js';
 import { initialiseFamilyPanelNavigation } from './family-panel-navigation.js';
+import { renderFamilySessionDirectory } from './family-session-directory.js';
 
 function element<T extends HTMLElement>(id: string): T {
   const value = document.getElementById(id);
@@ -174,11 +175,7 @@ async function refreshDirectory(): Promise<void> {
   const expected = ++directoryGeneration;
   const directory = await api.request('/agent/branches');
   if (stopped || paused || document.hidden || expected !== directoryGeneration) return;
-  if (!Array.isArray(directory.branches)) throw new Error('Invalid session directory.');
-  select.replaceChildren();
-  for (const branch of directory.branches) {
-    const option = document.createElement('option'); option.value = branch.chat_jid; option.textContent = `${branch.agent_name} · ${branch.root_chat_jid}`; select.append(option);
-  }
+  renderFamilySessionDirectory(select, directory.branches);
   select.value = current;
 }
 
