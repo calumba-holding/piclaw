@@ -1181,7 +1181,7 @@ browserTest('a different account starts with its own appearance and cannot inher
 
 function workspacePolicyFixture(): FamilyWorkspacePolicy {
   return {
-    user_id: 'alice', deployment: { routing_mode: 'family-shared', configured_mode: 'family-shared', activated_mode: 'single-user', supported_startup_mode: 'single-user', activation_allowed: false, container_isolation: false },
+    user_id: 'alice', deployment: { routing_mode: 'family-shared', configured_mode: 'family-shared', activated_mode: 'family-shared', supported_startup_mode: 'family-shared', activation_allowed: false, container_isolation: false },
     tools: { policy: 'fixed-family-web-preview', configurable: false, allowed: [...FAMILY_WEB_TOOLS], denied: [], revision: 0, scope: 'Fixed ceiling, not configurable user grants.' },
     resources: [{ name: 'Workspace files', scope: 'shared', detail: 'Shared filesystem, not private volumes.' }],
     operations: [{ name: 'Shell', state: 'denied', detail: 'Not enabled for admitted web turns.' }],
@@ -1194,14 +1194,14 @@ async function openWorkspacePolicy(page: Page) {
   await page.waitForFunction(() => Boolean(document.getElementById('workspace-policy-details')?.textContent));
 }
 
-browserTest('workspace policy distinguishes gated modes, shared resources and tool ceiling without offering writes', async () => {
+browserTest('workspace policy distinguishes promoted family mode, shared resources and tool ceiling without offering writes', async () => {
   const page = await browser.newPage({ viewport: { width: 375, height: 740 } });
   try {
     await fixture(page); const calls: any[] = [];
     await page.route('**/account/workspace', route => { calls.push({ method: route.request().method(), headers: route.request().headers() }); return route.fulfill({ json: workspacePolicyFixture() }); });
     await openWorkspacePolicy(page);
     const text = await page.locator('#workspace-policy-details').textContent();
-    expect(text).toContain('configured mode: family-shared'); expect(text).toContain('stored activation marker: single-user'); expect(text).toContain('not container isolation');
+    expect(text).toContain('configured mode: family-shared'); expect(text).toContain('stored activation marker: family-shared'); expect(text).toContain('not container isolation');
     expect(text).toContain('read, ls, find, grep'); expect(text).toContain('notes/users/alice/MEMORY.md'); expect(text).toContain('Shell — denied');
     expect(await page.locator('#workspace-policy-details input, #workspace-policy-details button, #workspace-policy-details a').count()).toBe(0);
     expect(calls.every(c => c.method === 'GET' && c.headers['x-piclaw-account-id'] === 'alice' && c.headers['x-piclaw-login-id'] === 'login-a')).toBe(true);

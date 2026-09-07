@@ -2,7 +2,7 @@
 
 `piclaw account-recovery` prepares a restricted first-factor grant for an existing administrator whose factors are lost. It does not log in as that administrator, create an account, change ownership or enable a deployment.
 
-**Normal family startup remains disabled.** These commands accept only a store whose configured access mode and activation state are both `family-shared`. They reject `single-user` and `isolated-containers` stores. Do not change activation markers to try them. `serve` starts a temporary recovery-only HTTPS listener for one named operator grant; it does not start Piclaw's normal runtime.
+Normal family startup requires a promoted database and matching explicit configuration. These recovery commands accept only a store whose configured access mode and activation state are both `family-shared`. They reject `single-user` and `isolated-containers` stores. Do not change activation markers to try them. `serve` starts a temporary recovery-only HTTPS listener for one named operator grant; it does not start Piclaw's normal runtime.
 
 ## Preconditions
 
@@ -55,7 +55,7 @@ The listener acquires the same maintenance lock and opens the existing database 
 
 The redemption flow uses the restricted invitation page. The operator audit reference, exact origin, target administrator role and owned home must match. The grant does not need a second enabled administrator. A normal administrator's reissue clears the operator grant's authority. Expiry, one-use browser binding, proof checks and revocation still apply. Passkey setup requires user verification; TOTP setup requires a valid code. Successful enrolment enables the same account but the recovery-only listener never creates a login; stop it if needed, restore normal service management, and sign in after a separately authorised normal startup. Existing seeds and private keys are never revealed.
 
-Do not restart the normal family runtime or relax its startup guards to redeem a prepared grant. The commands never start, stop or restart a managed service. Physical-device testing and the wider family release gate remain required before deployment.
+Do not restart the normal family runtime or relax its startup guards to redeem a prepared grant. The commands never start, stop or restart a managed service. Test the recovery flow with the deployment's physical devices before relying on it.
 
 If the process is interrupted, inspect the protected output and database using the same release before retrying. A crash may leave an output file for an uncommitted grant or a committed grant whose success was not printed. Never assume missing stdout means rollback. Reissuing to new paths invalidates the previous grant. Expiry does not automatically restore old factors; issue a fresh grant offline or restore the coordinated backup.
 

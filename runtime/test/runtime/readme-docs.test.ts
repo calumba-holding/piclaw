@@ -53,8 +53,9 @@ test("newcomer setup retains loopback, persistence and deployment boundaries", (
   for (const argument of ["--init", "-p 127.0.0.1:8080:8080", "$(pwd)/home:/config", "$(pwd)/workspace:/workspace"]) {
     expect(docker).toContain(argument);
   }
-  expect(readme).toContain("Single-user deployments only");
-  expect(readme).toContain("modes cannot start");
+  expect(readme).toContain("Single-user is the default");
+  expect(readme).toContain("Promoted `family-shared` deployments");
+  expect(readme).toContain("Isolated-container mode is unavailable");
   expect(readme).toContain("messages.db");
   expect(readme).toContain("Cloud models and external tools");
   expect(guide).toContain("permits unauthenticated access");

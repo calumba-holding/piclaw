@@ -47,7 +47,7 @@ test('family guides cover user controls, destructive effects and gated operator 
   for(const label of ['Family administration','Create account','Issue invitation','Issue passkey invitation','Revoke invitation','Reset account','Reset to passkey','Security','Assign home','Tool restrictions','Save tool restrictions']){
     expect(admin).toContain(`**${label}**`);expect(source).toContain(label);
   }
-  for(const document of [user,admin]){expect(document).toContain('single-user deployments only');expect(document).toContain('troubleshooting.md');}
+  for(const document of [user,admin]){expect(document).toContain('family-shared');expect(document).toContain('Single-user remains the default');expect(document).toContain('troubleshooting.md');}
   expect(user).toContain('Removing a factor signs out every device');expect(user).toContain('Workspace files are shared');expect(user).toContain('separate browser profiles');expect(user).toContain('100 text messages');expect(user).toContain('2 MiB');
   expect(admin).toContain('last enabled administrator');expect(admin).toContain('recovery-only startup');
   for(const term of ['invitation','Legacy input','Prepared migration copy','Too many attempts','Uncertain','bootstrap key'])expect(help.toLowerCase()).toContain(term.toLowerCase());

@@ -1,6 +1,6 @@
 # Scheduled execution records
 
-Piclaw supports **single-user deployments only**. Family and isolated modes cannot start. The following APIs support development testing. Owner task preparation/revocation, confirmed run admission, execution cancellation and result inspection/publication have gated HTTP routes. Lease/settlement capabilities remain internal. Automatic polling and legacy task activation are disabled. See [access modes](README.md) and the [paused task-grant foundation](README.md#paused-task-grant-foundation).
+Promoted family deployments support explicit owner task preparation/revocation, confirmed run admission, execution cancellation and result inspection/publication through gated HTTP routes. Lease/settlement capabilities remain internal. Automatic polling and legacy task activation stay disabled. Isolated mode is unavailable. See [access modes](README.md) and the [paused task-grant foundation](README.md#paused-task-grant-foundation).
 
 ## Owner task preparation API
 
@@ -50,7 +50,7 @@ Recovery includes started handoffs and handoffs whose token was lost before disp
 
 SQLite serialises writers; immediate transactions and symmetric insertion triggers prevent result/expiry conflicts and dispatch after recorded expiry. Capability validation also rejects terminal records, including after a server clock rollback. Recovery neither deletes the one-start receipt nor reclaims a consumed occurrence. It makes no model, tool, queue, publication, cursor or task-activation call. The server clock determines expiry; clock rollback denies capability use, while clock jumps may expire work early.
 
-Process-kill tests stop a disposable recovery worker before and after its SQLite commit, reopen the database and verify rollback or durable receipts, idempotent recovery, retained start records and denied replay/settlement. These tests cover the recovery transaction only. They do not prove termination of a provider request, tool side effects or a running SDK worker, and do not complete the multi-user activation gate.
+Process-kill tests stop a disposable recovery worker before and after its SQLite commit, reopen the database and verify rollback or durable receipts, idempotent recovery, retained start records and denied replay/settlement. These tests cover the recovery transaction only. They do not prove termination of a provider request, tool side effects or a running SDK worker. Family mode therefore exposes explicit admission, cancellation and result controls without automatic dispatch.
 
 ## Deterministic scheduled-worker crash tests
 
@@ -94,7 +94,7 @@ Recording is best effort. If mode, clock or storage prevents it, a fixed diagnos
 
 `interrupted` does not mean the provider request or tools have stopped. Timeout closes the execution scope immediately; the queue callback retains the lane until its underlying `runAgent` promise settles. The real prompt runner awaits `session.prompt()` even when its inner timer requests abort. A regression fires that inner timer first with an abort-ignoring fixture, then confirms outer-timeout fencing and lane retention. Already-issued external effects are not undone.
 
-Automatic dispatch, remote-provider termination proof and the remaining activation gates still need implementation. Stop all writers before changing modes. Raw database writers and installed code remain trusted.
+Automatic dispatch and remote-provider termination are unsupported in family mode. Stop all writers before changing modes. Raw database writers and installed code remain trusted.
 
 ## Owner-confirmed execution cancellation
 

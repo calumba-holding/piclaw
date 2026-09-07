@@ -16,7 +16,7 @@ export function readFamilyWorkspacePolicy(database: Database, actor: Authenticat
     return {
       user_id: user.id,
       deployment: { routing_mode: 'family-shared', configured_mode: configured.mode, activated_mode: state.activatedMode,
-        supported_startup_mode: 'single-user', activation_allowed: false, container_isolation: false },
+        supported_startup_mode: 'family-shared', activation_allowed: false, container_isolation: false },
       tools: { policy: 'fixed-family-web-preview', configurable: false, allowed: [...tools.allowed], denied: [...tools.denied], revision: tools.revision,
         scope: 'Administrator restrictions narrow the fixed preview ceiling for new runs. A running turn retains its policy snapshot, including recovery replacement. Active tools may be fewer. Direct tools, queues, add-ons and transports still require integrated release verification.' },
       resources: [

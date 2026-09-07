@@ -1,15 +1,13 @@
 # Access modes
-
-Piclaw supports **single-user deployments only**. **Family and isolated modes cannot start.** Use these preview guides for controlled testing and implementation review. Do not bypass the startup checks.
-
+Piclaw supports **single-user** and promoted **family-shared** deployments. Single-user remains the default. Isolated-container mode is not available. Family mode requires the offline version-five prepare/promote workflow and explicit configuration; never edit activation markers by hand.
 ## Guides
 
-- [Family preview user guide](user-guide.md): sign-in, accounts, messages, sessions, preferences and privacy.
-- [Family preview administrator guide](administrator-guide.md): account onboarding, invitations, security, recovery, home and tool policies.
+- [Family user guide](user-guide.md): sign-in, accounts, messages, sessions, preferences and privacy.
+- [Family administrator guide](administrator-guide.md): account onboarding, invitations, security, recovery, home and tool policies.
 - [Troubleshooting](troubleshooting.md): safe next steps for users, administrators and operators.
-- [Copy-only migration runbook](migration-copy.md) and [offline recovery runbook](operator-recovery.md): operator procedures and explicit release limits.
+- [Offline migration and promotion runbook](migration-copy.md) and [offline recovery runbook](operator-recovery.md): operator procedures and explicit release limits.
 
-The development backend includes account administration, per-user TOTP, multiple passkeys, restricted invitations, administrator-assisted recovery, owned forks, ownership-checked reads and server-sent events (SSE), and authentication maintenance. The login page uses the site's public authentication policy to show the available methods. Migration-copy promotion and activation through Settings are not implemented. [#1134](https://github.com/rcarmo/piclaw/issues/1134) tracks the remaining integration.
+The supported family scope includes account administration, per-user TOTP, multiple passkeys, restricted invitations, administrator-assisted recovery, owned roots/forks/rename/archive/restore, text prompts, ownership-checked reads/SSE, explicit paused tasks/results, owner/family memory and Web Push. Unsupported surfaces stay denied: attachments/uploads, shell/terminal/VNC, cross-session sends and control writes, generic add-on panes/config, peer/non-web ingress, automatic scheduling/Dream and isolated containers.
 
 The [HTTP inventory](../../runtime/docs/web-api-endpoint-inventory.md#family-development-routes) lists development routes; [storage](../storage.md) lists persisted records. Update user-facing guides whenever their controls change.
 
@@ -30,7 +28,7 @@ An absent mode is equivalent to this setting on a fresh or legacy single-user st
 | Profile | Workspace and skills | Authentication and execution | Availability |
 |---|---|---|---|
 | `single-user` | Existing workspace, skills and add-ons | Existing TOTP/WebAuthn or optional unauthenticated local access | Available |
-| `family-shared` | Shared workspace and skills; personal memory selected by user | Individual accounts, owned session trees, forks and friendly renames | Disabled until the family gate |
+| `family-shared` | Shared workspace and skills; personal memory selected by user | Individual accounts, owned session trees, forks and friendly renames | Available after offline version-five promotion |
 | `isolated-containers` | Separate per-user volumes; optional read-only shared skills | Gateway authenticates and routes to dedicated backends | Disabled until the container gate |
 
 Family mode is intended for trusted household members. Users with arbitrary shell or filesystem access can read shared files, runtime state and credentials; application capability controls do not provide filesystem confinement. Containers add process, volume and network boundaries but share a host kernel. Host administrators and deliberately shared writable volumes remain part of the trust model.
@@ -39,7 +37,7 @@ Family mode is intended for trusted household members. Users with arbitrary shel
 
 | Area | Implemented and tested | Not yet complete |
 |---|---|---|
-| Modes and migration (#1123/#1126/#1133) | Strict config/marker checks, copy-only ownership/child/resource preparation, immutable factor preservation and proof-checked default TOTP import | Promotion/rollback, physical factor proof and remaining resource migration, activation gates |
+| Modes and migration (#1123/#1126/#1133) | Strict config/marker checks, version-five ownership/child/resource/factor/input preparation, immutable promotion receipt, offline promoted database and rollback by restoring original database/config | Physical-device proof and migration of unsupported external resources |
 | Accounts and factors (#1124/#1125) | Disabled account + owned home provisioning, live/recent-login admin checks, own-device/factor APIs and names, owner avatars, login-bound self TOTP enrolment and multiple passkeys | Recovery startup integration, owner-aware replacement for disabled legacy factor commands |
 | Invitations/recovery (#1125) | One-use browser-bound TOTP/passkey grants, atomic enrol-and-enable, other-admin reset, offline operator grant preparation with backup/lock/audit, fragment invitation page and admin confirmation UI | Physical-device and full account browser workflows, recovery startup/listener integration |
 | Sessions (#1126/#1128) | Root ownership, owner-local names, atomic forks/rename, additional roots, home selection and idle archive/restore; owned lifecycle browser controls | Merge/purge, full archive backup, process-kill recovery proof |
@@ -48,7 +46,7 @@ Family mode is intended for trusted household members. Users with arbitrary shel
 | Settings and isolation (#1130/#1132) | Own-account, owned-session lifecycle and account administration controls; revisioned personal appearance/response guidance; read-only workspace/deployment/capability panel | Container destination assignment, broader capability/preference editors, complete setting/add-on classification and per-user container gateway/deployment |
 | Auth maintenance (#1125) | Transient-expiry loop and offline factor re-encryption helper | Coordinated rotation CLI/dual-key support, generic-keychain rotation, audit retention |
 
-Passing backend tests and merged PRs do not complete these issues or allow activation. Preserve single-user compatibility until the staged integration gates pass.
+Family activation is an explicit offline operator action; passing tests never changes a running installation. Preserve the original single-user database/config for rollback and keep unsupported surfaces denied.
 
 ## Foundation storage
 
@@ -77,9 +75,9 @@ The additive `session_roots` table records the immutable owner and private polic
 
 Internal provisioning helpers assign an existing root and a user's home atomically. Same-owner retries are idempotent; reassignment to another owner is rejected. The home must be an active root; archived roots remain owned but cannot execute. Database guards protect an assigned home from archive and an owned root from deletion; explicit safe cleanup is required before eventual root purge. Friendly renaming keeps IDs unchanged.
 
-`resolveAuthorisedChat(database, principal, requestedChatJid, action)` checks live account status/role, root ownership and the whole stored parent chain before returning a target. Missing targets use the current owned home. Explicit empty, foreign, unknown, orphaned, cyclic or cross-root targets are denied uniformly. Admin role alone gives no access to another owner. Selected family reads, forks, account operations and SSE use this resolver. Remaining route/tool/transport consumers must integrate ownership checks before family mode becomes available.
+`resolveAuthorisedChat(database, principal, requestedChatJid, action)` checks live account status/role, root ownership and the whole stored parent chain before returning a target. Missing targets use the current owned home. Explicit empty, foreign, unknown, orphaned, cyclic or cross-root targets are denied uniformly. Admin role alone gives no access to another owner. Supported family reads, forks, account operations and SSE use this resolver. Unsupported route, tool and transport surfaces deny family mode.
 
-`assignLegacyRootOwners` takes an explicit mapping for every registered root, including archived and non-web roots. It validates all parent chains and users, rejects unregistered chats or incomplete/duplicate mappings, and applies the assignments in one transaction. It never runs automatically or changes the activation marker. Full migration preflight, non-web service scope and dependent resource/queue handling remain release prerequisites.
+`assignLegacyRootOwners` takes an explicit mapping for every registered root, including archived and non-web roots. It validates all parent chains and users, rejects unregistered chats or incomplete/duplicate mappings, and applies the assignments in one transaction. It never runs automatically or changes the activation marker. Version-five preparation applies the reviewed resource, factor and input policies before a separate promotion.
 
 ## Owner-local handle storage
 
@@ -87,7 +85,7 @@ Internal provisioning helpers assign an existing root and a user's home atomical
 
 `migrateOwnedSessionHandles(database)` is an explicit offline transaction. It validates ownership for every registered branch, including archived branches, then adopts namespaces without changing names or IDs. Any missing/mismatched ownership or collision rolls back the migration. It does not activate a mode or run at startup. Back up the store before eventual mode migration.
 
-The [copy-preparation runbook](migration-copy.md) documents `piclaw access-migration preview|prepare-copy`. It reads an existing single-user source under the maintenance lock and writes a private inventory, then requires a reviewed fingerprint and explicit owner mapping for every root. Preparation creates and verifies a separate SQLite snapshot, validates topology/homes/owner-local handle collisions, and adopts ownership/namespaces only in that copy. Non-web or broken topology is quarantined and blocks preparation. Source bytes, names, IDs, account state and configuration are unchanged. An `access_migration_preparation` marker makes current access-state reads reject the copy, without activating family mode. Remaining resource/credential/queue migration, child-seed adoption and promotion are separate gates; never run an older binary against the copy.
+The [migration runbook](migration-copy.md) documents `piclaw access-migration preview|prepare-copy|promote-copy`. It reads an existing single-user source under the maintenance lock and writes a private inventory, then requires a reviewed fingerprint and explicit owner mapping for every root. Preparation creates and verifies a separate SQLite snapshot, validates topology/homes/owner-local handle collisions, and adopts ownership/namespaces only in that copy. Non-web or broken topology blocks preparation. Source bytes, names, IDs, account state and configuration are unchanged. An `access_migration_preparation` marker prevents the prepared copy from starting. A complete reviewed version-five copy can then be promoted into a separate family database; never run an older binary against either copy.
 
 The owner-aware lookup/list/rename helpers validate live account and parent-chain ownership. Friendly rename updates only `agent_name` and `updated_at`; it preserves branch ID, chat JID, root, home, message references and filesystem paths. Owner-local misses never query another namespace. The legacy database lookup returns only legacy handles, and legacy ensure/rename/restore methods reject migrated rows.
 
@@ -113,7 +111,7 @@ These backend operations do not complete process-kill race verification, merge/p
 
 On first use, session hydration validates live execution identity, the target and the seed's source before replay. It applies the current stored name, persists/reopens the session, then clears the seed payload while retaining the operation identity. Failure keeps the seed for retry and disposes the broken runtime. A crash before completion may replay into a fresh session again; the seed is retained until successful persistence. Legacy file seeds are rejected for family sessions. Version-two migration plans can explicitly capture complete v3 child JSONL as an `adopted_jsonl` seed; the runtime imports the exact captured tree rather than reconstructing messages or loading the unverified source file first. Unadopted children remain blocked. See [child-session capture](migration-copy.md#explicit-child-session-capture) for bounds, parent/hash checks and unsupported histories.
 
-Main/cached/side hydration now requires matching live family execution identity. Family background prewarm is disabled until its queue carries durable owner provenance. The session manager rechecks identity after asynchronous waits; callers still need integration across direct model/tool entry points. The gated My sessions panel exposes fork, rename and lifecycle operations. Process-kill crash testing, per-user deployment and activation gates remain unfinished.
+Main/cached/side hydration requires matching live family execution identity. Family background prewarm stays disabled because it has no durable owner provenance. The session manager rechecks identity after asynchronous waits, and unsupported direct model/tool entry points deny family mode. The My sessions panel exposes fork, rename and lifecycle operations. Per-user deployment belongs to the separate isolated-container milestone.
 
 ## HTTP and SSE enforcement
 
@@ -156,7 +154,7 @@ Family Web Push subscription and presence routes require the live cookie plus ma
 
 GET `/media/:id`, `/media/:id/thumbnail` and `/media/:id/info` authorise through `message_media` → `messages` → the current root/parent chain. At least one linked conversation must be active and owned by the requester. Foreign, missing, orphaned and archived-only links receive the same denial. A blob deliberately linked to both owners' conversations is readable by either; duplicate query parameters or supplied `chat_jid` do not establish authority. Uploads are still denied.
 
-Version-three [copy preparation](migration-copy.md#authentication-tasks-and-media-disposition) quarantines ambiguous legacy media instead of assuming shared links were deliberate. `migration_media_quarantine` blocks every family read for marked media, including after later linking to an owned message. The copy retains bytes/links; no unquarantine writer is exposed. The same transaction revokes copied logins/enrolments and pauses active task payloads and authority heads. In-flight/durable queued work and invalid thread/task relationships block this stage; unconsumed legacy messages remain counted without new authority. Confirmed factors, shared credentials, filesystem notifications/recordings and broader resource migration remain release work. Prepared copies still cannot start.
+Version-three [copy preparation](migration-copy.md#authentication-tasks-and-media-disposition) quarantines ambiguous legacy media instead of assuming shared links were deliberate. `migration_media_quarantine` blocks every family read for marked media, including after later linking to an owned message. The copy retains bytes/links; no unquarantine writer is exposed. The same transaction revokes copied logins/enrolments and pauses active task payloads and authority heads. In-flight/durable queued work and invalid thread/task relationships block this stage; unconsumed legacy messages remain counted without new authority. Confirmed factors, shared credentials, filesystem notifications/recordings and broader resource migration remain outside the supported family surface. Prepared copies still cannot start; only a complete version-five copy can be promoted.
 
 Binary reads retain the existing non-image `Content-Disposition: attachment` and security headers. Metadata returns only ID, filename, content type and creation time; arbitrary stored metadata, paths and binary data are omitted. Responses use private/no-store caching.
 
@@ -253,7 +251,7 @@ PATCH at the same path accepts exactly `{branch_id,confirm_username}` with match
 
 Home changes affect future sign-ins and targetless requests only. Existing target-bound logins, conversations, runs, seeds and ownership remain unchanged, and the administrator still cannot read that root's messages. The UI uses server eligibility, exact username and checkbox confirmation, clears metadata on close/blur/navigation, and does not retry automatically. Container destination assignment is a separate #1132 gate. Audit retention is unfinished.
 
-Restricted invitations below bootstrap a new account's TOTP factor or passkey; administrator-assisted reset and offline grant preparation are described separately. Container destination assignment and recovery startup integration are not implemented. Full mode activation, migrated legacy factors and legacy WebAuthn tool/ceremony isolation need integration testing before release.
+Restricted invitations below bootstrap a new account's TOTP factor or passkey; administrator-assisted reset and offline recovery are described separately. Container destination assignment is not implemented. Physical migrated-factor/device verification and legacy WebAuthn tool/ceremony isolation remain documented operator limits.
 
 ## Personal account avatars
 
@@ -437,9 +435,9 @@ Version-five [copy preparation](migration-copy.md#legacy-input-holds) records un
 
 GET `/account/workspace` requires a live family account and rejects query selectors and writes. It returns only policy metadata: routing mode, configured mode, stored activation marker, supported startup mode, shared/owner-selected resources, operation restrictions, fixed tool ceiling and broad Settings scopes. It does not read memory contents, enumerate installed add-ons/provider credentials, return configuration values or create a grant. Personal memory paths use the immutable account ID; family memory has its explicit shared path.
 
-The Workspace and security panel keeps configured mode and the stored marker separate; neither enables family startup. It identifies shared workspace files, skills, add-ons, search and provider configuration, and states that file reads and personal-memory selection are not filesystem confinement. It distinguishes owned conversation access from administrator metadata operations, lists owner-scoped browser notifications and identifies disabled terminal, shell, SQL/keychain/environment, add-on management and automatic scheduling surfaces. Active tools may be fewer than the fixed ceiling.
+The Workspace and security panel keeps configured mode and the stored marker separate and cannot change either. It identifies shared workspace files, skills, add-ons, search and provider configuration, and states that file reads and personal-memory selection are not filesystem confinement. It distinguishes owned conversation access from administrator metadata operations, lists owner-scoped browser notifications and identifies disabled terminal, shell, SQL/keychain/environment, add-on management and automatic scheduling surfaces. Active tools may be fewer than the fixed ceiling.
 
-The workspace panel is read-only for administrators and members; it displays the account's effective allowed names, denials and revision. The separate administrator Tool restrictions panel can narrow the ceiling, and My preferences edits personal appearance/response guidance and empty-root model defaults. No mode selector, broader grant/profile editor or automatic restart is exposed. Complete setting/add-on scope classification, live session model controls, capability enforcement across all direct/queued entry points and personal Dream remain release work. Browser notification routing is owner/login scoped as described above. Close, backgrounding, navigation and identity replacement clear displayed state; malformed policy responses fail closed. Existing single-user Settings are unchanged.
+The workspace panel is read-only for administrators and members; it displays the account's effective allowed names, denials and revision. The separate administrator Tool restrictions panel can narrow the ceiling, and My preferences edits personal appearance/response guidance and empty-root model defaults. No mode selector, broader grant/profile editor or automatic restart is exposed. Live session model controls, generic add-on panes and automatic personal Dream remain unsupported. Browser notification routing is owner/login scoped as described above. Close, backgrounding, navigation and identity replacement clear displayed state; malformed policy responses fail closed. Existing single-user Settings are unchanged.
 
 ### Per-account tool restrictions
 
@@ -479,16 +477,16 @@ Message add/post/delete/move and the direct post helper deny multi-user mode unt
 
 ## Activation and recovery
 
-Access validation runs after database initialisation and before add-on runtime setup, background workers and listeners. This build permits only single-user configuration with a single-user activation marker. It never offers a flag to bypass the release gate.
+Access validation runs after database initialisation and before add-on runtime setup, background workers and listeners. Single-user remains the default. Family startup requires matching explicit `family-shared` configuration, a promoted version-five database and valid promotion/resource/factor/input/ownership receipts. Family bootstrap starts the authenticated web runtime but not Pushover, startup add-on runtime entries, schedulers/IPC workers, background warmups or the legacy non-web polling loop.
 
-A persisted multi-user marker with missing/reverted configuration fails closed. Missing marker rows, a removed marker table alongside existing users, and unknown access-schema versions also fail closed. The marker protects against accidental downgrade/config loss, not a malicious operator who can rewrite the database.
+A persisted family marker with missing/reverted configuration fails closed. Missing marker rows, a removed marker table alongside existing users, unknown access-schema versions, prepared-but-unpromoted copies and tampered promotion receipts also fail closed. The marker protects against accidental downgrade/config loss, not a malicious operator who can rewrite the database.
 
-1. Back up configuration, `messages.db`, session files and credentials together before any eventual mode migration.
-2. Do not remove activation state or edit it to bypass an error.
-3. Recover matching configuration and a compatible binary from the verified backup, or use a future reviewed conversion workflow.
-4. Never point a pre-multi-user binary at a family store: older binaries cannot enforce new ownership markers. Reverting to such a binary requires restoring its compatible single-user backup offline.
+1. Back up configuration, `messages.db`, session files and credentials together.
+2. Follow the [offline migration and promotion runbook](migration-copy.md). Promotion writes a new database and never overwrites the source or prepared copy.
+3. Stop all writers, install the promoted database and explicit family configuration together, then restart through the host's normal service manager.
+4. To roll back, stop all writers and restore the original single-user database and matching configuration/key/session backup together. Never point an older binary at a family database.
 
-Changing a mode requires an explicit migration and managed restart. No mode conversion or activation occurs in this foundation. [#1133](https://github.com/rcarmo/piclaw/issues/1133) owns staged release enablement; [#1130](https://github.com/rcarmo/piclaw/issues/1130) owns the Settings controls.
+No in-app mode selector, automatic restart or online conversion is exposed. Isolated-container mode remains unavailable.
 
 ## Reserved isolated configuration
 

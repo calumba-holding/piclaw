@@ -29,7 +29,7 @@ Usage:
   piclaw --post <chat_jid> <message>
   piclaw keychain <command> [args]
   piclaw account-recovery preview|issue|serve [args]
-  piclaw access-migration preview|prepare-copy [args]
+  piclaw access-migration preview|prepare-copy|promote-copy [args]
 
 Options:
   -h, --help                 Show this help
@@ -54,12 +54,14 @@ Offline family administrator recovery (no activation or restart):
     --confirm "SERVE RECOVERY <id>" [--host <addr>] [--port <number>] [--tls-cert <path>] [--tls-key <path>]
   Backup/output parents must exist with permissions 0700. Stop all writers first; retain the original bootstrap key.
 
-Offline ownership migration preparation (source unchanged; copy cannot start):
+Offline family migration and promotion (source/prepared copies unchanged):
   piclaw access-migration preview --output <new-inventory.json>
-  piclaw access-migration prepare-copy --plan <reviewed-plan.json> --destination <new-copy.sqlite>
+  piclaw access-migration prepare-copy --plan <reviewed-version-five-plan.json> --destination <new-prepared.sqlite>
     --writers-stopped --backup-set-confirmed --confirm "PREPARE OWNERSHIP COPY"
-  Review inventory.plan and fill every owner ID explicitly. Save only that plan object for prepare-copy.
-  Version-four import-default TOTP plans also require --legacy-totp-file <private-secret-and-code.json>.
+  piclaw access-migration promote-copy --prepared <new-prepared.sqlite> --destination <new-promoted.sqlite>
+    --source-snapshot <sha256> --writers-stopped --backup-set-confirmed --confirm "PROMOTE FAMILY COPY"
+  Review inventory.plan and fill every owner ID explicitly. Only complete version-five prepared copies can promote.
+  Version-four/five import-default TOTP plans also require --legacy-totp-file <private-secret-and-code.json>.
 `;
 
 /** Read the version string from package.json. */
