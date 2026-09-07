@@ -43,6 +43,12 @@ browserTest('family notification control uses pinned account headers and clears 
   }finally{await page.close();}
 },20000);
 async function ready(page: Page) { await page.waitForFunction(() => document.getElementById("timeline")?.textContent?.includes("Alice private text")); }
+const composeInput = (page: Page) => page.getByTestId('compose-input');
+const composeSend = (page: Page) => page.getByTestId('send-button');
+async function currentChat(page: Page) { return await page.locator('#family-chat-root').getAttribute('data-chat-jid') ?? ''; }
+async function waitForFamilyIdle(page: Page) { await page.waitForFunction(() => document.getElementById('family-chat-root')?.getAttribute('aria-busy') === 'false'); }
+async function openSessionPicker(page: Page) { await page.getByTestId('session-switcher').click(); await page.waitForFunction(() => Boolean(document.querySelector('[data-testid="session-popup"]'))); }
+async function switchChat(page: Page, chatJid: string) { await openSessionPicker(page); await page.getByTestId('session-item').filter({ has: page.getByText(chatJid, { exact: true }) }).click(); await page.waitForFunction(expected => document.getElementById('family-chat-root')?.dataset.chatJid === expected, chatJid); }
 
 browserTest('owned session picker groups authorized roots and forks while allowing duplicate friendly names across roots', async () => {
   const page = await browser.newPage({ viewport: { width: 375, height: 740 } });
@@ -57,14 +63,20 @@ browserTest('owned session picker groups authorized roots and forks while allowi
     ];
     await page.route('**/agent/branches', route => route.fulfill({ json: { branches } }));
     await page.goto(`${base}?chat_jid=web:alpha`); await ready(page);
-    expect(await page.locator('#session-select optgroup').evaluateAll(groups => groups.map(group => ({ label:(group as HTMLOptGroupElement).label, options:Array.from(group.querySelectorAll('option')).map(option => [option.value,option.textContent]) })))).toEqual([
-      { label:'@home · web:alpha', options:[['web:alpha','@home · root'],['web:alpha-research','↳ @research'],['web:alpha-nested','↳ @nested']] },
-      { label:'@second · web:beta', options:[['web:beta','@second · root'],['web:beta-research','↳ @research']] },
+    await openSessionPicker(page);
+    expect(await page.locator('.compose-session-section-heading').allTextContents()).toEqual(['Current', 'This session tree', 'Other sessions']);
+    expect(await page.getByTestId('session-item').evaluateAll(items => items.map(item => ({
+      jid: item.closest('[class*=compose-model-popup-item-row]')?.querySelector('.compose-session-row-jid')?.textContent,
+      label: item.querySelector('.compose-session-row-label')?.textContent,
+    })))).toEqual([
+      { jid:'web:alpha', label:'@home' }, { jid:'web:alpha-nested', label:'@nested' }, { jid:'web:alpha-research', label:'@research' },
+      { jid:'web:beta-research', label:'@research' }, { jid:'web:beta', label:'@second' },
     ]);
-    expect(await page.locator('#session-select option').allTextContents()).not.toContain('web:bob');
-    expect(await page.locator('#session-select').evaluate(node => node.getBoundingClientRect().right <= innerWidth)).toBe(true);
-    await page.locator('#session-select').selectOption('web:beta-research'); await page.waitForFunction(() => new URLSearchParams(location.search).get('chat_jid') === 'web:beta-research');
-    expect(await page.locator('#session-select').inputValue()).toBe('web:beta-research');
+    expect(await page.locator('[data-testid="session-popup"]').textContent()).not.toContain('web:bob');
+    expect(await page.locator('[data-testid="session-popup"]').evaluate(node => node.getBoundingClientRect().right <= innerWidth)).toBe(true);
+    await page.getByRole('button',{name:'Close session picker'}).click();
+    await switchChat(page, 'web:beta-research'); await page.waitForFunction(() => new URLSearchParams(location.search).get('chat_jid') === 'web:beta-research');
+    expect(await currentChat(page)).toBe('web:beta-research');
   } finally { await page.close(); }
 }, 20000);
 
@@ -91,10 +103,10 @@ browserTest('switch account is distinct from session switching and sign out and 
     expect(await page.locator('#switch-account').textContent()).toBe('Switch account');
     expect(await page.locator('#switch-account').getAttribute('href')).toBe('/login');
     expect(await page.locator('#switch-account').evaluate(node => node.closest('.family-actions') !== null)).toBe(true);
-    await page.locator('#message-text').fill('UNSENT_PRIVATE_DRAFT');
+    await composeInput(page).fill('UNSENT_PRIVATE_DRAFT');
     await page.evaluate(() => document.getElementById('switch-account')?.addEventListener('click', event => event.preventDefault()));
     await page.locator('#switch-account').click();
-    expect(logouts).toBe(0); expect(await page.locator('#message-text').inputValue()).toBe(''); expect(await page.locator('#timeline').textContent()).toBe('');
+    expect(logouts).toBe(0); expect(await composeInput(page).count()).toBe(0); expect(await page.locator('#family-chat-root').textContent()).toBe('');
     expect(await page.locator('#account-name').textContent()).toBe(''); expect(await page.locator('#family-status').textContent()).toContain('no longer bound');
     expect(state.calls.filter(call => call.path.includes('/auth/logout'))).toHaveLength(0);
   } finally { await page.close(); }
@@ -175,7 +187,7 @@ beforeAll(async () => {
   server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch(req) {
     const path = new URL(req.url).pathname;
     if (path === "/" || path === "/index.html") return new Response(Bun.file(join(import.meta.dir, "../../web/static/family.html")), { headers: { "Content-Type": "text/html" } });
-    if (["/static/common/dist/family.bundle.js", "/static/common/dist/family.bundle.css"].includes(path)) return new Response(Bun.file(join(import.meta.dir, "../../web/static", path.slice(8))));
+    if (["/static/common/dist/family.bundle.js", "/static/common/dist/family.bundle.css", "/static/classic/dist/app.bundle.css"].includes(path)) return new Response(Bun.file(join(import.meta.dir, "../../web/static", path.slice(8))));
     if (path === "/login" || path === "/blank") return new Response("<!doctype html><p>Sign in</p>", { headers: { "Content-Type": "text/html" } });
     if (path === "/old-sw.js") return new Response("self.addEventListener('install',()=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));", { headers: { "Content-Type": "text/javascript" } });
     return new Response("not found", { status: 404 });
@@ -233,7 +245,7 @@ browserTest('memory publication previews exact source, requires verbatim confirm
 browserTest('memory uncertain retries retain exact identity, lock excerpt and require fresh manual confirmation',async()=>{
   const page=await browser.newPage();try{await memoryFixture(page);const sent:any[]=[];await page.route('**/agent/family-memory',r=>{const p=r.request().postDataJSON();sent.push(p);return r.fulfill(sent.length===1?{status:500,json:{}}:sent.length===2?{json:{request_id:'wrong',publication_id:'wrong',created:true}}:{json:{request_id:p.request_id,publication_id:'11111111-1111-4111-8111-111111111111',created:false}});});
     await page.goto(base);await ready(page);await memoryDraft(page);
-    for(let i=1;i<=3;i++){await page.locator('#confirm-memory-publication').check();await page.locator('#publish-memory').click();await page.waitForFunction(()=>!(document.getElementById('send-message') as HTMLButtonElement).disabled);expect(sent).toHaveLength(i);expect(await page.locator('#publish-memory').isDisabled()).toBe(true);
+    for(let i=1;i<=3;i++){await page.locator('#confirm-memory-publication').check();await page.locator('#publish-memory').click();await waitForFamilyIdle(page);expect(sent).toHaveLength(i);expect(await page.locator('#publish-memory').isDisabled()).toBe(true);
       if(i<3){expect(await page.locator('#memory-excerpt').isDisabled()).toBe(true);expect(await page.locator('#publish-memory').textContent()).toBe('Retry same memory publication');await page.locator('#open-memory').click();}}
     expect(sent[0]).toEqual(sent[1]);expect(sent[1]).toEqual(sent[2]);expect(await page.locator('#memory-status').textContent()).toContain('Publication verified');
   }finally{await page.close();}
@@ -251,11 +263,11 @@ browserTest('memory receipt and shared copy views are separate and withdrawal is
 browserTest('memory drafts confirmations and retry keys clear on discard refresh sharedview inspection close blur session switch and navigation',async()=>{
   const page=await browser.newPage();try{await memoryFixture(page);const sent:any[]=[];await page.route('**/agent/family-memory',r=>{sent.push(r.request().postDataJSON());return r.fulfill({status:500,json:{}});});await page.goto(base);await ready(page);
     for(const action of ['discard','refresh','shared','inspect','close','blur','session','navigation']){
-      if(action==='session')await page.locator('#session-select').selectOption('web:alice');await memoryDraft(page);await page.locator('#confirm-memory-publication').check();await page.locator('#publish-memory').click();await page.waitForFunction(()=>!(document.getElementById('send-message') as HTMLButtonElement).disabled);
+      if(action==='session')await switchChat(page, 'web:alice');await memoryDraft(page);await page.locator('#confirm-memory-publication').check();await page.locator('#publish-memory').click();await waitForFamilyIdle(page);
       if(action==='discard')await page.locator('#discard-memory').click();if(action==='refresh')await page.locator('#refresh-memory').click();if(action==='shared')await page.locator('#shared-memory').click();if(action==='inspect')await inspectMemory(page);
       if(action==='close'){await page.locator('#close-memory').click();await page.locator('#open-memory').click();}
       if(action==='blur'){await page.evaluate(()=>dispatchEvent(new Event('blur')));expect(await page.locator('#memory-excerpt').inputValue()).toBe('');await page.evaluate(()=>dispatchEvent(new Event('focus')));await ready(page);}
-      if(action==='session'){await page.locator('#session-select').selectOption('web:alice-two');await ready(page);await page.locator('#session-select').selectOption('web:alice');await ready(page);}
+      if(action==='session'){await switchChat(page, 'web:alice-two');await ready(page);await switchChat(page, 'web:alice');await ready(page);}
       if(action==='navigation')await page.evaluate(()=>dispatchEvent(new PageTransitionEvent('pagehide')));
       expect(await page.locator('#memory-excerpt').inputValue()).toBe('');expect(await page.locator('#confirm-memory-publication').isChecked()).toBe(false);expect(await page.locator('#publish-memory').textContent()).toBe('Publish memory');
     }expect(new Set(sent.map(v=>v.request_id)).size).toBe(sent.length);
@@ -273,15 +285,15 @@ browserTest('memory rejects mismatched source/history/receipt responses and clea
 browserTest('memory pending publication is single-flight and late response cannot restore a closed panel',async()=>{
   const page=await browser.newPage();let release=()=>{};try{const f=await memoryFixture(page);let entered!:()=>void;const waiting=new Promise<void>(r=>entered=r),held=new Promise<void>(r=>release=r);let sends=0;
     await page.route('**/agent/family-memory',async r=>{sends++;entered();await held;await r.fulfill({json:{publication_id:f.id,request_id:r.request().postDataJSON().request_id,created:true}});});await page.goto(base);await ready(page);await memoryDraft(page);await page.locator('#confirm-memory-publication').check();await page.locator('#publish-memory').click();await waiting;
-    expect(await page.locator('#send-message').isDisabled()).toBe(true);await page.locator('#refresh-memory').click();expect(sends).toBe(1);await page.locator('#close-memory').click();release();await page.waitForFunction(()=>!(document.getElementById('send-message') as HTMLButtonElement).disabled);expect(await page.locator('#family-memory').isVisible()).toBe(false);expect(await page.locator('#memory-source-text').textContent()).toBe('');
+    expect(await composeSend(page).isDisabled()).toBe(true);await page.locator('#refresh-memory').click();expect(sends).toBe(1);await page.locator('#close-memory').click();release();await waitForFamilyIdle(page);expect(await page.locator('#family-memory').isVisible()).toBe(false);expect(await page.locator('#memory-source-text').textContent()).toBe('');
   }finally{release();await page.close();}
 },20000);
 
 browserTest('memory withdrawal remains reachable after blur during a held send without releasing its lock',async()=>{
   const page=await browser.newPage();let release=()=>{};try{const f=await memoryFixture(page);let entered!:()=>void;const waiting=new Promise<void>(r=>entered=r),held=new Promise<void>(r=>release=r);
     await page.route('**/agent/default/message?**',async r=>{entered();await held;await r.fulfill({json:{ok:true}});});await page.goto(base);await ready(page);await page.locator('#open-memory').click();await inspectMemory(page);
-    await page.locator('#message-text').fill('held message');await page.locator('#send-message').click();await waiting;await page.evaluate(()=>dispatchEvent(new Event('blur')));await page.evaluate(()=>dispatchEvent(new Event('focus')));await page.waitForFunction(()=>!document.getElementById('family-memory')?.hidden);
-    expect(await page.locator('#memory-detail-text').textContent()).toBe('');await inspectMemory(page);await page.locator('#confirm-memory-withdrawal').check();await page.locator('#withdraw-memory').click();await page.waitForFunction(()=>document.getElementById('memory-status')?.textContent?.includes('withdrawal verified'));expect(f.withdrawals).toHaveLength(1);expect(await page.locator('#send-message').isDisabled()).toBe(true);release();await page.waitForFunction(()=>!(document.getElementById('send-message') as HTMLButtonElement).disabled);
+    await composeInput(page).fill('held message');await composeSend(page).click();await waiting;await page.evaluate(()=>dispatchEvent(new Event('blur')));await page.evaluate(()=>dispatchEvent(new Event('focus')));await page.waitForFunction(()=>!document.getElementById('family-memory')?.hidden);
+    expect(await page.locator('#memory-detail-text').textContent()).toBe('');await inspectMemory(page);await page.locator('#confirm-memory-withdrawal').check();await page.locator('#withdraw-memory').click();await page.waitForFunction(()=>document.getElementById('memory-status')?.textContent?.includes('withdrawal verified'));expect(f.withdrawals).toHaveLength(1);expect(await composeSend(page).isDisabled()).toBe(true);release();await waitForFamilyIdle(page);
   }finally{release();await page.close();}
 },20000);
 
@@ -296,7 +308,7 @@ browserTest('memory rejects oversized preview or excerpts and duplicate shared/h
 browserTest('memory armed publication is disarmed by unrelated send and does not become enabled until reconfirmed',async()=>{
   const page=await browser.newPage();let release=()=>{};try{const f=await memoryFixture(page);let entered!:()=>void;const waiting=new Promise<void>(r=>entered=r),held=new Promise<void>(r=>release=r);
     await page.route('**/agent/default/message?**',async r=>{entered();await held;await r.fulfill({json:{ok:true}});});await page.goto(base);await ready(page);await memoryDraft(page);await page.locator('#confirm-memory-publication').check();
-    await page.locator('#message-text').fill('held');await page.locator('#send-message').click();await waiting;expect(await page.locator('#confirm-memory-publication').isChecked()).toBe(false);expect(await page.locator('#confirm-memory-publication').isDisabled()).toBe(true);expect(f.sent).toHaveLength(0);release();await page.waitForFunction(()=>!(document.getElementById('send-message') as HTMLButtonElement).disabled);
+    await composeInput(page).fill('held');await composeSend(page).click();await waiting;expect(await page.locator('#confirm-memory-publication').isChecked()).toBe(false);expect(await page.locator('#confirm-memory-publication').isDisabled()).toBe(true);expect(f.sent).toHaveLength(0);release();await waitForFamilyIdle(page);
     expect(await page.locator('#publish-memory').isDisabled()).toBe(true);expect(await page.locator('#confirm-memory-publication').isDisabled()).toBe(false);expect(f.sent).toHaveLength(0);
   }finally{release();await page.close();}
 },20000);
@@ -328,7 +340,7 @@ browserTest('due task run requires separate confirmation, exact pinned request a
     await page.locator('#confirm-task-run').check();await page.locator('#run-task').click();await page.waitForFunction(()=>document.getElementById('scheduled-tasks-status')?.textContent?.includes('Execution admitted: execution-one'));
     expect(f.runs).toHaveLength(1);expect(Object.keys(f.runs[0].body).sort()).toEqual(['confirm','request_id']);expect(f.runs[0].body.confirm).toBe(true);expect(f.runs[0].headers).toMatchObject({'x-piclaw-account-id':'alice','x-piclaw-login-id':'login-a','content-type':'application/json'});
     expect(await page.locator('#scheduled-tasks-status').textContent()).toContain('does not confirm model start or success');expect(await page.locator('#confirm-task-run').isDisabled()).toBe(true);expect(await page.locator('#run-task').isDisabled()).toBe(true);
-    expect(await page.locator('#session-select').inputValue()).toBe('web:alice');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(await page.evaluate(()=>[localStorage.length,sessionStorage.length])).toEqual([0,0]);
+    expect(await currentChat(page)).toBe('web:alice');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(await page.evaluate(()=>[localStorage.length,sessionStorage.length])).toEqual([0,0]);
   }finally{await page.close();}
 },20000);
 
@@ -347,7 +359,7 @@ browserTest('uncertain and mismatched run receipts preserve exact retry ID and r
     await page.route('**/agent/scheduled-tasks/grant-one/run',r=>{const body=r.request().postDataJSON();sent.push(body);return r.fulfill(sent.length===1?{status:500,json:{}}:sent.length===2?{json:{request_id:'different',grant_id:'grant-one',execution_id:'execution-one',created:true,state:'admitted'}}:{json:{request_id:body.request_id,grant_id:'grant-one',execution_id:'execution-one',created:false,state:'admitted'}});});
     await openTasks(page);await inspectRun(page);
     for(let i=1;i<=3;i++){
-      await page.locator('#confirm-task-run').check();await page.locator('#run-task').click();await page.waitForFunction(()=>!(document.getElementById('send-message') as HTMLButtonElement).disabled);
+      await page.locator('#confirm-task-run').check();await page.locator('#run-task').click();await waitForFamilyIdle(page);
       expect(sent).toHaveLength(i);expect(await page.locator('#run-task').isDisabled()).toBe(true);
       if(i<3){expect(await page.locator('#run-task').textContent()).toBe('Retry same run request');expect(await page.locator('#scheduled-tasks-status').textContent()).toContain('Admission may have completed');await page.locator('#open-tasks').click();}
     }
@@ -359,12 +371,12 @@ browserTest('run confirmation and retry clear on inspection, refresh, close, blu
   const page=await browser.newPage();
   try{await runFixture(page);const sent:any[]=[];await page.route('**/agent/scheduled-tasks/grant-one/run',r=>{sent.push(r.request().postDataJSON());return r.fulfill({status:500,json:{}});});await openTasks(page);await inspectRun(page);
     for(const action of ['inspect','refresh','close','blur','session','navigation']){
-      await page.locator('#confirm-task-run').check();await page.locator('#run-task').click();await page.waitForFunction(()=>document.getElementById('run-task')?.textContent==='Retry same run request');await page.waitForFunction(()=>!(document.getElementById('send-message') as HTMLButtonElement).disabled);
+      await page.locator('#confirm-task-run').check();await page.locator('#run-task').click();await page.waitForFunction(()=>document.getElementById('run-task')?.textContent==='Retry same run request');await waitForFamilyIdle(page);
       if(action==='inspect')await inspectRun(page);
       if(action==='refresh'){await page.locator('#refresh-tasks').click();await inspectRun(page);}
       if(action==='close'){await page.locator('#close-tasks').click();await page.locator('#open-tasks').click();await inspectRun(page);}
       if(action==='blur'){await page.evaluate(()=>dispatchEvent(new Event('blur')));await page.evaluate(()=>dispatchEvent(new Event('focus')));await ready(page);await inspectRun(page);}
-      if(action==='session'){await page.locator('#session-select').selectOption('web:alice-two');await ready(page);await inspectRun(page);}
+      if(action==='session'){await switchChat(page, 'web:alice-two');await ready(page);await inspectRun(page);}
       if(action==='navigation')await page.evaluate(()=>dispatchEvent(new PageTransitionEvent('pagehide')));
       expect(await page.locator('#confirm-task-run').isChecked()).toBe(false);expect(await page.locator('#run-task').isDisabled()).toBe(true);expect(await page.locator('#run-task').textContent()).toBe('Run once');
     }
@@ -377,8 +389,8 @@ browserTest('pending run is single-flight, respects shell lock and late response
   try{const f=await runFixture(page);let entered!:()=>void;const held=new Promise<void>(r=>release=r),waiting=new Promise<void>(r=>entered=r);let sends=0;
     await page.route('**/agent/scheduled-tasks/grant-one/run',async r=>{sends++;entered();await held;await r.fulfill({json:{request_id:r.request().postDataJSON().request_id,grant_id:'grant-one',execution_id:'execution-one',created:true,state:'admitted'}});});
     await openTasks(page);await inspectRun(page);await page.locator('#confirm-task-run').check();await page.locator('#run-task').click();await waiting;
-    expect(await page.locator('#send-message').isDisabled()).toBe(true);expect(await page.locator('#confirm-task-run').isDisabled()).toBe(true);await page.locator('#refresh-tasks').click();expect(sends).toBe(1);await page.locator('#close-tasks').click();release();
-    await page.waitForFunction(()=>!(document.getElementById('send-message') as HTMLButtonElement).disabled);expect(await page.locator('#scheduled-tasks').isVisible()).toBe(false);await page.locator('#open-tasks').click();await inspectRun(page);expect(await page.locator('#confirm-task-run').isChecked()).toBe(false);expect(sends).toBe(1);expect(f.runs).toHaveLength(0);
+    expect(await composeSend(page).isDisabled()).toBe(true);expect(await page.locator('#confirm-task-run').isDisabled()).toBe(true);await page.locator('#refresh-tasks').click();expect(sends).toBe(1);await page.locator('#close-tasks').click();release();
+    await waitForFamilyIdle(page);expect(await page.locator('#scheduled-tasks').isVisible()).toBe(false);await page.locator('#open-tasks').click();await inspectRun(page);expect(await page.locator('#confirm-task-run').isChecked()).toBe(false);expect(sends).toBe(1);expect(f.runs).toHaveLength(0);
   }finally{release();await page.close();}
 },20000);
 
@@ -398,9 +410,9 @@ browserTest('held send disables and disarms run; cancellation also clears an arm
     await page.route('**/agent/scheduled-results',r=>r.fulfill({json:resultList([{execution_id:'other-execution',chat_jid:'web:alice-two',created_at:1780000000000,state:'unsettled',publication_recorded:false}])}));
     await page.route('**/agent/scheduled-results/other-execution',r=>r.fulfill({json:{...resultDetail('other-execution'),state:'unsettled',result:null}}));
     await page.route('**/agent/scheduled-results/other-execution/cancel',r=>r.fulfill({json:{execution_id:'other-execution',cancelled:true,created:true}}));
-    await openTasks(page);await inspectRun(page);await page.locator('#confirm-task-run').check();await page.locator('#message-text').fill('held');await page.locator('#send-message').click();await waiting;
+    await openTasks(page);await inspectRun(page);await page.locator('#confirm-task-run').check();await composeInput(page).fill('held');await composeSend(page).click();await waiting;
     expect(await page.locator('#confirm-task-run').isChecked()).toBe(false);expect(await page.locator('#confirm-task-run').isDisabled()).toBe(true);expect(await page.locator('#run-task').isDisabled()).toBe(true);
-    release();await page.waitForFunction(()=>!(document.getElementById('send-message') as HTMLButtonElement).disabled);await page.locator('#confirm-task-run').check();await page.locator('#open-results').click();await page.getByRole('button',{name:'Inspect result',exact:true}).click();await page.locator('#confirm-execution-cancellation').check();await page.locator('#cancel-execution').click();
+    release();await waitForFamilyIdle(page);await page.locator('#confirm-task-run').check();await page.locator('#open-results').click();await page.getByRole('button',{name:'Inspect result',exact:true}).click();await page.locator('#confirm-execution-cancellation').check();await page.locator('#cancel-execution').click();
     await page.waitForFunction(()=>document.getElementById('scheduled-results-status')?.textContent?.includes('Execution authority cancelled'));expect(await page.locator('#confirm-task-run').isChecked()).toBe(false);expect(await page.locator('#run-task').isDisabled()).toBe(true);expect(f.runs).toHaveLength(0);
   }finally{release();await page.close();}
 },20000);
@@ -421,7 +433,7 @@ browserTest('cancellation panel requires fresh detail and explicit confirmation 
     expect(await page.locator('#scheduled-result-target').textContent()).toContain('web:alice-two');expect(await page.locator('#scheduled-execution-cancellation').textContent()).toContain('cannot undo earlier effects');
     await page.locator('#confirm-execution-cancellation').check();await page.locator('#cancel-execution').click();await page.waitForFunction(()=>document.getElementById('scheduled-results-status')?.textContent?.includes('Execution authority cancelled'));
     expect(f.calls).toHaveLength(1);expect(f.calls[0].body).toEqual({confirm:true});expect(f.calls[0].headers).toMatchObject({'x-piclaw-account-id':'alice','x-piclaw-login-id':'login-a','content-type':'application/json'});
-    expect(await page.locator('#session-select').inputValue()).toBe('web:alice');expect(await page.locator('#confirm-execution-cancellation').isChecked()).toBe(false);
+    expect(await currentChat(page)).toBe('web:alice');expect(await page.locator('#confirm-execution-cancellation').isChecked()).toBe(false);
     await page.locator('#refresh-results').click();await inspectCancellation(page);expect(await page.locator('#scheduled-execution-cancellation').isVisible()).toBe(false);expect(await page.locator('#publish-result').isDisabled()).toBe(true);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(await page.evaluate(()=>[localStorage.length,sessionStorage.length])).toEqual([0,0]);
   }finally{await page.close();}
@@ -460,7 +472,7 @@ browserTest('cancellation clears on close, refresh, blur, hidden tab, session sw
       if(action==='close'){await page.locator('#close-results').click();await page.locator('#open-results').click();}
       if(action==='blur'){await page.evaluate(()=>dispatchEvent(new Event('blur')));await page.evaluate(()=>dispatchEvent(new Event('focus')));await ready(page);}
       if(action==='hidden'){await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));});await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:false});document.dispatchEvent(new Event('visibilitychange'));});await ready(page);}
-      if(action==='session'){await page.locator('#session-select').selectOption('web:alice-two');await ready(page);}
+      if(action==='session'){await switchChat(page, 'web:alice-two');await ready(page);}
       if(action==='navigation')await page.evaluate(()=>dispatchEvent(new PageTransitionEvent('pagehide')));
       expect(await page.locator('#confirm-execution-cancellation').isChecked()).toBe(false);expect(await page.locator('#cancel-execution').isDisabled()).toBe(true);
       if(action!=='navigation')await inspectCancellation(page);
@@ -472,10 +484,10 @@ browserTest('cancellation can run while a send is pending and cannot release the
   const page=await browser.newPage();let release:()=>void=()=>{};
   try{const f=await cancelFixture(page);let entered!:()=>void;const held=new Promise<void>(r=>release=r),waiting=new Promise<void>(r=>entered=r);
     await page.route('**/agent/default/message?**',async r=>{entered();await held;await r.fulfill({json:{ok:true}});});
-    await openCancellation(page);await page.locator('#message-text').fill('held send');await page.locator('#send-message').click();await waiting;
-    expect(await page.locator('#send-message').isDisabled()).toBe(true);await page.locator('#confirm-execution-cancellation').check();await page.locator('#cancel-execution').click();await page.waitForFunction(()=>document.getElementById('scheduled-results-status')?.textContent?.includes('Execution authority cancelled'));
-    expect(f.calls).toHaveLength(1);expect(await page.locator('#send-message').isDisabled()).toBe(true);expect(await page.locator('#session-select').isDisabled()).toBe(true);
-    release();await page.waitForFunction(()=>!(document.getElementById('send-message') as HTMLButtonElement).disabled);
+    await openCancellation(page);await composeInput(page).fill('held send');await composeSend(page).click();await waiting;
+    expect(await composeSend(page).isDisabled()).toBe(true);await page.locator('#confirm-execution-cancellation').check();await page.locator('#cancel-execution').click();await page.waitForFunction(()=>document.getElementById('scheduled-results-status')?.textContent?.includes('Execution authority cancelled'));
+    expect(f.calls).toHaveLength(1);expect(await composeSend(page).isDisabled()).toBe(true);expect(await page.locator('#family-chat-root').getAttribute('aria-busy')).toBe('true');
+    release();await waitForFamilyIdle(page);
   }finally{release();await page.close();}
 },20000);
 
@@ -499,14 +511,14 @@ browserTest('focus and visibility return during held send independently reverify
     const page=await browser.newPage();let release:()=>void=()=>{};
     try{const f=await cancelFixture(page);let entered!:()=>void;const held=new Promise<void>(r=>release=r),waiting=new Promise<void>(r=>entered=r);
       await page.route('**/agent/default/message?**',async r=>{entered();await held;await r.fulfill({json:{ok:true}});});
-      await openCancellation(page);await page.locator('#message-text').fill('held send');await page.locator('#send-message').click();await waiting;
+      await openCancellation(page);await composeInput(page).fill('held send');await composeSend(page).click();await waiting;
       await page.evaluate(action=>{if(action==='hidden'){Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));}else dispatchEvent(new Event('blur'));},action);
       expect(await page.locator('#scheduled-result-target').textContent()).toBe('');
       await page.evaluate(action=>{if(action==='hidden'){Object.defineProperty(document,'hidden',{configurable:true,value:false});document.dispatchEvent(new Event('visibilitychange'));}else dispatchEvent(new Event('focus'));},action);
       await page.waitForFunction(()=>!(document.getElementById('open-results') as HTMLButtonElement).disabled);await inspectCancellation(page);
-      expect(await page.locator('#timeline').textContent()).toBe('');expect(await page.locator('#send-message').isDisabled()).toBe(true);expect(await page.locator('#open-tasks').isDisabled()).toBe(true);
+      expect(await page.locator('#timeline').textContent()).toBe('No messages yet. Start a conversation!');expect(await composeSend(page).isDisabled()).toBe(true);expect(await page.locator('#open-tasks').isDisabled()).toBe(true);
       await page.locator('#confirm-execution-cancellation').check();await page.locator('#cancel-execution').click();await page.waitForFunction(()=>document.getElementById('scheduled-results-status')?.textContent?.includes('Execution authority cancelled'));
-      expect(f.calls).toHaveLength(1);expect(await page.locator('#send-message').isDisabled()).toBe(true);release();await ready(page);
+      expect(f.calls).toHaveLength(1);expect(await composeSend(page).isDisabled()).toBe(true);release();await ready(page);
     }finally{release();await page.close();}
   }
 },20000);
@@ -515,7 +527,7 @@ browserTest('stale independent focus verification cannot unmask results after an
   const page=await browser.newPage();let releaseSend:()=>void=()=>{},releaseIdentity:()=>void=()=>{};
   try{const f=await cancelFixture(page);let sent!:()=>void,checking!:()=>void;const sendHeld=new Promise<void>(r=>releaseSend=r),sentWait=new Promise<void>(r=>sent=r),identityHeld=new Promise<void>(r=>releaseIdentity=r),checkWait=new Promise<void>(r=>checking=r);
     await page.route('**/agent/default/message?**',async r=>{sent();await sendHeld;await r.fulfill({json:{ok:true}});});
-    await openCancellation(page);await page.locator('#message-text').fill('held');await page.locator('#send-message').click();await sentWait;
+    await openCancellation(page);await composeInput(page).fill('held');await composeSend(page).click();await sentWait;
     await page.route('**/auth/me',async r=>{checking();await identityHeld;await r.fulfill({json:f.state.identity});});
     await page.evaluate(()=>{dispatchEvent(new Event('blur'));dispatchEvent(new Event('focus'));});await checkWait;await page.evaluate(()=>dispatchEvent(new Event('blur')));releaseIdentity();
     await page.waitForTimeout(60);expect(await page.locator('#open-results').isDisabled()).toBe(true);expect(await page.locator('#scheduled-results').isVisible()).toBe(false);
@@ -573,7 +585,7 @@ browserTest('prepared task editor uses UTC, explicit target and selected tools w
     const due=await taskDraft(page);await page.locator('#task-tools input[value=read]').check();expect(await page.locator('#prepare-task').isDisabled()).toBe(true);
     await page.locator('#confirm-task-preparation').check();await page.locator('#prepare-task').click();await page.waitForFunction(()=>document.getElementById('scheduled-tasks-status')?.textContent?.includes('Prepared paused task'));
     expect(f.requests).toHaveLength(1);expect(f.requests[0].body).toMatchObject({chat_jid:'web:alice-two',prompt:'Exact task prompt\nline two ',scheduled_for:due+':00.000Z',allowed_tools:['read'],confirm:true});expect(Object.keys(f.requests[0].body).sort()).toEqual(['allowed_tools','chat_jid','confirm','prompt','request_id','scheduled_for']);expect(f.requests[0].headers['x-piclaw-login-id']).toBe('login-a');
-    expect(await page.locator('#session-select').inputValue()).toBe('web:alice');expect(await page.locator('#task-prompt').inputValue()).toBe('');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(await page.evaluate(()=>[localStorage.length,sessionStorage.length])).toEqual([0,0]);
+    expect(await currentChat(page)).toBe('web:alice');expect(await page.locator('#task-prompt').inputValue()).toBe('');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(await page.evaluate(()=>[localStorage.length,sessionStorage.length])).toEqual([0,0]);
   }finally{await page.close();}
 },20000);
 
@@ -622,7 +634,7 @@ browserTest('task mutation keeps one request and locks cross-panel navigation un
     expect(await page.locator('.settings-navigation').getAttribute('aria-busy')).toBe('true');await page.locator('#open-results').evaluate((button:HTMLButtonElement)=>button.click());
     expect(await page.locator('#scheduled-tasks').isVisible()).toBe(true);expect(await page.locator('#scheduled-results').isHidden()).toBe(true);
     expect(await page.locator('#task-prompt').inputValue()).toBe('Exact task prompt\nline two ');expect(await page.locator('#task-prompt').isDisabled()).toBe(true);expect(sends).toBe(1);expect(publishes).toBe(0);
-    release();await page.waitForFunction(()=>document.getElementById('scheduled-tasks-status')?.textContent?.includes('may have been prepared'));await page.waitForFunction(()=>!(document.getElementById('send-message') as HTMLButtonElement)?.disabled);
+    release();await page.waitForFunction(()=>document.getElementById('scheduled-tasks-status')?.textContent?.includes('may have been prepared'));await waitForFamilyIdle(page);
     expect(await page.locator('.settings-navigation').getAttribute('aria-busy')).toBe('false');await page.locator('#open-results').click();await page.getByRole('button',{name:'Inspect result',exact:true}).click();await page.locator('#confirm-result-publication').check();await page.locator('#publish-result').click();
     await page.waitForFunction(()=>document.getElementById('scheduled-results-status')?.textContent?.includes('Published'));expect(publishes).toBe(1);expect(sends).toBe(1);expect(await page.locator('#scheduled-tasks').isHidden()).toBe(true);
   }finally{release();await page.close();}
@@ -671,7 +683,7 @@ browserTest('task draft and inspection clear on refresh, close, blur, session sw
     await fill();await page.locator('#refresh-tasks').click();await page.waitForFunction(()=>!document.getElementById('prepare-task-form')?.hidden);expect(await page.locator('#task-prompt').inputValue()).toBe('');expect(await page.locator('#scheduled-task-text').textContent()).toBe('');
     await fill();await page.locator('#close-tasks').click();expect(await page.locator('#task-prompt').inputValue()).toBe('');await page.locator('#open-tasks').click();await page.waitForFunction(()=>!document.getElementById('prepare-task-form')?.hidden);
     await fill();await page.evaluate(()=>dispatchEvent(new Event('blur')));expect(await page.locator('#scheduled-task-text').textContent()).toBe('');await page.evaluate(()=>dispatchEvent(new Event('focus')));await page.waitForFunction(()=>!document.getElementById('prepare-task-form')?.hidden);
-    await fill();await page.locator('#session-select').selectOption('web:alice-two');await page.waitForFunction(()=>!document.getElementById('prepare-task-form')?.hidden);expect(await page.locator('#task-prompt').inputValue()).toBe('');
+    await fill();await switchChat(page, 'web:alice-two');await page.waitForFunction(()=>!document.getElementById('prepare-task-form')?.hidden);expect(await page.locator('#task-prompt').inputValue()).toBe('');
     await fill();await page.evaluate(()=>dispatchEvent(new PageTransitionEvent('pagehide')));expect(await page.locator('#scheduled-task-text').textContent()).toBe('');expect(await page.locator('#task-prompt').inputValue()).toBe('');
   }finally{await page.close();}
 },20000);
@@ -680,7 +692,7 @@ browserTest('late preparation response cannot restore closed panel, draft or ret
   const page=await browser.newPage();
   try{await taskFixture(page);let release!:()=>void,entered!:()=>void;const held=new Promise<void>(r=>release=r),waiting=new Promise<void>(r=>entered=r);
     await page.route('**/agent/scheduled-tasks',async r=>{if(r.request().method()==='GET')return r.fulfill({json:{owner_user_id:'alice',window_size:50,activation_available:false,items:[]}});entered();await held;await r.fulfill({json:{request_id:r.request().postDataJSON().request_id,task_id:'task-late',grant_id:'grant-late',created:true,state:'paused'}});});
-    await openTasks(page);await taskDraft(page);await page.locator('#confirm-task-preparation').check();await page.locator('#prepare-task').click();await waiting;expect(await page.locator('#send-message').isDisabled()).toBe(true);await page.locator('#close-tasks').click();release();await page.waitForFunction(()=>!(document.getElementById('send-message') as HTMLButtonElement)?.disabled);
+    await openTasks(page);await taskDraft(page);await page.locator('#confirm-task-preparation').check();await page.locator('#prepare-task').click();await waiting;expect(await composeSend(page).isDisabled()).toBe(true);await page.locator('#close-tasks').click();release();await waitForFamilyIdle(page);
     expect(await page.locator('#scheduled-tasks').isVisible()).toBe(false);await page.locator('#open-tasks').click();await page.waitForFunction(()=>!document.getElementById('prepare-task-form')?.hidden);expect(await page.locator('#task-prompt').inputValue()).toBe('');expect(await page.locator('#prepare-task').textContent()).toBe('Prepare paused task');
   }finally{await page.close();}
 },20000);
@@ -707,7 +719,7 @@ browserTest('scheduled results load on explicit open, inspect as text and publis
     await page.locator('#confirm-result-publication').check();await page.locator('#publish-result').click();
     await page.waitForFunction(()=>document.getElementById('scheduled-results-status')?.textContent?.includes('Published as message 99'));
     expect(publications).toHaveLength(1);expect(publications[0].body).toEqual({confirm:true});expect(publications[0].headers['x-piclaw-account-id']).toBe('alice');expect(publications[0].headers['x-piclaw-login-id']).toBe('login-a');
-    expect(await page.locator('#session-select').inputValue()).toBe('web:alice');expect(await page.locator('#scheduled-result-text').textContent()).toBe('');
+    expect(await currentChat(page)).toBe('web:alice');expect(await page.locator('#scheduled-result-text').textContent()).toBe('');
   }finally{await page.close();}
 },20000);
 
@@ -720,7 +732,7 @@ browserTest('result detail and confirmation clear on refresh, close, blur, sessi
     await inspect();await page.locator('#refresh-results').click();expect(await page.locator('#scheduled-result-text').textContent()).toBe('');expect(await page.locator('#confirm-result-publication').isChecked()).toBe(false);
     await inspect();await page.locator('#close-results').click();expect(await page.locator('#scheduled-result-text').textContent()).toBe('');await page.locator('#open-results').click();
     await inspect();await page.evaluate(()=>dispatchEvent(new Event('blur')));expect(await page.locator('#scheduled-result-text').textContent()).toBe('');await page.evaluate(()=>dispatchEvent(new Event('focus')));await ready(page);
-    await inspect();await page.locator('#session-select').selectOption('web:alice-two');await ready(page);expect(await page.locator('#scheduled-result-text').textContent()).toBe('');
+    await inspect();await switchChat(page, 'web:alice-two');await ready(page);expect(await page.locator('#scheduled-result-text').textContent()).toBe('');
     await inspect();await page.evaluate(()=>dispatchEvent(new PageTransitionEvent('pagehide')));expect(await page.locator('#scheduled-result-text').textContent()).toBe('');expect(await page.locator('#publish-result').isDisabled()).toBe(true);
   }finally{await page.close();}
 },20000);
@@ -766,8 +778,8 @@ browserTest('closing during publication clears detail and late success cannot re
     let release!:()=>void,entered!:()=>void;const held=new Promise<void>(r=>release=r),waiting=new Promise<void>(r=>entered=r);let sends=0;
     await page.route('**/agent/scheduled-results/execution-one/publish',async r=>{sends++;entered();await held;await r.fulfill({json:{execution_id:'execution-one',chat_jid:'web:alice-two',message_rowid:99,created:true}});});
     await page.goto(base);await ready(page);await page.locator('#open-results').click();await page.getByRole('button',{name:'Inspect result',exact:true}).click();await page.locator('#confirm-result-publication').check();await page.locator('#publish-result').click();await waiting;
-    expect(await page.locator('#send-message').isDisabled()).toBe(true);await page.locator('#close-results').click();release();
-    await page.waitForFunction(()=>!(document.getElementById('send-message') as HTMLButtonElement)?.disabled);
+    expect(await composeSend(page).isDisabled()).toBe(true);await page.locator('#close-results').click();release();
+    await waitForFamilyIdle(page);
     expect(await page.locator('#scheduled-results').isVisible()).toBe(false);expect(await page.locator('#scheduled-result-text').textContent()).toBe('');expect(sends).toBe(1);
     await page.locator('#open-results').click();expect(await page.locator('#confirm-result-publication').isChecked()).toBe(false);
   }finally{await page.close();}
@@ -799,9 +811,9 @@ browserTest("fresh login ignores legacy browser state, uses home and sends pinne
     expect(state.calls[0]!.path).toContain("chat_jid=web%3Aalice"); expect(state.calls[0]!.headers["x-piclaw-login-id"]).toBe("login-a");
     expect(await page.locator("body").textContent()).not.toContain("FOREIGN_SECRET");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.locator("#message-text").fill("hello"); await page.locator("#send-message").click();
+    await composeInput(page).fill("hello"); await composeSend(page).click();
     await page.waitForFunction(() => document.getElementById("family-error")?.textContent?.includes("Resend unchanged"));
-    await page.locator("#send-message").click(); await page.waitForFunction(() => (document.getElementById("message-text") as HTMLTextAreaElement)?.value === "");
+    await composeSend(page).click(); await page.waitForFunction(() => (document.querySelector('[data-testid=\"compose-input\"]') as HTMLTextAreaElement)?.value === "");
     expect(sends).toHaveLength(2); expect(sends[0].body.request_id).toBe(sends[1].body.request_id);
     expect(sends[0].headers["x-piclaw-account-id"]).toBe("alice"); expect(sends[1].body.content).toBe("hello");
     expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([2, 0]);
@@ -815,7 +827,7 @@ browserTest("foreign explicit URL does not fall back silently; Go home recovers"
     await page.route("**/timeline?**", route => route.fulfill(route.request().url().includes("web%3Abob") ? { status: 403, json: {} } : { json: posts() }));
     await page.goto(base + "/?chat_jid=web:bob");
     await page.waitForFunction(() => document.getElementById("family-error")?.textContent?.includes("Access denied"));
-    expect(page.url()).toContain("web:bob"); expect(await page.locator("#send-message").isDisabled()).toBe(true);
+    expect(page.url()).toContain("web:bob"); expect(await composeSend(page).isDisabled()).toBe(true);
     await page.locator("#go-home").click(); await ready(page); expect(page.url()).toContain("web%3Aalice");
   } finally { await page.close(); }
 }, 20000);
@@ -824,15 +836,15 @@ browserTest("account/login change during a delayed response clears conversation 
   const page = await browser.newPage();
   try {
     const state = await fixture(page); await page.goto(base); await ready(page);
-    await page.locator("#message-text").fill("unsent private draft");
-    let release!: () => void, admitted!: () => void;
+    await composeInput(page).fill("unsent private draft");
+    let release!: () => void, admitted!: () => void, heldOnce = false;
     const held = new Promise<void>(resolve => release = resolve), entered = new Promise<void>(resolve => admitted = resolve);
-    await page.route("**/timeline?**", async route => { admitted(); await held; await route.fulfill({ json: posts("STALE_SECRET") }); });
+    await page.route("**/timeline?**", async route => { if (!heldOnce) { heldOnce = true; admitted(); await held; } await route.fulfill({ json: posts("STALE_SECRET") }); });
     await page.locator("#refresh").click(); await entered;
     state.identity = principal("bob", "login-b"); release();
     await page.waitForFunction(() => document.getElementById("family-status")?.textContent?.includes("no longer bound"));
-    expect(await page.locator("#timeline").textContent()).toBe(""); expect(await page.locator("#message-text").inputValue()).toBe("");
-    expect(await page.locator("#send-message").isDisabled()).toBe(true);
+    expect(await page.locator('#family-chat-root').textContent()).toBe(""); expect(await composeInput(page).count()).toBe(0);
+    expect(await composeSend(page).count()).toBe(0);
   } finally { await page.close(); }
 }, 20000);
 
@@ -847,7 +859,7 @@ browserTest("in-flight old session cannot overwrite newly selected session", asy
       entered(); await held; return route.fulfill({ json: posts("STALE_SESSION") });
     });
     await page.locator("#refresh").click(); await waiting;
-    await page.locator("#session-select").selectOption("web:alice-two");
+    await switchChat(page, "web:alice-two");
     await page.waitForFunction(() => document.getElementById("timeline")?.textContent?.includes("SECOND_SESSION")); release();
     await page.waitForTimeout(100);
     expect(await page.locator("#timeline").textContent()).not.toContain("STALE_SESSION");
@@ -857,15 +869,15 @@ browserTest("in-flight old session cannot overwrite newly selected session", asy
 browserTest("blur masks private UI, changed login on focus invalidates, pagehide erases drafts", async () => {
   const page = await browser.newPage();
   try {
-    const state = await fixture(page); await page.goto(base); await ready(page); await page.locator("#message-text").fill("private");
+    const state = await fixture(page); await page.goto(base); await ready(page); await composeInput(page).fill("private");
     await page.evaluate(() => dispatchEvent(new Event("blur")));
-    expect(await page.locator("#timeline").textContent()).toBe(""); expect(await page.locator("#compose-form").isVisible()).toBe(false);
+    expect(await page.locator("#timeline").textContent()).toBe("No messages yet. Start a conversation!"); expect(await page.locator("#family-chat-root").getAttribute('aria-busy')).toBe('true');
     state.identity = principal("alice", "new-login"); await page.evaluate(() => dispatchEvent(new Event("focus")));
     await page.waitForFunction(() => document.getElementById("family-status")?.textContent?.includes("no longer bound"));
-    expect(await page.locator("#message-text").inputValue()).toBe("");
-    state.identity = principal(); await page.reload(); await ready(page); await page.locator("#message-text").fill("private");
+    expect(await composeInput(page).count()).toBe(0);
+    state.identity = principal(); await page.reload(); await ready(page); await composeInput(page).fill("private");
     await page.evaluate(() => dispatchEvent(new PageTransitionEvent("pagehide")));
-    expect(await page.locator("#message-text").inputValue()).toBe(""); expect(await page.locator("#timeline").textContent()).toBe("");
+    expect(await composeInput(page).count()).toBe(0); expect(await page.locator('#family-chat-root').textContent()).toBe("");
   } finally { await page.close(); }
 }, 20000);
 
@@ -947,7 +959,7 @@ browserTest('legacy-held input offers only confirmed dismissal, preserves retry 
     await page.goto(base);await ready(page);expect(await page.locator('#retry-message').isVisible()).toBe(false);expect(await page.locator('#skip-message').isDisabled()).toBe(true);expect(await page.locator('#recovery-warning').textContent()).toContain('send a new plain-text prompt');
     await page.locator('#confirm-skip').check();await page.locator('#skip-message').click();await page.waitForFunction(()=>document.getElementById('family-error')?.textContent?.includes('same action'));
     expect(writes).toHaveLength(1);expect(writes[0].body.action).toBe('dismiss-legacy');expect(writes[0].body.message_rowid).toBe(71);expect(writes[0].headers['x-piclaw-account-id']).toBe('alice');
-    await page.locator('#skip-message').click();await page.waitForFunction(()=>(document.getElementById('message-recovery') as HTMLElement)?.hidden);expect(writes).toHaveLength(2);expect(writes[1].body.request_id).toBe(writes[0].body.request_id);expect(await page.locator('#message-text').inputValue()).toBe('');
+    await page.locator('#skip-message').click();await page.waitForFunction(()=>(document.getElementById('message-recovery') as HTMLElement)?.hidden);expect(writes).toHaveLength(2);expect(writes[1].body.request_id).toBe(writes[0].body.request_id);expect(await composeInput(page).inputValue()).toBe('');
   }finally{await page.close();}
 },20000);
 
@@ -958,7 +970,7 @@ browserTest('legacy hold confirmation clears on blur and replacement login canno
     await page.goto(base);await ready(page);await page.locator('#confirm-skip').check();await page.evaluate(()=>dispatchEvent(new Event('blur')));expect(await page.locator('#confirm-skip').isChecked()).toBe(false);expect(await page.locator('#recovery-status').textContent()).toBe('');
     await page.evaluate(()=>dispatchEvent(new Event('focus')));await ready(page);expect(await page.locator('#skip-message').isDisabled()).toBe(true);
     let release!:()=>void,entered!:()=>void;const held=new Promise<void>(r=>release=r),waiting=new Promise<void>(r=>entered=r);await page.route('**/agent/message-recovery',async route=>{entered();await held;await route.fulfill({json:{recovered:true}});});
-    await page.locator('#confirm-skip').check();await page.locator('#skip-message').click();await waiting;state.identity=principal('bob','login-b');release();await page.waitForFunction(()=>document.getElementById('family-status')?.textContent?.includes('no longer bound'));expect(await page.locator('#message-recovery').isVisible()).toBe(false);expect(await page.locator('#message-text').inputValue()).toBe('');
+    await page.locator('#confirm-skip').check();await page.locator('#skip-message').click();await waiting;state.identity=principal('bob','login-b');release();await page.waitForFunction(()=>document.getElementById('family-status')?.textContent?.includes('no longer bound'));expect(await page.locator('#message-recovery').isVisible()).toBe(false);expect(await composeInput(page).count()).toBe(0);
   }finally{await page.close();}
 },20000);
 async function openAccount(page: Page) {
@@ -1422,7 +1434,7 @@ browserTest('admin tool restrictions edit only the supplied ceiling with exact c
     await page.locator('#administration-tools-username').fill('bob'); await page.locator('#save-administration-tools').click();
     await page.waitForFunction(() => document.getElementById('administration-status')?.textContent === 'Account change saved.');
     expect(writes[0].body).toEqual({ confirm_username: 'bob', expected_revision: 1, denied_tools: ['read', 'messages'] });
-    expect(writes[0].headers['x-piclaw-account-id']).toBe('alice'); expect(await page.locator('#session-select').inputValue()).toBe('web:alice');
+    expect(writes[0].headers['x-piclaw-account-id']).toBe('alice'); expect(await currentChat(page)).toBe('web:alice');
     await open(); await page.waitForFunction(() => document.getElementById('administration-tools-title')?.textContent?.includes('revision 2'));
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.evaluate(() => dispatchEvent(new Event('blur'))); expect(await page.locator('#administration-tools-list').textContent()).toBe('');
@@ -1471,7 +1483,7 @@ browserTest('admin home uses eligible server roots and exact confirmation withou
     expect(await page.locator('#administration-action-warning').textContent()).toContain('active runs');
     await confirmAdministration(page, 'bob'); await page.waitForFunction(() => document.getElementById('administration-status')?.textContent === 'Account change saved.');
     expect(writes[0].body).toEqual({ branch_id: 'bob-second', confirm_username: 'bob' }); expect(writes[0].headers['x-piclaw-account-id']).toBe('alice');
-    expect(await page.locator('#session-select').inputValue()).toBe('web:alice');
+    expect(await currentChat(page)).toBe('web:alice');
     await open(); await page.waitForFunction(() => document.querySelectorAll('#administration-home-roots li').length === 2);
     expect(await page.locator('#administration-home-roots button').nth(1).isDisabled()).toBe(true);
     await page.locator('#close-administration-home').click(); expect(await page.locator('#administration-home-roots').textContent()).toBe('');
@@ -1506,7 +1518,7 @@ browserTest('admin home empty eligibility and write denial do not cause fallback
     empty = false; await open(); await page.waitForFunction(() => document.querySelectorAll('#administration-home-roots button').length === 2);
     await page.locator('#administration-home-roots button').nth(1).click(); await confirmAdministration(page, 'bob');
     await page.waitForFunction(() => document.getElementById('administration-status')?.textContent?.includes('No automatic retry'));
-    expect(writes).toBe(1); expect(await page.locator('#session-select').inputValue()).toBe('web:alice');
+    expect(writes).toBe(1); expect(await currentChat(page)).toBe('web:alice');
   } finally { await page.close(); }
 }, 20000);
 
@@ -1530,7 +1542,7 @@ browserTest('admin security view confirms exact target revocation without changi
     await page.waitForFunction(() => document.getElementById('administration-status')?.textContent === 'Account change saved.');
     expect(writes[1].body).toEqual({ kind: 'passkey', item_id: 'bob-key', confirm_username: 'bob' });
     expect(writes.every(w => w.headers['x-piclaw-account-id'] === 'alice')).toBe(true);
-    expect(await page.locator('#session-select').inputValue()).toBe('web:alice'); expect(await page.locator('#administration-security').isVisible()).toBe(false);
+    expect(await currentChat(page)).toBe('web:alice'); expect(await page.locator('#administration-security').isVisible()).toBe(false);
   } finally { await page.close(); }
 }, 20000);
 
@@ -1593,7 +1605,7 @@ browserTest('administration creates disabled accounts and confirms disable/react
     }
     expect(mutations.slice(1).map(m => m.body)).toEqual([{ enabled: false }, { enabled: true }, { role: 'admin' }]);
     expect(mutations.every(m => m.headers['x-piclaw-account-id'] === 'alice' && m.headers['x-piclaw-login-id'] === 'login-a')).toBe(true);
-    expect(await page.locator('#session-select').inputValue()).toBe('web:alice');
+    expect(await currentChat(page)).toBe('web:alice');
     expect(await page.locator('#administration-users a').count()).toBe(0);
   } finally { await page.close(); }
 }, 20000);
@@ -1684,7 +1696,7 @@ browserTest('successful reset returns a restricted invitation without impersonat
     await page.waitForFunction(() => Boolean((document.getElementById('administration-invitation-link') as HTMLInputElement)?.value));
     expect(mutations[0]!.body).toEqual({ confirm_username: 'bob' });
     expect(await page.locator('#administration-users li').nth(1).textContent()).toContain('Disabled');
-    expect(await page.locator('#session-select').inputValue()).toBe('web:alice');
+    expect(await currentChat(page)).toBe('web:alice');
     expect(await page.locator('#account-name').textContent()).toContain('alice');
     await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pagehide')));
     expect(await page.locator('#administration-invitation-link').inputValue()).toBe('');
@@ -1769,7 +1781,7 @@ browserTest('archived transcript prepares pinned ordered pages, explicitly downl
     expect(await page.locator('#transcript-status').textContent()).toContain('Prepared 4 messages (1 truncated)');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     const download=page.waitForEvent('download');await page.locator('#save-transcript').click();const file=await download;expect(file.suggestedFilename()).toBe('piclaw-transcript-alice-two.txt');
     const text=readFileSync((await file.path())!,'utf8');expect(text).toContain('not a full backup');expect(text).toContain('[Message truncated by export]');expect(text.indexOf('TEXT_1')).toBeLessThan(text.indexOf('TEXT_2'));expect(text.indexOf('TEXT_2')).toBeLessThan(text.indexOf('TEXT_3'));expect(text.indexOf('TEXT_3')).toBeLessThan(text.indexOf('TEXT_4'));
-    expect(await page.locator('#session-select').inputValue()).toBe('web:alice');expect(await page.evaluate(()=>[localStorage.length,sessionStorage.length])).toEqual([0,0]);
+    expect(await currentChat(page)).toBe('web:alice');expect(await page.evaluate(()=>[localStorage.length,sessionStorage.length])).toEqual([0,0]);
     await page.locator('#cancel-transcript').click();expect(await page.evaluate(()=>(window as any).revoked.length)).toBe(1);expect(await page.locator('#transcript-status').textContent()).toBe('');await file.delete();
   }finally{await page.close();}
 },20000);
@@ -1853,7 +1865,7 @@ browserTest('prepared transcript is discarded by focus loss, session refresh, na
       await startTranscript(page);await page.waitForFunction(()=>!(document.getElementById('save-transcript') as HTMLButtonElement)?.disabled);
       if(action==='blur')await page.evaluate(()=>dispatchEvent(new Event('blur')));
       else if(action==='refresh')await page.locator('#refresh-sessions').click();
-      else if(action==='switch')await page.locator('#session-select').selectOption('web:alice-third');
+      else if(action==='switch')await switchChat(page, 'web:alice-third');
       else if(action==='close')await page.locator('#close-sessions').click();
       else if(action==='navigate')await page.goto(base+'/blank');
       else await page.locator('#owned-tree-list li').nth(1).getByRole('button',{name:'Download transcript',exact:true}).click();
@@ -1888,7 +1900,7 @@ browserTest('owned session Settings creates, renames, selects home, archives and
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.locator('#root-name').fill('research'); await page.locator('#create-root').click();
     await page.waitForFunction(() => document.getElementById('session-settings-status')?.textContent?.includes('change saved'));
-    expect(actions[0]!.body).toEqual({ agent_name: 'research' }); expect(await page.locator('#session-select').inputValue()).toBe('web:alice');
+    expect(actions[0]!.body).toEqual({ agent_name: 'research' }); expect(await currentChat(page)).toBe('web:alice');
     await row('research').getByRole('button', { name: 'Rename', exact: true }).click(); await page.locator('#session-action-name').fill('renamed'); await page.locator('#submit-session-action').click();
     await page.waitForFunction(() => document.getElementById('owned-tree-list')?.textContent?.includes('@renamed'));
     expect(actions[1]!.body).toEqual({ chat_jid: 'web:new-1', agent_name: 'renamed' });
@@ -1896,16 +1908,16 @@ browserTest('owned session Settings creates, renames, selects home, archives and
     expect(await page.locator('#submit-session-action').isDisabled()).toBe(true);
     await page.locator('#session-action-confirm').check(); await page.locator('#submit-session-action').click();
     await page.waitForFunction(() => document.getElementById('session-home')?.textContent === 'Home: web:alice-two');
-    expect(await page.locator('#session-select').inputValue()).toBe('web:alice');
+    expect(await currentChat(page)).toBe('web:alice');
     await row('home').getByRole('button', { name: 'Archive', exact: true }).click();
     await page.locator('#session-action-confirm').check(); await page.locator('#submit-session-action').click();
     await page.waitForFunction(() => document.getElementById('family-error')?.textContent?.includes('Access denied'));
-    expect(await page.locator('#send-message').isDisabled()).toBe(true); expect(await page.locator('#session-select').inputValue()).toBe('');
+    expect(await composeSend(page).isDisabled()).toBe(true); expect(await currentChat(page)).toBe('web:alice');
     await page.evaluate(() => dispatchEvent(new Event('blur'))); await page.evaluate(() => dispatchEvent(new Event('focus')));
     await page.waitForFunction(() => document.querySelectorAll('#owned-tree-list li').length === 3);
     await row('home').getByRole('button', { name: 'Restore', exact: true }).click(); await page.locator('#session-action-name').fill('restored'); await page.locator('#submit-session-action').click();
     await page.waitForFunction(() => document.getElementById('owned-tree-list')?.textContent?.includes('@restored')); await ready(page);
-    await page.locator('#go-home').click(); await page.waitForFunction(() => (document.getElementById('session-select') as HTMLSelectElement)?.value === 'web:alice-two');
+    await page.locator('#go-home').click(); await page.waitForFunction(() => document.getElementById('family-chat-root')?.dataset.chatJid === 'web:alice-two');
     expect(actions.every(a => a.headers['x-piclaw-account-id'] === 'alice' && a.headers['x-piclaw-login-id'] === 'login-a')).toBe(true);
   } finally { await page.close(); }
 }, 20000);
@@ -1953,7 +1965,7 @@ browserTest('failed restore preserves selection, and backgrounded mutations cann
     await page.locator('#session-action-name').fill('collision'); await page.locator('#submit-session-action').click();
     await page.waitForFunction(() => document.getElementById('session-settings-status')?.textContent?.includes('No automatic retry'));
     expect(attempts).toBe(1); expect(await page.locator('#session-action-name').inputValue()).toBe('collision');
-    expect(await page.locator('#session-select').inputValue()).toBe('web:alice');
+    expect(await currentChat(page)).toBe('web:alice');
     let release!: () => void, entered!: () => void;
     const held = new Promise<void>(r => release = r), waiting = new Promise<void>(r => entered = r);
     await page.route('**/agent/branch-restore', async route => { entered(); await held; await route.fulfill({ status: 400, json: {} }); });
@@ -1961,7 +1973,7 @@ browserTest('failed restore preserves selection, and backgrounded mutations cann
     await page.evaluate(() => dispatchEvent(new Event('blur'))); release();
     await page.waitForTimeout(80);
     expect(await page.locator('#session-settings').isVisible()).toBe(false);
-    expect(await page.locator('#send-message').isDisabled()).toBe(true); expect(await page.locator('#session-action-name').inputValue()).toBe('');
+    expect(await composeSend(page).isDisabled()).toBe(true); expect(await page.locator('#session-action-name').inputValue()).toBe('');
     await page.evaluate(() => dispatchEvent(new Event('focus'))); await ready(page);
     await page.waitForFunction(() => document.querySelectorAll('#owned-tree-list li').length === 2);
     expect(await page.locator('#session-action-form').isVisible()).toBe(false);
@@ -1978,9 +1990,9 @@ browserTest('closing a pending session mutation keeps panel closed and refreshes
     await page.locator('#owned-tree-list li').nth(1).getByRole('button', { name: 'Rename', exact: true }).click();
     await page.locator('#session-action-name').fill('renamed'); await page.locator('#submit-session-action').click(); await waiting;
     await page.locator('#close-sessions').click(); release();
-    await page.waitForFunction(() => document.getElementById('session-select')?.textContent?.includes('renamed'));
+    await openSessionPicker(page); await page.waitForFunction(() => document.querySelector('[data-testid="session-popup"]')?.textContent?.includes('@renamed')); await page.getByRole('button',{name:'Close session picker'}).click();
     expect(await page.locator('#session-settings').isVisible()).toBe(false);
-    expect(await page.locator('#session-select').inputValue()).toBe('web:alice');
+    expect(await currentChat(page)).toBe('web:alice');
     await page.locator('#open-sessions').click(); await page.waitForFunction(() => document.querySelectorAll('#owned-tree-list li').length === 2);
     expect(await page.locator('#refresh-sessions').isDisabled()).toBe(false);
   } finally { await page.close(); }

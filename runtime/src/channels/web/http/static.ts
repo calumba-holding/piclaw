@@ -115,7 +115,7 @@ function renderHtmlTemplate(relPath: string, html: string): string {
     return renderedWithSharedFlags.replaceAll(LOGIN_ASSET_VERSION_PLACEHOLDER, getLoginAssetVersion());
   }
   if (relPath === "family.html") {
-    return renderedWithSharedFlags.replaceAll("__FAMILY_ASSET_VERSION__", readAssetVersion(["common/dist/family.bundle.js", "common/dist/family.bundle.css"]));
+    return renderedWithSharedFlags.replaceAll("__FAMILY_ASSET_VERSION__", readAssetVersion(["common/dist/family.bundle.js", "common/dist/family.bundle.css", "classic/dist/app.bundle.css"]));
   }
   return renderedWithSharedFlags;
 }

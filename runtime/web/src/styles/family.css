@@ -28,13 +28,12 @@ button:disabled, input:disabled, textarea:disabled, select:disabled { opacity: .
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 #family-status { color: var(--muted); font-size: 14px; }
 #family-error { color: var(--error); min-height: 24px; overflow-wrap: anywhere; }
-#timeline { min-height: 100px; }
-.post { border: 1px solid var(--border); background: var(--surface); border-radius: 10px; padding: 14px; margin: 12px 0; }
-.post-meta { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-.post-text { white-space: pre-wrap; overflow-wrap: anywhere; }
-#compose-form { display: flex; flex-direction: column; gap: 8px; margin-top: 22px; }
+.family-chat-surface { display: flex; flex-direction: column; height: min(72dvh, 900px); min-height: 520px; margin-top: 18px; overflow: hidden; border: 1px solid var(--border-color); border-radius: var(--chat-surface-radius); background: var(--bg-primary); }
+.family-chat-surface .timeline { min-height: 0; }
+.family-chat-surface .compose-box { position: relative; }
+.family-chat-surface[aria-busy="true"] .compose-box { opacity: .65; }
+.memory-preview { margin-top: var(--spacing-sm); }
 textarea { resize: vertical; width: 100%; }
-#send-message { align-self: flex-end; }
 #account-settings { border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin: 16px 0; }
 #account-settings h2, #account-settings h3 { margin: 8px 0; }
 #account-status { color: var(--muted); overflow-wrap: anywhere; }
@@ -116,4 +115,5 @@ textarea { resize: vertical; width: 100%; }
   .settings-navigation { gap: 8px; margin: 12px 0; }
   .settings-navigation section { padding: 10px; }
   .session-controls label { flex-basis: 100%; }
+  .family-chat-surface { height: 76dvh; min-height: 480px; }
 }
