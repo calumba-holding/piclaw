@@ -54,7 +54,7 @@ The sign-in page loads the site's enabled methods before accepting input:
 
 There are no passwords, email recovery or SSO in this account flow. Use an enabled alternative or contact an administrator if you lose access. Repeated failures are rate-limited; stop guessing and follow the retry notice.
 
-A fresh sign-in opens your home. To change accounts, use **Sign out**, then sign in to the other account. The **Owned session** selector changes conversations within the current account; it does not change who you are signed in as.
+A fresh sign-in opens your home. Choose **Switch account** to clear the current family page and open the sign-in screen for another account; it does not revoke the current login. Choose **Sign out** when you also want to revoke this device login. The **Owned session** selector changes conversations within the current account; it does not change who you are signed in as.
 
 Tabs in one browser profile share the site's login cookie. Signing in as another account can invalidate an older tab, which clears its conversation and draft. Use separate browser profiles when testing two accounts concurrently.
 

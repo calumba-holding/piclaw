@@ -44,6 +44,24 @@ browserTest('family notification control uses pinned account headers and clears 
 },20000);
 async function ready(page: Page) { await page.waitForFunction(() => document.getElementById("timeline")?.textContent?.includes("Alice private text")); }
 
+browserTest('switch account is distinct from session switching and sign out and clears private state before login navigation', async () => {
+  const page = await browser.newPage({ viewport: { width: 375, height: 740 } });
+  try {
+    const state = await fixture(page); let logouts = 0;
+    await page.route('**/auth/logout', route => { logouts++; return route.fulfill({ json: { logged_out: true } }); });
+    await page.goto(base); await ready(page);
+    expect(await page.locator('#switch-account').textContent()).toBe('Switch account');
+    expect(await page.locator('#switch-account').getAttribute('href')).toBe('/login');
+    expect(await page.locator('#switch-account').evaluate(node => node.closest('.family-actions') !== null)).toBe(true);
+    await page.locator('#message-text').fill('UNSENT_PRIVATE_DRAFT');
+    await page.evaluate(() => document.getElementById('switch-account')?.addEventListener('click', event => event.preventDefault()));
+    await page.locator('#switch-account').click();
+    expect(logouts).toBe(0); expect(await page.locator('#message-text').inputValue()).toBe(''); expect(await page.locator('#timeline').textContent()).toBe('');
+    expect(await page.locator('#account-name').textContent()).toBe(''); expect(await page.locator('#family-status').textContent()).toContain('no longer bound');
+    expect(state.calls.filter(call => call.path.includes('/auth/logout'))).toHaveLength(0);
+  } finally { await page.close(); }
+}, 20000);
+
 browserTest('settings navigation separates scopes from account actions and stays single-column without nested page scrolling on phones', async () => {
   const page = await browser.newPage({ viewport: { width: 375, height: 740 } });
   try {
