@@ -56,6 +56,8 @@ test("newcomer setup retains loopback, persistence and deployment boundaries", (
     expect(docker).toContain(argument);
   }
   expect(readme).toContain("Single-user is the default");
+  expect(readme).toContain("[Experimental family mode](docs/multi-user/README.md)");
+  expect(readme).toContain("trusted multi-user mode for small groups");
   expect(readme).toContain("Promoted `family-shared` deployments");
   expect(readme).toContain("Isolated-container mode is unavailable");
   expect(readme).toContain("messages.db");
@@ -77,7 +79,9 @@ test("README translations preserve commands, documentation links and credits", (
     expect(codeBlocks(text), path).toEqual(codeBlocks(english));
     expect(targets(text), path).toEqual(targets(english));
     expect(text).toContain("[rcarmo/vibes](https://github.com/rcarmo/vibes)");
+    expect(text).toContain("[earendil-works/pi](https://github.com/earendil-works/pi)");
     expect(text).not.toContain("rcarmo/agentbox");
+    expect(text).not.toContain("github.com/badlogic/pi-mono");
     expect(text).toContain("workspace/.piclaw/store/messages.db");
     expect(text.indexOf("> [!WARNING]")).toBeLessThan(text.indexOf("```bash"));
   }
@@ -89,7 +93,13 @@ test("README translations preserve commands, documentation links and credits", (
     expect(text).toContain("docs/multi-user/user-guide.md");
   }
   expect(chinese).toContain("默认采用单用户模式");
+  expect(chinese).toContain("实验性家庭模式");
+  expect(chinese).toContain("可信多用户模式");
   expect(chinese).toContain("隔离容器模式不可用");
+  expect(chinese).toContain("PiClaw 的原始 UX 设计");
   expect(japanese).toContain("デフォルトはシングルユーザーです");
+  expect(japanese).toContain("実験的な家族モード");
+  expect(japanese).toContain("少人数のグループ向け");
   expect(japanese).toContain("隔離コンテナーモードは利用できません");
+  expect(japanese).toContain("PiClaw のオリジナル UX デザイン");
 });

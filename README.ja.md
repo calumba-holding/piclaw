@@ -4,7 +4,7 @@
 
 言語：[English](README.md) · [简体中文](README.zh-CN.md) · **日本語**
 
-PiClaw は [Pi Coding Agent](https://github.com/badlogic/pi-mono) を基にした、デフォルトではシングルユーザーのセルフホスト型 AI ワークスペースです。同じブラウザーウィンドウでエージェントと作業し、ファイルの編集、コマンドの実行、結果の確認ができます。会話、ファイル、スケジュールタスクは次回のアクセス時にも残ります。モデルへのリクエストは、OpenAI 互換のローカルサーバーを含め、設定したプロバイダーに送信されます。
+PiClaw は [Pi Coding Agent](https://github.com/earendil-works/pi) を基にした、デフォルトではシングルユーザーのセルフホスト型 AI ワークスペースです。同じブラウザーウィンドウでエージェントと作業し、ファイルの編集、コマンドの実行、結果の確認ができます。会話、ファイル、スケジュールタスクは次回のアクセス時にも残ります。モデルへのリクエストは、OpenAI 互換のローカルサーバーを含め、設定したプロバイダーに送信されます。
 
 Web UI は英語、簡体字中国語、日本語に対応し、デスクトップとモバイル向けのレイアウトを備えています。コンテナー、仮想マシン、専用マシンを使い、エージェントがアクセスできるファイルとサービスを制限してください。
 
@@ -65,7 +65,7 @@ docker run -d \
 
 ## セキュリティと制限
 
-- **デフォルトはシングルユーザーです。** 昇格済みの `family-shared` デプロイでは、信頼できる家族が 1 つのワークスペースとプロセスを共有しながら、各自が所有する会話を利用できます。ファイルシステムは隔離されません。隔離コンテナーモードは利用できません。詳細は[アクセスモードと制限](docs/multi-user/README.md)と[家族モードガイド](docs/multi-user/user-guide.md)を参照してください。
+- **デフォルトはシングルユーザーです。** [実験的な家族モード](docs/multi-user/README.md)は、少人数のグループ向けの、互いを信頼するユーザーによるマルチユーザーモードです。昇格済みの `family-shared` デプロイでは、所有者ごとの会話を利用できますが、ワークスペースとプロセスは共有され、ファイルシステムは隔離されません。隔離コンテナーモードは利用できません。[家族モードのユーザーガイド](docs/multi-user/user-guide.md)も参照してください。
 - エージェントは、プロセスを実行するユーザーの権限で動作します。ネイティブインストールではそのユーザーのファイルとコマンド、コンテナーではマウントしたファイルと設定上アクセス可能なネットワークを利用できます。専用環境を使い、共有するつもりのファイルだけをマウントしてください。
 - ブラウザー認証は認証アプリのコード（TOTP）とパスキーに対応しています。バックエンドは非公開にし、リモートアクセスには HTTPS を使い、設定した[リバースプロキシ](docs/reverse-proxy.md)からの転送ヘッダーのみを信頼してください。
 - セルフホストではアプリケーションの状態を自分のマシンに保存します。クラウドモデルや外部ツールには、送信したデータが渡ります。任意の[キー管理機能](docs/keychain.md)にはマスターキーが必要で、ワークスペース全体やチャット履歴は暗号化されません。
@@ -92,9 +92,9 @@ docker run -d \
 ## クレジット
 
 - [pi.dev](http://pi.dev) — PiClaw が使用する Pi コアの提供
-- [rcarmo/vibes](https://github.com/rcarmo/vibes)
+- [rcarmo/vibes](https://github.com/rcarmo/vibes) — PiClaw のオリジナル UX デザイン
 - [qwibitai/nanoclaw](https://github.com/qwibitai/nanoclaw)
-- [badlogic/pi-mono](https://github.com/badlogic/pi-mono)
+- [earendil-works/pi](https://github.com/earendil-works/pi)
 - [davebcn87/pi-autoresearch](https://github.com/davebcn87/pi-autoresearch) — Tobi Lutke と David Cortés による自律実験ループ（現在は `rcarmo/piclaw-addons` の autoresearch アドオンが担っています）
 - [nicobailon/visual-explainer](https://github.com/nicobailon/visual-explainer) — Nico Bailon による視覚的な成果物の生成スキルの考え方、プロンプトのワークフロー、テンプレートパターン（改変して利用。元のプロジェクトは同梱していません）
 

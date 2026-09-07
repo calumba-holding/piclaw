@@ -4,7 +4,7 @@
 
 语言：[English](README.md) · **简体中文** · [日本語](README.ja.md)
 
-PiClaw 是基于 [Pi Coding Agent](https://github.com/badlogic/pi-mono) 构建的自托管 AI 工作区，默认采用单用户模式。你可以在同一个浏览器窗口中与智能体协作、编辑文件、运行命令并查看结果。再次访问时，对话、文件和计划任务仍会保留；模型请求会发送到你配置的服务，包括兼容 OpenAI API 的本地服务器。
+PiClaw 是基于 [Pi Coding Agent](https://github.com/earendil-works/pi) 构建的自托管 AI 工作区，默认采用单用户模式。你可以在同一个浏览器窗口中与智能体协作、编辑文件、运行命令并查看结果。再次访问时，对话、文件和计划任务仍会保留；模型请求会发送到你配置的服务，包括兼容 OpenAI API 的本地服务器。
 
 Web UI 支持英语、简体中文和日语，并提供桌面和移动端布局。使用容器、虚拟机或专用机器，限制智能体能够访问的文件和服务。
 
@@ -65,7 +65,7 @@ docker run -d \
 
 ## 安全与限制
 
-- **默认采用单用户模式。** 已提升的 `family-shared` 部署支持可信家庭成员在同一个工作区和进程中使用各自拥有的对话，但不提供文件系统隔离。隔离容器模式不可用。详情见[访问模式与限制](docs/multi-user/README.md)和[家庭模式指南](docs/multi-user/user-guide.md)。
+- **默认采用单用户模式。** [实验性家庭模式](docs/multi-user/README.md)是面向小型用户组的可信多用户模式。已提升的 `family-shared` 部署提供各自拥有的对话，但共享同一个工作区和进程，不提供文件系统隔离。隔离容器模式不可用。另请参阅[家庭模式用户指南](docs/multi-user/user-guide.md)。
 - 智能体以运行进程的用户权限执行操作。原生安装可访问该用户的文件和命令；容器可访问挂载的文件及其网络配置允许访问的资源。请使用专用环境，只挂载你打算共享的内容。
 - 浏览器认证支持身份验证器验证码（TOTP）和通行密钥。保持后端不对外开放，远程访问使用 HTTPS，并且只信任已配置的[反向代理](docs/reverse-proxy.md)发送的转发头。
 - 自托管将应用状态保存在你的机器上。云端模型和外部工具仍会收到你发送给它们的数据。可选的[钥匙串](docs/keychain.md)需要主密钥，但不会加密整个工作区或聊天历史。
@@ -92,9 +92,9 @@ docker run -d \
 ## 鸣谢
 
 - [pi.dev](http://pi.dev)，提供 PiClaw 使用的 Pi 核心
-- [rcarmo/vibes](https://github.com/rcarmo/vibes)
+- [rcarmo/vibes](https://github.com/rcarmo/vibes) — PiClaw 的原始 UX 设计
 - [qwibitai/nanoclaw](https://github.com/qwibitai/nanoclaw)
-- [badlogic/pi-mono](https://github.com/badlogic/pi-mono)
+- [earendil-works/pi](https://github.com/earendil-works/pi)
 - [davebcn87/pi-autoresearch](https://github.com/davebcn87/pi-autoresearch) — Tobi Lutke 和 David Cortés 开发的自主实验循环（现由 `rcarmo/piclaw-addons` 中的 autoresearch 插件提供）
 - [nicobailon/visual-explainer](https://github.com/nicobailon/visual-explainer) — Nico Bailon 的可视化内容生成技能理念、提示词工作流和模板模式（经过改编，未直接随包分发原项目）
 
