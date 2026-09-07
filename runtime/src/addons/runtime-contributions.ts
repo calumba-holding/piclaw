@@ -288,10 +288,14 @@ async function deliverPeerMessage(input: AddonPeerMessageDeliveryRequest): Promi
   return await messagingRuntimeHandlers.deliverPeerMessage(input);
 }
 
-async function enqueueAgentMessageViaRuntime(request: RuntimeAgentMessageRequest): Promise<RuntimeAgentMessageResult> {
+function requireSingleUserAddonRuntime(action: string): void {
   const mode = readAccessConfig().mode;
   const identity = getExecutionIdentity();
-  if (mode !== "single-user" || (identity && identity.mode !== "single-user")) throw new Error("Add-on agent-message enqueue is unavailable in multi-user mode.");
+  if (mode !== "single-user" || (identity && identity.mode !== "single-user")) throw new Error(`${action} is unavailable in multi-user mode.`);
+}
+
+async function enqueueAgentMessageViaRuntime(request: RuntimeAgentMessageRequest): Promise<RuntimeAgentMessageResult> {
+  requireSingleUserAddonRuntime("Add-on agent-message enqueue");
   if (!agentMessageEnqueuer) throw new Error("Piclaw runtime agent-message enqueue API is not available yet.");
   return await agentMessageEnqueuer(request);
 }
@@ -382,6 +386,7 @@ export async function ensureStartupAddonRuntimeEntriesLoaded(): Promise<void> {
 }
 
 export async function getAddonStatusPanelPayload(key: string, chatJid: string): Promise<unknown | null> {
+  requireSingleUserAddonRuntime("Add-on status panels");
   await ensureAddonRuntimeEntriesLoaded();
   const provider = statusPanelProviders.get(String(key || "").trim());
   if (!provider) return null;
@@ -393,6 +398,7 @@ export async function runAddonStatusPanelAction(
   action: string,
   payload: Record<string, unknown>,
 ): Promise<unknown | null> {
+  requireSingleUserAddonRuntime("Add-on status actions");
   await ensureAddonRuntimeEntriesLoaded();
   const provider = statusPanelProviders.get(String(key || "").trim());
   if (!provider?.runAction) return null;
@@ -403,6 +409,7 @@ export async function runAddonAdaptiveCardIntent(
   intent: string,
   context: AddonAdaptiveCardIntentContext,
 ): Promise<boolean> {
+  requireSingleUserAddonRuntime("Add-on Adaptive Card intents");
   await ensureAddonRuntimeEntriesLoaded();
   const handler = adaptiveCardIntentHandlers.get(String(intent || "").trim());
   if (!handler) return false;
