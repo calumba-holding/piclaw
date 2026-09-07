@@ -87,6 +87,8 @@ A **Recovery is blocked** notice needs operator inspection; do not invent an inp
 
 ## Manage your account
 
+The family workspace groups settings under **Personal**, **Sessions and work** and **Shared family**. Notifications, sign-out and sign-in remain separate account actions. On a phone these groups form one vertical list; wider screens show three columns. Opening a group control does not change its permissions or move data between scopes.
+
 Open **My account**. A disabled control can mean the operation is prohibited, your authentication is too old, the browser lacks support, or the server is still loading. **Refresh account** reloads the current permissions and values.
 
 Changes to names, sign-in factors, device logins and security labels require authentication within the last five minutes. Sign out and sign in again when asked. Refreshing the page does not renew that authentication window. Avatar and preference changes need a live login but do not require the five-minute window.

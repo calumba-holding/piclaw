@@ -4,12 +4,19 @@
 :root[data-account-theme=dark] { color-scheme: dark; --bg: #101318; --surface: #191e26; --text: #e8edf3; --muted: #a9b5c5; --border: #394252; --accent: #91bafa; --error: #ff9caa; }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-.family-shell { max-width: 920px; margin: auto; padding: 20px; }
-header { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; overflow-x: hidden; }
+.family-shell { width: min(100%, 1120px); margin: auto; padding: 20px; }
+.family-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.family-shell > section > header { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.family-identity, .family-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
 h1 { font-size: 24px; margin: 0; }
-header a { margin-left: auto; }
+.family-actions a { padding: 8px 0; }
 a { color: var(--accent); }
+.settings-navigation { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 18px 0; }
+.settings-navigation section { min-width: 0; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 12px; }
+.settings-navigation h2 { margin: 0 0 8px; color: var(--muted); font-size: 13px; font-weight: 650; letter-spacing: .02em; text-transform: uppercase; }
+.settings-links { display: flex; flex-direction: column; gap: 8px; }
+.settings-links button { width: 100%; min-height: 44px; text-align: left; }
 .notice { font-size: 14px; color: var(--muted); border-left: 3px solid var(--border); padding-left: 12px; }
 .session-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 select { min-width: 0; max-width: 100%; flex: 1 1 180px; }
@@ -98,4 +105,13 @@ textarea { resize: vertical; width: 100%; }
 #memory-form { display: grid; gap: 8px; }
 #memory-source-text, #memory-detail-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 24rem; overflow-y: auto; font: inherit; }
 #memory-detail label { display: block; padding: 12px 0; }
-@media (max-width: 480px) { .family-shell { padding: 12px; } .session-controls label { flex-basis: 100%; } }
+@media (max-width: 760px) { .settings-navigation { grid-template-columns: 1fr; } }
+@media (max-width: 480px) {
+  .family-shell { padding: 12px; }
+  .family-header, .family-actions { align-items: stretch; }
+  .family-identity, .family-actions { width: 100%; }
+  .family-actions > * { flex: 1 1 auto; text-align: center; }
+  .settings-navigation { gap: 8px; margin: 12px 0; }
+  .settings-navigation section { padding: 10px; }
+  .session-controls label { flex-basis: 100%; }
+}
