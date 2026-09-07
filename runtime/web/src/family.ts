@@ -19,7 +19,7 @@ const account = element<HTMLElement>('account-name'), status = element<HTMLEleme
 const timeline = element<HTMLElement>('timeline'), select = element<HTMLSelectElement>('session-select');
 const form = element<HTMLFormElement>('compose-form'), compose = element<HTMLTextAreaElement>('message-text'), send = element<HTMLButtonElement>('send-message');
 const home = element<HTMLButtonElement>('go-home'), refresh = element<HTMLButtonElement>('refresh'), logout = element<HTMLButtonElement>('sign-out');
-const notify = element<HTMLButtonElement>('toggle-notifications');
+const switchAccount = element<HTMLAnchorElement>('switch-account'), notify = element<HTMLButtonElement>('toggle-notifications');
 const recovery = element<HTMLElement>('message-recovery'), recoveryStatus = element<HTMLElement>('recovery-status'), recoveryActions = element<HTMLElement>('recovery-actions');
 const retry = element<HTMLButtonElement>('retry-message'), skip = element<HTMLButtonElement>('skip-message'), confirmSkip = element<HTMLInputElement>('confirm-skip');
 const panelNavigation = initialiseFamilyPanelNavigation();
@@ -274,6 +274,7 @@ form.addEventListener('submit', async event => {
   } catch (failure) { if (!stopped) error.textContent = `${(failure as Error).message} Resend unchanged text to reuse the request ID; do not assume it was rejected.`; }
   finally { busy = false; if (!stopped) { refreshing = null; await loadTimeline(); } }
 });
+switchAccount.addEventListener('click', () => invalidate());
 logout.addEventListener('click', async () => {
   if (!api || stopped || busy) return;
   busy = true; controls(false); logout.disabled = true;
