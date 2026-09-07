@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import "../../helpers.js";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { withTempWorkspaceEnv } from "../../helpers.js";
 import { initDatabase, getDb, closeDatabase } from "../../../src/db/connection.js";
 import { createUser, getUser, updateUser } from "../../../src/db/users.js";
 import { ensureChatBranch } from "../../../src/db/chat-branches.js";
@@ -15,6 +17,9 @@ import { WebSessionBroadcastService } from "../../../src/channels/web/sse/sessio
 import { SseHub } from "../../../src/channels/web/sse/sse-hub.js";
 import { revalidateSseClient } from "../../../src/channels/web/sse/sse.js";
 import { getSearchResponse } from "../../../src/channels/web/timeline-service.js";
+import { listStoredWebPushSubscriptions } from "../../../src/channels/web/push/web-push-store.js";
+import { WebNotificationPresenceService } from "../../../src/channels/web/push/web-notification-presence-service.js";
+import { handleFamilyWebPush } from "../../../src/channels/web/push/web-push-routes.js";
 
 const json = (value: unknown, status = 200) => Response.json(value, { status });
 let alice: string, bob: string, gateway: WebAuthGateway, router: RequestRouterService, hub: SseHub;
@@ -122,7 +127,7 @@ test("thread ID cannot select a foreign message even with an owned chat", async 
 });
 
 test("terminal gate denies early add-ons, widget state, indirect resources, controls and new routes", async () => {
-  const paths = ["/api/addons/test", "/api/state", "/api/state/events", "/agent/addons/api/test/read", "/agent/models", "/agent/active-chats", "/agent/keychain", "/workspace/raw", "/export/timeline", "/internal/export/timeline", "/terminal/session", "/vnc/session", "/recordings", "/avatar/user", "/avatar/agent", "/manifest.json", "/sw.js", "/docs/configuration.md", "/future-route"];
+  const paths = ["/api/addons/test", "/api/state", "/api/state/events", "/agent/addons/api/test/read", "/agent/models", "/agent/active-chats", "/agent/keychain", "/workspace/raw", "/export/timeline", "/internal/export/timeline", "/terminal/session", "/vnc/session", "/recordings", "/avatar/user", "/avatar/agent", "/manifest.json", "/docs/configuration.md", "/future-route"];
   for (const path of paths) {
     expect((await router.handle(request(path))).status).toBe(403);
     const anonymous = await router.handle(request(path, null));
@@ -234,4 +239,76 @@ test("stream revalidation closes on expiry, role/account change and invalidated 
     expect((await reader.read()).done).toBe(true); expect(hub.clients.size).toBe(0);
   }
   expect(getUser(getDb(), bob)?.enabled).toBe(true);
+});
+
+test("family push routes bind subscription and presence to the live owner/login and owned chat", async () => {
+  const pushDir = `${process.env.PICLAW_DATA}/family-push-test`, presence = new WebNotificationPresenceService();
+  const originalHandle = channel.authGateway.getPrincipal.bind(channel.authGateway);
+  const subscription = { endpoint: "https://push.example.test/alice", expirationTime: null, keys: { auth: "auth", p256dh: "key" } };
+  const post = new Request("https://family.local/agent/push/subscription", { method: "POST", headers: {
+    cookie: "piclaw_session=alice-token", origin: "https://family.local", "content-type": "application/json",
+    "x-piclaw-account-id": alice, "x-piclaw-login-id": originalHandle(request("/auth/me"))!.authentication.sessionId!,
+  }, body: JSON.stringify({ device_id: "device", subscription }) });
+  const options = { baseDir: pushDir, database: getDb(), presenceService: presence, readMode: () => "family-shared" };
+  const keyRequest = new Request("https://family.local/agent/push/vapid-public-key", { headers: post.headers });
+  expect((await handleFamilyWebPush(channel, keyRequest, originalHandle(keyRequest)!, options)).status).toBe(200);
+  expect((await handleFamilyWebPush(channel, post, originalHandle(post)!, options)).status).toBe(200);
+  const stored = listStoredWebPushSubscriptions(pushDir, { ownerUserId: alice });
+  expect(stored).toHaveLength(1); expect(stored[0]?.loginSessionId).toBe(originalHandle(post)!.authentication.sessionId);
+  const foreignPresence = new Request("https://family.local/agent/push/presence", { method: "POST", headers: post.headers,
+    body: JSON.stringify({ device_id: "device", client_id: "tab", chat_jid: "web:bob", visibility_state: "visible", has_focus: true }) });
+  expect((await handleFamilyWebPush(channel, foreignPresence, originalHandle(foreignPresence)!, options)).status).toBe(403);
+  const ownPresence = new Request("https://family.local/agent/push/presence", { method: "POST", headers: post.headers,
+    body: JSON.stringify({ device_id: "device", client_id: "tab", chat_jid: "web:alice", visibility_state: "visible", has_focus: true }) });
+  expect((await handleFamilyWebPush(channel, ownPresence, originalHandle(ownPresence)!, options)).status).toBe(200);
+  expect(presence.list()[0]).toMatchObject({ ownerUserId: alice, chatJid: "web:alice" });
+  const foreignDelete = new Request("https://family.local/agent/push/subscription", { method: "DELETE", headers: {
+    ...Object.fromEntries(post.headers), cookie: "piclaw_session=bob-token", "x-piclaw-account-id": bob,
+    "x-piclaw-login-id": originalHandle(request("/auth/me", "bob-token"))!.authentication.sessionId!,
+  }, body: JSON.stringify({ device_id: "device", subscription }) });
+  expect(await (await handleFamilyWebPush(channel, foreignDelete, originalHandle(foreignDelete)!, options)).json()).toEqual({ ok: true, removed: false });
+  expect(listStoredWebPushSubscriptions(pushDir, { ownerUserId: alice })).toHaveLength(1);
+  revokeUserWebSessions(alice);
+  const staleDelete = new Request("https://family.local/agent/push/subscription", { method: "DELETE", headers: post.headers, body: JSON.stringify({ subscription }) });
+  expect((await handleFamilyWebPush(channel, staleDelete, originalHandle(post)!, options)).status).toBe(403);
+});
+
+test("family push routes reject missing pins, selectors, methods and authority loss during a streamed body", async () => {
+  const pushDir = `${process.env.PICLAW_DATA}/family-push-negative`, presence = new WebNotificationPresenceService(), actor = gateway.getPrincipal(request("/auth/me"))!;
+  const options = { baseDir: pushDir, database: getDb(), presenceService: presence, readMode: () => "family-shared" };
+  const payload = JSON.stringify({ device_id: "device", subscription: { endpoint: "https://push.example.test/a", keys: { auth: "auth", p256dh: "key" } } });
+  const req = (path: string, method: string, body = payload, headers: Record<string, string> = {}) => new Request(`https://family.local${path}`, { method, headers: {
+    cookie: "piclaw_session=alice-token", origin: "https://family.local", "content-type": "application/json",
+    "x-piclaw-account-id": alice, "x-piclaw-login-id": actor.authentication.sessionId!, ...headers,
+  }, ...(method === "GET" || method === "HEAD" ? {} : { body }) });
+  for (const candidate of [req("/agent/push/subscription?owner=bob", "POST"), req("/agent/push/subscription", "PUT"),
+    req("/agent/push/subscription", "POST", payload, { "x-piclaw-account-id": bob }),
+    req("/agent/push/presence", "POST", JSON.stringify({ device_id: "device", client_id: "tab", chat_jid: "web:bob", visibility_state: "visible", has_focus: true }))]) {
+    expect((await handleFamilyWebPush(channel, candidate, actor, options)).status).toBe(403);
+  }
+  const stream = new ReadableStream<Uint8Array>({ start(controller) {
+    controller.enqueue(new TextEncoder().encode(payload.slice(0, 10)));
+    getDb().query("DELETE FROM web_sessions WHERE session_id=?").run(actor.authentication.sessionId);
+    controller.enqueue(new TextEncoder().encode(payload.slice(10))); controller.close();
+  } });
+  const raced = new Request("https://family.local/agent/push/subscription", { method: "POST", headers: req("/", "POST").headers, body: stream, duplex: "half" } as RequestInit);
+  expect((await handleFamilyWebPush(channel, raced, actor, options)).status).toBe(403);
+  expect(listStoredWebPushSubscriptions(pushDir)).toEqual([]); expect(presence.list()).toEqual([]);
+});
+
+test("family dispatcher serves pinned push routes and a public notification worker", async () => {
+  await withTempWorkspaceEnv("family-push-router-", {}, async workspace => {
+    mkdirSync(join(workspace.workspace, ".piclaw"), { recursive: true });
+    writeFileSync(join(workspace.workspace, ".piclaw", "config.json"), JSON.stringify({ domains: { access: { mode: "family-shared" } } }));
+    const identity = gateway.getPrincipal(request("/auth/me"))!, pins = {
+      "x-piclaw-account-id": alice, "x-piclaw-login-id": identity.authentication.sessionId!,
+    };
+    const direct = (path: string, token: string | null, headers: Record<string, string> = {}) => new Request(`https://family.local${path}`, { headers: {
+      ...(token ? { cookie: `piclaw_session=${token}` } : {}), origin: "https://family.local", ...headers,
+    } });
+    expect((await router.handle(direct("/agent/push/vapid-public-key", "alice-token", pins))).status).toBe(200);
+    expect((await router.handle(direct("/agent/push/vapid-public-key", "bob-token", pins))).status).toBe(409);
+    expect((await router.handle(direct("/agent/push/vapid-public-key", null, pins))).status).toBe(401);
+    expect((await router.handle(direct("/family-sw.js", null))).status).toBe(200);
+  });
 });

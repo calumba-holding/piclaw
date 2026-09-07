@@ -22,6 +22,26 @@ async function fixture(page: Page) {
   await page.route("**/timeline?**", route => { state.calls.push({ path: route.request().url(), headers: route.request().headers(), body: null }); return route.fulfill({ json: posts() }); });
   return state;
 }
+
+browserTest('family notification control uses pinned account headers and clears server subscription on disable',async()=>{
+  const page=await browser.newPage();
+  try{
+    await fixture(page);const calls:any[]=[];
+    await page.addInitScript(()=>{
+      Object.defineProperty(window,'isSecureContext',{value:true,configurable:true});
+      Object.defineProperty(window,'Notification',{value:{permission:'granted',requestPermission:async()=> 'granted'},configurable:true});
+      Object.defineProperty(window,'PushManager',{value:function(){},configurable:true});
+      const subscription={endpoint:'https://push.example.test/family',expirationTime:null,keys:{auth:'auth',p256dh:'key'},toJSON(){return{endpoint:this.endpoint,expirationTime:null,keys:this.keys}},unsubscribe:async()=>true};
+      const registration={pushManager:{getSubscription:async()=>subscription,subscribe:async()=>subscription}};
+      Object.defineProperty(navigator,'serviceWorker',{value:{controller:null,getRegistrations:async()=>[],register:async()=>registration,ready:Promise.resolve(registration)},configurable:true});
+    });
+    await page.route('**/agent/push/**',route=>{const path=new URL(route.request().url()).pathname,body=route.request().method()==='GET'?null:route.request().postDataJSON();calls.push({path,method:route.request().method(),headers:route.request().headers(),body});return route.fulfill({json:path.endsWith('vapid-public-key')?{publicKey:'AQID'}:path.endsWith('subscription')?{ok:true,device_id:'device-server'}:{ok:true}});});
+    await page.goto(base);await ready(page);await page.waitForFunction(()=>!(document.getElementById('toggle-notifications') as HTMLButtonElement).disabled);
+    expect(await page.locator('#toggle-notifications').textContent()).toBe('Disable notifications');await page.locator('#toggle-notifications').click();
+    await page.waitForFunction(()=>document.getElementById('toggle-notifications')?.textContent==='Enable notifications');
+    const mutation=calls.find(value=>value.path==='/agent/push/subscription'&&value.method==='DELETE');expect(mutation.headers).toMatchObject({'x-piclaw-account-id':'alice','x-piclaw-login-id':'login-a'});expect(mutation.body.subscription.endpoint).toBe('https://push.example.test/family');expect(mutation.body.device_id).toBe('device-server');
+  }finally{await page.close();}
+},20000);
 async function ready(page: Page) { await page.waitForFunction(() => document.getElementById("timeline")?.textContent?.includes("Alice private text")); }
 function resultList(items: any[] = [{execution_id:'execution-one',chat_jid:'web:alice-two',created_at:1780000000000,state:'settled',publication_recorded:false}]) {
   return {owner_user_id:'alice',window_size:50,items};
@@ -1257,7 +1277,7 @@ browserTest('admin tool restrictions edit only the supplied ceiling with exact c
       return route.fulfill({ json: { user: { id: 'bob', username: 'bob' }, ceiling: [...FAMILY_WEB_TOOLS], policy: { revision, denied, allowed: FAMILY_WEB_TOOLS.filter(name => !denied.includes(name)) } } });
     });
     await openAdministration(page); const open = () => page.locator('#administration-users li').nth(1).getByRole('button', { name: 'Tool restrictions', exact: true }).click();
-    await open(); await page.waitForFunction(() => document.querySelectorAll('#administration-tools-list input').length === 8);
+    await open(); await page.waitForFunction(expected => document.querySelectorAll('#administration-tools-list input').length === expected, FAMILY_WEB_TOOLS.length);
     expect(await page.getByLabel('Deny read', { exact: true }).isChecked()).toBe(true);
     expect(await page.locator('#administration-tools-list').textContent()).not.toContain('bash');
     await page.getByLabel('Deny messages', { exact: true }).check(); await page.locator('#administration-tools-confirm').check();

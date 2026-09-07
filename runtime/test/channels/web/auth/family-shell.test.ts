@@ -51,13 +51,15 @@ test("family gets a separate no-store shell, versioned private bundles, no legac
     expect(await (await router.handle(request(path, { method: "HEAD" }))).text()).toBe("");
     expect((await router.handle(request(path, { token: "invalid" }))).status).toBe(401);
   }
-  for (const path of ["/static/classic/index.html", "/static/classic/dist/app.bundle.js", "/static/common/dist/family.bundle.js.map", "/static/common/js/marked.min.js", "/static/sw.js", "/sw.js"]) {
+  for (const path of ["/static/classic/index.html", "/static/classic/dist/app.bundle.js", "/static/common/dist/family.bundle.js.map", "/static/common/js/marked.min.js", "/static/sw.js"]) {
     expect((await router.handle(request(path))).status).toBe(403);
   }
+  const worker = await router.handle(request("/family-sw.js", { token: "invalid" }));
+  expect(worker.status).toBe(200); expect(await worker.text()).toContain("addEventListener('push'");
 });
 
 test("pin mismatch denies before reads, message admission, account mutations and logout", async () => {
-  for (const [path, method] of [["/auth/me", "GET"], ["/agent/branches", "GET"], ["/agent/default/message", "POST"], ["/account", "PATCH"], ["/auth/logout", "POST"]]) {
+  for (const [path, method] of [["/auth/me", "GET"], ["/agent/branches", "GET"], ["/agent/push/vapid-public-key", "GET"], ["/agent/default/message", "POST"], ["/account", "PATCH"], ["/auth/logout", "POST"]]) {
     for (const headers of [binding(), { "x-piclaw-account-id": bob }, { "x-piclaw-login-id": login }]) {
       const response = await router.handle(request(path!, { token: "bob-token", method, headers }));
       expect(response.status).toBe(409); expect((await response.json()).code).toBe("account_changed");

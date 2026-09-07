@@ -7,6 +7,7 @@ import { FamilyPreferences } from './family-preferences.js';
 import { FamilyResults } from './family-results.js';
 import { FamilyTasks } from './family-tasks.js';
 import { FamilyMemory, validMemorySource } from './family-memory.js';
+import { FamilyNotifications } from './family-notifications.js';
 
 function element<T extends HTMLElement>(id: string): T {
   const value = document.getElementById(id);
@@ -17,6 +18,7 @@ const account = element<HTMLElement>('account-name'), status = element<HTMLEleme
 const timeline = element<HTMLElement>('timeline'), select = element<HTMLSelectElement>('session-select');
 const form = element<HTMLFormElement>('compose-form'), compose = element<HTMLTextAreaElement>('message-text'), send = element<HTMLButtonElement>('send-message');
 const home = element<HTMLButtonElement>('go-home'), refresh = element<HTMLButtonElement>('refresh'), logout = element<HTMLButtonElement>('sign-out');
+const notify = element<HTMLButtonElement>('toggle-notifications');
 const recovery = element<HTMLElement>('message-recovery'), recoveryStatus = element<HTMLElement>('recovery-status'), recoveryActions = element<HTMLElement>('recovery-actions');
 const retry = element<HTMLButtonElement>('retry-message'), skip = element<HTMLButtonElement>('skip-message'), confirmSkip = element<HTMLInputElement>('confirm-skip');
 let heldRow: number | null = null;
@@ -31,6 +33,7 @@ let preferences: FamilyPreferences | null = null;
 let results: FamilyResults | null = null;
 let tasks: FamilyTasks | null = null;
 let memory: FamilyMemory | null = null;
+let notifications: FamilyNotifications | null = null;
 let directoryGeneration = 0;
 let refreshing: symbol | null = null, polling: ReturnType<typeof setInterval> | undefined;
 let pending: { text: string; chat: string; requestId: string } | null = null;
@@ -41,6 +44,7 @@ function controls(enabled: boolean): void {
   for (const control of [select, compose, send, home, refresh]) control.disabled = !enabled;
   retry.disabled = !enabled || heldRow === null || legacyHeld; confirmSkip.disabled = !enabled || heldRow === null;
   skip.disabled = !enabled || heldRow === null || !confirmSkip.checked;
+  notify.disabled = !enabled || !notifications?.state().available;
 }
 function mask(): void {
   // Backgrounded tabs retain no visible conversation/draft until the cookie is revalidated.
@@ -57,6 +61,7 @@ function mask(): void {
   results?.suspend();
   tasks?.suspend();
   memory?.suspend();
+  notifications?.suspend(); notify.disabled = true;
 }
 function invalidate(): void {
   if (stopped) return;
@@ -69,6 +74,7 @@ function invalidate(): void {
   results?.stop();
   tasks?.stop();
   memory?.stop();
+  notifications?.stop();
   if (polling) clearInterval(polling);
   select.replaceChildren(); compose.value = ''; pending = null; heldRow = null; recoveryRequest = null; confirmSkip.checked = false; recoveryStatus.textContent = ''; logout.disabled = true;
   status.textContent = 'This page is no longer bound to its original account.';
@@ -125,6 +131,7 @@ async function loadTimeline(): Promise<void> {
     tasks?.resume();
     memory?.resume();
     preferences?.resume(); preferences?.applyAppearance(preferenceState);
+    notifications?.resume(); notify.disabled = !notifications?.state().available; notify.textContent = notifications?.state().enabled ? 'Disable notifications' : 'Enable notifications';
     form.hidden = false; select.hidden = false; controls(!busy);
   } catch (failure) {
     if (!stopped && expected === generation) {
@@ -143,6 +150,7 @@ async function loadTimeline(): Promise<void> {
           tasks?.resume();
           memory?.resume();
           preferences?.resume(); preferences?.applyAppearance(preferenceState);
+          notifications?.resume(); notify.disabled = !notifications?.state().available; notify.textContent = notifications?.state().enabled ? 'Disable notifications' : 'Enable notifications';
         }
       } catch { /* Identity invalidation clears the page; network errors keep controls masked. */ }
     }
@@ -175,6 +183,9 @@ async function start(): Promise<void> {
     const identity = await fetchFamilyIdentity(AbortSignal.timeout(15_000));
     if (stopped) return;
     api = new FamilyApi(identity, invalidate); logout.disabled = false;
+    notifications = new FamilyNotifications(api, () => current);
+    try { await notifications.initialise(); }
+    catch (failure) { console.debug('[family] Notification subscription restore failed.', failure); }
     settings = new FamilyAccount(api);
     administration = new FamilyAdministration(api);
     workspacePolicy = new FamilyWorkspace(api);
@@ -264,9 +275,19 @@ logout.addEventListener('click', async () => {
   if (!api || stopped || busy) return;
   busy = true; controls(false); logout.disabled = true;
   try {
+    try { await notifications?.disable(); } catch (failure) { console.debug('[family] Notification cleanup failed during sign out.', failure); }
     await api.logout(); invalidate(); location.replace('/login');
   } catch (failure) { if (!stopped) { error.textContent = (failure as Error).message; logout.disabled = false; } }
   finally { busy = false; if (!stopped) void loadTimeline(); }
+});
+notify.addEventListener('click', async () => {
+  if (!notifications || stopped || busy || paused) return;
+  notify.disabled = true; error.textContent = '';
+  try {
+    if (notifications.state().enabled) await notifications.disable(); else await notifications.enable();
+    notify.textContent = notifications.state().enabled ? 'Disable notifications' : 'Enable notifications';
+  } catch (failure) { if (!stopped) error.textContent = (failure as Error).message; }
+  finally { if (!stopped) notify.disabled = !notifications.state().available; }
 });
 confirmSkip.addEventListener('change', () => { skip.disabled = busy || heldRow === null || !confirmSkip.checked; });
 async function recover(action: 'retry' | 'skip' | 'dismiss-legacy'): Promise<void> {
