@@ -467,7 +467,7 @@ These are invocation checks, not code isolation: installed extensions can execut
 
 `session_control` permits only `inspect` and `assess_stuck` for an active owned target, resolved by either one exact JID or one owner-local handle. The source must match the live execution/chat context; a claimed source, missing context, revoked login, foreign target or local alias miss cannot fall back to a global registry. Inspection returns activity/failure/cursor metadata without model hydration, provider inventory, session file paths or conversation text.
 
-Cross-session sends are denied at the chat tool before attachment reads, at the transport registry before provider callbacks, and at the direct runtime relay. Mutating session-control operations (compact/abort/model switch/retry/skip/wake/unblock) are denied at both the tool and runtime handler. These writes need durable owner provenance across queues and target execution before being enabled. Legacy single-user relay and control behaviour is unchanged; family/isolated activation remains disabled.
+Cross-session sends are denied at the chat tool before attachment reads, at the transport registry before provider callbacks, and at the direct runtime relay. The legacy web peer-message relay also denies before parsing caller-supplied source/target content or consulting global chat/handle callbacks. Mutating session-control operations (compact/abort/model switch/retry/skip/wake/unblock) are denied at both the tool and runtime handler. These writes need durable owner provenance across queues and target execution before being enabled. Legacy single-user relay and control behaviour is unchanged; family/isolated activation remains disabled.
 
 ## Owner-scoped store tools
 
