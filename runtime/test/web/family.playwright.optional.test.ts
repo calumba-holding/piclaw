@@ -43,6 +43,48 @@ browserTest('family notification control uses pinned account headers and clears 
   }finally{await page.close();}
 },20000);
 async function ready(page: Page) { await page.waitForFunction(() => document.getElementById("timeline")?.textContent?.includes("Alice private text")); }
+
+browserTest('settings navigation separates scopes from account actions and stays single-column without nested page scrolling on phones', async () => {
+  const page = await browser.newPage({ viewport: { width: 375, height: 740 } });
+  try {
+    await fixture(page); await page.goto(base); await ready(page);
+    expect(await page.locator('.family-header #open-account').count()).toBe(0);
+    expect(await page.locator('.family-actions').getByRole('button').allTextContents()).toEqual(['Enable notifications', 'Sign out']);
+    const groups = await page.locator('.settings-navigation > section').evaluateAll(sections => sections.map(section => ({
+      heading: section.querySelector('h2')?.textContent,
+      controls: Array.from(section.querySelectorAll('button')).filter(button => !button.hidden).map(button => button.textContent),
+    })));
+    expect(groups).toEqual([
+      { heading: 'Personal', controls: ['My account', 'My preferences'] },
+      { heading: 'Sessions and work', controls: ['My sessions', 'Scheduled results', 'Prepared tasks'] },
+      { heading: 'Shared family', controls: ['Family memory', 'Workspace and security'] },
+    ]);
+    const layout = await page.evaluate(() => {
+      const navigation = document.querySelector('.settings-navigation')!;
+      const shell = document.querySelector('.family-shell')!;
+      return {
+        columns: getComputedStyle(navigation).gridTemplateColumns.split(' ').length,
+        bodyOverflowX: getComputedStyle(document.body).overflowX,
+        pageFits: document.documentElement.scrollWidth <= innerWidth,
+        nestedOverflow: Array.from(shell.querySelectorAll('*')).filter(node => {
+          const style = getComputedStyle(node); return ['auto', 'scroll'].includes(style.overflowY) && node.scrollHeight > node.clientHeight;
+        }).map(node => (node as HTMLElement).id || node.className),
+      };
+    });
+    expect(layout.columns).toBe(1); expect(layout.bodyOverflowX).toBe('hidden'); expect(layout.pageFits).toBe(true); expect(layout.nestedOverflow).toEqual([]);
+    for (const id of ['open-account','open-preferences','open-sessions','open-results','open-tasks','open-memory','open-workspace-policy']) expect(await page.locator(`#${id}`).evaluate(element => Math.round(element.getBoundingClientRect().height))).toBeGreaterThanOrEqual(44);
+  } finally { await page.close(); }
+}, 20000);
+
+browserTest('settings navigation uses three stable scope columns at desktop width', async () => {
+  const page = await browser.newPage({ viewport: { width: 1200, height: 800 } });
+  try { await fixture(page); await page.goto(base); await ready(page);
+    expect(await page.locator('.settings-navigation > section').count()).toBe(3);
+    expect(await page.locator('.settings-navigation').evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length)).toBe(3);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  } finally { await page.close(); }
+}, 20000);
+
 function resultList(items: any[] = [{execution_id:'execution-one',chat_jid:'web:alice-two',created_at:1780000000000,state:'settled',publication_recorded:false}]) {
   return {owner_user_id:'alice',window_size:50,items};
 }
