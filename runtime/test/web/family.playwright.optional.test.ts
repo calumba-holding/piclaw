@@ -44,6 +44,30 @@ browserTest('family notification control uses pinned account headers and clears 
 },20000);
 async function ready(page: Page) { await page.waitForFunction(() => document.getElementById("timeline")?.textContent?.includes("Alice private text")); }
 
+browserTest('owned session picker groups authorized roots and forks while allowing duplicate friendly names across roots', async () => {
+  const page = await browser.newPage({ viewport: { width: 375, height: 740 } });
+  try {
+    await fixture(page);
+    const branches = [
+      { chat_jid:'web:alpha',root_chat_jid:'web:alpha',parent_branch_id:null,agent_name:'home' },
+      { chat_jid:'web:alpha-research',root_chat_jid:'web:alpha',parent_branch_id:'alpha',agent_name:'research' },
+      { chat_jid:'web:alpha-nested',root_chat_jid:'web:alpha',parent_branch_id:'alpha-research',agent_name:'nested' },
+      { chat_jid:'web:beta',root_chat_jid:'web:beta',parent_branch_id:null,agent_name:'second' },
+      { chat_jid:'web:beta-research',root_chat_jid:'web:beta',parent_branch_id:'beta',agent_name:'research' },
+    ];
+    await page.route('**/agent/branches', route => route.fulfill({ json: { branches } }));
+    await page.goto(`${base}?chat_jid=web:alpha`); await ready(page);
+    expect(await page.locator('#session-select optgroup').evaluateAll(groups => groups.map(group => ({ label:(group as HTMLOptGroupElement).label, options:Array.from(group.querySelectorAll('option')).map(option => [option.value,option.textContent]) })))).toEqual([
+      { label:'@home · web:alpha', options:[['web:alpha','@home · root'],['web:alpha-research','↳ @research'],['web:alpha-nested','↳ @nested']] },
+      { label:'@second · web:beta', options:[['web:beta','@second · root'],['web:beta-research','↳ @research']] },
+    ]);
+    expect(await page.locator('#session-select option').allTextContents()).not.toContain('web:bob');
+    expect(await page.locator('#session-select').evaluate(node => node.getBoundingClientRect().right <= innerWidth)).toBe(true);
+    await page.locator('#session-select').selectOption('web:beta-research'); await page.waitForFunction(() => new URLSearchParams(location.search).get('chat_jid') === 'web:beta-research');
+    expect(await page.locator('#session-select').inputValue()).toBe('web:beta-research');
+  } finally { await page.close(); }
+}, 20000);
+
 browserTest('authenticated header exposes the read-only family mode and clears it with identity state', async () => {
   const page = await browser.newPage({ viewport: { width: 375, height: 740 } });
   try {

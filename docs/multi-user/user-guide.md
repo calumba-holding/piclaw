@@ -60,7 +60,7 @@ Tabs in one browser profile share the site's login cookie. Signing in as another
 
 ## Read and send messages
 
-1. Check your displayed account name and select an **Owned session**, or choose **Go home**.
+1. Check your displayed account name and select an **Owned session**, or choose **Go home**. The picker groups your active roots and forks by root; the same friendly name may appear under different roots without granting cross-account access.
 2. Read the current conversation. The preview shows up to the most recent 100 text messages and refreshes by polling every five seconds while active.
 3. Enter plain text in **Message** and choose **Send**.
 4. Wait for the queued/running status and reply. **Refresh** requests the latest state.
