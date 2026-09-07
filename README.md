@@ -65,7 +65,7 @@ The [web UI guide](docs/web-ui.md#chat-and-status-surfaces) and [tools and skill
 
 ## Security and limits
 
-- **Single-user deployments only.** Multiple conversations or browser tabs are not separate accounts. Family and isolated-container modes cannot start; [access-mode status](docs/multi-user/README.md) and the [family preview guide](docs/multi-user/user-guide.md) track the gated development work.
+- **Single-user is the default.** Promoted `family-shared` deployments support trusted household accounts with owned conversations on one shared workspace/process; they are not filesystem isolation. Isolated-container mode is unavailable. See [access modes and limits](docs/multi-user/README.md) and the [family guide](docs/multi-user/user-guide.md).
 - The agent runs with its process user's permissions. Native installs can access that user's files and commands; containers expose their mounted files and configured network access. Use a dedicated environment and mount only what you intend to share.
 - Browser authentication supports authenticator codes (TOTP) and passkeys. Keep the backend private, use HTTPS for remote access, and trust forwarded headers only from your configured [reverse proxy](docs/reverse-proxy.md).
 - Self-hosting keeps application state on your machine. Cloud models and external tools still receive the data you send to them. The optional [keychain](docs/keychain.md) needs a master key and does not encrypt the whole workspace or chat history.

@@ -1,8 +1,8 @@
-# Family preview user guide
+# Family user guide
 
-Piclaw supports **single-user deployments only**. Family and isolated modes cannot start in a supported installation. Use this guide for controlled testing of the family preview. Do not enable family mode or change database markers to follow these steps.
+Piclaw supports promoted **family-shared** deployments for trusted households. Single-user remains the default; isolated-container mode is unavailable. Operators must use the offline [migration and promotion runbook](migration-copy.md); users must never edit activation markers or configuration to enable the mode.
 
-For the supported single-user app, see [Web UI](../web-ui.md). For family testing, use this guide with the [administrator guide](administrator-guide.md) and [troubleshooting](troubleshooting.md). Operators have separate [migration](migration-copy.md) and [offline recovery](operator-recovery.md) runbooks. Developers can check [implementation status](README.md).
+For the single-user app, see [Web UI](../web-ui.md). For family use, read this guide with the [administrator guide](administrator-guide.md) and [troubleshooting](troubleshooting.md). Operators have separate [migration](migration-copy.md) and [offline recovery](operator-recovery.md) runbooks. Developers can check [implementation status and limits](README.md).
 
 ## Accounts, conversations and shared files
 
@@ -11,7 +11,7 @@ For the supported single-user app, see [Web UI](../web-ui.md). For family testin
 - Your **home** is the root used after a fresh sign-in or when you have not selected a conversation.
 - A **handle** is a friendly session name such as `research`. Renaming it does not change the conversation's internal ID or stored history. Different accounts can use the same handle; your active sessions must have distinct names within your account.
 
-The family preview checks conversation ownership. Administrators manage accounts and sign-in factors but cannot open another person's conversation or avatar through their role alone. They can reset another account's sign-in factors, so grant the role only to people you trust.
+Family mode checks conversation ownership. Administrators manage accounts and sign-in factors but cannot open another person's conversation or avatar through their role alone. They can reset another account's sign-in factors, so grant the role only to people you trust.
 
 **Workspace files are shared between tool-capable users.** Skills, add-ons, provider configuration and permitted integration credentials belong to the instance. Piclaw selects personal memory by account ID; those files still live on the shared filesystem. Account ownership does not make workspace files private. The host operator and privileged installed code can access them.
 
@@ -267,7 +267,7 @@ Administrators may deny tools within the fixed preview set. A new run sees the n
 
 ## Current limits and getting help
 
-The preview cannot start a supported family or isolated deployment, promote a migration copy or start in recovery-only mode. It has no per-user containers or complete equivalent of the classic and visual apps.
+Family mode has no per-user containers or complete equivalent of the classic and visual apps. Users and web administrators cannot activate, restart, migrate or recover the deployment; those are offline host-operator procedures. Isolated-container mode remains unavailable.
 
 Use **Enable notifications** to grant this signed-in browser login a Web Push subscription. Notifications are delivered only for your owned conversations while that exact login remains valid. Family notifications say only that a reply is available; open PiClaw to read it after account checks. **Disable notifications** removes the current browser subscription. Signing out, revoking the device or disabling the account prevents future delivery; already displayed notifications cannot be recalled. Device and tab identifiers are memory-only in the family shell and presence is cleared on blur, navigation and account invalidation. Unsupported user actions include attachments, steering and commands; switching a running session's model; provider login and generic add-on panes; shell, terminal and VNC access; automatic family task scheduling, Dream; cross-account sharing; and session merge or purge.
 

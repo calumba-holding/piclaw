@@ -69,7 +69,7 @@ Only the host operator should run these commands on an offline, backed-up worksp
 
 | Operator error | Required action |
 |---|---|
-| Prepared migration copy cannot start | Expected safeguard. Keep the copy for review; do not remove its marker or point an older binary at it. Promotion is not implemented. |
+| Prepared migration copy cannot start | Expected safeguard. Keep the copy for review; do not remove its marker or point an older binary at it. Use the version-five offline `promote-copy` workflow to create a separate eligible database. |
 | Access mode mismatch, missing marker or unsupported schema | Stop. Restore matching configuration and a compatible coordinated backup; never silently downgrade. |
 | Runtime lock exists or SQLite is busy | Stop all cooperating writers and confirm the correct workspace/host. Never delete an active lock to force progress. |
 | Migration inventory changed | Generate and review a fresh preview. Do not replace only the hash in an old plan without review. |

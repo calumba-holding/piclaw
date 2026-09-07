@@ -1,10 +1,10 @@
 # Prepare an ownership migration copy
 
-`piclaw access-migration` inventories an existing single-user database and prepares root ownership and handle namespaces in a **new, non-startable copy**. The source database, configuration, credentials, JIDs and session files remain unchanged. No command activates family mode or installs the copy.
+`piclaw access-migration` inventories an existing single-user database, prepares a reviewed version-five copy and promotes that copy into a separate startable family database. The source database, prepared copy, configuration, credentials, JIDs and session files remain unchanged until the operator explicitly installs the promoted database.
 
 ## Scope
 
-The command prepares a database for review; it cannot convert a running deployment. The copy retains its `single-user` activation value and gains an `access_migration_preparation` marker, which prevents current code from starting it. Do not remove the marker or edit activation values. Older releases may not recognise it; never run an older binary against the copy.
+The prepare command cannot convert a running deployment. The prepared copy retains its `single-user` activation value and gains an `access_migration_preparation` marker, which prevents startup. Do not remove the marker or edit activation values. After review, `promote-copy` clones the prepared copy into another new file, verifies version-five migration receipts and ownership, records an immutable promotion receipt and changes only that new destination to `family-shared`. Older releases may not recognise these records; never run an older binary against either copy.
 
 The command writes `session_roots` ownership and `chat_branches.handle_owner_id` in one transaction. Plan versions add the following operations:
 
@@ -45,9 +45,30 @@ The plan must be a regular non-symlink JSON file up to 1 MiB. Version 1 has exac
 
 The command acquires the workspace maintenance lock even when the runtime-lock environment override is set. It opens the existing source read-only, performs no schema initialisation, creates a verified WAL-inclusive SQLite snapshot, checks source `data_version` and inventory again, then validates and applies assignments transactionally in the copy. The destination is `0600` in the private directory and receives a final integrity check. Output reports counts and paths only. A normal failure removes only the newly created partial destination and releases the lock; source state is never edited.
 
+## Promote the reviewed copy
+
+Promotion supports only a freshly prepared version-five copy with no pending child sessions and matching resource, factor and legacy-input receipts. Configure the offline workspace explicitly for `family-shared`, keep all writers stopped and retain the original coordinated backup. Use the exact `snapshot` printed by preview/preparation:
+
+```sh
+piclaw --workspace /path/to/offline-workspace access-migration promote-copy \
+  --prepared /path/to/private-migration/prepared.sqlite \
+  --destination /path/to/private-migration/promoted.sqlite \
+  --source-snapshot <reviewed-lowercase-sha256> \
+  --writers-stopped --backup-set-confirmed \
+  --confirm 'PROMOTE FAMILY COPY'
+```
+
+The prepared file and source remain byte-for-byte unchanged. The destination must not exist or be the configured live database. The command requires owner-only files/directories, the maintenance lock, explicit family configuration and an exact reviewed snapshot. It creates a verified SQLite clone, promotes that clone transactionally, verifies it again and emits counts/paths only.
+
+To install, stop all writers, retain the current single-user database/configuration/key/session backup, place the promoted database at the configured store path with owner-only permissions, install matching explicit `family-shared` configuration, then restart through the host's normal service manager. Piclaw revalidates the immutable promotion receipt and ownership at every startup. This command does not install, restart or activate the running instance.
+
+## Rollback
+
+Stop all writers. Restore the original single-user database, matching single-user configuration, credentials/keys and session files together, then restart through the normal service manager. Do not switch only the config, edit markers, reuse a prepared copy as a live database or point an older binary at a promoted family database. Any family-only work created after installation is absent from the original backup; export or retain it separately before rollback when required.
+
 ## After preparation
 
-Keep the copy for review and testing. Do not point the service at it or replace `messages.db`. Children omitted from an adoption list have no fork-provenance records and cannot be loaded as family sessions. Versions 1 and 2 retain old authentication and task state; versions 3–5 apply the additional rules below. Check each version's limits before preparing a copy. The preparation marker prevents startup in both single-user and family mode.
+Keep both the prepared copy and original backup for review/rollback. Do not point the service at the prepared copy. Children omitted from an adoption list have no fork-provenance records and block promotion. Versions 1–4 remain review artifacts; only version 5 is promotable. The preparation marker prevents startup in both single-user and family mode.
 
 ## Authentication, tasks and media disposition
 
@@ -94,7 +115,7 @@ Import is allowed only for the immutable `default` account when it has no confir
 
 Missing/unexpected secret files, wrong/expired codes, malformed records, missing key material, concurrent source changes or SQL failure abort without a partial destination. Raw input buffers are cleared and parsed secret references dropped after encryption; JavaScript strings cannot promise secure memory erasure. Protect the process and original input file accordingly. The destination transaction includes resource dispositions, optional import and an `access_factor_migration` count-only report. Source configuration and its old global TOTP seed are not removed or rewritten.
 
-Factor import cannot reset or transfer credentials, start Piclaw in recovery-only mode or rotate encryption keys. The copy still cannot start. Physical-device testing and migration of legacy browsers and services must be completed before deployment.
+Factor import cannot reset or transfer credentials, start Piclaw in recovery-only mode or rotate encryption keys. The prepared copy cannot start. Physical-device testing and migration of legacy browsers and services remain operator responsibilities before installation.
 
 ## Legacy input holds
 
@@ -106,7 +127,7 @@ The owner can explicitly confirm `dismiss-legacy` after recent authentication. T
 
 To run a prompt from old history, the owner must review it and send a new supported plain-text message. Dismissal does not prefill, copy or submit content, and it preserves the original author. The browser shows the legacy hold separately, hides Retry, requires confirmation and reuses the request key for unchanged manual retries. Losing focus, navigating away or changing accounts clears the controls. Late responses cannot restore the previous account's state.
 
-This policy does not handle live durable scheduler/outbox work, which still blocks version-three-and-later preparation. It does not reactivate stopped workers, rewrite service grants or make the prepared copy startable. Full promotion, transport and process-kill integration remain release gates.
+This policy does not handle live durable scheduler/outbox work, which blocks version-three-and-later preparation. It does not reactivate stopped workers, rewrite service grants or make the prepared copy startable. Unsupported transports and automatic workers stay disabled in family mode.
 
 ## Explicit child-session capture
 
@@ -120,8 +141,8 @@ In the destination transaction, each captured child receives an `owned_fork_oper
 
 The gated family first-use path checks owner/source authority before importing the captured seed through the SDK, without loading an unverified legacy file first. Import preserves the original tree entries, labels, custom entries, model and thinking level. The latest registered friendly name wins. The runtime persists and reopens the imported session before clearing the seed; errors/revocation retain it for retry and dispose the failed runtime. A cold reopen uses the imported file and does not replay a completed adoption. Temporary import files are removed. Original JSONL archives are not a substitute for complete migration and remain part of the coordinated backup.
 
-Multi-file selection, unsupported/trimmed versions, pending file seeds, cross-directory parent histories and process-kill promotion/replay proof still need separate handling. This feature does not remove activation gates or confer authority to another account.
+Multi-file selection, unsupported/trimmed versions, pending file seeds and cross-directory parent histories are unsupported. Promotion requires every registered child to have reviewed adoption evidence and does not confer authority to another account.
 
 A crash can leave a partial destination because filesystem creation and SQLite commit are not one transaction. Treat any output without an independently verified preparation marker/integrity check as incomplete. Never overwrite or reuse an uncertain destination; choose a fresh path. Keep the source unchanged and rerun a fresh preview if any relevant source metadata changed.
 
-The maintenance lock excludes cooperating Piclaw processes. Check separately for external readers and writers; privileged processes can bypass the lock. Later source changes are not copied into the prepared database. Issues #1126, #1129 and #1133 track promotion, rollback, the remaining resource and queue migrations, unsupported child histories and activation. This command has been tested on fixtures; no live migration or restart was performed.
+The maintenance lock excludes cooperating Piclaw processes. Check separately for external readers and writers; privileged processes can bypass the lock. Later source changes are not copied into the prepared database. The command has been tested on fixtures; no live migration or restart was performed. Unsupported child histories, external resources and automatic workers must be removed or kept outside the family deployment.
