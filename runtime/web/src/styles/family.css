@@ -17,6 +17,7 @@ a { color: var(--accent); }
 .settings-navigation h2 { margin: 0 0 8px; color: var(--muted); font-size: 13px; font-weight: 650; letter-spacing: .02em; text-transform: uppercase; }
 .settings-links { display: flex; flex-direction: column; gap: 8px; }
 .settings-links button { width: 100%; min-height: 44px; text-align: left; }
+.settings-links button[aria-expanded=true] { border-color: var(--accent); box-shadow: inset 3px 0 var(--accent); }
 .notice { font-size: 14px; color: var(--muted); border-left: 3px solid var(--border); padding-left: 12px; }
 .session-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 select { min-width: 0; max-width: 100%; flex: 1 1 180px; }

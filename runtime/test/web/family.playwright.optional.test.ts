@@ -85,6 +85,28 @@ browserTest('settings navigation uses three stable scope columns at desktop widt
   } finally { await page.close(); }
 }, 20000);
 
+browserTest('settings navigation keeps one panel open and clears the previous private draft', async () => {
+  const page = await browser.newPage({ viewport: { width: 375, height: 740 } });
+  try {
+    await fixture(page); await page.route('**/account', route => route.fulfill({ json: accountSnapshot() }));
+    await page.goto(base); await ready(page); await page.locator('#open-account').click();
+    await page.waitForFunction(() => !(document.getElementById('account-details') as HTMLElement).hidden);
+    await page.locator('#account-display-name').fill('UNSAVED_PRIVATE_NAME');
+    await page.locator('#open-preferences').click();
+    await page.waitForFunction(() => !(document.getElementById('preferences-form') as HTMLElement).hidden);
+    expect(await page.locator('#account-settings').isHidden()).toBe(true);
+    expect(await page.locator('#account-display-name').inputValue()).toBe('');
+    expect(await page.locator('#account-preferences').isVisible()).toBe(true);
+    expect(await page.locator('#account-settings:not([hidden]),#account-preferences:not([hidden]),#session-settings:not([hidden]),#scheduled-results:not([hidden]),#scheduled-tasks:not([hidden]),#family-memory:not([hidden]),#administration-settings:not([hidden]),#workspace-policy:not([hidden])').count()).toBe(1);
+    expect(await page.locator('#open-account').getAttribute('aria-expanded')).toBe('false');
+    expect(await page.locator('#open-preferences').getAttribute('aria-expanded')).toBe('true');
+    expect(await page.locator('#open-preferences').evaluate(node => getComputedStyle(node).boxShadow)).not.toBe('none');
+    await page.locator('#close-preferences').click();
+    expect(await page.locator('#open-preferences').getAttribute('aria-expanded')).toBe('false');
+    expect(await page.evaluate(() => document.activeElement?.id)).toBe('open-preferences');
+  } finally { await page.close(); }
+}, 20000);
+
 function resultList(items: any[] = [{execution_id:'execution-one',chat_jid:'web:alice-two',created_at:1780000000000,state:'settled',publication_recorded:false}]) {
   return {owner_user_id:'alice',window_size:50,items};
 }
@@ -123,6 +145,22 @@ async function memoryFixture(page:Page){
 }
 async function memoryDraft(page:Page){await page.getByRole('button',{name:'Preview for family memory',exact:true}).click();await page.waitForFunction(()=>!document.getElementById('memory-form')?.hidden);await page.locator('#memory-excerpt').fill('SHARE');}
 async function inspectMemory(page:Page){await page.locator('#refresh-memory').click();await page.getByRole('button',{name:'Inspect memory',exact:true}).click();await page.waitForFunction(()=>!document.getElementById('memory-detail')?.hidden);}
+
+browserTest('timeline memory preview closes the previous settings panel and clears its draft', async () => {
+  const page = await browser.newPage({ viewport: { width: 375, height: 740 } });
+  try {
+    await memoryFixture(page); await page.goto(base); await ready(page);
+    await page.locator('#open-preferences').click(); await page.waitForFunction(() => !(document.getElementById('preferences-form') as HTMLElement).hidden);
+    await page.locator('#preferences-guidance').fill('UNSAVED_PRIVATE_GUIDANCE');
+    await page.getByRole('button', { name: 'Preview for family memory', exact: true }).click();
+    await page.waitForFunction(() => !(document.getElementById('memory-form') as HTMLElement).hidden);
+    expect(await page.locator('#account-preferences').isHidden()).toBe(true);
+    expect(await page.locator('#preferences-guidance').inputValue()).toBe('');
+    expect(await page.locator('#family-memory').isVisible()).toBe(true);
+    expect(await page.locator('#open-memory').getAttribute('aria-expanded')).toBe('true');
+    expect(await page.locator('#account-settings:not([hidden]),#account-preferences:not([hidden]),#session-settings:not([hidden]),#scheduled-results:not([hidden]),#scheduled-tasks:not([hidden]),#family-memory:not([hidden]),#administration-settings:not([hidden]),#workspace-policy:not([hidden])').count()).toBe(1);
+  } finally { await page.close(); }
+}, 20000);
 
 browserTest('memory publication previews exact source, requires verbatim confirmed excerpt and renders reference text safely',async()=>{
   const page=await browser.newPage({viewport:{width:375,height:800}});
@@ -518,18 +556,19 @@ browserTest('task request size counts JSON escaping separately from UTF-8 prompt
   }finally{await page.close();}
 },20000);
 
-browserTest('task mutation keeps one request through busy reset and cross-panel publication attempts',async()=>{
+browserTest('task mutation keeps one request and locks cross-panel navigation until settlement',async()=>{
   const page=await browser.newPage();let release:()=>void=()=>{};
   try{const f=await taskFixture(page);let entered!:()=>void;const held=new Promise<void>(r=>release=r),waiting=new Promise<void>(r=>entered=r);let sends=0,publishes=0;
     await page.route('**/agent/scheduled-results',r=>r.fulfill({json:resultList()}));await page.route('**/agent/scheduled-results/execution-one',r=>r.fulfill({json:resultDetail()}));
     await page.route('**/agent/scheduled-results/execution-one/publish',r=>{publishes++;return r.fulfill({json:{execution_id:'execution-one',chat_jid:'web:alice-two',message_rowid:99,created:true}});});
     await page.route('**/agent/scheduled-tasks',async r=>{if(r.request().method()==='GET')return r.fulfill({json:f.directory});sends++;entered();await held;await r.fulfill({status:500,json:{}});});
-    await openTasks(page);await page.locator('#open-results').click();await page.getByRole('button',{name:'Inspect result',exact:true}).click();await page.locator('#confirm-result-publication').check();
-    await taskDraft(page);await page.locator('#confirm-task-preparation').check();await page.locator('#prepare-task').click();await waiting;
-    await page.locator('#reset-task-draft').click();await page.locator('#refresh-tasks').click();await page.locator('#open-tasks').click();await page.locator('#publish-result').click();
+    await openTasks(page);await taskDraft(page);await page.locator('#confirm-task-preparation').check();await page.locator('#prepare-task').click();await waiting;
+    expect(await page.locator('.settings-navigation').getAttribute('aria-busy')).toBe('true');await page.locator('#open-results').evaluate((button:HTMLButtonElement)=>button.click());
+    expect(await page.locator('#scheduled-tasks').isVisible()).toBe(true);expect(await page.locator('#scheduled-results').isHidden()).toBe(true);
     expect(await page.locator('#task-prompt').inputValue()).toBe('Exact task prompt\nline two ');expect(await page.locator('#task-prompt').isDisabled()).toBe(true);expect(sends).toBe(1);expect(publishes).toBe(0);
     release();await page.waitForFunction(()=>document.getElementById('scheduled-tasks-status')?.textContent?.includes('may have been prepared'));await page.waitForFunction(()=>!(document.getElementById('send-message') as HTMLButtonElement)?.disabled);
-    await page.locator('#publish-result').click();await page.waitForFunction(()=>document.getElementById('scheduled-results-status')?.textContent?.includes('Published'));expect(publishes).toBe(1);expect(sends).toBe(1);expect(await page.locator('#task-prompt').isDisabled()).toBe(true);
+    expect(await page.locator('.settings-navigation').getAttribute('aria-busy')).toBe('false');await page.locator('#open-results').click();await page.getByRole('button',{name:'Inspect result',exact:true}).click();await page.locator('#confirm-result-publication').check();await page.locator('#publish-result').click();
+    await page.waitForFunction(()=>document.getElementById('scheduled-results-status')?.textContent?.includes('Published'));expect(publishes).toBe(1);expect(sends).toBe(1);expect(await page.locator('#scheduled-tasks').isHidden()).toBe(true);
   }finally{release();await page.close();}
 },20000);
 
