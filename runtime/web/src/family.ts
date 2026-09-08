@@ -90,10 +90,13 @@ async function loadTimeline(): Promise<void> {
   if (!api || stopped || !current || refreshing || busy || paused || document.hidden) return;
   const flight = Symbol(), expected = ++generation, target = current; refreshing = flight;
   try {
-    const [result, recoveryState, preferenceState] = await Promise.all([
+    const [result, recoveryState, preferenceState, modelState, agentState, contextUsage] = await Promise.all([
       api.request(`/timeline?chat_jid=${encodeURIComponent(target)}&limit=100`),
       api.request(`/agent/message-recovery?chat_jid=${encodeURIComponent(target)}`),
       api.request('/account/preferences'),
+      api.request(`/agent/models?chat_jid=${encodeURIComponent(target)}`),
+      api.request(`/agent/status?chat_jid=${encodeURIComponent(target)}`),
+      api.request(`/agent/context?chat_jid=${encodeURIComponent(target)}`),
     ]);
     if (stopped || expected !== generation || current !== target || paused || document.hidden) return;
     renderRecovery(recoveryState);
@@ -105,11 +108,11 @@ async function loadTimeline(): Promise<void> {
     administration?.resume(); workspacePolicy?.resume(); results?.resume(); tasks?.resume(); memory?.resume();
     preferences?.resume(); preferences?.applyAppearance(preferenceState);
     notifications?.resume(); notify.disabled = !notifications?.state().available; notify.textContent = notifications?.state().enabled ? 'Disable notifications' : 'Enable notifications';
-    chatSurface?.update({ posts: result.posts, hasMore: result.has_more === true, directory, currentChatJid: target, enabled: !busy });
+    chatSurface?.update({ posts: result.posts, hasMore: result.has_more === true, directory, currentChatJid: target, modelState, agentState, contextUsage, enabled: !busy });
     controls(!busy);
   } catch (failure) {
     if (!stopped && expected === generation) {
-      chatSurface?.update({ posts: [], hasMore: false, currentChatJid: target, enabled: false }); controls(false); home.disabled = false; refresh.disabled = false;
+      chatSurface?.update({ posts: [], hasMore: false, currentChatJid: target, agentState: null, contextUsage: null, enabled: false }); controls(false); home.disabled = false; refresh.disabled = false;
       error.textContent = (failure as Error).message;
       try {
         const preferenceState = await api.request('/account/preferences');
@@ -133,7 +136,7 @@ async function switchSession(chat: string): Promise<void> {
 async function refreshDirectory(): Promise<void> {
   if (!api || stopped || paused || document.hidden) return;
   const expected = ++directoryGeneration;
-  const value = await api.request('/agent/branches');
+  const value = await api.request('/agent/branches?include_archived=1');
   if (stopped || paused || document.hidden || expected !== directoryGeneration || !Array.isArray(value?.branches)) return;
   directory = value.branches;
   chatSurface?.update({ directory, currentChatJid: current });
@@ -147,6 +150,7 @@ async function start(): Promise<void> {
     chatSurface = new FamilyChatSurface(api, {
       navigate: switchSession,
       changed: loadTimeline,
+      refreshDirectory,
       previewMemory: source => { panelNavigation.activate('family-memory'); return memory?.previewSource(source); },
       submissionState: value => {
         busy = value; generation++; refreshing = null; controls(!value);

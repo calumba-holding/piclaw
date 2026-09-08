@@ -355,7 +355,8 @@ function ContextPie({ usage, onCompact, compactionLabel = '', compactionTitle = 
     const pct = Math.min(100, Math.max(0, usage.percent || 0));
     const tokens = usage.tokens;
     const window = usage.contextWindow;
-    const compactLabel = `Compact context`;
+    const canCompact = typeof onCompact === 'function';
+    const compactLabel = canCompact ? 'Compact context' : 'Context usage';
     const label = tokens != null
         ? `Context: ${formatK(tokens)} / ${formatK(window)} tokens (${pct.toFixed(0)}%)`
         : `Context: ${pct.toFixed(0)}%`;
@@ -382,10 +383,11 @@ function ContextPie({ usage, onCompact, compactionLabel = '', compactionTitle = 
             title=${title}
             data-tooltip=${title}
             aria-label=${title}
+            disabled=${!canCompact}
             onClick=${(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                onCompact?.();
+                if (canCompact) onCompact();
             }}
         >
             <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
@@ -599,8 +601,8 @@ export function formatModelPickerPricing(pricing) {
     return rates.length > 0 ? `${rates.join(' / ')} per 1M` : '';
 }
 
-function normaliseComposeModelCatalogue(payload, contextUsage) {
-    const preferences = readModelCataloguePreferences();
+function normaliseComposeModelCatalogue(payload, contextUsage, preferenceRuntime) {
+    const preferences = readModelCataloguePreferences(preferenceRuntime);
     return normaliseModelCatalogue(payload, {
         contextUsage,
         ...toModelCatalogueNormalisePreferences(preferences),
@@ -1204,6 +1206,7 @@ export function ComposeBox({
     services = null,
     capabilities = null,
     storageNamespace = '',
+    preferenceRuntime = undefined,
     onContentChange,
     onSubmissionStateChange,
     disabled = false,
@@ -1219,6 +1222,8 @@ export function ComposeBox({
     const uploadOne = composeServices.uploadMedia ?? uploadMedia;
     const fetchCommands = composeServices.fetchCommands ?? ((chatJid) => fetch(`/agent/commands?chat_jid=${encodeURIComponent(chatJid)}`).then(r => r.ok ? r.json() : null));
     const persistBrowserState = composeCapabilities.persistBrowserState !== false;
+    const modelPreferenceRuntime = preferenceRuntime === undefined ? (typeof window !== 'undefined' ? window : null) : preferenceRuntime;
+    const sessionPreferenceRuntime = modelPreferenceRuntime;
     const allowCommands = composeCapabilities.commands !== false;
     const allowMentions = composeCapabilities.mentions !== false;
     const allowMedia = composeCapabilities.media !== false;
@@ -1227,6 +1232,9 @@ export function ComposeBox({
     const allowSpeech = composeCapabilities.speech !== false;
     const allowNotifications = composeCapabilities.notifications !== false;
     const allowModelPicker = composeCapabilities.modelPicker !== false;
+    const allowModelSettings = composeCapabilities.modelSettings !== false;
+    const allowModelCompaction = composeCapabilities.modelCompaction !== false;
+    const allowSessionRollup = composeCapabilities.sessionRollup !== false;
     const [searchText, setSearchText] = useState('');
     const [searchFilterImages, setSearchFilterImages] = useState(false);
     const [searchFilterAttachments, setSearchFilterAttachments] = useState(false);
@@ -1246,7 +1254,7 @@ export function ComposeBox({
     const [showModelPopup, setShowModelPopup] = useState(false);
     const [showSessionPopup, setShowSessionPopup] = useState(false);
     const [sessionPopupQuery, setSessionPopupQuery] = useState('');
-    const [pinnedSessionChatJids, setPinnedSessionChatJids] = useState(() => persistBrowserState ? readSessionPickerPreferences().pinnedChatJids : []);
+    const [pinnedSessionChatJids, setPinnedSessionChatJids] = useState(() => readSessionPickerPreferences(sessionPreferenceRuntime).pinnedChatJids);
     const [pendingPurgeChatJid, setPendingPurgeChatJid] = useState(null);
     const [pendingPruneChatJid, setPendingPruneChatJid] = useState(null);
     const [hiddenSessionChatJids, setHiddenSessionChatJids] = useState(() => new Set());
@@ -1257,9 +1265,8 @@ export function ComposeBox({
     currentChatJidRef.current = currentChatJid;
     const [modelOptions, setModelOptions] = useState([]);
     useEffect(() => {
-        if (!persistBrowserState) return undefined;
         const applyPreferences = () => {
-            const preferences = readModelCataloguePreferences();
+            const preferences = readModelCataloguePreferences(modelPreferenceRuntime);
             const pinned = new Set(preferences.pinnedKeys);
             setModelOptions((current) => current.map((entry) => ({
                 ...entry,
@@ -1267,25 +1274,24 @@ export function ComposeBox({
                 lastUsedAt: preferences.recentByKey[entry.key] ?? null,
             })));
         };
-        window.addEventListener(MODEL_CATALOGUE_PREFERENCES_EVENT, applyPreferences);
-        window.addEventListener('storage', applyPreferences);
+        modelPreferenceRuntime?.addEventListener?.(MODEL_CATALOGUE_PREFERENCES_EVENT, applyPreferences);
+        if (typeof window !== 'undefined' && modelPreferenceRuntime === window) window.addEventListener('storage', applyPreferences);
         return () => {
-            window.removeEventListener(MODEL_CATALOGUE_PREFERENCES_EVENT, applyPreferences);
-            window.removeEventListener('storage', applyPreferences);
+            modelPreferenceRuntime?.removeEventListener?.(MODEL_CATALOGUE_PREFERENCES_EVENT, applyPreferences);
+            if (typeof window !== 'undefined' && modelPreferenceRuntime === window) window.removeEventListener('storage', applyPreferences);
         };
-    }, [agentModelsPayload, contextUsage]);
+    }, [agentModelsPayload, contextUsage, modelPreferenceRuntime]);
     useEffect(() => {
-        if (!persistBrowserState) return undefined;
         const applySessionPreferences = () => {
-            setPinnedSessionChatJids(readSessionPickerPreferences().pinnedChatJids);
+            setPinnedSessionChatJids(readSessionPickerPreferences(sessionPreferenceRuntime).pinnedChatJids);
         };
-        window.addEventListener(SESSION_PICKER_PREFERENCES_EVENT, applySessionPreferences);
-        window.addEventListener('storage', applySessionPreferences);
+        sessionPreferenceRuntime?.addEventListener?.(SESSION_PICKER_PREFERENCES_EVENT, applySessionPreferences);
+        if (typeof window !== 'undefined' && sessionPreferenceRuntime === window) window.addEventListener('storage', applySessionPreferences);
         return () => {
-            window.removeEventListener(SESSION_PICKER_PREFERENCES_EVENT, applySessionPreferences);
-            window.removeEventListener('storage', applySessionPreferences);
+            sessionPreferenceRuntime?.removeEventListener?.(SESSION_PICKER_PREFERENCES_EVENT, applySessionPreferences);
+            if (typeof window !== 'undefined' && sessionPreferenceRuntime === window) window.removeEventListener('storage', applySessionPreferences);
         };
-    }, []);
+    }, [sessionPreferenceRuntime]);
     useEffect(() => {
         const applyConfirmedModelState = (event) => {
             const detail = event?.detail;
@@ -1294,7 +1300,7 @@ export function ComposeBox({
             const payload = detail?.payload;
             if (!payload || typeof payload !== 'object') return;
             const modelLabel = payload.model ?? payload.current;
-            setModelOptions(normaliseComposeModelCatalogue(payload, contextUsage));
+            setModelOptions(normaliseComposeModelCatalogue(payload, contextUsage, modelPreferenceRuntime));
             onModelStateChange?.({ ...payload, model: modelLabel ?? null });
             if (modelLabel) onModelChange?.(modelLabel);
         };
@@ -1531,11 +1537,11 @@ export function ComposeBox({
     const canSwitchSession = hasSwitchableChatAgents && typeof onSwitchChat === 'function';
     const canRestoreSession = hasSwitchableChatAgents && typeof onRestoreSession === 'function';
     const renameInProgress = Boolean(isRenameSessionInProgress || renameSessionInProgressRef.current);
-    const canRenameSession = !searchMode && typeof onRenameSession === 'function' && !renameInProgress;
-    const canCreateSession = !searchMode && typeof onCreateSession === 'function';
+    const canRenameSession = !searchMode && typeof onRenameSession === 'function' && currentSessionAgent?.capabilities?.rename !== false && !renameInProgress;
+    const canCreateSession = !searchMode && typeof onCreateSession === 'function' && currentSessionAgent?.capabilities?.fork !== false;
     const canCreateRootSession = !searchMode && typeof onCreateRootSession === 'function';
-    const canRollupSession = !searchMode && !isAgentActive && !rollingUpSession && Boolean(currentRollupParent?.chat_jid);
-    const canDeleteSession = !searchMode && typeof onDeleteSession === 'function' && !isCurrentDefaultRootSession;
+    const canRollupSession = allowSessionRollup && !searchMode && !isAgentActive && !rollingUpSession && Boolean(currentRollupParent?.chat_jid);
+    const canDeleteSession = !searchMode && typeof onDeleteSession === 'function' && currentSessionAgent?.capabilities?.archive !== false && !isCurrentDefaultRootSession;
     const canPurgeArchivedSession = !searchMode && typeof onPurgeArchivedSession === 'function';
     const showSessionSwitcherButton = !searchMode && (canSwitchSession || canRestoreSession || canRenameSession || canCreateSession || canCreateRootSession || canRollupSession || canDeleteSession || canPurgeArchivedSession);
     const modelPickerState = allowModelPicker ? resolveComposeModelPickerState(activeModel, agentModelsPayload) : { showPicker: false, label: '', hasAvailableModels: false };
@@ -1874,7 +1880,7 @@ export function ComposeBox({
                 key: `session:${chatJid}`,
                 label: `@${agentName} — ${chatJid}${chat?.is_active ? ' active' : ''}${archived ? ' archived' : ''}`,
                 chat,
-                disabled: archived ? !canRestoreSession : !canSwitchSession,
+                disabled: archived ? (!canRestoreSession || chat?.capabilities?.restore === false) : (!canSwitchSession || chat?.capabilities?.open === false),
             });
         }
         if (!sessionPopupQuery && canCreateSession) {
@@ -1909,8 +1915,7 @@ export function ComposeBox({
     }, [sessionPopupEntries.length, sessionPopupIndex]);
 
     const toggleSessionPin = useCallback((chatJid) => {
-        if (!persistBrowserState) return;
-        const preferences = togglePinnedSessionChatJid(chatJid);
+        const preferences = togglePinnedSessionChatJid(chatJid, sessionPreferenceRuntime);
         setPinnedSessionChatJids(preferences.pinnedChatJids);
         const currentEntries = sessionPopupEntriesRef.current;
         const currentChats = currentEntries
@@ -2295,13 +2300,13 @@ export function ComposeBox({
                 confirmedModel = normaliseModelCatalogue(latest).find((entry) => entry.current)?.key
                     ?? normalizeModelCataloguePreferenceKey(latest?.current ?? latest?.model)
                     ?? null;
-                setModelOptions(normaliseComposeModelCatalogue(latest, contextUsage));
+                setModelOptions(normaliseComposeModelCatalogue(latest, contextUsage, modelPreferenceRuntime));
             });
             if (generation !== modelCommandGenerationRef.current || targetChatJid !== currentChatJidRef.current) return false;
             if (!refreshed || (expectedModel && confirmedModel !== expectedModel)) {
                 throw new Error('The server did not confirm the model switch.');
             }
-            if (expectedModel) recordRecentModelKey(expectedModel);
+            if (expectedModel) recordRecentModelKey(expectedModel, new Date().toISOString(), modelPreferenceRuntime);
             setSubmitNotice(resolveUiOnlyCommandNotice(commandText, response));
             onPost?.(response);
             return true;
@@ -2345,6 +2350,12 @@ export function ComposeBox({
             return;
         }
         handleSpeechToggle();
+    };
+
+    const handleSelectThinking = async (level) => {
+        const requested = typeof level === 'string' ? level.trim() : '';
+        if (!requested || switchingModel) return;
+        await runModelCommand(`/thinking ${requested}`);
     };
 
     const handleSelectModel = async (modelOption) => {
@@ -2414,7 +2425,7 @@ export function ComposeBox({
         setShowSessionPopup(false);
         setShowModelPopup((previous) => {
             if (!previous) {
-                setModelOptions(normaliseComposeModelCatalogue(agentModelsPayload, contextUsage));
+                setModelOptions(normaliseComposeModelCatalogue(agentModelsPayload, contextUsage, modelPreferenceRuntime));
             }
             return !previous;
         });
@@ -2613,7 +2624,7 @@ export function ComposeBox({
                         const confirmedModel = normaliseModelCatalogue(latest).find((entry) => entry.current)?.key
                             ?? normalizeModelCataloguePreferenceKey(latest?.current ?? latest?.model)
                             ?? null;
-                        if (recordsModelRecency && confirmedModel) recordRecentModelKey(confirmedModel);
+                        if (recordsModelRecency && confirmedModel) recordRecentModelKey(confirmedModel, new Date().toISOString(), modelPreferenceRuntime);
                     });
                 }
 
@@ -3050,7 +3061,7 @@ export function ComposeBox({
         Promise.resolve(loadModels(targetChatJid))
             .then((payload) => {
                 if (generation !== modelListGenerationRef.current || targetChatJid !== currentChatJidRef.current) return;
-                setModelOptions(normaliseComposeModelCatalogue(payload, contextUsage));
+                setModelOptions(normaliseComposeModelCatalogue(payload, contextUsage, modelPreferenceRuntime));
                 emitModelState(payload);
             })
             .catch((error) => {
@@ -3573,16 +3584,19 @@ export function ComposeBox({
                             loading=${loadingModels}
                             switching=${switchingModel}
                             onSelect=${(entry) => { void handleSelectModel(entry); }}
-                            onTogglePin=${(entry) => togglePinnedModelKey(entry.key)}
+                            onTogglePin=${(entry) => togglePinnedModelKey(entry.key, modelPreferenceRuntime)}
                             onClose=${closeModelPopup}
-                            onCompact=${() => {
+                            onCompact=${allowModelCompaction ? () => {
                                 closeModelPopup();
                                 void handleContextCompact();
-                            }}
-                            onOpenSettings=${() => {
+                            } : undefined}
+                            onOpenSettings=${allowModelSettings ? () => {
                                 setShowModelPopup(false);
                                 requestOpenSettingsDialog({ section: 'models' });
-                            }}
+                            } : undefined}
+                            thinkingLevel=${thinkingLevel}
+                            thinkingLevels=${modelOptions.find((entry) => entry.current)?.thinkingLevels ?? []}
+                            onSelectThinking=${(level) => { void handleSelectThinking(level); }}
                             rootRef=${modelPopupRef}
                         />
                     `}
@@ -3611,7 +3625,7 @@ export function ComposeBox({
                                         key: `session:${chat.chat_jid}`,
                                         label: `@${chat.agent_name} — ${chat.chat_jid}${chat.is_active ? ' active' : ''}${chat.archived_at ? ' archived' : ''}`,
                                         chat,
-                                        disabled: chat.archived_at ? !canRestoreSession : !canSwitchSession,
+                                        disabled: chat.archived_at ? (!canRestoreSession || chat?.capabilities?.restore === false) : (!canSwitchSession || chat?.capabilities?.open === false),
                                     }));
                                     const initialIndex = resolveSessionPickerSearchInitialIndex(nextOrderedChats, query);
                                     sessionPopupIndexRef.current = initialIndex;
@@ -3638,7 +3652,7 @@ export function ComposeBox({
                                     const archived = Boolean(chat.archived_at);
                                     const pinned = !archived && pinnedSessionChatJidSet.has(chat.chat_jid);
                                     const isRoot = chat.chat_jid === (chat.root_chat_jid || chat.chat_jid);
-                                    const canPrune = !isRoot && !chat.is_active && !archived && typeof onDeleteSession === 'function';
+                                    const canPrune = !isRoot && !chat.is_active && !archived && typeof onDeleteSession === 'function' && chat?.capabilities?.archive !== false;
                                     const canPurgeArchived = archived && canPurgeArchivedSession;
                                     const purgeConfirming = canPurgeArchived && pendingPurgeChatJid === chat.chat_jid;
                                     const pruneConfirming = canPrune && pendingPruneChatJid === chat.chat_jid;
@@ -3682,7 +3696,7 @@ export function ComposeBox({
                                                     }
                                                     handleSessionSwitch(chat.chat_jid);
                                                 }}
-                                                disabled=${archived ? !canRestoreSession : !canSwitchSession}
+                                                disabled=${archived ? (!canRestoreSession || chat?.capabilities?.restore === false) : (!canSwitchSession || chat?.capabilities?.open === false)}
                                                 title=${archived ? `Restore archived ${label}` : `Switch to ${label}`}
                                             >
                                                 <span class="compose-session-row-content" style=${isSessionPopupChatEmphasized(chat) ? 'font-weight:700' : ''}>
@@ -3883,7 +3897,7 @@ export function ComposeBox({
                         ${!searchMode && contextUsage && contextUsage.percent != null && html`
                             <${ContextPie}
                                 usage=${contextUsage}
-                                onCompact=${handleContextCompact}
+                                onCompact=${allowModelCompaction ? handleContextCompact : undefined}
                                 compactionLabel=${statusNoticeIsCompaction ? statusNoticeElapsedLabel || '0:00' : ''}
                                 compactionTitle=${statusNoticeIsCompaction ? (statusNoticeTitle || 'Smart compaction') : ''}
                             />

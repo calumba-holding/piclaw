@@ -1,7 +1,11 @@
 import { ChatSurface } from './components/chat-surface.js';
+import { rewriteOwnedMediaUrl } from './components/post.js';
 import { FamilyApi } from './family-api.js';
 import { validMemorySource } from './family-memory.js';
+import { isCompactionStatus } from './ui/status-duration.js';
 import { html, render } from './vendor/preact-htm.js';
+
+const denyStatusWorkspaceLookup = async (): Promise<null> => null;
 
 export interface FamilyChatDirectoryEntry {
   branch_id?: string;
@@ -13,6 +17,7 @@ export interface FamilyChatDirectoryEntry {
   model?: string | null;
   model_label?: string | null;
   is_active?: boolean;
+  capabilities?: Record<string, boolean>;
 }
 
 interface FamilyChatSurfaceSnapshot {
@@ -22,6 +27,9 @@ interface FamilyChatSurfaceSnapshot {
   currentChatJid: string;
   enabled: boolean;
   identity: FamilyApi['identity'];
+  modelState: Record<string, any> | null;
+  agentState: Record<string, any> | null;
+  contextUsage: Record<string, any> | null;
 }
 
 /**
@@ -31,6 +39,8 @@ interface FamilyChatSurfaceSnapshot {
 export class FamilyChatSurface {
   private readonly host = document.getElementById('family-chat-root') as HTMLElement;
   private snapshot: FamilyChatSurfaceSnapshot;
+  private readonly postCapabilities: Record<string, unknown>;
+  private readonly preferenceRuntime: EventTarget & { localStorage: { getItem: (key: string) => string | null; setItem: (key: string, value: string) => void } };
   private stopped = false;
   private pending: { chatJid: string; content: string; requestId: string } | null = null;
 
@@ -39,13 +49,35 @@ export class FamilyChatSurface {
     private readonly hooks: {
       navigate: (chatJid: string) => Promise<void>;
       changed: () => Promise<void>;
+      refreshDirectory: () => Promise<void>;
       previewMemory: (source: any) => Promise<void> | void;
       submissionState: (busy: boolean) => void;
     },
   ) {
     this.snapshot = {
       posts: [], hasMore: false, directory: [], currentChatJid: '', enabled: false, identity: api.identity,
+      modelState: null, agentState: null, contextUsage: null,
     };
+    const preferences = new Map<string, string>();
+    const runtime = new EventTarget() as FamilyChatSurface['preferenceRuntime'];
+    runtime.localStorage = { getItem: key => preferences.get(key) ?? null, setItem: (key, value) => { preferences.set(key, value); } };
+    this.preferenceRuntime = runtime;
+    this.postCapabilities = Object.freeze({
+      media: true,
+      mediaActions: false,
+      cards: true,
+      widgets: true,
+      annotations: true,
+      annotationActions: false,
+      cardActions: false,
+      widgetActions: false,
+      resourceActions: false,
+      thinking: true,
+      delete: false,
+      rewriteImageSrc: rewriteOwnedMediaUrl,
+      loadMediaInfo: (mediaId: number) => this.api.request(`/media/${mediaId}/info`),
+      loadThinking: (messageId: number, chatJid: string) => this.api.request(`/agent/thinking?message_id=${encodeURIComponent(messageId)}&chat_jid=${encodeURIComponent(chatJid)}`),
+    });
     this.render();
   }
 
@@ -59,7 +91,7 @@ export class FamilyChatSurface {
 
   clear(): void {
     this.pending = null;
-    this.update({ posts: [], hasMore: false, directory: [], currentChatJid: '', enabled: false });
+    this.update({ posts: [], hasMore: false, directory: [], currentChatJid: '', enabled: false, modelState: null, agentState: null, contextUsage: null });
   }
 
   stop(): void {
@@ -80,11 +112,15 @@ export class FamilyChatSurface {
     mode: string | null | undefined,
     chatJid: string,
   ): Promise<any> => {
-    // ComposeBox reports its submission lock before invoking this adapter. Do
-    // not reject that already-admitted submission because the lock has flipped
-    // `enabled`; only lifecycle invalidation or a changed target can revoke it.
+    // ComposeBox model controls use this injected service directly. Admit only
+    // exact model/thinking controls; all other slash/mention inputs stay denied.
     if (this.stopped || chatJid !== this.snapshot.currentChatJid) throw new Error('This family conversation is unavailable. Refresh before sending.');
-    if (mediaIds?.length || mode || !content.trim() || /^[\s]*[/@]/.test(content)) throw new Error('Only plain text prompts are supported by the current family capability policy.');
+    const command = typeof content === 'string' ? content.trim() : '';
+    const modelControl = command.match(/^\/(model|thinking)\s+(.+)$/i);
+    if (modelControl && !mediaIds?.length && !mode) {
+      return await this.api.request(`/agent/models?chat_jid=${encodeURIComponent(chatJid)}`, 'PATCH', { action: modelControl[1].toLowerCase(), value: modelControl[2] });
+    }
+    if (mediaIds?.length || mode || !command || /^[\s]*[/@]/.test(command)) throw new Error('Only plain text prompts and the active model controls are supported by the current family capability policy.');
     if (!this.pending || this.pending.chatJid !== chatJid || this.pending.content !== content) {
       this.pending = { chatJid, content, requestId: crypto.randomUUID() };
     }
@@ -97,9 +133,24 @@ export class FamilyChatSurface {
     return response;
   };
 
+  private readonly loadModels = async (chatJid: string): Promise<any> => {
+    return await this.api.request(`/agent/models?chat_jid=${encodeURIComponent(chatJid)}`);
+  };
+
+  private readonly mutateSession = async (path: string, body: Record<string, unknown>): Promise<any> => {
+    const response = await this.api.request(path, 'POST', body);
+    await this.hooks.refreshDirectory();
+    return response;
+  };
+
   private render(): void {
     if (this.stopped) return;
     const value = this.snapshot;
+    const activeAgentState = value.agentState?.status === 'active' ? value.agentState : null;
+    const terminalError = value.agentState?.data?.type === 'error' ? value.agentState.data : null;
+    const agentStatus = activeAgentState?.data ?? terminalError;
+    const currentTurnId = typeof agentStatus?.turn_id === 'string' ? agentStatus.turn_id : null;
+    const currentBranch = value.directory.find(branch => branch.chat_jid === value.currentChatJid) as (FamilyChatDirectoryEntry & { capabilities?: Record<string, boolean> }) | undefined;
     const renderAccessory = (post: any) => {
       const source = post?.memory_source;
       if (!validMemorySource(source) || source.chat_jid !== value.currentChatJid || source.message_rowid !== post.id) return null;
@@ -116,19 +167,64 @@ export class FamilyChatSurface {
       posts=${value.posts}
       hasMore=${value.hasMore}
       renderPostAccessory=${renderAccessory}
-      postCapabilities=${{ media: false, cards: false, widgets: false, annotations: false, thinking: false, delete: false }}
+      postCapabilities=${this.postCapabilities}
       agents=${{}}
       user=${{ name: value.identity.displayName, user_name: value.identity.displayName }}
       reverse=${true}
+      agentStatus=${agentStatus}
+      isCompactionStatus=${isCompactionStatus}
+      agentDraft=${activeAgentState?.draft ?? null}
+      agentThought=${activeAgentState?.thought ?? null}
+      currentTurnId=${currentTurnId}
+      loadStatusWorkspaceBranch=${denyStatusWorkspaceLookup}
       composeKey=${`${value.identity.userId}:${value.currentChatJid}`}
       composeProps=${{
         key: `${value.identity.userId}:${value.currentChatJid}`,
         currentChatJid: value.currentChatJid || value.identity.homeChatJid,
         activeChatAgents: value.directory,
+        activeModel: value.modelState?.current ?? null,
+        agentModelsPayload: value.modelState,
+        thinkingLevel: value.modelState?.thinking_level ?? null,
+        supportsThinking: value.modelState?.supports_thinking === true,
+        contextUsage: value.contextUsage ?? value.modelState?.context_usage ?? null,
+        statusNotice: isCompactionStatus(agentStatus) ? agentStatus : null,
+        preferenceRuntime: this.preferenceRuntime,
+        onModelStateChange: (state: any) => { if (state && typeof state === 'object') this.update({ modelState: state }); },
         onSwitchChat: value.enabled ? (chatJid: string) => { void this.hooks.navigate(chatJid); } : undefined,
+        onCreateSession: value.enabled && currentBranch?.capabilities?.fork === true ? async () => {
+          const sourceChatJid = value.currentChatJid;
+          const response = await this.mutateSession('/agent/branch-fork', { chat_jid: sourceChatJid, request_id: crypto.randomUUID() });
+          if (this.stopped || this.snapshot.currentChatJid !== sourceChatJid) return;
+          const chatJid = response?.branch?.chat_jid; if (typeof chatJid === 'string') await this.hooks.navigate(chatJid);
+        } : undefined,
+        onCreateRootSession: value.enabled ? async (agentName: string) => {
+          const sourceChatJid = value.currentChatJid;
+          const response = await this.mutateSession('/agent/root-session', { agent_name: agentName });
+          if (this.stopped || this.snapshot.currentChatJid !== sourceChatJid) return;
+          const chatJid = response?.branch?.chat_jid; if (typeof chatJid === 'string') await this.hooks.navigate(chatJid);
+        } : undefined,
+        onRenameSession: value.enabled && currentBranch?.capabilities?.rename === true ? async () => {
+          const name = window.prompt('Rename current session', currentBranch.agent_name)?.trim();
+          const sourceChatJid = value.currentChatJid;
+          if (name) { await this.mutateSession('/agent/branch-rename', { chat_jid: sourceChatJid, agent_name: name }); if (!this.stopped && this.snapshot.currentChatJid === sourceChatJid) await this.hooks.changed(); }
+        } : undefined,
+        onDeleteSession: value.enabled ? async (chatJid: string, options?: { confirmed?: boolean }) => {
+          const branch = value.directory.find(item => item.chat_jid === chatJid) as any;
+          const confirmed = options?.confirmed === true || window.confirm(`Archive @${branch?.agent_name || chatJid}? History and files are retained.`);
+          if (branch?.capabilities?.archive !== true || !confirmed) return false;
+          await this.mutateSession('/agent/branch-prune', { chat_jid: chatJid });
+          if (chatJid === value.currentChatJid) await this.hooks.navigate(value.identity.homeChatJid); else await this.hooks.changed();
+          return true;
+        } : undefined,
+        onRestoreSession: value.enabled ? async (chatJid: string) => {
+          const branch = value.directory.find(item => item.chat_jid === chatJid) as any;
+          if (branch?.capabilities?.restore !== true) throw new Error('This session cannot be restored.');
+          const sourceChatJid = value.currentChatJid;
+          await this.mutateSession('/agent/branch-restore', { chat_jid: chatJid, agent_name: branch.agent_name });
+          if (!this.stopped && this.snapshot.currentChatJid === sourceChatJid) await this.hooks.navigate(chatJid);
+        } : undefined,
         onSubmitIntercept: value.enabled ? async (submission: any) => {
-          const response = await this.sendMessage('default', submission.content, null, [], submission.submitMode, value.currentChatJid);
-          return response;
+          return await this.sendMessage('default', submission.content, null, [], submission.submitMode, value.currentChatJid);
         } : async () => { throw new Error('This family conversation is unavailable. Refresh before sending.'); },
         onPost: () => { document.getElementById('family-error')!.textContent = ''; void this.hooks.changed(); },
         onSubmitError: (message: string) => {
@@ -141,7 +237,7 @@ export class FamilyChatSurface {
         showQueueStack: false,
         services: {
           sendAgentMessage: this.sendMessage,
-          getAgentModels: async () => ({ models: [] }),
+          getAgentModels: this.loadModels,
           uploadMedia: async () => { throw new Error('Attachments are unavailable in family mode.'); },
           fetchCommands: async () => ({ commands: [] }),
         },
@@ -154,7 +250,10 @@ export class FamilyChatSurface {
           location: false,
           speech: false,
           notifications: false,
-          modelPicker: false,
+          modelPicker: true,
+          modelSettings: false,
+          modelCompaction: false,
+          sessionRollup: false,
         },
         storageNamespace: `family:${value.identity.userId}`,
         disabled: !value.enabled,

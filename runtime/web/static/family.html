@@ -7,6 +7,9 @@
   <title>PiClaw family workspace</title>
   <link rel="stylesheet" href="/static/classic/dist/app.bundle.css?v=__FAMILY_ASSET_VERSION__" />
   <link rel="stylesheet" href="/static/common/dist/family.bundle.css?v=__FAMILY_ASSET_VERSION__" />
+  <script src="/static/common/js/marked.min.js?v=__FAMILY_ASSET_VERSION__" defer></script>
+  <script src="/static/common/js/vendor/katex.min.js?v=__FAMILY_ASSET_VERSION__" defer></script>
+  <script src="/static/common/js/vendor/beautiful-mermaid.js?v=__FAMILY_ASSET_VERSION__" defer></script>
 </head>
 <body>
   <main class="family-shell">
@@ -43,7 +46,7 @@
         </div>
       </section>
     </nav>
-    <p class="notice">Family preview: text conversations only. Shared workspace files are not private between tool-capable users.</p>
+    <p class="notice">Family preview: owned conversations use the standard rich renderer. Uploads, attachment viewers/downloads, card submissions, widget opening, annotation edits and resource downloads remain unavailable. Shared workspace files are not private between tool-capable users.</p>
     <section id="family-memory" aria-labelledby="memory-heading" hidden>
       <header><h2 id="memory-heading" tabindex="-1">Family memory</h2><button id="close-memory" type="button">Close memory</button></header>
       <p class="notice">Publishing copies your chosen text for every family account. Private source identifiers stay in your receipt. Publisher attribution does not prove authorship or truth. No Dream, file or prompt projection is enabled.</p>

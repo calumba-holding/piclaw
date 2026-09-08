@@ -18,7 +18,10 @@ async function fixture(page: Page) {
   await page.route('**/account/model-defaults', route => route.fulfill({ json: modelDefaultsSnapshot() }));
   await page.route('**/account/preferences', route => route.fulfill({ json: { user_id: state.identity.principal.userId, preferences: { revision: 0, theme: 'system', response_guidance: '' }, defaults: { theme: 'system', response_guidance: '' }, can_edit: true } }));
   await page.route("**/agent/message-recovery?**", route => route.fulfill({ json: { state: 'idle' } }));
-  await page.route("**/agent/branches", route => route.fulfill({ json: { branches: [{ chat_jid: "web:alice", root_chat_jid: "web:alice", agent_name: "home" }, { chat_jid: "web:alice-two", root_chat_jid: "web:alice-two", agent_name: "second" }] } }));
+  await page.route("**/agent/status?**", route => route.fulfill({ json: { status: 'idle', state: 'idle', chat_jid: 'web:alice', data: null, extension_working: null } }));
+  await page.route("**/agent/context?**", route => route.fulfill({ json: { tokens: 1000, contextWindow: 200000, percent: 1, sessionGeneration: 'fixture', cacheUsage: null } }));
+  await page.route("**/agent/models?**", route => route.fulfill({ json: { current:'test/reasoning',model_options:[{label:'test/reasoning',provider:'test',id:'reasoning',name:'Reasoning model',context_window:200000,pricing:{input_per_million:1,output_per_million:2},reasoning:true,thinking_levels:['off','high'],thinking_level_labels:['Off','High']},{label:'openrouter/openai/gpt-5.4',provider:'openrouter',id:'openai/gpt-5.4',name:'GPT 5.4',context_window:400000,pricing:{input_per_million:2,output_per_million:4},reasoning:true,thinking_levels:['off','high'],thinking_level_labels:['Off','High']}],thinking_level:'high',thinking_level_label:'High',supports_thinking:true,available_thinking_levels:['off','high'],available_thinking_level_labels:['Off','High'],context_usage:{tokens:1000,contextWindow:200000,percent:1} } }));
+  await page.route(/\/agent\/branches(?:\?.*)?$/, route => route.fulfill({ json: { capabilities:{create_root:true},branches: [{ chat_jid: "web:alice", root_chat_jid: "web:alice", parent_branch_id:null, agent_name: "home", is_active:false, model:'test/reasoning',capabilities:{open:true,fork:true,rename:true,archive:false,restore:false} }, { chat_jid: "web:alice-two", root_chat_jid: "web:alice-two", parent_branch_id:null, agent_name: "second", is_active:false, model:'test/reasoning',capabilities:{open:true,fork:true,rename:true,archive:true,restore:false} }] } }));
   await page.route("**/timeline?**", route => { state.calls.push({ path: route.request().url(), headers: route.request().headers(), body: null }); return route.fulfill({ json: posts() }); });
   return state;
 }
@@ -61,7 +64,7 @@ browserTest('owned session picker groups authorized roots and forks while allowi
       { chat_jid:'web:beta',root_chat_jid:'web:beta',parent_branch_id:null,agent_name:'second' },
       { chat_jid:'web:beta-research',root_chat_jid:'web:beta',parent_branch_id:'beta',agent_name:'research' },
     ];
-    await page.route('**/agent/branches', route => route.fulfill({ json: { branches } }));
+    await page.route(/\/agent\/branches(?:\?.*)?$/, route => route.fulfill({ json: { branches } }));
     await page.goto(`${base}?chat_jid=web:alpha`); await ready(page);
     await openSessionPicker(page);
     expect(await page.locator('.compose-session-section-heading').allTextContents()).toEqual(['Current', 'This session tree', 'Other sessions']);
@@ -79,6 +82,35 @@ browserTest('owned session picker groups authorized roots and forks while allowi
     expect(await currentChat(page)).toBe('web:beta-research');
   } finally { await page.close(); }
 }, 20000);
+
+browserTest('curated model and owned session controls share standard UX without cross-account persistence', async () => {
+  for(const viewport of [{width:1200,height:900},{width:375,height:740}]){
+    const page=await browser.newPage({viewport});
+    try{
+      const state=await fixture(page),modelWrites:any[]=[],sessionWrites:any[]=[];let model='test/reasoning',thinking='high';
+      const branches:any[]=[
+        {branch_id:'alice-root',chat_jid:'web:alice',root_chat_jid:'web:alice',parent_branch_id:null,agent_name:'home',is_active:false,model:'test/reasoning',context_usage:{tokens:1000,contextWindow:200000,percent:1},capabilities:{open:true,fork:true,rename:true,archive:false,restore:false}},
+        {branch_id:'alice-child',chat_jid:'web:alice-child',root_chat_jid:'web:alice',parent_branch_id:'alice-root',agent_name:'child',is_active:false,model:'openrouter/openai/gpt-5.4',capabilities:{open:true,fork:true,rename:true,archive:true,restore:false}},
+        {branch_id:'alice-old',chat_jid:'web:alice-old',root_chat_jid:'web:alice',parent_branch_id:'alice-root',agent_name:'old',archived_at:'yesterday',is_active:false,model:null,capabilities:{open:false,fork:false,rename:false,archive:false,restore:true}},
+      ];
+      await page.route('**/agent/models?**',async route=>{const req=route.request();if(req.method()==='PATCH'){const body=req.postDataJSON();modelWrites.push({body,headers:req.headers(),url:req.url()});if(body.action==='model')model=body.value;else thinking=body.value;return route.fulfill({json:{command:{status:'success'},current:model,thinking_level:thinking,thinking_level_label:thinking,supports_thinking:true,context_usage:{tokens:1000,contextWindow:200000,percent:1}}});}return route.fulfill({json:{current:model,model_options:[{label:'test/reasoning',provider:'test',id:'reasoning',name:'Reasoning model',context_window:200000,pricing:{input_per_million:1,output_per_million:2},reasoning:true,thinking_levels:['off','high'],thinking_level_labels:['Off','High']},{label:'openrouter/openai/gpt-5.4',provider:'openrouter',id:'openai/gpt-5.4',name:'GPT 5.4',context_window:400000,pricing:{input_per_million:2,output_per_million:4},reasoning:true,thinking_levels:['off','high'],thinking_level_labels:['Off','High']}],thinking_level:thinking,thinking_level_label:thinking,supports_thinking:true,context_usage:{tokens:1000,contextWindow:200000,percent:1}}});});
+      await page.route(/\/agent\/branches(?:\?.*)?$/,route=>route.fulfill({json:{capabilities:{create_root:true},branches}}));
+      for(const path of ['/agent/branch-fork','/agent/root-session','/agent/branch-rename','/agent/branch-prune','/agent/branch-restore'])await page.route(`**${path}`,route=>{const body=route.request().postDataJSON();sessionWrites.push({path,body,headers:route.request().headers()});if(path.endsWith('branch-fork')){const branch={...branches[1],branch_id:'new-child',chat_jid:'web:new-child',agent_name:'child-2'};branches.push(branch);return route.fulfill({status:201,json:{branch}});}if(path.endsWith('root-session')){const branch={...branches[0],branch_id:'new-root',chat_jid:'web:new-root',root_chat_jid:'web:new-root',agent_name:body.agent_name};branches.push(branch);return route.fulfill({status:201,json:{branch}});}const branch=branches.find(item=>item.chat_jid===body.chat_jid);if(path.endsWith('rename'))branch.agent_name=body.agent_name;if(path.endsWith('prune')){branch.archived_at='now';branch.capabilities={open:false,fork:false,rename:false,archive:false,restore:true};}if(path.endsWith('restore')){branch.archived_at=null;branch.capabilities={open:true,fork:true,rename:true,archive:true,restore:false};}return route.fulfill({json:{branch}});});
+      await page.goto(base);await ready(page);
+      const modelButton=page.getByRole('button',{name:'Open model picker'});expect(await modelButton.textContent()).toContain('test/reasoning');await modelButton.click();
+      expect(await page.locator('.compose-model-catalogue-option-price').first().textContent()).toContain('/ 1M');expect(await page.locator('.compose-model-catalogue-badge').allTextContents()).toContain('200K context');
+      await page.locator('.compose-model-catalogue-search').fill('gpt 5.4');expect(await page.locator('.compose-model-catalogue-option').count()).toBe(1);await page.locator('.compose-model-catalogue-pin').click();expect(await page.locator('.compose-model-catalogue-pin').textContent()).toBe('★');
+      await page.locator('.compose-model-catalogue-option').click();await page.waitForFunction(()=>document.querySelector('.compose-model-hint')?.textContent?.includes('openrouter/openai/gpt-5.4'));
+      await modelButton.click();await page.locator('.compose-model-catalogue').getByLabel('Thinking level',{exact:true}).selectOption('off');await page.waitForFunction(()=>document.querySelector('.compose-model-hint')?.getAttribute('title')?.includes('(off)'));
+      expect(modelWrites.map(item=>item.body)).toEqual([{action:'model',value:'openrouter/openai/gpt-5.4'},{action:'thinking',value:'off'}]);expect(await page.locator('#default-model').inputValue()).toBe('');expect(modelWrites.every(item=>item.headers['x-piclaw-account-id']==='alice'&&item.headers['x-piclaw-login-id']==='login-a')).toBe(true);
+      await page.keyboard.press('Escape');await openSessionPicker(page);expect(await page.locator('.compose-session-section-heading').allTextContents()).toContain('Archived');expect(await page.locator('[data-testid="session-popup"]').textContent()).not.toContain('web:bob');expect(await page.getByText('Merge current w/ parent',{exact:true}).count()).toBe(0);expect(await page.getByText('Open Models settings',{exact:true}).count()).toBe(0);
+      const childRow=page.getByTestId('session-item').filter({has:page.getByText('web:alice-child',{exact:true})});await childRow.locator('xpath=..').locator('.compose-session-row-pin').click();expect(await childRow.locator('xpath=..').locator('.compose-session-row-pin').textContent()).toBe('★');
+      await page.getByRole('button',{name:'Close session picker'}).click();await page.evaluate(()=>{(window as any).prompt=()=> 'renamed';});await openSessionPicker(page);await page.getByRole('button',{name:'Rename current…',exact:true}).click();await page.waitForFunction(()=>document.body.textContent?.includes('@renamed'));
+      expect(sessionWrites[0]).toMatchObject({path:'/agent/branch-rename',body:{chat_jid:'web:alice',agent_name:'renamed'}});expect(sessionWrites.every(item=>item.headers['x-piclaw-account-id']==='alice'&&item.headers['x-piclaw-login-id']==='login-a')).toBe(true);
+      await waitForFamilyIdle(page);state.identity=principal('bob','login-b');await page.locator('#refresh').click();await page.waitForFunction(()=>!document.getElementById('family-chat-root')?.textContent);expect(await page.evaluate(()=>[localStorage.length,sessionStorage.length])).toEqual([0,0]);
+    }finally{await page.close();}
+  }
+},30000);
 
 browserTest('authenticated header exposes the read-only family mode and clears it with identity state', async () => {
   const page = await browser.newPage({ viewport: { width: 375, height: 740 } });
@@ -187,13 +219,112 @@ beforeAll(async () => {
   server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch(req) {
     const path = new URL(req.url).pathname;
     if (path === "/" || path === "/index.html") return new Response(Bun.file(join(import.meta.dir, "../../web/static/family.html")), { headers: { "Content-Type": "text/html" } });
-    if (["/static/common/dist/family.bundle.js", "/static/common/dist/family.bundle.css", "/static/classic/dist/app.bundle.css"].includes(path)) return new Response(Bun.file(join(import.meta.dir, "../../web/static", path.slice(8))));
+    if (["/static/common/dist/family.bundle.js", "/static/common/dist/family.bundle.css", "/static/classic/dist/app.bundle.css", "/static/common/js/marked.min.js", "/static/common/js/vendor/katex.min.js", "/static/common/js/vendor/beautiful-mermaid.js", "/static/common/js/vendor/adaptivecards.min.js"].includes(path)) return new Response(Bun.file(join(import.meta.dir, "../../web/static", path.slice(8))));
     if (path === "/login" || path === "/blank") return new Response("<!doctype html><p>Sign in</p>", { headers: { "Content-Type": "text/html" } });
     if (path === "/old-sw.js") return new Response("self.addEventListener('install',()=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));", { headers: { "Content-Type": "text/javascript" } });
     return new Response("not found", { status: 404 });
   } }); base = `http://localhost:${server.port}`;
 });
 afterAll(async () => { await browser?.close(); server?.stop(true); });
+
+browserTest('owned rich timeline uses the standard renderer without activating indirect actions', async () => {
+  const transparentPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+7aIf9QAAAABJRU5ErkJggg==','base64');
+  const content = [
+    '# Render parity',
+    '',
+    '- list item',
+    '',
+    '> quoted text',
+    '',
+    '| A | B |',
+    '|---|---|',
+    '| 1 | 2 |',
+    '',
+    '[safe link](https://example.com)',
+    '',
+    '```ts',
+    'const answer: number = 42;',
+    '```',
+    '',
+    '#familytag',
+    '',
+    '$$',
+    'x^2',
+    '$$',
+    '',
+    '```mermaid',
+    'flowchart LR',
+    '  A --> B',
+    '```',
+    '',
+    '<strong>SAFE_HTML</strong><script>window.TIMELINE_XSS=true</script><img src="https://foreign.example/tracker.png" onerror="window.TIMELINE_XSS=true">',
+    '',
+    '![owned](/media/11)',
+    '![foreign](https://foreign.example/foreign.png)',
+    '',
+    'Files:',
+    '- /workspace/report.md',
+    '',
+    'Folders:',
+    '- /workspace/docs',
+    '',
+    'Referenced messages:',
+    '- message:1',
+    '',
+    'Attachments:',
+    '- attachment:11 (photo.png)',
+    '- attachment:12 (report.pdf)',
+  ].join('\n');
+  const blocks = [
+    { type:'text',annotations:{audience:['family'],priority:2,lastModified:'2026-09-08T00:00:00.000Z'} },
+    { type:'image',name:'photo.png',mime_type:'image/png',annotations:{audience:['family']} },
+    { type:'file',name:'report.pdf',mime_type:'application/pdf' },
+    { type:'adaptive_card',card_id:'card-one',schema_version:'1.5',state:'active',fallback_text:'Card fallback',payload:{type:'AdaptiveCard',version:'1.5',body:[{type:'TextBlock',text:'CARD_BODY [card link](https://foreign.example/card-link)'},{type:'Image',url:'https://foreign.example/card.png',altText:'Remote card image'},{type:'Image',url:'/media/11',altText:'Owned card image'}],actions:[{type:'Action.Submit',title:'Submit card',data:{secret:'not-authority'}}]} },
+    { type:'adaptive_card_submission',card_id:'card-one',source_post_id:2,submitted_at:'2026-09-08T00:00:00.000Z',action_type:'Action.Submit',title:'Submitted choices',data:{priority:'high'} },
+    { type:'generated_widget',widget_id:'widget-one',title:'READ_ONLY_WIDGET',description:'Widget description',artifact:{kind:'html',html:'<!doctype html><p>widget</p>'},auto_open:true,capabilities:['interactive'] },
+    { type:'resource_link',uri:'https://foreign.example/resource',title:'REMOTE_RESOURCE',description:'Remote resource' },
+    { type:'resource',uri:'memory://owned',text:'EMBEDDED_RESOURCE',data:'SGVsbG8=',mime_type:'text/plain' },
+    { type:'thinking_ref',lines:2,duration_ms:25 },
+    { type:'recovery_marker',recovered:true,attempts_used:2,classifier:'timeout' },
+    { type:'timeout_marker',timed_out:true,tool_action_summary:'read source',draft_recovered:true },
+    { type:'agent_timing',started_at:'2026-09-07T23:59:58.000Z',completed_at:'2026-09-08T00:00:00.000Z',duration_ms:2000,usage:{input_tokens:20,output_tokens:10,total_tokens:30} },
+    { type:'turn_outcome_marker',kind:'provider_error',severity:'warning',label:'Needs review',title:'Turn outcome',detail:'Bounded detail' },
+    { type:'unknown_future_block',payload:{html:'<script>window.TIMELINE_XSS=true</script>'} },
+    null,
+    ['malformed'],
+  ];
+  const richPosts = { posts:[
+    {id:2,timestamp:'2026-09-08T00:00:00.000Z',chat_jid:'web:alice',data:{type:'agent_response',content,content_blocks:blocks,media_ids:[11,12,-1,'bad'],link_previews:[{url:'https://example.com/docs',title:'LINK_PREVIEW',description:'Preview description',image:'https://foreign.example/preview.png'},null,'bad']}},
+    {id:3,timestamp:'2026-09-08T00:00:01.000Z',chat_jid:'web:alice',data:{type:'agent_response',content:'SURROUNDING_MESSAGE',content_blocks:[{type:'adaptive_card',card_id:'unsupported-card',schema_version:'99.0',state:'active',fallback_text:'UNSUPPORTED_CARD_FALLBACK',payload:{type:'AdaptiveCard',version:'99.0',body:[]}}],media_ids:[],link_previews:[]}},
+  ],has_more:false };
+  for (const context of [
+    { viewport:{width:1200,height:900},colorScheme:'light' as const },
+    { viewport:{width:375,height:740},colorScheme:'dark' as const },
+  ]) {
+    const page=await browser.newPage(context);const external:string[]=[],media:Array<{path:string,search:string,headers:Record<string,string>}>=[],thinkingHeaders:Record<string,string>[]=[];
+    try{
+      await fixture(page);
+      await page.route('**/timeline?**',route=>route.fulfill({json:richPosts}));
+      await page.route('**/agent/thinking?**',route=>{thinkingHeaders.push(route.request().headers());return route.fulfill({json:{text:'PRIVATE_REASONING',lines:2,duration_ms:25,model:'test-model',truncated:false}});});
+      await page.route('https://foreign.example/**',route=>{external.push(route.request().url());return route.abort();});
+      await page.route('**/media/**',route=>{const parsed=new URL(route.request().url()),path=parsed.pathname;if(parsed.origin!==new URL(base).origin||!/^\/media\/[1-9]\d*(?:\/(?:thumbnail|info))?$/.test(path)){external.push(route.request().url());return route.abort();}media.push({path,search:parsed.search,headers:route.request().headers()});if(path.endsWith('/info'))return route.fulfill({json:{id:Number(path.split('/')[2]),filename:path.includes('/11/')?'photo.png':'report.pdf',content_type:path.includes('/11/')?'image/png':'application/pdf',created_at:'2026-09-08T00:00:00.000Z'}});return route.fulfill({status:200,contentType:'image/png',body:transparentPng});});
+      await page.goto(base);await page.waitForFunction(()=>Boolean((window as any).marked&&(window as any).katex&&(window as any).beautifulMermaid));await page.locator('#refresh').click();
+      await page.waitForFunction(()=>Boolean(document.querySelector('.mermaid-container svg')&&document.querySelector('.adaptive-card-container')));
+      expect(await page.locator('.post-content h1').textContent()).toBe('Render parity');expect(await page.locator('.post-content table').count()).toBe(1);expect(await page.locator('.post-content blockquote').count()).toBe(1);expect(await page.locator('#post-2 .post-content a').filter({hasText:'safe link'}).getAttribute('href')).toBe('https://example.com/');
+      expect(await page.locator('.post-code-copy-btn').count()).toBe(1);expect(await page.locator('#post-2 .post-copy-btn').getAttribute('aria-label')).toBe('Copy message');expect(await page.locator('.hashtag').textContent()).toBe('#familytag');expect(await page.locator('.katex-display').count()).toBe(1);expect(await page.locator('.mermaid-container svg').count()).toBe(1);
+      expect(await page.locator('.post-msg-pill-link').getAttribute('href')).toBe('#msg-1');expect(await page.locator('.post-file-pill[title="/workspace/report.md"]').count()).toBe(1);expect(await page.locator('.post-file-pill[title="/workspace/docs"]').count()).toBe(1);
+      expect(await page.locator('.post-content script,[onerror]').count()).toBe(0);expect(await page.evaluate(()=>(window as any).TIMELINE_XSS===true)).toBe(false);expect(await page.locator('#post-2 .post-content').textContent()).toContain('SAFE_HTML');expect(await page.locator('.link-preview').getAttribute('href')).toBe('https://example.com/docs');expect(await page.locator('.link-preview').textContent()).toContain('LINK_PREVIEW');expect(await page.locator('.link-preview').evaluate(node=>getComputedStyle(node).backgroundImage)).toBe('none');
+      expect(await page.locator('.adaptive-card-container').first().textContent()).toContain('CARD_BODY');expect(await page.locator('.adaptive-card-container button:not(:disabled)').count()).toBe(0);expect(await page.locator('.adaptive-card-container input,.adaptive-card-container textarea,.adaptive-card-container select').count()).toBe(0);expect(await page.locator('.adaptive-card-container a[href]').count()).toBe(0);expect(await page.locator('.adaptive-card-container img[src$="/media/11"]').count()).toBe(1);expect(await page.locator('.adaptive-card-container img[src*="foreign.example"]').count()).toBe(0);expect(await page.locator('.adaptive-card-submission-receipt').textContent()).toContain('Submitted choices');expect(await page.locator('#post-3').textContent()).toContain('SURROUNDING_MESSAGE');expect(await page.locator('#post-3').textContent()).toContain('UNSUPPORTED_CARD_FALLBACK');
+      expect(await page.locator('.generated-widget-launch-title').textContent()).toBe('READ_ONLY_WIDGET');expect(await page.locator('.generated-widget-launch-btn').isDisabled()).toBe(true);expect(await page.evaluate(()=>sessionStorage.getItem('widget_opened_widget-one'))).toBeNull();
+      expect(await page.locator('.resource-link').getAttribute('href')).toBeNull();expect(await page.locator('.resource-link').getAttribute('aria-disabled')).toBe('true');await page.locator('.resource-embed-toggle').click();expect(await page.locator('.resource-embed-content').textContent()).toBe('EMBEDDED_RESOURCE');expect(await page.locator('.resource-embed-blob-btn').isDisabled()).toBe(true);
+      expect(await page.locator('.file-attachment').filter({hasText:'report.pdf'}).locator('.file-attachment-main').getAttribute('href')).toBeNull();expect(await page.locator('.attachment-pill-main').count()).toBe(0);expect(await page.locator('.content-annotation').filter({hasText:'Audience: family'}).count()).toBeGreaterThanOrEqual(1);expect(await page.locator('.post-recovery-chip').filter({hasText:'recovered'}).count()).toBe(1);expect(await page.locator('.post-timeout-chip').count()).toBe(1);expect(await page.locator('#post-2 .post-time').getAttribute('title')).toContain('Agent reply took 2.0s');expect(await page.locator('.post-outcome-chip').textContent()).toContain('Needs review');expect(await page.locator('.post-outcome-pill').textContent()).toContain('Turn outcome');
+      await page.locator('.post-thinking-visibility-header').click();await page.waitForFunction(()=>document.querySelector('.post-thinking-visibility-detail')?.textContent?.includes('PRIVATE_REASONING'));expect(await page.locator('.post-thinking-visibility-detail').textContent()).toContain('PRIVATE_REASONING');expect(thinkingHeaders).toHaveLength(1);expect(thinkingHeaders[0]).toMatchObject({'x-piclaw-account-id':'alice','x-piclaw-login-id':'login-a'});
+      await page.locator('.media-preview img').click();expect(await page.locator('.image-modal').count()).toBe(0);expect(external).toEqual([]);expect(media.some(item=>item.path==='/media/11/thumbnail')).toBe(true);
+      const info=media.filter(item=>item.path.endsWith('/info'));expect(info.length).toBeGreaterThanOrEqual(2);expect(info.every(item=>item.headers['x-piclaw-account-id']==='alice'&&item.headers['x-piclaw-login-id']==='login-a')).toBe(true);expect(media.every(item=>item.search==='')).toBe(true);
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(await page.evaluate(()=>matchMedia('(prefers-color-scheme: dark)').matches)).toBe(context.colorScheme==='dark');expect(await page.evaluate(()=>[localStorage.length,sessionStorage.length])).toEqual([0,0]);
+    }finally{await page.close();}
+  }
+},30000);
 
 async function memoryFixture(page:Page){
   const state=await fixture(page),id='11111111-1111-4111-8111-111111111111',key='22222222-2222-4222-8222-222222222222',time='2026-09-06T00:00:00.000Z';
@@ -229,6 +360,83 @@ browserTest('timeline memory preview closes the previous settings panel and clea
     expect(await page.locator('#account-settings:not([hidden]),#account-preferences:not([hidden]),#session-settings:not([hidden]),#scheduled-results:not([hidden]),#scheduled-tasks:not([hidden]),#family-memory:not([hidden]),#administration-settings:not([hidden]),#workspace-policy:not([hidden])').count()).toBe(1);
   } finally { await page.close(); }
 }, 20000);
+
+browserTest('standard working pane renders owner-polled status and usage without privileged actions', async () => {
+  for (const viewport of [{ width: 1200, height: 900 }, { width: 375, height: 740 }]) {
+    const page = await browser.newPage({ viewport });
+    try {
+      await fixture(page);
+      let status: any = {
+        status: 'active', state: 'active', chat_jid: 'web:alice',
+        data: {
+          type: 'tool_status', turn_id: 'turn-tools', tool_name: 'read',
+          tool_args: { path: '/workspace/notes/owned.md' }, status: 'Streaming output...',
+          output_preview: 'first output\nsecond output', output_total_lines: 2,
+          started_at: '2026-09-08T10:00:00.000Z', last_event_at: new Date().toISOString(),
+        },
+        thought: { text: 'Reasoning for the owned conversation', totalLines: 1 },
+        draft: { text: 'Draft response for the owner', totalLines: 1 }, extension_working: null,
+      };
+      const forbidden: string[] = [];
+      await page.route('**/agent/status?**', route => route.fulfill({ json: status }));
+      await page.route('**/agent/context?**', route => route.fulfill({ json: {
+        tokens: 5000, contextWindow: 200000, percent: 2.5, sessionGeneration: 'owned-generation',
+        cacheUsage: { latest: {
+          inputTokens: 1000, outputTokens: 300, reasoningTokens: 40, cacheReadTokens: 3000, cacheWriteTokens: 1000,
+          cacheReadReported: true, cacheWriteReported: true, totalTokens: 5300, costTotal: 0.012,
+          costProvenance: 'provider_reported', runs: 1, model: 'reasoning', provider: 'test',
+        }, totals: null },
+      } }));
+      for (const path of ['/workspace/branch', '/agent/respond', '/agent/whitelist', '/agent/queue-state', '/agent/runs/abort']) {
+        await page.route(`**${path}**`, route => { forbidden.push(new URL(route.request().url()).pathname); return route.fulfill({ status: 500 }); });
+      }
+      await page.goto(base); await ready(page);
+      expect(await page.locator('.agent-thinking-title').allTextContents()).toEqual(expect.arrayContaining(['Draft', 'Thoughts', 'Output']));
+      expect(await page.locator('.agent-status-text').textContent()).toContain('read: /workspace/notes/owned.md');
+      expect((await page.locator('.agent-thinking-body').allTextContents()).map(value => value.trim())).toEqual(expect.arrayContaining([
+        'Draft response for the owner', 'Reasoning for the owned conversation', 'first output\nsecond output',
+      ]));
+      expect(await page.locator('.compose-model-usage-hint').textContent()).toContain('Last • 5K • CH60.0% • $0.01');
+      expect(await page.locator('.compose-context-pie').count()).toBe(1);
+      expect(await page.locator('.compose-context-pie').isDisabled()).toBe(true);
+      expect(await page.getByRole('button', { name: /Stop response/ }).count()).toBe(0);
+      expect(await page.getByRole('button', { name: /Queue follow-up/ }).count()).toBe(0);
+      expect(forbidden).toEqual([]);
+
+      status = {
+        status: 'active', state: 'active', chat_jid: 'web:alice', data: {
+          type: 'intent', intent_key: 'compaction', title: 'Compacting context', detail: 'Preparing a smaller context.',
+          turn_id: 'turn-compaction', started_at: new Date(Date.now() - 2000).toISOString(),
+        }, extension_working: null,
+      };
+      await page.reload(); await ready(page);
+      await page.waitForFunction(() => Boolean(document.querySelector('.compose-context-pie-timer')?.textContent));
+      expect(await page.locator('.compose-context-pie').getAttribute('aria-label')).toContain('Compacting context');
+      expect(await page.locator('.compose-context-pie').isDisabled()).toBe(true);
+
+      status = {
+        status: 'active', state: 'active', chat_jid: 'web:alice', data: {
+          type: 'intent', intent_key: 'summarization_retry', title: 'Retrying summary', detail: 'The previous summary attempt failed.',
+          turn_id: 'turn-retry', retry_at: new Date(Date.now() + 3000).toISOString(),
+        }, extension_working: null,
+      };
+      await page.reload(); await ready(page);
+      await page.waitForFunction(() => document.body.textContent?.includes('Retrying summary'));
+      expect(await page.locator('.agent-status-elapsed').textContent()).toContain('retry in');
+
+      status = {
+        status: 'idle', state: 'failed', chat_jid: 'web:alice', data: {
+          type: 'error', title: 'Agent error', detail: 'Owned turn failed safely.', turn_id: 'turn-error',
+        }, extension_working: null,
+      };
+      await page.reload(); await ready(page);
+      await page.waitForFunction(() => document.querySelector('.agent-status-error')?.textContent?.includes('Agent error'));
+      expect(await page.locator('.agent-status-error').textContent()).not.toContain('web:bob');
+      expect(await page.locator('.agent-status-panel').evaluate(node => node.getBoundingClientRect().right <= innerWidth)).toBe(true);
+      expect(forbidden).toEqual([]);
+    } finally { await page.close(); }
+  }
+}, 30000);
 
 browserTest('memory publication previews exact source, requires verbatim confirmed excerpt and renders reference text safely',async()=>{
   const page=await browser.newPage({viewport:{width:375,height:800}});
@@ -858,11 +1066,16 @@ browserTest("in-flight old session cannot overwrite newly selected session", asy
       if (route.request().url().includes("alice-two")) return route.fulfill({ json: posts("SECOND_SESSION") });
       entered(); await held; return route.fulfill({ json: posts("STALE_SESSION") });
     });
+    await page.route('**/agent/status?**', route => route.fulfill({ json: route.request().url().includes('alice-two')
+      ? { status: 'active', state: 'active', chat_jid: 'web:alice-two', data: { type: 'thinking', title: 'SECOND_STATUS', turn_id: 'turn-second' } }
+      : { status: 'active', state: 'active', chat_jid: 'web:alice', data: { type: 'thinking', title: 'STALE_STATUS', turn_id: 'turn-stale' } } }));
     await page.locator("#refresh").click(); await waiting;
     await switchChat(page, "web:alice-two");
     await page.waitForFunction(() => document.getElementById("timeline")?.textContent?.includes("SECOND_SESSION")); release();
     await page.waitForTimeout(100);
     expect(await page.locator("#timeline").textContent()).not.toContain("STALE_SESSION");
+    expect(await page.locator('#family-chat-root').textContent()).toContain('SECOND_STATUS');
+    expect(await page.locator('#family-chat-root').textContent()).not.toContain('STALE_STATUS');
   } finally { await page.close(); }
 }, 20000);
 
@@ -1184,7 +1397,7 @@ browserTest('a different account starts with its own appearance and cannot inher
     await page.goto(base); await ready(page); await page.locator('#open-preferences').click(); await page.waitForFunction(() => !(document.getElementById('preferences-form') as HTMLElement)?.hidden);
     expect(await page.locator('#preferences-guidance').inputValue()).toBe('ALICE_ONLY');
     state.identity = principal('bob', 'login-b');
-    await page.route('**/agent/branches', route => route.fulfill({ json: { branches: [{ chat_jid: 'web:bob', root_chat_jid: 'web:bob', agent_name: 'home' }] } }));
+    await page.route(/\/agent\/branches(?:\?.*)?$/, route => route.fulfill({ json: { branches: [{ chat_jid: 'web:bob', root_chat_jid: 'web:bob', agent_name: 'home' }] } }));
     await page.reload(); await ready(page); await page.locator('#open-preferences').click(); await page.waitForFunction(() => !(document.getElementById('preferences-form') as HTMLElement)?.hidden);
     expect(await page.locator('html').getAttribute('data-account-theme')).toBe('light'); expect(await page.locator('#preferences-guidance').inputValue()).toBe('BOB_ONLY');
     expect(await page.locator('#preferences-guidance').inputValue()).not.toContain('ALICE_ONLY');
@@ -1729,7 +1942,7 @@ async function treeFixture(page: Page) {
   const snapshot: SessionSettings = { home_chat_jid: 'web:alice', capabilities: { create_root: true }, branches: [branch('alice', 'home'), branch('alice-two', 'second')] };
   const actions: { path: string; body: any; headers: Record<string, string> }[] = [];
   await page.route('**/account/trees', route => route.fulfill({ json: snapshot }));
-  await page.route('**/agent/branches', route => route.fulfill({ json: { branches: snapshot.branches.filter(b => b.capabilities.open) } }));
+  await page.route(/\/agent\/branches(?:\?.*)?$/, route => route.fulfill({ json: { branches: snapshot.branches.filter(b => b.capabilities.open) } }));
   await page.route('**/timeline?**', route => {
     const jid = new URL(route.request().url()).searchParams.get('chat_jid');
     return route.fulfill(snapshot.branches.some(b => b.chat_jid === jid && b.capabilities.open) ? { json: posts() } : { status: 403, json: {} });

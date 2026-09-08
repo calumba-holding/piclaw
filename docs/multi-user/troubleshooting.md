@@ -46,7 +46,7 @@ Conversations and saved settings persist on the server. Profile, preference and 
 - **Legacy input held by migration:** Retry is unavailable. Confirm **Dismiss legacy input without running** to release later entries. Review and submit a new plain-text prompt separately if execution is wanted.
 - **Recovery blocked:** contact the operator. Changed message content, mismatched authority, an incompatible hold or other inconsistent state must not be repaired by guessing IDs or advancing a cursor.
 - **Uncertain send/recovery response:** refresh first. An unchanged manual retry in the same page/action keeps its request ID; reloading or changing the action may not. No automatic retry is performed.
-- **Missing rich content:** the family shell displays recent plain text only. Classic/visual add-on, attachment, terminal and rich-rendering instructions do not apply to this preview.
+- **Missing rich content:** refresh after the standard renderer/vendor assets load. External inline images and interactive rich actions are intentionally removed or disabled; only owner-authorized media reads are allowed. Upload, viewer, card-submit, widget-open, annotation-edit, resource-download, add-on and terminal instructions do not apply to this preview.
 
 ## Prepared tasks
 

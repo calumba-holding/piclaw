@@ -39,26 +39,38 @@ import { copyPlainTextSelectionFromElement, readSessionStorageFlagBestEffort, re
  * File attachment component - keeps single-click download on the main card while
  * exposing an explicit preview affordance for the v1 preview flow.
  */
-function FileAttachment({ mediaId, onPreview }) {
+function FileAttachment({ mediaId, onPreview, allowActions = true, loadInfo = getMediaInfo }) {
     const [info, setInfo] = useState(null);
 
     useEffect(() => {
-        getMediaInfo(mediaId).then(setInfo).catch((error) => {
-            console.warn('[post] Failed to load attachment metadata for file card:', mediaId, error);
+        let cancelled = false;
+        Promise.resolve().then(() => loadInfo(mediaId)).then((value) => {
+            if (!cancelled) setInfo(value);
+        }).catch((error) => {
+            if (!cancelled) console.warn('[post] Failed to load attachment metadata for file card:', mediaId, error);
         });
-    }, [mediaId]);
+        return () => { cancelled = true; };
+    }, [loadInfo, mediaId]);
 
     if (!info) return null;
 
-    const filename = info.filename || 'file';
-    const size = info.metadata?.size;
+    const filename = typeof info?.filename === 'string' && info.filename.trim() ? info.filename.trim() : 'file';
+    const contentType = typeof info?.content_type === 'string' ? info.content_type : '';
+    const size = typeof info?.metadata?.size === 'number' && Number.isFinite(info.metadata.size) && info.metadata.size > 0
+        ? info.metadata.size
+        : null;
     const sizeStr = size ? formatFileSize(size) : '';
-    const previewKind = getAttachmentPreviewKind(info.content_type, info.filename);
-    const canPreview = previewKind !== 'unsupported';
-
+    const previewKind = getAttachmentPreviewKind(contentType, filename);
+    const canPreview = allowActions && previewKind !== 'unsupported' && typeof onPreview === 'function';
     return html`
         <div class="file-attachment" onClick=${(e) => e.stopPropagation()}>
-            <a href=${getMediaUrl(mediaId)} download=${filename} class="file-attachment-main">
+            <a
+                href=${allowActions ? getMediaUrl(mediaId) : undefined}
+                download=${allowActions ? filename : undefined}
+                class="file-attachment-main"
+                aria-disabled=${allowActions ? undefined : 'true'}
+                onClick=${allowActions ? undefined : (event) => event.preventDefault()}
+            >
                 <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                     <polyline points="14 2 14 8 20 8"/>
@@ -70,7 +82,7 @@ function FileAttachment({ mediaId, onPreview }) {
                     <span class="file-name">${filename}</span>
                     <span class="file-meta-row">
                         ${sizeStr && html`<span class="file-size">${sizeStr}</span>`}
-                        ${info.content_type && html`<span class="file-size">${info.content_type}</span>`}
+                        ${contentType && html`<span class="file-size">${contentType}</span>`}
                     </span>
                 </div>
                 <svg class="download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -436,7 +448,7 @@ function OutcomePill({ marker }) {
     `;
 }
 
-function ThinkingVisibilityPill({ messageId, chatJid, lines, durationMs }) {
+function ThinkingVisibilityPill({ messageId, chatJid, lines, durationMs, loadThinking }) {
     const [expanded, setExpanded] = useState(false);
     const [text, setText] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -482,26 +494,31 @@ function ThinkingVisibilityPill({ messageId, chatJid, lines, durationMs }) {
             const next = !v;
             if (next && !text && !loading && !error) {
                 setLoading(true);
-                const url = `/agent/thinking?message_id=${encodeURIComponent(messageId)}&chat_jid=${encodeURIComponent(chatJid || '')}`;
-                fetch(url)
-                    .then(r => {
-                        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                        return r.json();
-                    })
-                    .then(d => {
-                        if (d?.text) setText(d.text);
+                const request = typeof loadThinking === 'function'
+                    ? Promise.resolve().then(() => loadThinking(messageId, chatJid || ''))
+                    : fetch(`/agent/thinking?message_id=${encodeURIComponent(messageId)}&chat_jid=${encodeURIComponent(chatJid || '')}`)
+                        .then(r => {
+                            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                            return r.json();
+                        });
+                request.then(d => {
+                        if (!mountedRef.current) return;
+                        const nextText = typeof d?.text === 'string' && d.text.length <= 100_000 ? d.text : '';
+                        const nextDuration = Number.isFinite(d?.duration_ms) && d.duration_ms >= 0 ? d.duration_ms : null;
+                        if (nextText) setText(nextText);
                         else setError(true);
-                        if (d?.duration_ms) setFetchedDuration(d.duration_ms);
+                        if (nextDuration !== null) setFetchedDuration(nextDuration);
                     })
                     .catch(err => {
+                        if (!mountedRef.current) return;
                         console.warn('[post] Failed to load thinking content:', err);
                         setError(true);
                     })
-                    .finally(() => setLoading(false));
+                    .finally(() => { if (mountedRef.current) setLoading(false); });
             }
             return next;
         });
-    }, [text, loading, error, messageId, chatJid]);
+    }, [text, loading, error, messageId, chatJid, loadThinking]);
 
     const scheduleCopyStateReset = useCallback(() => {
         if (copyResetTimerRef.current) clearTimeout(copyResetTimerRef.current);
@@ -529,9 +546,12 @@ function ThinkingVisibilityPill({ messageId, chatJid, lines, durationMs }) {
         });
     }, [text, scheduleCopyStateReset]);
 
-    useEffect(() => () => {
-        mountedRef.current = false;
-        if (copyResetTimerRef.current) clearTimeout(copyResetTimerRef.current);
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+            if (copyResetTimerRef.current) clearTimeout(copyResetTimerRef.current);
+        };
     }, []);
 
     // Render thinking text via the thinking-specific renderer so the persisted
@@ -612,23 +632,30 @@ function ThinkingVisibilityPill({ messageId, chatJid, lines, durationMs }) {
     `;
 }
 
-function AttachmentPill({ attachment, onPreview }) {
+function AttachmentPill({ attachment, onPreview, allowActions = true, loadInfo = getMediaInfo }) {
     const mediaId = Number(attachment?.id);
     const [info, setInfo] = useState(null);
 
     useEffect(() => {
         if (!Number.isFinite(mediaId)) return undefined;
-        getMediaInfo(mediaId).then(setInfo).catch((error) => {
-            console.warn('[post] Failed to load attachment metadata for attachment pill:', mediaId, error);
+        let cancelled = false;
+        Promise.resolve().then(() => loadInfo(mediaId)).then((value) => {
+            if (!cancelled) setInfo(value);
+        }).catch((error) => {
+            if (!cancelled) console.warn('[post] Failed to load attachment metadata for attachment pill:', mediaId, error);
         });
-        return undefined;
-    }, [mediaId]);
+        return () => { cancelled = true; };
+    }, [loadInfo, mediaId]);
 
-    const filename = info?.filename || attachment.label || `attachment-${attachment.id}`;
-    const downloadHref = Number.isFinite(mediaId) ? getMediaUrl(mediaId) : null;
-    const previewKind = getAttachmentPreviewKind(info?.content_type, info?.filename || attachment?.label);
+    const attachmentLabel = typeof attachment?.label === 'string' && attachment.label.trim()
+        ? attachment.label.trim()
+        : `attachment-${attachment.id}`;
+    const filename = typeof info?.filename === 'string' && info.filename.trim() ? info.filename.trim() : attachmentLabel;
+    const contentType = typeof info?.content_type === 'string' ? info.content_type : '';
+    const downloadHref = allowActions && Number.isFinite(mediaId) ? getMediaUrl(mediaId) : null;
+    const previewKind = getAttachmentPreviewKind(contentType, filename);
     const previewLabel = getAttachmentPreviewLabel(previewKind);
-    const canPreview = previewKind !== 'unsupported';
+    const canPreview = allowActions && previewKind !== 'unsupported';
 
     return html`
         <span class="attachment-pill" title=${filename}>
@@ -637,7 +664,7 @@ function AttachmentPill({ attachment, onPreview }) {
                     <a href=${downloadHref} download=${filename} class="attachment-pill-main" onClick=${(e) => e.stopPropagation()}>
                         <${FilePill}
                             prefix="post"
-                            label=${attachment.label}
+                            label=${attachmentLabel}
                             title=${filename}
                         />
                     </a>
@@ -645,7 +672,7 @@ function AttachmentPill({ attachment, onPreview }) {
                 : html`
                     <${FilePill}
                         prefix="post"
-                        label=${attachment.label}
+                        label=${attachmentLabel}
                         title=${filename}
                     />
                 `}
@@ -674,15 +701,26 @@ function AttachmentPill({ attachment, onPreview }) {
  * Render annotations (audience/priority/lastModified)
  */
 function AnnotationsBadge({ annotations }) {
-    if (!annotations) return null;
-    const { audience, priority, lastModified } = annotations;
-    const formattedLastModified = lastModified ? formatTimestamp(lastModified) : null;
+    if (!annotations || typeof annotations !== 'object' || Array.isArray(annotations)) return null;
+    const audience = Array.isArray(annotations.audience)
+        ? annotations.audience
+            .filter((value) => typeof value === 'string' && value.trim())
+            .map((value) => value.trim().slice(0, 256))
+            .slice(0, 20)
+        : [];
+    const priority = typeof annotations.priority === 'number' && Number.isFinite(annotations.priority)
+        ? annotations.priority
+        : null;
+    const lastModified = typeof annotations.lastModified === 'string' ? annotations.lastModified : '';
+    const formattedLastModified = lastModified && Number.isFinite(Date.parse(lastModified))
+        ? formatTimestamp(lastModified)
+        : null;
     return html`
         <div class="content-annotations">
             ${audience && audience.length > 0 && html`
                 <span class="content-annotation">Audience: ${audience.join(', ')}</span>
             `}
-            ${typeof priority === 'number' && html`
+            ${priority !== null && html`
                 <span class="content-annotation">Priority: ${priority}</span>
             `}
             ${formattedLastModified && html`
@@ -695,20 +733,23 @@ function AnnotationsBadge({ annotations }) {
 /**
  * Resource link block (MCP/ACP)
  */
-function ResourceLinkBlock({ block }) {
-    const name = block.title || block.name || block.uri;
-    const description = block.description;
-    const sizeStr = block.size ? formatFileSize(block.size) : '';
-    const mimeType = block.mime_type || '';
+function ResourceLinkBlock({ block, allowOpen = true }) {
+    const uri = typeof block?.uri === 'string' ? block.uri : '';
+    const name = [block?.title, block?.name, uri].find((value) => typeof value === 'string' && value.trim()) || 'Resource';
+    const description = typeof block?.description === 'string' ? block.description : '';
+    const sizeStr = typeof block?.size === 'number' && Number.isFinite(block.size) && block.size > 0 ? formatFileSize(block.size) : '';
+    const mimeType = typeof block?.mime_type === 'string' ? block.mime_type : '';
     const icon = getMimeIcon(mimeType);
-    const safeUrl = sanitizeUrl(block.uri);
+    const safeUrl = sanitizeUrl(uri);
+    const href = allowOpen ? safeUrl : null;
     return html`
         <a
-            href=${safeUrl || '#'}
+            href=${href || undefined}
             class="resource-link"
-            target=${safeUrl ? "_blank" : undefined}
-            rel=${safeUrl ? "noopener noreferrer" : undefined}
-            onClick=${(e) => e.stopPropagation()}>
+            target=${href ? "_blank" : undefined}
+            rel=${href ? "noopener noreferrer" : undefined}
+            aria-disabled=${href ? undefined : 'true'}
+            onClick=${(e) => { e.stopPropagation(); if (!href) e.preventDefault(); }}>
             <div class="resource-link-main">
                 <div class="resource-link-header">
                     <span class="resource-link-icon-inline">${icon}</span>
@@ -728,12 +769,15 @@ function ResourceLinkBlock({ block }) {
 /**
  * Embedded resource block (MCP/ACP)
  */
-function ResourceBlock({ block }) {
+// Expansion reveals only already-persisted text in the page. Blob creation and
+// download remain a separate capability controlled by allowDownload.
+function ResourceBlock({ block, allowDownload = true }) {
     const [open, setOpen] = useState(false);
-    const title = block.uri || 'Embedded resource';
-    const contentText = block.text || '';
-    const hasBlob = Boolean(block.data);
-    const mimeType = block.mime_type || '';
+    const title = typeof block?.uri === 'string' && block.uri.trim() ? block.uri : 'Embedded resource';
+    const contentText = typeof block?.text === 'string' ? block.text : '';
+    const blobData = typeof block?.data === 'string' ? block.data : '';
+    const hasBlob = Boolean(blobData);
+    const mimeType = typeof block?.mime_type === 'string' ? block.mime_type : '';
     return html`
         <div class="resource-embed">
             <button class="resource-embed-toggle" onClick=${(e) => { e.preventDefault(); e.stopPropagation(); setOpen(!open); }}>
@@ -745,10 +789,11 @@ function ResourceBlock({ block }) {
                     <div class="resource-embed-blob">
                         <span class="resource-embed-blob-label">Embedded blob</span>
                         ${mimeType && html`<span class="resource-embed-blob-meta">${mimeType}</span>`}
-                        <button class="resource-embed-blob-btn" onClick=${(e) => {
+                        <button class="resource-embed-blob-btn" disabled=${!allowDownload} onClick=${(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            const blob = new Blob([Uint8Array.from(atob(block.data), c => c.charCodeAt(0))], { type: mimeType || 'application/octet-stream' });
+                            if (!allowDownload) return;
+                            const blob = new Blob([Uint8Array.from(atob(blobData), c => c.charCodeAt(0))], { type: mimeType || 'application/octet-stream' });
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
@@ -763,24 +808,29 @@ function ResourceBlock({ block }) {
     `;
 }
 
-function GeneratedWidgetLaunch({ block, post, onOpenWidget }) {
+function GeneratedWidgetLaunch({ block, post, onOpenWidget, allowOpen = true }) {
     if (!block) return null;
 
     const payload = buildGeneratedWidgetPayload(block, post);
     const supportsRender = canRenderGeneratedWidget(block);
+    const canOpen = allowOpen && supportsRender && typeof onOpenWidget === 'function';
     const kind = payload?.artifact?.kind || block?.artifact?.kind || block?.kind || null;
-    const title = payload?.title || block.title || block.name || 'Generated widget';
-    const description = payload?.description || block.description || block.subtitle || '';
-    const openLabel = block.open_label || 'Open widget';
+    const title = [payload?.title, block.title, block.name]
+        .find((value) => typeof value === 'string' && value.trim()) || 'Generated widget';
+    const description = [payload?.description, block.description, block.subtitle]
+        .find((value) => typeof value === 'string' && value.trim()) || '';
+    const openLabel = typeof block.open_label === 'string' && block.open_label.trim()
+        ? block.open_label.trim()
+        : 'Open widget';
     const autoOpened = useRef(false);
     const launchWidget = (e) => {
         if (e) { e.preventDefault(); e.stopPropagation(); }
-        if (!payload) return;
+        if (!canOpen || !payload) return;
         onOpenWidget?.(payload);
     };
 
     useEffect(() => {
-        if (!block?.auto_open || !payload || !supportsRender || autoOpened.current) return;
+        if (!block?.auto_open || !payload || !canOpen || autoOpened.current) return;
         // Only auto-open for messages posted in the last 10 seconds to avoid
         // re-opening stale widgets on page refresh or timeline scroll.
         const postTime = post?.timestamp ? new Date(post.timestamp).getTime() : 0;
@@ -791,7 +841,7 @@ function GeneratedWidgetLaunch({ block, post, onOpenWidget }) {
         autoOpened.current = true;
         writeSessionStorageFlagBestEffort(sessionStorage, key, '1');
         onOpenWidget?.(payload);
-    }, [block?.auto_open, payload, supportsRender]);
+    }, [block?.auto_open, payload, canOpen]);
 
     return html`
         <div class="generated-widget-launch" onClick=${(e) => e.stopPropagation()}>
@@ -804,16 +854,16 @@ function GeneratedWidgetLaunch({ block, post, onOpenWidget }) {
                 <button
                     class="generated-widget-launch-btn"
                     type="button"
-                    disabled=${!supportsRender}
+                    disabled=${!canOpen}
                     onClick=${launchWidget}
-                    title=${supportsRender ? 'Open widget in a floating pane with a zen-mode toggle' : 'Unsupported widget artifact'}
+                    title=${canOpen ? 'Open widget in a floating pane with a zen-mode toggle' : supportsRender ? 'Widget opening is unavailable here' : 'Unsupported widget artifact'}
                 >
                     ${openLabel}
                 </button>
                 <span class="generated-widget-launch-note">
-                    ${supportsRender
+                    ${canOpen
                         ? 'Opens in a dismissible floating pane with a zen-mode toggle.'
-                        : 'This widget artifact is missing or unsupported.'}
+                        : supportsRender ? 'This widget is shown read-only.' : 'This widget artifact is missing or unsupported.'}
                 </span>
             </div>
         </div>
@@ -841,10 +891,21 @@ export function buildLinkPreviewBackgroundStyle(imageUrl) {
         : undefined;
 }
 
-function LinkPreview({ preview }) {
-    const safeUrl = sanitizeUrl(preview.url);
-    const bgStyle = buildLinkPreviewBackgroundStyle(preview.image);
-    const siteName = resolveLinkPreviewSiteName(preview.site_name, safeUrl);
+export function rewriteOwnedMediaUrl(value) {
+    const raw = typeof value === 'string' ? value.trim() : '';
+    return /^\/media\/[1-9]\d*(?:\/thumbnail)?$/.test(raw) ? raw : '';
+}
+
+function LinkPreview({ preview, rewriteImageSrc }) {
+    const url = typeof preview?.url === 'string' ? preview.url : '';
+    const image = typeof preview?.image === 'string' ? preview.image : '';
+    const title = typeof preview?.title === 'string' ? preview.title : '';
+    const description = typeof preview?.description === 'string' ? preview.description : '';
+    const suppliedSiteName = typeof preview?.site_name === 'string' ? preview.site_name : '';
+    const safeUrl = sanitizeUrl(url);
+    const rewrittenImage = typeof rewriteImageSrc === 'function' ? rewriteImageSrc(image) : image;
+    const bgStyle = buildLinkPreviewBackgroundStyle(rewrittenImage);
+    const siteName = resolveLinkPreviewSiteName(suppliedSiteName, safeUrl);
 
     return html`
         <a
@@ -856,9 +917,9 @@ function LinkPreview({ preview }) {
             style=${bgStyle}>
             <div class="link-preview-overlay">
                 <div class="link-preview-site">${siteName || ''}</div>
-                <div class="link-preview-title">${preview.title}</div>
-                ${preview.description && html`
-                    <div class="link-preview-description">${preview.description}</div>
+                <div class="link-preview-title">${title}</div>
+                ${description && html`
+                    <div class="link-preview-description">${description}</div>
                 `}
             </div>
         </a>
@@ -1373,11 +1434,25 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
     const { t } = useTranslation();
     const postCapabilities = capabilities && typeof capabilities === 'object' ? capabilities : {};
     const allowMedia = postCapabilities.media !== false;
+    const allowMediaActions = allowMedia && postCapabilities.mediaActions !== false;
     const allowCards = postCapabilities.cards !== false;
     const allowWidgets = postCapabilities.widgets !== false;
     const allowAnnotations = postCapabilities.annotations !== false;
+    const allowAnnotationActions = allowAnnotations && postCapabilities.annotationActions !== false;
+    const allowCardActions = allowCards && postCapabilities.cardActions !== false;
+    const allowWidgetActions = allowWidgets && postCapabilities.widgetActions !== false;
+    const allowResourceActions = postCapabilities.resourceActions !== false;
     const allowThinking = postCapabilities.thinking !== false;
     const allowDelete = postCapabilities.delete !== false;
+    const rewriteImageSrc = typeof postCapabilities.rewriteImageSrc === 'function'
+        ? postCapabilities.rewriteImageSrc
+        : undefined;
+    const loadMediaInfo = typeof postCapabilities.loadMediaInfo === 'function'
+        ? postCapabilities.loadMediaInfo
+        : getMediaInfo;
+    const loadThinking = typeof postCapabilities.loadThinking === 'function'
+        ? postCapabilities.loadThinking
+        : undefined;
     const [zoomedImage, setZoomedImage] = useState(null);
     const [annotatingImage, setAnnotatingImage] = useState(null);
     const [annotationResult, setAnnotationResult] = useState(null); // { id, url } after Done
@@ -1393,9 +1468,16 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
     const highlightPopupInteractionRef = useRef(false);
     const highlightInteractionReleaseTimerRef = useRef(null);
 
-    const data = post.data;
-    const blocks = data.content_blocks || [];
-    const mediaIds = data.media_ids || [];
+    const data = post?.data && typeof post.data === 'object' ? post.data : {};
+    const blocks = Array.isArray(data.content_blocks)
+        ? data.content_blocks.filter((block) => block && typeof block === 'object' && !Array.isArray(block))
+        : [];
+    const mediaIds = Array.isArray(data.media_ids)
+        ? data.media_ids.filter((id) => Number.isSafeInteger(id) && id > 0)
+        : [];
+    const linkPreviews = Array.isArray(data.link_previews)
+        ? data.link_previews.filter((preview) => preview && typeof preview === 'object' && !Array.isArray(preview))
+        : [];
     const peerMessageMeta = getPeerMessageMeta(blocks);
     const protectedRecoveryControl = getProtectedRecoveryControlIntent(blocks);
     const selfContinuationMeta = getSelfContinuationMeta(blocks);
@@ -1446,7 +1528,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
     // Keep original message text even when link previews are available.
     let displayContent = protectedRecoveryControl
         ? ''
-        : getDisplayContent(data.content, data.link_previews);
+        : getDisplayContent(data.content, linkPreviews);
     displayContent = getPeerMessageDisplayContent(displayContent, blocks);
     if (restartHandoffMeta?.phase === 'notice' && restartHandoffMeta.reason) {
         displayContent = t('post.restartNotice', { reason: restartHandoffMeta.reason });
@@ -1494,9 +1576,9 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
     const highlightQueryText = typeof highlightQuery === 'string' ? highlightQuery.trim() : '';
     const renderedHtml = useMemo(() => {
         if (!displayContent || hideRenderedFallback) return '';
-        const baseHtml = renderMarkdown(displayContent, onHashtagClick);
+        const baseHtml = renderMarkdown(displayContent, onHashtagClick, { rewriteImageSrc });
         return highlightQueryText ? highlightHtml(baseHtml, highlightQueryText) : baseHtml;
-    }, [displayContent, hideRenderedFallback, highlightQueryText]);
+    }, [displayContent, hideRenderedFallback, highlightQueryText, onHashtagClick, rewriteImageSrc]);
 
     const markdownCopyPayload = useMemo(() => buildPostMarkdownCopyPayload(post), [post]);
     const speechSupported = useMemo(() => isSpeechSynthesisSupported(), []);
@@ -1505,8 +1587,9 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
 
     const handleImageClick = (e, mediaId, mimeType) => {
         e.stopPropagation();
+        if (!allowMediaActions) return;
         const src = getMediaUrl(mediaId);
-        if (allowAnnotations && canAnnotate()) {
+        if (allowAnnotationActions && canAnnotate()) {
             setAnnotatingImage({ src, mimeType });
         } else {
             setZoomedImage(src);
@@ -1735,11 +1818,12 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
     // Render mermaid diagrams and enhance code blocks after content is mounted
     useEffect(() => {
         if (!contentRef.current) return undefined;
-        renderMermaidDiagrams(contentRef.current);
+        renderMermaidDiagrams(contentRef.current, { rewriteImageSrc });
         return enhanceCodeBlocks(contentRef.current);
-    }, [renderedHtml]);
+    }, [renderedHtml, rewriteImageSrc]);
 
-    // Re-apply saved text highlights and asides after content renders
+    // Re-apply saved text highlights and asides after content renders. Family
+    // can display persisted annotations while mutation gestures remain disabled.
     useEffect(() => {
         if (!allowAnnotations || !contentRef.current) return;
         // Remove any previously inserted pills/asides/marks before re-applying
@@ -1762,8 +1846,10 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
         const asides = extractAsidesFromAnnotations(annotations);
         if (asides.length > 0) applyAsidesToElement(contentRef.current, asides);
 
-        // Add click-to-remove on highlights
-        const marks = contentRef.current.querySelectorAll('mark.post-highlight');
+        // Add click-to-remove only when the adapter authorizes annotation writes.
+        const marks = allowAnnotationActions
+            ? contentRef.current.querySelectorAll('mark.post-highlight')
+            : [];
         marks.forEach((mark) => {
             (mark as HTMLElement).style.cursor = 'pointer';
             (mark as HTMLElement).title = 'Click to remove highlight';
@@ -1784,11 +1870,11 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                 }
             }, { once: true });
         });
-    }, [allowAnnotations, renderedHtml, highlightVersion]);
+    }, [allowAnnotations, allowAnnotationActions, renderedHtml, highlightVersion]);
 
     // Listen for text selection to show highlight popup
     useEffect(() => {
-        if (!allowAnnotations) return;
+        if (!allowAnnotationActions) return;
         const el = contentRef.current;
         if (!el) return;
         const onSelectionChange = () => {
@@ -1818,7 +1904,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
             }
             highlightPopupInteractionRef.current = false;
         };
-    }, [allowAnnotations, renderedHtml]);
+    }, [allowAnnotationActions, renderedHtml]);
 
     const highlightPopupIsDocked = highlightPopup
         ? isIOSDevice() || hasCoarseAnnotationPointer(typeof window === 'undefined' ? null : window)
@@ -1871,7 +1957,9 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
             const cardEl = document.createElement('div');
             container.appendChild(cardEl);
             renderAdaptiveCard(cardEl, block, {
-                onAction: async (action) => {
+                readOnly: !allowCardActions,
+                rewriteResourceUrl: !allowCardActions ? rewriteImageSrc : undefined,
+                onAction: allowCardActions ? async (action) => {
                     if (action.type === 'Action.OpenUrl') {
                         const safeUrl = sanitizeUrl(action.url || '');
                         if (!safeUrl) throw new Error('Invalid URL');
@@ -1895,13 +1983,15 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                     }
 
                     console.warn('[post] unsupported adaptive card action:', action.type, action);
-                },
+                } : undefined,
+            }).then((rendered) => {
+                if (!rendered) cardEl.textContent = block.fallback_text || 'Card failed to render.';
             }).catch((err) => {
                 console.error('[post] adaptive card render error:', err);
                 cardEl.textContent = block.fallback_text || 'Card failed to render.';
             });
         }
-    }, [cardBlocksKey, post.id]);
+    }, [allowCardActions, cardBlocksKey, post.id, rewriteImageSrc]);
 
     const silentRecoveryPlaceholder = Boolean(
         isAgent
@@ -1915,7 +2005,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
     if (protectedRecoveryControl || silentRecoveryPlaceholder) return null;
 
     return html`
-        <div id=${`post-${post.id}`} class="post ${isAgent ? 'agent-post' : ''} ${isSelfContinuation ? 'self-continuation-post' : ''} ${isThreadReply ? 'thread-reply' : ''} ${isThreadPrev ? 'thread-prev' : ''} ${isThreadNext ? 'thread-next' : ''} ${isRemoving ? 'removing' : ''}" onClick=${onClick}>
+        <div id=${`post-${post.id}`} class="post ${isAgent ? 'agent-post' : ''} ${isSelfContinuation ? 'self-continuation-post' : ''} ${isThreadReply ? 'thread-reply' : ''} ${isThreadPrev ? 'thread-prev' : ''} ${isThreadNext ? 'thread-next' : ''} ${isRemoving ? 'removing' : ''} ${allowMediaActions ? '' : 'post-media-readonly'}" onClick=${onClick}>
             <div class="post-avatar ${(isAgent || isAgentAuthoredInbound) ? 'agent-avatar' : ''} ${avatarInfo.image ? 'has-image' : ''}" style=${avatarStyle}>
                 ${avatarInfo.image ? html`<img src=${avatarInfo.image} alt=${displayName} />` : avatarInfo.letter}
             </div>
@@ -2018,7 +2108,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                 ${outcomeMarker && html`
                     <${OutcomePill} marker=${outcomeMarker} />
                 `}
-                ${isAgent && thinkingRef && html`<${ThinkingVisibilityPill} messageId=${post.id} chatJid=${post.chat_jid} lines=${thinkingRef.lines || 0} durationMs=${thinkingRef.duration_ms || 0} />`}
+                ${isAgent && thinkingRef && html`<${ThinkingVisibilityPill} messageId=${post.id} chatJid=${post.chat_jid} lines=${thinkingRef.lines || 0} durationMs=${thinkingRef.duration_ms || 0} loadThinking=${loadThinking} />`}
                 ${isHardTruncated && truncatedInfo && html`
                     <div class="post-content truncated">
                         <div class="truncated-title">${t('post.tooLarge')}</div>
@@ -2092,6 +2182,8 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                                 key=${attachment.id}
                                 attachment=${attachment}
                                 onPreview=${handleAttachmentPreview}
+                                allowActions=${allowMediaActions}
+                                loadInfo=${loadMediaInfo}
                             />
                         `)}
                     </div>
@@ -2107,7 +2199,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                                 e.stopPropagation();
                                 const tag = e.target.dataset.hashtag;
                                 if (tag) onHashtagClick?.(tag);
-                            } else if (e.target.tagName === 'IMG') {
+                            } else if (allowMediaActions && e.target.tagName === 'IMG') {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 setZoomedImage(e.target.src);
@@ -2159,6 +2251,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                                 block=${block}
                                 post=${post}
                                 onOpenWidget=${onOpenWidget}
+                                allowOpen=${allowWidgetActions}
                             />
                         `)}
                     </div>
@@ -2180,7 +2273,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                                     alt="Media"
                                     loading="lazy"
                                     decoding="async"
-                                    onClick=${(e) => handleImageClick(e, id, mimeType)}
+                                    onClick=${allowMediaActions ? (e) => handleImageClick(e, id, mimeType) : undefined}
                                 />
                             `;
                         })}
@@ -2194,7 +2287,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                 ${filteredFileIds.length > 0 && html`
                     <div class="file-attachments">
                         ${filteredFileIds.map(id => html`
-                            <${FileAttachment} key=${id} mediaId=${id} onPreview=${handleAttachmentPreview} />
+                            <${FileAttachment} key=${id} mediaId=${id} onPreview=${handleAttachmentPreview} allowActions=${allowMediaActions} loadInfo=${loadMediaInfo} />
                         `)}
                     </div>
                 `}
@@ -2202,7 +2295,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                     <div class="resource-links">
                         ${resourceLinks.map((block, idx) => html`
                             <div key=${idx}>
-                                <${ResourceLinkBlock} block=${block} />
+                                <${ResourceLinkBlock} block=${block} allowOpen=${allowResourceActions} />
                                 <${AnnotationsBadge} annotations=${block.annotations} />
                             </div>
                         `)}
@@ -2212,16 +2305,16 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                     <div class="resource-embeds">
                         ${resources.map((block, idx) => html`
                             <div key=${idx}>
-                                <${ResourceBlock} block=${block} />
+                                <${ResourceBlock} block=${block} allowDownload=${allowResourceActions} />
                                 <${AnnotationsBadge} annotations=${block.annotations} />
                             </div>
                         `)}
                     </div>
                 `}
-                ${data.link_previews?.length > 0 && html`
+                ${linkPreviews.length > 0 && html`
                     <div class="link-previews">
-                        ${data.link_previews.map((preview, i) => html`
-                            <${LinkPreview} key=${i} preview=${preview} />
+                        ${linkPreviews.map((preview, i) => html`
+                            <${LinkPreview} key=${i} preview=${preview} rewriteImageSrc=${rewriteImageSrc} />
                         `)}
                     </div>
                 `}
