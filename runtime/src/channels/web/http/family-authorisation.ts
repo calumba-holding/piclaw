@@ -33,6 +33,8 @@ import { handleFamilyWebPush } from "../push/web-push-routes.js";
 import { handleFamilyAgentStatus } from "./family-agent-status.js";
 import { handleFamilyTurnControl } from "./family-turn-control.js";
 import { projectFamilySseEvent } from "../sse/family-event-projector.js";
+import { CONTROL_COMMAND_DEFINITIONS } from "../../../agent-control/command-registry.js";
+import { listOwnedSessionHandles } from "../../../db/session-handles.js";
 
 /** Absent selects the live home; explicit empty/duplicate selectors never fall back. */
 function selector(url: URL, key: string): string | undefined {
@@ -125,6 +127,21 @@ export async function handleFamilyRequest(channel: WebChannelLike, req: Request,
   if (path === "/agent/message-recovery") return handleFamilyMessageRecovery(channel, req, principal);
   if (path === "/agent/models") return handleFamilyModelControl(channel, req, principal);
   if (path === "/agent/status" || path === "/agent/context") return handleFamilyAgentStatus(channel, req, principal);
+  if (path === "/agent/commands") {
+    if (req.method !== "GET") return deny();
+    try {
+      const url = new URL(req.url);
+      if ([...url.searchParams.keys()].some(key => key !== "chat_jid")) throw new ChatAccessDenied();
+      const target = resolveAuthorisedChat(getDb(), principal, selector(url, "chat_jid"), "session.read");
+      const commands = CONTROL_COMMAND_DEFINITIONS
+        .filter(command => ["/model", "/thinking", "/queue", "/queue-all", "/steer", "/abort"].includes(command.name))
+        .map(command => ({ name: command.name, description: command.description, source: "core" as const }));
+      return channel.json({ commands, mentions: listOwnedSessionHandles(getDb(), principal).filter(entry => entry.chat_jid !== target.chatJid) });
+    } catch (error) {
+      if (error instanceof ChatAccessDenied) return deny();
+      throw error;
+    }
+  }
   if (["/agent/queue-state", "/agent/queue-remove", "/agent/queue-reorder", "/agent/queue-steer", "/agent/runs/abort"].includes(path)) {
     const response = await handleFamilyTurnControl(channel, req, principal);
     if (req.signal.aborted) return deny();
