@@ -10,6 +10,7 @@ import { FamilyMemory } from './family-memory.js';
 import { FamilyNotifications } from './family-notifications.js';
 import { initialiseFamilyPanelNavigation } from './family-panel-navigation.js';
 import { FamilyChatSurface, type FamilyChatDirectoryEntry } from './family-chat-surface.js';
+import { FamilyRealtime } from './family-realtime.js';
 
 function element<T extends HTMLElement>(id: string): T {
   const value = document.getElementById(id);
@@ -37,9 +38,10 @@ let tasks: FamilyTasks | null = null;
 let memory: FamilyMemory | null = null;
 let notifications: FamilyNotifications | null = null;
 let chatSurface: FamilyChatSurface | null = null;
+let realtime: FamilyRealtime | null = null;
 let directory: FamilyChatDirectoryEntry[] = [];
 let directoryGeneration = 0;
-let refreshing: symbol | null = null, polling: ReturnType<typeof setInterval> | undefined;
+let refreshing: symbol | null = null;
 
 function controls(enabled: boolean): void {
   panelNavigation.setLocked(busy);
@@ -59,6 +61,7 @@ function mask(): void {
   confirmSkip.checked = false;
   element('recovery-warning').textContent = ''; recoveryStatus.textContent = '';
   recovery.hidden = true; chatSurface?.clear(); controls(false);
+  realtime?.close();
   settings?.suspend(); element<HTMLButtonElement>('open-account').disabled = true;
   sessionSettings?.suspend(); element<HTMLButtonElement>('open-sessions').disabled = true;
   administration?.suspend(); workspacePolicy?.suspend(); preferences?.suspend(); results?.suspend(); tasks?.suspend(); memory?.suspend();
@@ -67,8 +70,8 @@ function mask(): void {
 function invalidate(): void {
   if (stopped) return;
   stopped = true; mask(); api?.stop(); chatSurface?.stop();
+  realtime?.stop();
   settings?.stop(); sessionSettings?.stop(); administration?.stop(); workspacePolicy?.stop(); preferences?.stop(); results?.stop(); tasks?.stop(); memory?.stop(); notifications?.stop();
-  if (polling) clearInterval(polling);
   directory = []; heldRow = null; recoveryRequest = null; confirmSkip.checked = false; recoveryStatus.textContent = ''; logout.disabled = true;
   status.textContent = 'This page is no longer bound to its original account.';
   error.textContent = 'Sign in again or reload. No previous conversation or draft is retained.';
@@ -88,15 +91,16 @@ function renderRecovery(value: any): void {
 }
 async function loadTimeline(): Promise<void> {
   if (!api || stopped || !current || refreshing || busy || paused || document.hidden) return;
-  const flight = Symbol(), expected = ++generation, target = current; refreshing = flight;
+  const flight = Symbol(), expected = ++generation, target = current, realtimeRevision = realtime?.revision() ?? 0; refreshing = flight;
   try {
-    const [result, recoveryState, preferenceState, modelState, agentState, contextUsage] = await Promise.all([
+    const [result, recoveryState, preferenceState, modelState, agentState, contextUsage, queueState] = await Promise.all([
       api.request(`/timeline?chat_jid=${encodeURIComponent(target)}&limit=100`),
       api.request(`/agent/message-recovery?chat_jid=${encodeURIComponent(target)}`),
       api.request('/account/preferences'),
       api.request(`/agent/models?chat_jid=${encodeURIComponent(target)}`),
       api.request(`/agent/status?chat_jid=${encodeURIComponent(target)}`),
       api.request(`/agent/context?chat_jid=${encodeURIComponent(target)}`),
+      api.request(`/agent/queue-state?chat_jid=${encodeURIComponent(target)}`),
     ]);
     if (stopped || expected !== generation || current !== target || paused || document.hidden) return;
     renderRecovery(recoveryState);
@@ -108,7 +112,14 @@ async function loadTimeline(): Promise<void> {
     administration?.resume(); workspacePolicy?.resume(); results?.resume(); tasks?.resume(); memory?.resume();
     preferences?.resume(); preferences?.applyAppearance(preferenceState);
     notifications?.resume(); notify.disabled = !notifications?.state().available; notify.textContent = notifications?.state().enabled ? 'Disable notifications' : 'Enable notifications';
-    chatSurface?.update({ posts: result.posts, hasMore: result.has_more === true, directory, currentChatJid: target, modelState, agentState, contextUsage, enabled: !busy });
+    const realtimeUnchanged = !realtime || realtime.revision() === realtimeRevision;
+    const live = realtime?.applyServerSnapshot(agentState, queueState.items ?? [], realtimeRevision) ?? realtime?.snapshot();
+    const currentSurface = chatSurface?.readSnapshot();
+    const projectedAgentState = realtimeUnchanged
+      ? (live?.agentStatus ? { status: 'active', data: live.agentStatus, draft: live.agentDraft, thought: live.agentThought } : agentState)
+      : (live?.agentStatus ? { status: 'active', data: live.agentStatus, draft: live.agentDraft, thought: live.agentThought } : { status: 'idle', data: null });
+    chatSurface?.update({ posts: realtimeUnchanged ? result.posts : currentSurface?.posts ?? result.posts, hasMore: realtimeUnchanged ? result.has_more === true : currentSurface?.hasMore ?? false, directory, currentChatJid: target, modelState,
+      agentState: projectedAgentState, contextUsage, queueItems: live?.queueItems ?? queueState.items ?? [], connectionStatus: live?.connectionStatus ?? 'disconnected', enabled: !busy });
     controls(!busy);
   } catch (failure) {
     if (!stopped && expected === generation) {
@@ -131,7 +142,7 @@ async function switchSession(chat: string): Promise<void> {
   mask(); current = chat; heldRow = null; recoveryRequest = null; confirmSkip.checked = false; error.textContent = '';
   const url = new URL(location.href); url.search = ''; url.searchParams.set('chat_jid', chat); url.hash = '';
   history.replaceState(null, '', url.pathname + url.search);
-  await refreshDirectory(); await loadTimeline();
+  realtime?.start(chat); await refreshDirectory(); await loadTimeline();
 }
 async function refreshDirectory(): Promise<void> {
   if (!api || stopped || paused || document.hidden) return;
@@ -157,6 +168,35 @@ async function start(): Promise<void> {
         if (!value && !stopped) void loadTimeline();
       },
     });
+    realtime = new FamilyRealtime({
+      sseUrl: chat => api!.sseUrl(chat),
+      getStatus: chat => api!.request(`/agent/status?chat_jid=${encodeURIComponent(chat)}`),
+      getContext: chat => api!.request(`/agent/context?chat_jid=${encodeURIComponent(chat)}`),
+      refreshTimeline: loadTimeline,
+      refreshQueue: loadTimeline,
+      refreshDirectory,
+      setPosts: next => {
+        const previous = chatSurface?.readSnapshot().posts ?? [];
+        chatSurface?.update({ posts: typeof next === 'function' ? next(previous) : next });
+      },
+      setContextUsage: next => {
+        const previous = chatSurface?.readSnapshot().contextUsage ?? null;
+        chatSurface?.update({ contextUsage: typeof next === 'function' ? next(previous) : next });
+      },
+      applyModelState: payload => {
+        const previous = chatSurface?.readSnapshot().modelState ?? {};
+        chatSurface?.update({ modelState: { ...previous, ...payload } });
+      },
+      changed: live => {
+        if (stopped || paused || live.connectionStatus === 'disconnected' && !current) return;
+        chatSurface?.update({
+          agentState: live.agentStatus ? { status: 'active', data: live.agentStatus, draft: live.agentDraft, thought: live.agentThought } : { status: 'idle', data: null },
+          queueItems: live.queueItems, connectionStatus: live.connectionStatus,
+        });
+      },
+      invalidated: invalidate,
+      revalidate: chat => api!.request(`/agent/status?chat_jid=${encodeURIComponent(chat)}`).then(() => undefined),
+    });
     notifications = new FamilyNotifications(api, () => current);
     try { await notifications.initialise(); } catch (failure) { console.debug('[family] Notification subscription restore failed.', failure); }
     settings = new FamilyAccount(api); administration = new FamilyAdministration(api); workspacePolicy = new FamilyWorkspace(api); preferences = new FamilyPreferences(api);
@@ -171,8 +211,7 @@ async function start(): Promise<void> {
     const requested = new URL(location.href).searchParams.getAll('chat_jid');
     if (requested.length > 1 || (requested.length === 1 && !requested[0]?.trim())) throw new Error('Invalid session selection. Use Go home.');
     current = requested[0] ?? identity.homeChatJid;
-    await refreshDirectory(); home.disabled = false; refresh.disabled = false; await loadTimeline();
-    polling = setInterval(() => { void loadTimeline(); }, 5000);
+    realtime.start(current); await refreshDirectory(); home.disabled = false; refresh.disabled = false; await loadTimeline();
   } catch (failure) { if (!stopped) { error.textContent = (failure as Error).message; status.textContent = 'Unable to open this session.'; if (api) home.disabled = false; } }
 }
 home.addEventListener('click', () => { if (api) void switchSession(api.identity.homeChatJid); });
@@ -180,6 +219,7 @@ refresh.addEventListener('click', () => { error.textContent = ''; void loadTimel
 addEventListener('blur', () => { paused = true; mask(); });
 async function resumeVisiblePage(): Promise<void> {
   paused = false;
+  if (current) realtime?.start(current);
   if (!busy) { await refreshDirectory(); await loadTimeline(); return; }
   if (!api || stopped || document.hidden) return;
   const expected = generation;

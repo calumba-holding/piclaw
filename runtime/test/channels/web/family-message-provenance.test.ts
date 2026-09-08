@@ -151,6 +151,7 @@ test("revocation during a run prevents reply persistence and leaves the input un
   await instance.processChat(alice.homeChatJid!, "default");
   expect((getDb().query("SELECT count(*) n FROM messages WHERE chat_jid=? AND is_bot_message=1").get(alice.homeChatJid!) as any).n).toBe(0);
   expect(getChatCursor(alice.homeChatJid!)).toBe("");
+  expect(getDb().query("SELECT state FROM family_turn_queue").get()).toEqual({ state: "ready" });
 });
 
 test("generic user persistence cannot inject family inputs outside admission", () => {

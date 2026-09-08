@@ -59,6 +59,9 @@ export class FamilyApi {
   private headers(): Record<string, string> {
     return { "x-piclaw-account-id": this.identity.userId, "x-piclaw-login-id": this.identity.loginId };
   }
+  sseUrl(chatJid: string): string {
+    return `/sse/stream?chat_jid=${encodeURIComponent(chatJid)}`;
+  }
   private signal(signal?: AbortSignal): AbortSignal { return AbortSignal.any([this.controller.signal, AbortSignal.timeout(15_000), ...(signal ? [signal] : [])]); }
   private invalidate(): never {
     this.stop(); this.onInvalidated();

@@ -549,6 +549,14 @@ export class AgentPool {
     return this.runtimeFacade.applyOwnedModelControl(chatJid, command);
   }
 
+  async queueOwnedStreamingMessage(chatJid: string, text: string, behavior: "steer"): Promise<{ queued: boolean; error?: string }> {
+    return this.runtimeFacade.queueOwnedStreamingMessage(chatJid, text, behavior);
+  }
+
+  async abortOwnedRun(chatJid: string): Promise<AgentControlResult> {
+    return this.runtimeFacade.abortOwnedRun(chatJid);
+  }
+
   async getCurrentModelLabel(chatJid: string): Promise<string | null> {
     return this.runtimeFacade.getCurrentModelLabel(chatJid);
   }
