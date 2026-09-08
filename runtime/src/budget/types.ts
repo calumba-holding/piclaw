@@ -8,6 +8,8 @@ export type BudgetExecutionKind =
 
 export type BudgetWorkStatus = "active" | "paused" | "stopped" | "completed" | "cancelled";
 
+export type BudgetDecisionAction = "allow" | "warn" | "pause" | "stop";
+
 export type BudgetCapScope = "task" | "instance_daily" | "instance_monthly" | "scheduled_run" | "provider_window";
 
 export type BudgetMetric =
@@ -38,6 +40,45 @@ export interface BudgetCap {
   revision: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface BudgetBlocker {
+  capId: string;
+  capRevision: number;
+  scope: BudgetCap["scope"];
+  metric: BudgetCap["metric"];
+  windowId: string;
+  limit: number;
+  allowance: number;
+  knownUsage: number;
+  remaining: number | null;
+  unknownEvents: number;
+  reason: "exhausted" | "unknown_pricing" | "missing_provider_evidence" | "stale_provider_evidence" | "provider_account_mismatch" | "provider_window_expired";
+  detail: string;
+}
+
+export interface BudgetDecision {
+  action: BudgetDecisionAction;
+  workId: string;
+  checkedAt: string;
+  blockers: BudgetBlocker[];
+  warnings: BudgetBlocker[];
+  applicableCapIds: string[];
+  warningsOnly: boolean;
+}
+
+export interface BudgetProviderEvidence {
+  capId: string;
+  providerId: string;
+  accountRef: string;
+  quotaDimension: string;
+  windowId: string;
+  fetchedAt: string;
+  resetsAt: string | null;
+  stale: boolean;
+  availability: string;
+  valueMicros: number | null;
+  source: string;
 }
 
 export interface BudgetCapInput {

@@ -3,8 +3,7 @@ import type Database from "bun:sqlite";
 
 import type { ProviderUsageSnapshot, ProviderUsageWindow } from "../agent-pool/provider-usage.js";
 import { getDb } from "../db/connection.js";
-import type { BudgetCap } from "./types.js";
-import type { BudgetProviderEvidence } from "./evaluator.js";
+import type { BudgetCap, BudgetProviderEvidence } from "./types.js";
 
 export interface ProviderBudgetCapability {
   providerId: ProviderUsageSnapshot["provider"];

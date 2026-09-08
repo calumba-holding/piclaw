@@ -2,7 +2,8 @@ import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 
 import { getProviderUsage, resolveProviderUsageAccountRef } from "../agent-pool/provider-usage.js";
 import { listBudgetCaps, persistBudgetDecision } from "../db/budget-limits.js";
-import { evaluateBudget, type BudgetDecision } from "./evaluator.js";
+import { evaluateBudget } from "./evaluator.js";
+import type { BudgetDecision } from "./types.js";
 import { persistProviderEvidence, providerSnapshotToEvidence } from "./provider-evidence.js";
 
 export const BUDGET_BLOCKED_PREFIX = "PICLAW-BUDGET-BLOCKED:";

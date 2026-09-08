@@ -2,8 +2,9 @@ import { afterEach, describe, expect, test } from "bun:test";
 import "../helpers.js";
 
 import { resolveCalendarWindow } from "../../src/budget/calendar.js";
-import { evaluateBudget, type BudgetProviderEvidence } from "../../src/budget/evaluator.js";
+import { evaluateBudget } from "../../src/budget/evaluator.js";
 import { providerSnapshotToEvidence } from "../../src/budget/provider-evidence.js";
+import type { BudgetProviderEvidence } from "../../src/budget/types.js";
 import {
   ensureBudgetWork,
   grantBudgetAllowance,

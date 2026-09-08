@@ -2,7 +2,8 @@ import type Database from "bun:sqlite";
 
 import { getActiveBudgetWorkForChat, listBudgetCaps } from "../db/budget-limits.js";
 import { getDb } from "../db/connection.js";
-import { evaluateBudget, type BudgetProviderEvidence } from "./evaluator.js";
+import { evaluateBudget } from "./evaluator.js";
+import type { BudgetProviderEvidence } from "./types.js";
 
 function latestProviderEvidence(database: Database): BudgetProviderEvidence[] {
   const caps = listBudgetCaps({ enabledOnly: true }, database).filter((cap) => cap.scope === "provider_window");

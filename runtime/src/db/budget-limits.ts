@@ -3,8 +3,7 @@ import type Database from "bun:sqlite";
 import { createUuid } from "../utils/ids.js";
 import { resolveCalendarWindow } from "../budget/calendar.js";
 import { getProviderBudgetCapability } from "../budget/provider-evidence.js";
-import type { BudgetCap, BudgetCapInput, BudgetExecutionKind, BudgetUsageAttribution, BudgetWorkStatus } from "../budget/types.js";
-import type { BudgetDecision } from "../budget/evaluator.js";
+import type { BudgetCap, BudgetCapInput, BudgetDecision, BudgetExecutionKind, BudgetUsageAttribution, BudgetWorkStatus } from "../budget/types.js";
 import { getDb } from "./connection.js";
 
 export interface BudgetWorkRecord {
