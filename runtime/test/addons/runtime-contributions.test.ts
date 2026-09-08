@@ -242,6 +242,17 @@ test("runtime add-on lifecycle cleanup is process-scoped, awaited, and unregiste
   resetAddonRuntimeContributionsForTests();
 });
 
+test("runtime add-on lifecycle shutdown is bounded when a handler never settles", async () => {
+  resetAddonRuntimeContributionsForTests();
+  const api = installAddonRuntimeApi();
+  api.lifecycle.onShutdown(() => new Promise(() => {}));
+  const started = Date.now();
+  await shutdownAddonRuntimeContributionsForTests();
+  expect(Date.now() - started).toBeGreaterThanOrEqual(3900);
+  expect(Date.now() - started).toBeLessThan(5500);
+  resetAddonRuntimeContributionsForTests();
+}, 7000);
+
 test("runtime add-on messaging API validates lifecycle, data dirs, and transport cleanup", async () => {
   resetAddonRuntimeContributionsForTests();
   await withTempWorkspaceEnv("piclaw-addon-messaging-api-", {}, async (workspace) => {
