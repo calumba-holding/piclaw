@@ -3,7 +3,7 @@ import { rewriteOwnedMediaUrl } from './components/post.js';
 import { FamilyApi } from './family-api.js';
 import { validMemorySource } from './family-memory.js';
 import { isCompactionStatus } from './ui/status-duration.js';
-import { html, render } from './vendor/preact-htm.js';
+import { html, render, useState } from './vendor/preact-htm.js';
 
 const denyStatusWorkspaceLookup = async (): Promise<null> => null;
 
@@ -30,6 +30,14 @@ interface FamilyChatSurfaceSnapshot {
   modelState: Record<string, any> | null;
   agentState: Record<string, any> | null;
   contextUsage: Record<string, any> | null;
+  queueItems: any[];
+  connectionStatus: string;
+}
+
+function FamilyChatSurfaceView({ owner }: { owner: FamilyChatSurface }) {
+  const [value, setValue] = useState(owner.readSnapshot());
+  owner.bindRender(setValue);
+  return owner.renderSnapshot(value);
 }
 
 /**
@@ -43,6 +51,7 @@ export class FamilyChatSurface {
   private readonly preferenceRuntime: EventTarget & { localStorage: { getItem: (key: string) => string | null; setItem: (key: string, value: string) => void } };
   private stopped = false;
   private pending: { chatJid: string; content: string; requestId: string } | null = null;
+  private renderSetter: ((value: FamilyChatSurfaceSnapshot) => void) | null = null;
 
   constructor(
     private readonly api: FamilyApi,
@@ -56,7 +65,7 @@ export class FamilyChatSurface {
   ) {
     this.snapshot = {
       posts: [], hasMore: false, directory: [], currentChatJid: '', enabled: false, identity: api.identity,
-      modelState: null, agentState: null, contextUsage: null,
+      modelState: null, agentState: null, contextUsage: null, queueItems: [], connectionStatus: 'disconnected',
     };
     const preferences = new Map<string, string>();
     const runtime = new EventTarget() as FamilyChatSurface['preferenceRuntime'];
@@ -78,26 +87,30 @@ export class FamilyChatSurface {
       loadMediaInfo: (mediaId: number) => this.api.request(`/media/${mediaId}/info`),
       loadThinking: (messageId: number, chatJid: string) => this.api.request(`/agent/thinking?message_id=${encodeURIComponent(messageId)}&chat_jid=${encodeURIComponent(chatJid)}`),
     });
-    this.render();
+    render(html`<${FamilyChatSurfaceView} owner=${this} />`, this.host);
   }
+
+  readSnapshot(): FamilyChatSurfaceSnapshot { return this.snapshot; }
+  bindRender(setter: (value: FamilyChatSurfaceSnapshot) => void): void { this.renderSetter = setter; }
 
   update(value: Partial<FamilyChatSurfaceSnapshot>): void {
     if (this.stopped) return;
     this.snapshot = { ...this.snapshot, ...value };
     this.host.dataset.chatJid = this.snapshot.currentChatJid;
     this.host.setAttribute('aria-busy', String(!this.snapshot.enabled));
-    this.render();
+    this.renderSetter?.(this.snapshot);
   }
 
   clear(): void {
     this.pending = null;
-    this.update({ posts: [], hasMore: false, directory: [], currentChatJid: '', enabled: false, modelState: null, agentState: null, contextUsage: null });
+    this.update({ posts: [], hasMore: false, directory: [], currentChatJid: '', enabled: false, modelState: null, agentState: null, contextUsage: null, queueItems: [], connectionStatus: 'disconnected' });
   }
 
   stop(): void {
     if (this.stopped) return;
     this.stopped = true;
     this.pending = null;
+    this.renderSetter = null;
     render(null, this.host);
     this.host.replaceChildren();
     this.host.dataset.chatJid = '';
@@ -120,14 +133,26 @@ export class FamilyChatSurface {
     if (modelControl && !mediaIds?.length && !mode) {
       return await this.api.request(`/agent/models?chat_jid=${encodeURIComponent(chatJid)}`, 'PATCH', { action: modelControl[1].toLowerCase(), value: modelControl[2] });
     }
-    if (mediaIds?.length || mode || !command || /^[\s]*[/@]/.test(command)) throw new Error('Only plain text prompts and the active model controls are supported by the current family capability policy.');
-    if (!this.pending || this.pending.chatJid !== chatJid || this.pending.content !== content) {
-      this.pending = { chatJid, content, requestId: crypto.randomUUID() };
+    if (/^\/abort\s*$/i.test(command)) {
+      return await this.api.request('/agent/runs/abort', 'POST', { chat_jid: chatJid, turn_id: this.snapshot.agentState?.data?.turn_id ?? undefined });
+    }
+    let message = command;
+    let familyMode = mode === 'queue' || mode === 'steer' || mode === 'auto' ? mode : 'send';
+    const explicit = command.match(/^\/(queue-all|queue|steer)\s+([\s\S]+)$/i);
+    if (explicit) {
+      familyMode = explicit[1].toLowerCase() === 'queue-all' ? 'queue_all' : explicit[1].toLowerCase();
+      message = explicit[2].trim();
+    }
+    if (mediaIds?.length || !message || /^[\s]*[/@]/.test(message)) throw new Error('Only plain text prompts and permitted live-turn controls are supported by the current family capability policy.');
+    const pendingContent = `${familyMode}:${message}`;
+    if (!this.pending || this.pending.chatJid !== chatJid || this.pending.content !== pendingContent) {
+      this.pending = { chatJid, content: pendingContent, requestId: crypto.randomUUID() };
     }
     const request = this.pending;
     const response = await this.api.request(`/agent/default/message?chat_jid=${encodeURIComponent(chatJid)}`, 'POST', {
-      content,
+      content: message,
       request_id: request.requestId,
+      mode: familyMode,
     });
     if (this.pending === request) this.pending = null;
     return response;
@@ -143,9 +168,8 @@ export class FamilyChatSurface {
     return response;
   };
 
-  private render(): void {
-    if (this.stopped) return;
-    const value = this.snapshot;
+  renderSnapshot(value: FamilyChatSurfaceSnapshot): unknown {
+    if (this.stopped) return null;
     const activeAgentState = value.agentState?.status === 'active' ? value.agentState : null;
     const terminalError = value.agentState?.data?.type === 'error' ? value.agentState.data : null;
     const agentStatus = activeAgentState?.data ?? terminalError;
@@ -161,7 +185,7 @@ export class FamilyChatSurface {
         onClick=${() => { if (value.enabled) void this.hooks.previewMemory(source); }}
       >Preview for family memory</button>`;
     };
-    render(html`<${ChatSurface}
+    return html`<${ChatSurface}
       timelineId="timeline"
       composeId="compose-form"
       posts=${value.posts}
@@ -173,8 +197,8 @@ export class FamilyChatSurface {
       reverse=${true}
       agentStatus=${agentStatus}
       isCompactionStatus=${isCompactionStatus}
-      agentDraft=${activeAgentState?.draft ?? null}
-      agentThought=${activeAgentState?.thought ?? null}
+      agentDraft=${value.agentState?.draft ?? null}
+      agentThought=${value.agentState?.thought ?? null}
       currentTurnId=${currentTurnId}
       loadStatusWorkspaceBranch=${denyStatusWorkspaceLookup}
       composeKey=${`${value.identity.userId}:${value.currentChatJid}`}
@@ -231,10 +255,23 @@ export class FamilyChatSurface {
           document.getElementById('family-error')!.textContent = `${message} Resend unchanged text to reuse the request ID; do not assume it was rejected.`;
         },
         onSubmissionStateChange: this.hooks.submissionState,
-        isAgentActive: false,
-        connectionStatus: value.enabled ? 'connected' : 'disconnected',
+        followupQueueItems: value.queueItems,
+        onInjectQueuedFollowup: value.enabled ? async (item: any) => {
+          await this.api.request('/agent/queue-steer', 'POST', { chat_jid: value.currentChatJid, row_id: item.row_id });
+          await this.hooks.changed();
+        } : undefined,
+        onRemoveQueuedFollowup: value.enabled ? async (item: any) => {
+          await this.api.request('/agent/queue-remove', 'POST', { chat_jid: value.currentChatJid, row_id: item.row_id });
+          await this.hooks.changed();
+        } : undefined,
+        onMoveQueuedFollowup: value.enabled ? async (fromIndex: number, toIndex: number) => {
+          await this.api.request('/agent/queue-reorder', 'POST', { chat_jid: value.currentChatJid, from_index: fromIndex, to_index: toIndex });
+          await this.hooks.changed();
+        } : undefined,
+        isAgentActive: activeAgentState !== null,
+        connectionStatus: value.enabled ? value.connectionStatus : 'disconnected',
         stateAccessFailed: !value.enabled,
-        showQueueStack: false,
+        showQueueStack: true,
         services: {
           sendAgentMessage: this.sendMessage,
           getAgentModels: this.loadModels,
@@ -260,6 +297,6 @@ export class FamilyChatSurface {
         inputId: 'message-text',
         sendButtonId: 'send-message',
       }}
-    />`, this.host);
+    />`;
   }
 }

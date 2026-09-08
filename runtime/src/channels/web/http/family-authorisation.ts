@@ -31,6 +31,8 @@ import { buildContentDisposition } from "./content-disposition.js";
 import { requireAccountActor } from "../../../db/account-administration.js";
 import { handleFamilyWebPush } from "../push/web-push-routes.js";
 import { handleFamilyAgentStatus } from "./family-agent-status.js";
+import { handleFamilyTurnControl } from "./family-turn-control.js";
+import { projectFamilySseEvent } from "../sse/family-event-projector.js";
 
 /** Absent selects the live home; explicit empty/duplicate selectors never fall back. */
 function selector(url: URL, key: string): string | undefined {
@@ -52,6 +54,7 @@ export function createSseAuthorisation(database: Database, principal: Authentica
       const current = resolveAuthorisedChat(database, principal, target.chatJid, "session.read");
       return current.rootBranchId === target.rootBranchId;
     },
+    project: projectFamilySseEvent,
   });
 }
 
@@ -122,6 +125,13 @@ export async function handleFamilyRequest(channel: WebChannelLike, req: Request,
   if (path === "/agent/message-recovery") return handleFamilyMessageRecovery(channel, req, principal);
   if (path === "/agent/models") return handleFamilyModelControl(channel, req, principal);
   if (path === "/agent/status" || path === "/agent/context") return handleFamilyAgentStatus(channel, req, principal);
+  if (["/agent/queue-state", "/agent/queue-remove", "/agent/queue-reorder", "/agent/queue-steer", "/agent/runs/abort"].includes(path)) {
+    const response = await handleFamilyTurnControl(channel, req, principal);
+    if (req.signal.aborted) return deny();
+    try { requireAccountActor(getDb(), principal); }
+    catch (error) { if (error instanceof ChatAccessDenied) return deny(); throw error; }
+    return response;
+  }
   if (path === "/agent/scheduled-results" || path.startsWith("/agent/scheduled-results/")) return handleFamilyScheduledResults(channel, req, principal);
   if (path === "/agent/scheduled-tasks" || path.startsWith("/agent/scheduled-tasks/")) return handleFamilyScheduledTasks(channel, req, principal);
   if (path === "/agent/family-memory" || path.startsWith("/agent/family-memory/")) return handleFamilyMemory(channel, req, principal);

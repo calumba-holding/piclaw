@@ -57,6 +57,10 @@ export interface WebChannelLike
 
   /** Runtime dependencies and state services used across web layers. */
   queue: TaskQueueLike;
+  agentPool: AgentPool & {
+    queueOwnedStreamingMessage?(chatJid: string, text: string, behavior: "steer"): Promise<{ queued: boolean; error?: string }>;
+    abortOwnedRun?(chatJid: string): Promise<unknown>;
+  };
   uiBridge: UiBridge;
   interactionBroadcaster: InteractionBroadcasterLike;
 
@@ -203,9 +207,6 @@ export interface WebChannelLike
   /** Utility helpers shared via request helpers and helpers. */
   parseOptionalInt(value: string | null): number | null;
   clampInt(value: string | null, fallback: number, min: number, max: number): number;
-
-  /** Agent pool used by routing handlers and endpoint contexts. */
-  agentPool: AgentPool;
 
   /** Compatibility for legacy channel-wide SSE event emitter. */
   broadcastEvent(eventType: string, data: unknown): void;
