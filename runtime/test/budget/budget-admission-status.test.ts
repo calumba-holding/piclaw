@@ -1,5 +1,7 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import "../helpers.js";
+import { isolateBudgetTestDatabase } from './fixture.js';
+isolateBudgetTestDatabase();
 
 import { admitBudgetBoundary } from "../../src/budget/admission.js";
 import { withBudgetWorkContext } from "../../src/budget/context.js";
@@ -16,11 +18,6 @@ import { getDb } from "../../src/db/connection.js";
 import { createBudgetLimitsExtension } from "../../src/extensions/budget-limits.js";
 
 const runtime = { getAuth: async () => undefined } as any;
-
-afterEach(() => {
-  const db = getDb();
-  db.exec("DELETE FROM budget_decisions; DELETE FROM budget_allowances; DELETE FROM budget_overrides; DELETE FROM budget_cap_windows; DELETE FROM budget_provider_evidence; DELETE FROM budget_caps;");
-});
 
 describe("budget admission and status", () => {
   test("reports no configured limits without mutating accounting", () => {

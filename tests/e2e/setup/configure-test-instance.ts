@@ -14,17 +14,19 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { homedir } from "node:os";
+import { requireFixturePaths } from './fixture-paths.js';
+const fixture = requireFixturePaths();
 
 // --- Configuration ---
 
-const OPENCODE_BASE_URL = process.env.OPENCODE_BASE_URL || "https://opencode.ai/zen/v1";
+const OPENCODE_BASE_URL = process.env.OPENCODE_BASE_URL;
+if (!OPENCODE_BASE_URL) throw new Error('Set OPENCODE_BASE_URL explicitly; no external provider is selected by default.');
 const OPENCODE_API_KEY = process.env.OPENCODE_API_KEY || ""; // optional — free models work without a key
 const OPENCODE_MODEL = process.env.OPENCODE_MODEL || "mimo-v2.5-free";
 const OPENCODE_PROVIDER_ID = "opencode-zen";
 
-const PI_AGENT_DIR = process.env.PICLAW_PI_AGENT_DIR?.trim() || join(homedir(), ".pi", "agent");
-const WORKSPACE_DIR = process.env.PICLAW_WORKSPACE || "/workspace";
+const PI_AGENT_DIR = fixture.profile;
+const WORKSPACE_DIR = fixture.workspace;
 const PICLAW_CONFIG_PATH = join(WORKSPACE_DIR, ".piclaw", "config.json");
 
 // --- Validation ---

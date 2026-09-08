@@ -1,5 +1,7 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import "../helpers.js";
+import { isolateBudgetTestDatabase } from './fixture.js';
+isolateBudgetTestDatabase();
 
 import { resolveCalendarWindow } from "../../src/budget/calendar.js";
 import { evaluateBudget } from "../../src/budget/evaluator.js";
@@ -15,11 +17,6 @@ import {
   storeTokenUsage,
 } from "../../src/db.js";
 import { getDb } from "../../src/db/connection.js";
-
-afterEach(() => {
-  const db = getDb();
-  db.exec("DELETE FROM budget_decisions; DELETE FROM budget_allowances; DELETE FROM budget_overrides; DELETE FROM budget_cap_windows; DELETE FROM budget_provider_evidence; DELETE FROM budget_caps;");
-});
 
 function storeKnownUsage(workId: string, chatJid: string, eventId: string, at: string, micros: number): void {
   storeTokenUsage({
