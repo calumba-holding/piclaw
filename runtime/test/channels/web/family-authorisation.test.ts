@@ -127,7 +127,7 @@ test("thread ID cannot select a foreign message even with an owned chat", async 
 });
 
 test("terminal gate denies early add-ons, widget state, indirect resources, controls and new routes", async () => {
-  const paths = ["/api/addons/test", "/api/state", "/api/state/events", "/agent/addons/api/test/read", "/agent/models", "/agent/active-chats", "/agent/keychain", "/workspace/raw", "/export/timeline", "/internal/export/timeline", "/terminal/session", "/vnc/session", "/recordings", "/avatar/user", "/avatar/agent", "/manifest.json", "/docs/configuration.md", "/future-route"];
+  const paths = ["/api/addons/test", "/api/state", "/api/state/events", "/agent/addons/api/test/read", "/agent/active-chats", "/agent/keychain", "/workspace/raw", "/export/timeline", "/internal/export/timeline", "/terminal/session", "/vnc/session", "/recordings", "/avatar/user", "/avatar/agent", "/manifest.json", "/docs/configuration.md", "/future-route"];
   for (const path of paths) {
     expect((await router.handle(request(path))).status).toBe(403);
     const anonymous = await router.handle(request(path, null));

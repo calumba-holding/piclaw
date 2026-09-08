@@ -136,7 +136,8 @@ The family router makes a terminal decision before legacy, add-on and widget-sta
 | POST `/agent/message-recovery` | Recent owner-authenticated retry/skip of the oldest unconsumed admitted input, serialized on its chat lane |
 | GET `/media/:id`, `/media/:id/thumbnail`, `/media/:id/info` | Require a stored message link to an active owned session; metadata is projected |
 | GET `/agent/branch-download` | Bounded text-only export of one owned archived conversation; not the legacy full-state dump |
-| GET `/agent/branches` | Owned roots/descendants; optional `include_archived=true` metadata, no runtime-global fallback |
+| GET `/agent/branches` | Owned roots/descendants with server lifecycle capabilities; optional `include_archived=true`, passive model/context metrics and no runtime-global fallback |
+| GET/PATCH `/agent/models` | Safe curated catalogue and current owned-session model/thinking changes; no provider usage/diagnostics, credentials or shared-default writes |
 | POST `/agent/branch-fork`, `/agent/branch-rename` | Owner-bound target, strict fields, browser Origin, cookie revalidation and branch rate limit |
 | POST `/agent/root-session`, `/agent/branch-prune`, `/agent/branch-restore` | Owned root creation and idle metadata lifecycle; no implicit cascading or hydration |
 | PATCH `/account/home` | Recent self authentication, active owned root only; future targetless requests |
@@ -437,7 +438,7 @@ GET `/account/workspace` requires a live family account and rejects query select
 
 The Workspace and security panel keeps configured mode and the stored marker separate and cannot change either. It identifies shared workspace files, skills, add-ons, search and provider configuration, and states that file reads and personal-memory selection are not filesystem confinement. It distinguishes owned conversation access from administrator metadata operations, lists owner-scoped browser notifications and identifies disabled terminal, shell, SQL/keychain/environment, add-on management and automatic scheduling surfaces. Active tools may be fewer than the fixed ceiling.
 
-The workspace panel is read-only for administrators and members; it displays the account's effective allowed names, denials and revision. The separate administrator Tool restrictions panel can narrow the ceiling, and My preferences edits personal appearance/response guidance and empty-root model defaults. No mode selector, broader grant/profile editor or automatic restart is exposed. Live session model controls, generic add-on panes and automatic personal Dream remain unsupported. Browser notification routing is owner/login scoped as described above. Close, backgrounding, navigation and identity replacement clear displayed state; malformed policy responses fail closed. Existing single-user Settings are unchanged.
+The workspace panel is read-only for administrators and members; it displays the account's effective allowed names, denials and revision. The separate administrator Tool restrictions panel can narrow the ceiling, and My preferences edits personal appearance/response guidance and empty-root model defaults. No mode selector, broader grant/profile editor or automatic restart is exposed. The compose catalogue can change only the current owned session model/thinking level; generic add-on panes and automatic personal Dream remain unsupported. Browser notification routing is owner/login scoped as described above. Close, backgrounding, navigation and identity replacement clear displayed state; malformed policy responses fail closed. Existing single-user Settings are unchanged.
 
 ### Per-account tool restrictions
 

@@ -143,6 +143,12 @@ Select **System**, **Light** or **Dark** appearance. Optionally enter up to 2,00
 
 Saved guidance applies to new model runs. It cannot change permissions, account identity or higher-priority instructions. A run already in progress keeps its original guidance. Account theme updates can arrive with polling without replacing your unsaved form fields.
 
+### Active model and thinking
+
+The model control below the current conversation opens the same searchable catalogue used by standard chat. It shows only locally available, instance-scoped models with their context window, catalogue pricing and reasoning support. Choosing a model or thinking level changes only the currently open owned session; it does not change provider credentials, instance defaults or another session.
+
+Model and session pins plus recent-model ordering live only in this family page's memory and are partitioned by immutable account identity. Reloading, switching accounts or invalidating the login clears them. A late response for a previous session is ignored. If the selected model cannot fit the current context, choose a larger model; automatic model-switch compaction is not available here.
+
 ### Model and thinking defaults
 
 Under **Model defaults for empty roots**, choose an available model and, optionally, one of its supported thinking levels. Choose **Save model defaults**. Leaving thinking at the instance default uses the instance's setting for that model, or its general default. Piclaw adjusts the level if the model does not support it.
@@ -153,7 +159,9 @@ The effective-value notice shows the configured default. Check the conversation'
 
 ## Manage your sessions
 
-Open **My sessions** to see your roots, forks, home and archives. Saving a change does not select another conversation. If you archive the selected session, its messages disappear and sending is disabled. Use **Open** or **Go home** to select an active conversation.
+Use the standard session control beside the compose box to search owned roots, forks and archives, pin active rows for this page, switch sessions, create a root or fork, rename, archive or restore where the server-provided capability allows it. The picker shows hierarchy, lifecycle state, active state and available model/context metrics. Foreign rows never appear. Merge and permanent purge stay unavailable.
+
+Open **My sessions** for the detailed owner-only tree, home selection and archived transcript controls. Saving a change there does not select another conversation. If you archive the selected session, its messages disappear and the shell returns to your home. Use **Open** or **Go home** to select an active conversation.
 
 ### Create a root or fork
 
