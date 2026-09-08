@@ -3,6 +3,7 @@ import { join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { getDataDir, getWorkspaceDir as getConfiguredWorkspaceDir } from "../core/config.js";
 import { readAccessConfig } from "../core/config-access.js";
+import { createLogger } from "../utils/logger.js";
 import { getExecutionIdentity } from "../core/execution-context.js";
 import { registerPreShutdownHook } from "../runtime/shutdown-registry.js";
 import { createMedia, getMediaById } from "../db/media.js";
@@ -133,10 +134,12 @@ type RuntimeGlobal = typeof globalThis & {
   __piclaw_autoresearch_runtime_registered__?: boolean;
 };
 
+const log = createLogger("addons.runtime-contributions");
 const statusPanelProviders = new Map<string, AddonStatusPanelProvider>();
 const adaptiveCardIntentHandlers = new Map<string, AddonAdaptiveCardIntentHandler>();
 const addonChatTransportUnregisters = new Set<() => void>();
 const addonRuntimeShutdownHandlers = new Set<() => void | Promise<void>>();
+const ADDON_RUNTIME_SHUTDOWN_TIMEOUT_MS = 4000;
 let runtimeApiInstalled = false;
 let lazyRuntimeEntriesLoadPromise: Promise<void> | null = null;
 let startupRuntimeEntriesLoadPromise: Promise<void> | null = null;
@@ -158,7 +161,22 @@ function registerAddonRuntimeShutdownHandler(handler: () => void | Promise<void>
 async function shutdownAddonRuntimeContributions(): Promise<void> {
   const handlers = [...addonRuntimeShutdownHandlers];
   addonRuntimeShutdownHandlers.clear();
-  await Promise.allSettled(handlers.map((handler) => Promise.resolve().then(handler)));
+  const timeout = Symbol("timeout");
+  const results = await Promise.all(handlers.map(async (handler, index) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const result = await Promise.race([
+        Promise.resolve().then(handler).then(() => null),
+        new Promise<typeof timeout>((resolve) => { timer = setTimeout(() => resolve(timeout), ADDON_RUNTIME_SHUTDOWN_TIMEOUT_MS); }),
+      ]);
+      if (result === timeout) log.warn("Add-on runtime shutdown handler timed out", { operation: "runtime_addon_shutdown", handlerIndex: index, timeoutMs: ADDON_RUNTIME_SHUTDOWN_TIMEOUT_MS });
+    } catch (error) {
+      log.warn("Add-on runtime shutdown handler failed", { operation: "runtime_addon_shutdown", handlerIndex: index, err: error });
+    } finally {
+      clearTimeout(timer);
+    }
+  }));
+  void results;
 }
 
 function getWorkspaceDir(): string {
