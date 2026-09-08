@@ -233,7 +233,21 @@ beforeAll(async () => {
 });
 afterAll(async () => { await browser?.close(); server?.stop(true); });
 
-browserTest('owned rich timeline uses the standard renderer without activating indirect actions', async () => {
+browserTest('standard family compose uploads and sends attachments with pinned account identity',async()=>{
+  const page=await browser.newPage({viewport:{width:1200,height:900}});const uploads:any[]=[],messages:any[]=[];
+  try{
+    await fixture(page);
+    await page.route('**/media/upload',async route=>{uploads.push({headers:route.request().headers(),body:route.request().postDataBuffer()});return route.fulfill({json:{id:41,filename:'family-note.txt',size:11,contentType:'text/plain'}});});
+    await page.route('**/agent/default/message?**',route=>{messages.push({headers:route.request().headers(),body:route.request().postDataJSON()});return route.fulfill({status:201,json:{user_message:{id:9,chat_jid:'web:alice',timestamp:'today',data:{content:route.request().postDataJSON().content,media_ids:route.request().postDataJSON().media_ids}},created:true,queued:'message'}});});
+    await page.goto(base);await ready(page);const file=page.locator('label[title="Attach file"] input[type="file"]');expect(await file.count()).toBe(1);
+    await file.setInputFiles({name:'family-note.txt',mimeType:'text/plain',buffer:Buffer.from('family note')});expect(await page.locator('.compose-file-pill').textContent()).toContain('family-note.txt');
+    await composeInput(page).fill('Review this attachment');await composeSend(page).click();await page.waitForFunction(()=>!(document.querySelector('[data-testid="compose-input"]') as HTMLTextAreaElement)?.value);
+    expect(uploads).toHaveLength(1);expect(uploads[0].headers).toMatchObject({'x-piclaw-account-id':'alice','x-piclaw-login-id':'login-a'});expect(uploads[0].body.byteLength).toBeGreaterThan(11);
+    expect(messages).toHaveLength(1);expect(messages[0].headers).toMatchObject({'x-piclaw-account-id':'alice','x-piclaw-login-id':'login-a'});expect(messages[0].body.media_ids).toEqual([41]);expect(messages[0].body.content).toContain('attachment:41 (family-note.txt)');
+  }finally{await page.close();}
+},20000);
+
+browserTest('owned rich timeline uses standard rendering and owner-authorized viewing actions', async () => {
   const transparentPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+7aIf9QAAAABJRU5ErkJggg==','base64');
   const content = [
     '# Render parity',
@@ -285,7 +299,7 @@ browserTest('owned rich timeline uses the standard renderer without activating i
     { type:'text',annotations:{audience:['family'],priority:2,lastModified:'2026-09-08T00:00:00.000Z'} },
     { type:'image',name:'photo.png',mime_type:'image/png',annotations:{audience:['family']} },
     { type:'file',name:'report.pdf',mime_type:'application/pdf' },
-    { type:'adaptive_card',card_id:'card-one',schema_version:'1.5',state:'active',fallback_text:'Card fallback',payload:{type:'AdaptiveCard',version:'1.5',body:[{type:'TextBlock',text:'CARD_BODY [card link](https://foreign.example/card-link)'},{type:'Image',url:'https://foreign.example/card.png',altText:'Remote card image'},{type:'Image',url:'/media/11',altText:'Owned card image'}],actions:[{type:'Action.Submit',title:'Submit card',data:{secret:'not-authority'}}]} },
+    { type:'adaptive_card',card_id:'card-one',schema_version:'1.5',state:'active',fallback_text:'Card fallback',payload:{type:'AdaptiveCard',version:'1.5',body:[{type:'TextBlock',text:'CARD_BODY [card link](https://foreign.example/card-link)'},{type:'Input.Text',id:'choice',label:'Choice'},{type:'Image',url:'https://foreign.example/card.png',altText:'Remote card image'},{type:'Image',url:'/media/11',altText:'Owned card image'}],actions:[{type:'Action.Submit',title:'Submit card',data:{kind:'choice'}}]} },
     { type:'adaptive_card_submission',card_id:'card-one',source_post_id:2,submitted_at:'2026-09-08T00:00:00.000Z',action_type:'Action.Submit',title:'Submitted choices',data:{priority:'high'} },
     { type:'generated_widget',widget_id:'widget-one',title:'READ_ONLY_WIDGET',description:'Widget description',artifact:{kind:'html',html:'<!doctype html><p>widget</p>'},auto_open:true,capabilities:['interactive'] },
     { type:'resource_link',uri:'https://foreign.example/resource',title:'REMOTE_RESOURCE',description:'Remote resource' },
@@ -307,11 +321,14 @@ browserTest('owned rich timeline uses the standard renderer without activating i
     { viewport:{width:1200,height:900},colorScheme:'light' as const },
     { viewport:{width:375,height:740},colorScheme:'dark' as const },
   ]) {
-    const page=await browser.newPage(context);const external:string[]=[],media:Array<{path:string,search:string,headers:Record<string,string>}>=[],thinkingHeaders:Record<string,string>[]=[];
+    const page=await browser.newPage(context);const external:string[]=[],media:Array<{path:string,search:string,headers:Record<string,string>}>=[],thinkingHeaders:Record<string,string>[]=[],cardWrites:any[]=[],widgetWrites:any[]=[],annotationWrites:any[]=[];let cardSeen!:()=>void;const cardReceived=new Promise<void>(resolve=>cardSeen=resolve);
     try{
       await fixture(page);
       await page.route('**/timeline?**',route=>route.fulfill({json:richPosts}));
       await page.route('**/agent/thinking?**',route=>{thinkingHeaders.push(route.request().headers());return route.fulfill({json:{text:'PRIVATE_REASONING',lines:2,duration_ms:25,model:'test-model',truncated:false}});});
+      await page.route('**/agent/card-action',route=>{cardWrites.push({headers:route.request().headers(),body:route.request().postDataJSON()});cardSeen();return route.fulfill({status:201,json:{status:'ok',created:true}});});
+      await page.route('**/agent/default/message?**',route=>{widgetWrites.push({headers:route.request().headers(),body:route.request().postDataJSON()});return route.fulfill({status:201,json:{user_message:{id:90,data:{content:route.request().postDataJSON().content}},created:true}});});
+      await page.route('**/post/2/annotations?**',route=>{annotationWrites.push({headers:route.request().headers(),body:route.request().postDataJSON()});return route.fulfill({json:{status:'ok',annotations:route.request().postDataJSON().annotations}});});
       await page.route('https://foreign.example/**',route=>{external.push(route.request().url());return route.abort();});
       await page.route('**/media/**',route=>{const parsed=new URL(route.request().url()),path=parsed.pathname;if(parsed.origin!==new URL(base).origin||!/^\/media\/[1-9]\d*(?:\/(?:thumbnail|info))?$/.test(path)){external.push(route.request().url());return route.abort();}media.push({path,search:parsed.search,headers:route.request().headers()});if(path.endsWith('/info'))return route.fulfill({json:{id:Number(path.split('/')[2]),filename:path.includes('/11/')?'photo.png':'report.pdf',content_type:path.includes('/11/')?'image/png':'application/pdf',created_at:'2026-09-08T00:00:00.000Z'}});return route.fulfill({status:200,contentType:'image/png',body:transparentPng});});
       await page.goto(base);await page.waitForFunction(()=>Boolean((window as any).marked&&(window as any).katex&&(window as any).beautifulMermaid));await page.locator('#refresh').click();
@@ -320,12 +337,13 @@ browserTest('owned rich timeline uses the standard renderer without activating i
       expect(await page.locator('.post-code-copy-btn').count()).toBe(1);expect(await page.locator('#post-2 .post-copy-btn').getAttribute('aria-label')).toBe('Copy message');expect(await page.locator('.hashtag').textContent()).toBe('#familytag');expect(await page.locator('.katex-display').count()).toBe(1);expect(await page.locator('.mermaid-container svg').count()).toBe(1);
       expect(await page.locator('.post-msg-pill-link').getAttribute('href')).toBe('#msg-1');expect(await page.locator('.post-file-pill[title="/workspace/report.md"]').count()).toBe(1);expect(await page.locator('.post-file-pill[title="/workspace/docs"]').count()).toBe(1);
       expect(await page.locator('.post-content script,[onerror]').count()).toBe(0);expect(await page.evaluate(()=>(window as any).TIMELINE_XSS===true)).toBe(false);expect(await page.locator('#post-2 .post-content').textContent()).toContain('SAFE_HTML');expect(await page.locator('.link-preview').getAttribute('href')).toBe('https://example.com/docs');expect(await page.locator('.link-preview').textContent()).toContain('LINK_PREVIEW');expect(await page.locator('.link-preview').evaluate(node=>getComputedStyle(node).backgroundImage)).toBe('none');
-      expect(await page.locator('.adaptive-card-container').first().textContent()).toContain('CARD_BODY');expect(await page.locator('.adaptive-card-container button:not(:disabled)').count()).toBe(0);expect(await page.locator('.adaptive-card-container input,.adaptive-card-container textarea,.adaptive-card-container select').count()).toBe(0);expect(await page.locator('.adaptive-card-container a[href]').count()).toBe(0);expect(await page.locator('.adaptive-card-container img[src$="/media/11"]').count()).toBe(1);expect(await page.locator('.adaptive-card-container img[src*="foreign.example"]').count()).toBe(0);expect(await page.locator('.adaptive-card-submission-receipt').textContent()).toContain('Submitted choices');expect(await page.locator('#post-3').textContent()).toContain('SURROUNDING_MESSAGE');expect(await page.locator('#post-3').textContent()).toContain('UNSUPPORTED_CARD_FALLBACK');
-      expect(await page.locator('.generated-widget-launch-title').textContent()).toBe('READ_ONLY_WIDGET');expect(await page.locator('.generated-widget-launch-btn').isDisabled()).toBe(true);expect(await page.evaluate(()=>sessionStorage.getItem('widget_opened_widget-one'))).toBeNull();
-      expect(await page.locator('.resource-link').getAttribute('href')).toBeNull();expect(await page.locator('.resource-link').getAttribute('aria-disabled')).toBe('true');await page.locator('.resource-embed-toggle').click();expect(await page.locator('.resource-embed-content').textContent()).toBe('EMBEDDED_RESOURCE');expect(await page.locator('.resource-embed-blob-btn').isDisabled()).toBe(true);
-      expect(await page.locator('.file-attachment').filter({hasText:'report.pdf'}).locator('.file-attachment-main').getAttribute('href')).toBeNull();expect(await page.locator('.attachment-pill-main').count()).toBe(0);expect(await page.locator('.content-annotation').filter({hasText:'Audience: family'}).count()).toBeGreaterThanOrEqual(1);expect(await page.locator('.post-recovery-chip').filter({hasText:'recovered'}).count()).toBe(1);expect(await page.locator('.post-timeout-chip').count()).toBe(1);expect(await page.locator('#post-2 .post-time').getAttribute('title')).toContain('Agent reply took 2.0s');expect(await page.locator('.post-outcome-chip').textContent()).toContain('Needs review');expect(await page.locator('.post-outcome-pill').textContent()).toContain('Turn outcome');
+      expect(await page.locator('.adaptive-card-container').first().textContent()).toContain('CARD_BODY');expect(await page.locator('.adaptive-card-container button:not(:disabled)').count()).toBe(1);expect(await page.locator('.adaptive-card-container input').count()).toBe(1);expect(await page.locator('.adaptive-card-container a[href]').count()).toBe(1);expect(await page.locator('.adaptive-card-container img[src$="/media/11"]').count()).toBe(1);expect(await page.locator('.adaptive-card-container img[src*="foreign.example"]').count()).toBe(0);expect(await page.locator('.adaptive-card-submission-receipt').textContent()).toContain('Submitted choices');expect(await page.locator('#post-3').textContent()).toContain('SURROUNDING_MESSAGE');expect(await page.locator('#post-3').textContent()).toContain('UNSUPPORTED_CARD_FALLBACK');
+      await page.locator('.adaptive-card-container input').fill('A');await page.getByRole('button',{name:'Submit card',exact:true}).click();await cardReceived;expect(cardWrites).toHaveLength(1);expect(cardWrites[0].headers).toMatchObject({'x-piclaw-account-id':'alice','x-piclaw-login-id':'login-a'});expect(cardWrites[0].body).toMatchObject({post_id:2,card_id:'card-one',chat_jid:'web:alice',action:{type:'Action.Submit'}});
+      expect(await page.locator('.generated-widget-launch-title').textContent()).toBe('READ_ONLY_WIDGET');expect(await page.locator('.generated-widget-launch-btn').isDisabled()).toBe(false);await page.locator('.generated-widget-launch-btn').click();expect(await page.locator('.floating-widget-pane').count()).toBe(1);const frame=page.frames().find(item=>item!==page.mainFrame()&&item.url()==='about:srcdoc')!;await frame.waitForFunction(()=>Boolean((window as any).piclawWidget));await frame.evaluate(()=>(window as any).piclawWidget.submit({text:'Widget choice',close:true}));await page.waitForFunction(()=>!document.querySelector('.floating-widget-pane'));expect(widgetWrites).toHaveLength(1);expect(widgetWrites[0].headers).toMatchObject({'x-piclaw-account-id':'alice','x-piclaw-login-id':'login-a'});expect(widgetWrites[0].body.content).toBe('Widget choice');
+      expect(await page.locator('.resource-link').getAttribute('href')).toBe('https://foreign.example/resource');expect(await page.locator('.resource-link').getAttribute('aria-disabled')).toBeNull();await page.locator('.resource-embed-toggle').click();expect(await page.locator('.resource-embed-content').textContent()).toBe('EMBEDDED_RESOURCE');expect(await page.locator('.resource-embed-blob-btn').isDisabled()).toBe(false);
+      expect(await page.locator('.file-attachment').filter({hasText:'report.pdf'}).locator('.file-attachment-main').getAttribute('href')).toBe('/media/12');expect(await page.locator('.file-attachment-preview').count()).toBe(1);expect(await page.locator('.attachment-pill-main').count()).toBe(2);expect(await page.locator('.content-annotation').filter({hasText:'Audience: family'}).count()).toBeGreaterThanOrEqual(1);expect(await page.locator('.post-recovery-chip').filter({hasText:'recovered'}).count()).toBe(1);expect(await page.locator('.post-timeout-chip').count()).toBe(1);expect(await page.locator('#post-2 .post-time').getAttribute('title')).toContain('Agent reply took 2.0s');expect(await page.locator('.post-outcome-chip').textContent()).toContain('Needs review');expect(await page.locator('.post-outcome-pill').textContent()).toContain('Turn outcome');
       await page.locator('.post-thinking-visibility-header').click();await page.waitForFunction(()=>document.querySelector('.post-thinking-visibility-detail')?.textContent?.includes('PRIVATE_REASONING'));expect(await page.locator('.post-thinking-visibility-detail').textContent()).toContain('PRIVATE_REASONING');expect(thinkingHeaders).toHaveLength(1);expect(thinkingHeaders[0]).toMatchObject({'x-piclaw-account-id':'alice','x-piclaw-login-id':'login-a'});
-      await page.locator('.media-preview img').click();expect(await page.locator('.image-modal').count()).toBe(0);expect(external).toEqual([]);expect(media.some(item=>item.path==='/media/11/thumbnail')).toBe(true);
+      await page.locator('.media-preview img').click();await page.waitForFunction(()=>Boolean(document.querySelector('.image-modal')));expect(await page.locator('.image-modal').count()).toBe(1);await page.keyboard.press('Escape');await page.locator('.file-attachment-preview').click();await page.waitForFunction(()=>Boolean(document.querySelector('.attachment-preview-modal')));expect(await page.locator('.attachment-preview-modal').count()).toBe(1);await page.keyboard.press('Escape');expect(external).toEqual([]);expect(media.some(item=>item.path==='/media/11/thumbnail')).toBe(true);
       const info=media.filter(item=>item.path.endsWith('/info'));expect(info.length).toBeGreaterThanOrEqual(2);expect(info.every(item=>item.headers['x-piclaw-account-id']==='alice'&&item.headers['x-piclaw-login-id']==='login-a')).toBe(true);expect(media.every(item=>item.search==='')).toBe(true);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(await page.evaluate(()=>matchMedia('(prefers-color-scheme: dark)').matches)).toBe(context.colorScheme==='dark');expect(await page.evaluate(()=>[localStorage.length,sessionStorage.length])).toEqual([0,0]);
     }finally{await page.close();}
@@ -2338,6 +2356,44 @@ browserTest("passkey creation uses native registration twice without replacement
     expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0]);
   } finally { await cdp.detach(); await page.close(); }
 }, 20000);
+
+browserTest('two accounts drive isolated realtime status queue steer and stale-event behavior through the shared chat surface',async()=>{
+  const pages=await Promise.all(['alice','bob'].map(()=>browser.newPage({viewport:{width:900,height:800}})));
+  try{
+    for(const page of pages)await page.addInitScript(()=>{
+      class ControlledEventSource{
+        static instances:any[]=[];listeners=new Map<string,any[]>();onopen:any=null;onerror:any=null;closed=false;
+        constructor(public url:string){ControlledEventSource.instances.push(this);setTimeout(()=>this.onopen?.(),0);}
+        addEventListener(type:string,listener:any){this.listeners.set(type,[...(this.listeners.get(type)||[]),listener]);}
+        emit(type:string,data:any){for(const listener of this.listeners.get(type)||[])listener({data:JSON.stringify(data)});}
+        close(){this.closed=true;}
+      }
+      Object.defineProperty(window,'EventSource',{value:ControlledEventSource,configurable:true});(window as any).emitFamily=(type:string,data:any,index=-1)=>{const instances=(ControlledEventSource as any).instances;instances.at(index)?.emit(type,data);};
+    });
+    const states=[await fixture(pages[0]),await fixture(pages[1])];states[1].identity=principal('bob','login-b');
+    const controls=[[] as any[],[] as any[]];
+    for(let i=0;i<2;i++){
+      const page=pages[i],name=i?'bob':'alice',items=[{row_id:10+i*10,content:`${name} first`,timestamp:'now'},{row_id:11+i*10,content:`${name} second`,timestamp:'now'}];
+      await page.route('**/timeline?**',r=>r.fulfill({json:posts(`${name} private text`)}));await page.route('**/agent/status?**',r=>r.fulfill({json:{status:'idle',state:'idle',chat_jid:`web:${name}`,data:null,extension_working:null}}));await page.route('**/agent/queue-state?**',r=>r.fulfill({json:{count:items.length,items}}));
+      for(const action of ['queue-remove','queue-reorder','queue-steer'])await page.route(`**/agent/${action}`,r=>{controls[i].push({action,headers:r.request().headers(),body:r.request().postDataJSON()});return r.fulfill({json:{status:'ok',removed:true,reordered:true,queued:'steer',count:Math.max(0,items.length-1)}});});
+      await page.route('**/agent/default/message?**',r=>{controls[i].push({action:'message',headers:r.request().headers(),body:r.request().postDataJSON()});return r.fulfill({status:201,json:{queued:'followup',row_id:99}});});
+      await page.goto(`${base}?chat_jid=web:${name}`);await page.waitForFunction(expected=>document.getElementById('timeline')?.textContent?.includes(expected),`${name} private text`);
+      await page.waitForFunction(()=>Boolean(document.querySelector('[data-testid="queue-item"]')));
+    }
+    for(let i=0;i<2;i++){
+      const page=pages[i],name=i?'bob':'alice',turn=`turn-${name}`;
+      await page.evaluate(({name,turn})=>(window as any).emitFamily('agent_status',{chat_jid:`web:${name}`,type:'thinking',title:`Thinking for ${name}`,turn_id:turn}),{name,turn});
+      await page.evaluate(({name,turn})=>(window as any).emitFamily('agent_draft_delta',{chat_jid:`web:${name}`,turn_id:turn,delta:`Draft ${name}`,total_lines:1}),{name,turn});
+      await page.evaluate(({name,turn})=>(window as any).emitFamily('agent_thought_delta',{chat_jid:`web:${name}`,turn_id:turn,delta:`Thought ${name}`,total_lines:1}),{name,turn});
+      await page.waitForFunction(expected=>document.body.textContent?.includes(expected),`Thinking for ${name}`);expect((await page.locator('.agent-thinking-body').allTextContents()).map(value=>value.trim())).toEqual(expect.arrayContaining([`Draft ${name}`,`Thought ${name}`]));
+      expect(await page.locator('[data-testid="queue-item"]').count()).toBe(2);await page.locator('[data-testid="queue-item"]').nth(1).locator('[data-action="move-up"]').click();await page.locator('[data-testid="queue-item"]').first().locator('[data-action="remove"]').click();
+      await composeInput(page).fill('/steer direct guidance');await composeInput(page).press('Enter');await page.waitForTimeout(80);
+      expect(controls[i].every(item=>item.headers['x-piclaw-account-id']===name&&item.headers['x-piclaw-login-id']===(i?'login-b':'login-a'))).toBe(true);expect(controls[i].some(item=>item.action==='queue-reorder')).toBe(true);expect(controls[i].some(item=>item.action==='queue-remove')).toBe(true);expect(controls[i].some(item=>item.action==='message'&&item.body.mode==='steer')).toBe(true);
+      expect(await pages[1-i].locator('body').textContent()).not.toContain(`Thinking for ${name}`);
+    }
+    states[0].identity=principal('replacement','login-new');await pages[0].locator('#refresh').click();await pages[0].waitForFunction(()=>document.getElementById('family-status')?.textContent?.includes('no longer bound'));await pages[0].evaluate(()=>(window as any).emitFamily('agent_status',{chat_jid:'web:alice',type:'thinking',title:'STALE_ALICE'}));expect(await pages[0].locator('body').textContent()).not.toContain('STALE_ALICE');expect(await pages[1].locator('body').textContent()).not.toContain('STALE_ALICE');expect(await pages[1].locator('#account-name').textContent()).toContain('@bob');
+  }finally{for(const page of pages)await page.close();}
+},30000);
 
 browserTest('standard compose keeps drafts by owned session and exposes permitted command, mention, speech and keyboard behavior', async () => {
   const page = await browser.newPage({ viewport: { width: 900, height: 800 } });

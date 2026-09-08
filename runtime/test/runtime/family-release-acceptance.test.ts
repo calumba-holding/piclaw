@@ -20,7 +20,8 @@ test('family release acceptance manifest retains the supported two-user browser 
   }
 });
 
-test('family release keeps explicitly unsupported surfaces denied in the user guide',()=>{
+test('family release keeps explicitly unsupported global surfaces denied in the user guide',()=>{
   const source=readFileSync(join(import.meta.dir,'../../../docs/multi-user/user-guide.md'),'utf8');
-  for(const text of ['attachments, steering and commands','shell, terminal and VNC access','automatic family task scheduling','cross-account sharing'])expect(source).toContain(text);
+  for(const text of ['global provider login and generic add-on panes','shell, terminal and VNC access','automatic family task scheduling and Dream','cross-account sharing','privileged Adaptive Card/add-on intents'])expect(source).toContain(text);
+  for(const supported of ['standard compose box','attachment upload/download/preview','Generic Adaptive Card submissions','widget text submissions'])expect(source).toContain(supported);
 });

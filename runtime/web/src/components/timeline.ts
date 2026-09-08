@@ -117,7 +117,7 @@ function resolveThreadInfo(displayPosts) {
 }
 
 /** Timeline component. */
-function TimelineView({ posts, hasMore, onLoadMore, onPostClick, onHashtagClick, onMessageRef, onScrollToMessage, onFileRef, onOpenWidget, onOpenAttachmentPreview, renderPostAccessory, postCapabilities, emptyMessage, timelineRef, timelineId, agents, user, onDeletePost, reverse = true, removingPostIds, searchQuery }) {
+function TimelineView({ posts, hasMore, onLoadMore, onPostClick, onHashtagClick, onMessageRef, onScrollToMessage, onFileRef, onOpenWidget, onOpenAttachmentPreview, onSaveAnnotations, onSubmitCardAction, renderPostAccessory, postCapabilities, emptyMessage, timelineRef, timelineId, agents, user, onDeletePost, reverse = true, removingPostIds, searchQuery }) {
     const [loadingMore, setLoadingMore] = useState(false);
     const [windowRange, setWindowRange] = useState({ start: 0, end: 0 });
     const [heightRevision, setHeightRevision] = useState(0);
@@ -345,6 +345,8 @@ function TimelineView({ posts, hasMore, onLoadMore, onPostClick, onHashtagClick,
                         onOpenWidget=${onOpenWidget}
                         onDelete=${onDeletePost}
                         onOpenAttachmentPreview=${onOpenAttachmentPreview}
+                        onSaveAnnotations=${onSaveAnnotations}
+                        onSubmitCardAction=${onSubmitCardAction}
                         accessory=${renderPostAccessory?.(post)}
                         capabilities=${postCapabilities}
                     />

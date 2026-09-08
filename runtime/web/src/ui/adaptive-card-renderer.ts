@@ -249,9 +249,24 @@ export function sanitizeAdaptiveCardPayloadForReadOnly(
   return visit(payload) as Record<string, unknown>;
 }
 
+export function rewriteAdaptiveCardPayloadResources(
+  payload: Record<string,unknown>,rewriteResourceUrl?: (value:string)=>string,
+):Record<string,unknown>{
+  const visit=(value:unknown,key=""):unknown=>{
+    if(Array.isArray(value))return value.map(item=>visit(item,key));
+    if(!value||typeof value!=="object"){
+      if(typeof value==="string"&&["url","iconurl","poster","backgroundimage"].includes(key.toLowerCase())&&rewriteResourceUrl){const rewritten=rewriteResourceUrl(value);return rewritten?.trim()?rewritten:undefined;}
+      return value;
+    }
+    return Object.fromEntries(Object.entries(value as Record<string,unknown>).flatMap(([innerKey,inner])=>{const rewritten=visit(inner,innerKey);return rewritten===undefined?[]:[[innerKey,rewritten]];}));
+  };
+  return visit(payload) as Record<string,unknown>;
+}
+
 export function sanitizeAdaptiveCardRenderedResources(
   root: HTMLElement,
   rewriteResourceUrl?: (value: string) => string,
+  disableLinks = true,
 ): void {
   const rewrite = (value: string | null): string | null => {
     if (!value || typeof rewriteResourceUrl !== "function") return null;
@@ -261,7 +276,7 @@ export function sanitizeAdaptiveCardRenderedResources(
   const nodes = [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))];
   for (const element of nodes) {
     const tag = element.tagName.toLowerCase();
-    if (tag === "a") {
+    if (tag === "a" && disableLinks) {
       element.removeAttribute("href");
       element.removeAttribute("target");
       element.removeAttribute("rel");
@@ -410,7 +425,9 @@ export async function renderAdaptiveCard(
       : hydrateAdaptiveCardPayloadWithSubmission(block.payload, submissionData);
     const payload = options?.readOnly
       ? sanitizeAdaptiveCardPayloadForReadOnly(hydratedPayload, options.rewriteResourceUrl)
-      : hydratedPayload;
+      : options?.rewriteResourceUrl
+        ? rewriteAdaptiveCardPayloadResources(hydratedPayload,options.rewriteResourceUrl)
+        : hydratedPayload;
     card.parse(payload);
 
     // Wire up action handler (Phase 2)
@@ -462,7 +479,7 @@ export async function renderAdaptiveCard(
     }
 
     clearAdaptiveCardNotice(container);
-    if (options?.readOnly) sanitizeAdaptiveCardRenderedResources(rendered, options.rewriteResourceUrl);
+    if (options?.rewriteResourceUrl) sanitizeAdaptiveCardRenderedResources(rendered, options.rewriteResourceUrl,options?.readOnly!==false);
     container.appendChild(rendered);
     if (stateMeta || options?.readOnly) {
       lockAdaptiveCardInputs(rendered);

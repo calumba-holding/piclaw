@@ -22,15 +22,17 @@ export async function handleFamilyMessageIngress(channel: WebChannelLike, req: R
   try {
     const body = await req.json();
     const url = new URL(req.url);
-    if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).some(key => !["content", "request_id", "thread_id", "mode"].includes(key))
+    if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).some(key => !["content", "request_id", "thread_id", "mode", "media_ids"].includes(key))
       || typeof body.content !== "string" || typeof body.request_id !== "string"
       || (body.thread_id !== undefined && body.thread_id !== null && !Number.isSafeInteger(body.thread_id))
-      || (body.mode !== undefined && !["send", "queue", "queue_all", "steer", "auto"].includes(body.mode))) return channel.json({ error: "Invalid text message request." }, 400);
+      || (body.mode !== undefined && !["send", "queue", "queue_all", "steer", "auto"].includes(body.mode))
+      || (body.media_ids !== undefined && (!Array.isArray(body.media_ids) || body.media_ids.length > 16
+        || body.media_ids.some((id: unknown) => !Number.isSafeInteger(id) || Number(id) <= 0)))) return channel.json({ error: "Invalid message request." }, 400);
     const targets = url.searchParams.getAll("chat_jid");
     if (targets.length > 1 || (targets.length === 1 && !targets[0]?.trim())) throw new ChatAccessDenied();
     const mode = (body.mode ?? "send") as FamilyTurnAdmissionMode;
     const target = targets[0]?.trim();
-    const result = admitFamilyMessage(actor, { content: body.content, requestId: body.request_id, threadId: body.thread_id, chatJid: target, mode });
+    const result = admitFamilyMessage(actor, { content: body.content, requestId: body.request_id, threadId: body.thread_id, chatJid: target, mode, mediaIds: body.media_ids });
     const chatJid = result.interaction.chat_jid!;
     if (result.created) {
       if (result.queue.state === "ready") channel.broadcastEvent("new_post", result.interaction);

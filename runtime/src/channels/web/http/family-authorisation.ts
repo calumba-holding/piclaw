@@ -1,7 +1,7 @@
 import type Database from "bun:sqlite";
 import type { AuthenticatedPrincipal } from "../../../core/access-types.js";
 import { getDb } from "../../../db/connection.js";
-import { getThinkingContentForChat } from "../../../db/messages.js";
+import { getMessageByRowIdFromDatabase, getThinkingContentForChat, updateMessageAnnotationsInDatabase } from "../../../db/messages.js";
 import { ChatAccessDenied, resolveAuthorisedChat } from "../../../db/session-ownership.js";
 import type { WebChannelLike } from "../core/web-channel-contracts.js";
 import { principalResponse } from "../auth/principal.js";
@@ -21,17 +21,21 @@ import { handleFamilyScheduledResults } from "./family-scheduled-results.js";
 import { handleFamilyScheduledTasks } from "./family-scheduled-tasks.js";
 import { handleFamilyMemory } from "./family-memory.js";
 import { checkCsrfOrigin } from "./security.js";
+import { isRateLimited } from "./rate-limit.js";
 import { handleFamilyModelControl } from "./family-model-control.js";
 import { authoriseExecutionIdentity } from "../../../agent-pool/execution-identity.js";
 import { withExecutionIdentity } from "../../../core/execution-context.js";
 import { createOwnedRoot, readOwnedSessionSettings } from "../../../db/owned-session-lifecycle.js";
 import { authoriseOwnedMedia, readOwnedMediaInfo, exportOwnedArchivedTranscript } from "../../../db/owned-resource-reads.js";
 import { handleMedia } from "../handlers/media.js";
+import { MediaService } from "../media/media-service.js";
+import { claimFamilyMediaUpload } from "../../../db/family-media-uploads.js";
 import { buildContentDisposition } from "./content-disposition.js";
 import { requireAccountActor } from "../../../db/account-administration.js";
 import { handleFamilyWebPush } from "../push/web-push-routes.js";
 import { handleFamilyAgentStatus } from "./family-agent-status.js";
 import { handleFamilyTurnControl } from "./family-turn-control.js";
+import { handleFamilyCardAction } from "./family-card-action.js";
 import { projectFamilySseEvent } from "../sse/family-event-projector.js";
 import { CONTROL_COMMAND_DEFINITIONS } from "../../../agent-control/command-registry.js";
 import { listOwnedSessionHandles } from "../../../db/session-handles.js";
@@ -125,6 +129,7 @@ export async function handleFamilyRequest(channel: WebChannelLike, req: Request,
     return channel.json({ logged_out: true });
   }
   if (path === "/agent/message-recovery") return handleFamilyMessageRecovery(channel, req, principal);
+  if (path === "/agent/card-action") return handleFamilyCardAction(channel,req,principal);
   if (path === "/agent/models") return handleFamilyModelControl(channel, req, principal);
   if (path === "/agent/status" || path === "/agent/context") return handleFamilyAgentStatus(channel, req, principal);
   if (path === "/agent/commands") {
@@ -174,6 +179,37 @@ export async function handleFamilyRequest(channel: WebChannelLike, req: Request,
     const response = await handleShellRoutes(channel, req, path, flags, serveStaticAsset) ?? deny();
     if (req.method === "HEAD") { await response.body?.cancel(); return new Response(null, { status: response.status, headers: response.headers }); }
     return response;
+  }
+  const annotations = path.match(/^\/post\/([1-9]\d*)\/annotations$/);
+  if (req.method === "PATCH" && annotations) {
+    if (!req.headers.get("origin") || !checkCsrfOrigin(req)) return deny();
+    try {
+      const body = await req.json();
+      if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).some(key => key !== "annotations")
+        || !Array.isArray(body.annotations) || body.annotations.length > 200 || new TextEncoder().encode(JSON.stringify(body.annotations)).byteLength > 128*1024) return channel.json({ error:"Invalid annotations." },400);
+      const messageId=Number(annotations[1]),database=getDb(),target=resolveAuthorisedChat(database,principal,selector(url,"chat_jid"),"session.write");
+      const result=database.transaction(()=>{requireAccountActor(database,principal);if(!updateMessageAnnotationsInDatabase(database,target.chatJid,messageId,body.annotations.length?body.annotations:null))throw new ChatAccessDenied();requireAccountActor(database,principal);const interaction=getMessageByRowIdFromDatabase(database,target.chatJid,messageId);if(!interaction)throw new ChatAccessDenied();return {annotations:body.annotations,interaction};}).immediate();
+      channel.broadcastEvent("interaction_updated",result.interaction);
+      return channel.json({status:"ok",ok:true,id:messageId,annotations:result.annotations});
+    } catch(error){if(error instanceof ChatAccessDenied)return deny();return channel.json({error:"Annotation update failed."},400);}
+  }
+  if (req.method === "POST" && path === "/media/upload") {
+    if (!req.headers.get("origin") || !checkCsrfOrigin(req)) return deny();
+    if (isRateLimited(req, `data/family_media_upload/${principal.userId}`, 60_000, 30)) return channel.json({ error: "Too many media uploads. Slow down." }, 429);
+    try {
+      const form = await req.formData();
+      const files = form.getAll("file");
+      const file = files[0];
+      if (files.length !== 1 || !(file instanceof File) || [...form.keys()].some(key => key !== "file")) return channel.json({ error: "Invalid media upload." }, 400);
+      const database = getDb();
+      requireAccountActor(database, principal);
+      const result = await new MediaService().createFromFile(file, database, mediaId => claimFamilyMediaUpload(database, principal, mediaId));
+      requireAccountActor(database, principal);
+      return channel.json(result.body, result.status);
+    } catch (error) {
+      if (error instanceof ChatAccessDenied) return deny();
+      return channel.json({ error: "Media upload failed." }, 400);
+    }
   }
   if (req.method === "GET" && path === "/agent/thinking") {
     try {

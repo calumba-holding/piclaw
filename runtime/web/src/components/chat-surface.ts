@@ -29,6 +29,8 @@ export function ChatSurface(props: ChatSurfaceProps) {
     onDeletePost,
     onOpenWidget,
     onOpenAttachmentPreview,
+    onSaveAnnotations,
+    onSubmitCardAction,
     renderPostAccessory,
     postCapabilities,
     emptyMessage,
@@ -81,6 +83,8 @@ export function ChatSurface(props: ChatSurfaceProps) {
       onDeletePost=${onDeletePost}
       onOpenWidget=${onOpenWidget}
       onOpenAttachmentPreview=${onOpenAttachmentPreview}
+      onSaveAnnotations=${onSaveAnnotations}
+      onSubmitCardAction=${onSubmitCardAction}
       renderPostAccessory=${renderPostAccessory}
       postCapabilities=${postCapabilities}
       emptyMessage=${emptyMessage}

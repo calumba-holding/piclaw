@@ -28,6 +28,7 @@ import {
   attachMediaToMessageInDatabase,
   deleteUnreferencedMedia,
   getMediaIdsForMessage,
+  getMediaIdsForMessageInDatabase,
   getMediaIdsForMessages,
 } from "./media.js";
 import {
@@ -258,16 +259,19 @@ export function getMessageThreadRootIdById(chatJid: string, messageId: string): 
  * Fetch a single message by its rowid within a known chat, returning it as an InteractionRow.
  * Used by replaceMessageContent and the web channel's post-detail views.
  */
-export function getMessageByRowId(chatJid: string, rowId: number): InteractionRow | undefined {
-  const db = getDb();
-  const row = db
+export function getMessageByRowIdFromDatabase(database: Database, chatJid: string, rowId: number): InteractionRow | undefined {
+  const row = database
     .prepare(
       `SELECT ${MESSAGE_COLUMNS} FROM messages WHERE chat_jid = ? AND rowid = ?`
     )
     .get(chatJid, rowId) as StoredMessageRow | undefined;
   if (!row) return undefined;
-  const mediaIds = getMediaIdsForMessage(row.rowid);
+  const mediaIds = getMediaIdsForMessageInDatabase(database, row.rowid);
   return buildInteraction(row, mediaIds);
+}
+
+export function getMessageByRowId(chatJid: string, rowId: number): InteractionRow | undefined {
+  return getMessageByRowIdFromDatabase(getDb(), chatJid, rowId);
 }
 
 /**
@@ -323,19 +327,27 @@ export function getMessageAnnotations(
  * Update the annotations JSON column for a message.
  * Stores user-created highlights and markup that are not part of the message content.
  */
+export function updateMessageAnnotationsInDatabase(
+  database: Database,
+  chatJid: string,
+  rowId: number,
+  annotations: unknown[] | null,
+): boolean {
+  const payload = Array.isArray(annotations) && annotations.length > 0
+    ? JSON.stringify(annotations)
+    : null;
+  const res = database
+    .prepare("UPDATE messages SET annotations = ? WHERE chat_jid = ? AND rowid = ?")
+    .run(payload, chatJid, rowId);
+  return res.changes > 0;
+}
+
 export function updateMessageAnnotations(
   chatJid: string,
   rowId: number,
   annotations: unknown[] | null,
 ): boolean {
-  const db = getDb();
-  const payload = Array.isArray(annotations) && annotations.length > 0
-    ? JSON.stringify(annotations)
-    : null;
-  const res = db
-    .prepare("UPDATE messages SET annotations = ? WHERE chat_jid = ? AND rowid = ?")
-    .run(payload, chatJid, rowId);
-  return res.changes > 0;
+  return updateMessageAnnotationsInDatabase(getDb(), chatJid, rowId, annotations);
 }
 
 export function storeThinkingContent(

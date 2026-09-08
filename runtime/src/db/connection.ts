@@ -22,6 +22,7 @@ import { initializeSessionOwnershipSchema } from "./session-ownership.js";
 import { initializeSessionHandleSchema } from "./session-handles.js";
 import { initializeOwnedForkSchema } from "./owned-forks.js";
 import { initializeMessageAuthoritySchema } from "./message-authority-schema.js";
+import { initializeFamilyMediaUploads } from "./family-media-uploads.js";
 import { initializeAuthFactorSchema } from "./auth-factors-schema.js";
 import { initializeAuthLabelsSchema } from "./auth-labels-schema.js";
 import { initializeFamilyToolRestrictions } from './family-tool-restrictions.js';
@@ -1001,6 +1002,7 @@ export function initDatabase(): void {
   initializeToolOutputOwnership(db);
   initializeOwnedForkSchema(db);
   initializeMessageAuthoritySchema(db);
+  initializeFamilyMediaUploads(db);
   initializeAuthFactorSchema(db);
   initializeAuthLabelsSchema(db);
   initializeFamilyToolRestrictions(db);

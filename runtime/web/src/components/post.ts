@@ -29,7 +29,6 @@ import {
     resolveHighlightPopupPlacement,
     hasCoarseAnnotationPointer,
     subscribePostSelectionChanges,
-    type PostHighlight,
     type PostAside,
 } from './post-highlights.js';
 import { buildSpeakablePostText, getSpeechPlaybackState, isSpeechSynthesisSupported, speakPostText, stopSpeechPlayback, subscribeSpeechPlayback } from './post-speech.ts';
@@ -1430,7 +1429,7 @@ function highlightHtml(html, query) {
 /**
  * Single post component
  */
-export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMessage, agentName, agentAvatarUrl, userName, userAvatarUrl, userAvatarBackground, onDelete, isThreadReply, isThreadPrev, isThreadNext, isRemoving, highlightQuery, onFileRef, onOpenWidget, onOpenAttachmentPreview, accessory, capabilities = null }) {
+export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMessage, agentName, agentAvatarUrl, userName, userAvatarUrl, userAvatarBackground, onDelete, isThreadReply, isThreadPrev, isThreadNext, isRemoving, highlightQuery, onFileRef, onOpenWidget, onOpenAttachmentPreview, onSaveAnnotations, onSubmitCardAction, accessory, capabilities = null }) {
     const { t } = useTranslation();
     const postCapabilities = capabilities && typeof capabilities === 'object' ? capabilities : {};
     const allowMedia = postCapabilities.media !== false;
@@ -1617,7 +1616,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
         }
         // Persist to DB
         try {
-            const updated = await persistHighlight(post.id, post.chat_jid, data.annotations, highlight);
+            const updated = await persistHighlight(post.id, post.chat_jid, data.annotations, highlight, onSaveAnnotations);
             data.annotations = updated;
         } catch (err) {
             console.warn('[post-highlight] Failed to persist highlight:', err);
@@ -1670,7 +1669,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
         setAsideInput(null);
         setAsideText('');
         try {
-            const updated = await persistAside(post.id, post.chat_jid, data.annotations, aside);
+            const updated = await persistAside(post.id, post.chat_jid, data.annotations, aside, onSaveAnnotations);
             data.annotations = updated;
         } catch (err) {
             console.warn('[post-aside] Failed to persist aside:', err);
@@ -1861,7 +1860,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                 );
                 if (idx >= 0) {
                     try {
-                        const updated = await removeAnnotationAtIndex(post.id, post.chat_jid, annotations, idx);
+                        const updated = await removeAnnotationAtIndex(post.id, post.chat_jid, annotations, idx, onSaveAnnotations);
                         data.annotations = updated;
                         setHighlightVersion((v) => v + 1);
                     } catch (err) {
@@ -1958,7 +1957,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
             container.appendChild(cardEl);
             renderAdaptiveCard(cardEl, block, {
                 readOnly: !allowCardActions,
-                rewriteResourceUrl: !allowCardActions ? rewriteImageSrc : undefined,
+                rewriteResourceUrl: rewriteImageSrc,
                 onAction: allowCardActions ? async (action) => {
                     if (action.type === 'Action.OpenUrl') {
                         const safeUrl = sanitizeUrl(action.url || '');
@@ -1968,7 +1967,7 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, onScrollToMe
                     }
 
                     if (action.type === 'Action.Submit') {
-                        await submitAdaptiveCardAction({
+                        await (onSubmitCardAction ?? submitAdaptiveCardAction)({
                             post_id: post.id,
                             thread_id: data.thread_id || post.id,
                             chat_jid: post.chat_jid || null,

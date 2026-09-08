@@ -100,6 +100,7 @@ export async function persistHighlight(
   chatJid: string,
   existingAnnotations: unknown[] | undefined | null,
   highlight: PostHighlight,
+  save: typeof savePostAnnotations = savePostAnnotations,
 ): Promise<unknown[]> {
   const current = Array.isArray(existingAnnotations) ? [...existingAnnotations] : [];
   // Dedupe
@@ -110,7 +111,7 @@ export async function persistHighlight(
       a?.textOffset === highlight.textOffset,
   );
   if (!exists) current.push(highlight);
-  await savePostAnnotations(postId, current, chatJid);
+  await save(postId, current, chatJid);
   return current;
 }
 
@@ -119,6 +120,7 @@ export async function persistAside(
   chatJid: string,
   existingAnnotations: unknown[] | undefined | null,
   aside: PostAside,
+  save: typeof savePostAnnotations = savePostAnnotations,
 ): Promise<unknown[]> {
   const current = Array.isArray(existingAnnotations) ? [...existingAnnotations] : [];
   const exists = current.some(
@@ -128,7 +130,7 @@ export async function persistAside(
       a?.textOffset === aside.textOffset,
   );
   if (!exists) current.push(aside);
-  await savePostAnnotations(postId, current, chatJid);
+  await save(postId, current, chatJid);
   return current;
 }
 
@@ -140,11 +142,12 @@ export async function removeAnnotationAtIndex(
   chatJid: string,
   existingAnnotations: unknown[] | undefined | null,
   index: number,
+  save: typeof savePostAnnotations = savePostAnnotations,
 ): Promise<unknown[]> {
   const current = Array.isArray(existingAnnotations) ? [...existingAnnotations] : [];
   if (index < 0 || index >= current.length) return current;
   current.splice(index, 1);
-  await savePostAnnotations(postId, current, chatJid);
+  await save(postId, current, chatJid);
   return current;
 }
 
