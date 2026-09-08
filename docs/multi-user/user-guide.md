@@ -63,7 +63,7 @@ Tabs in one browser profile share the site's login cookie. Signing in as another
 1. Check your displayed account name and select an **Owned session**, or choose **Go home**. The picker groups your active roots and forks by root; the same friendly name may appear under different roots without granting cross-account access.
 2. Read the current conversation. The preview shows up to the most recent 100 messages through the standard sanitized timeline renderer and refreshes by polling every five seconds while active.
 3. Enter plain text in **Message** and choose **Send**.
-4. Wait for the queued/running status and reply. **Refresh** requests the latest state.
+4. Wait for the queued/running status and reply. The standard working pane polls thinking, tool activity and output previews, draft/thought previews, compaction, retry and error state for the selected conversation. **Refresh** requests the latest state. Live token-by-token updates and active-turn queue/stop controls are unavailable.
 
 The family shell renders owned Markdown, headings, lists, tables, links, highlighted code, KaTeX, Mermaid, media, link previews, annotations, outcomes, persisted thinking, Adaptive Cards, submission receipts, resources and generated-widget summaries through the standard timeline components. Indirect images must use an owner-authorized media URL. Uploads, attachment viewers/downloads, Adaptive Card submissions, widget opening, annotation edits, resource downloads, add-on panes, terminal, live streaming and message editing remain unavailable. Leading slash commands and `@` mentions are unsupported as prompts. Disabled controls are not an invitation to bypass these restrictions.
 

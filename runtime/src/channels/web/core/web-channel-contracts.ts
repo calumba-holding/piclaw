@@ -19,6 +19,7 @@ import type { UiBridge } from "../theming/ui-bridge.js";
 import type { TotpAuthContext } from "../auth/totp-auth.js";
 import type { WebauthnAuthContext } from "../auth/webauthn-auth.js";
 import type { WebauthnEnrolPageContext } from "../auth/webauthn-enrol-page.js";
+import type { AgentStatusContext } from "../agent/agent-status.js";
 
 interface AuthGatewayLike {
   isAuthEnabled(): boolean;
@@ -51,6 +52,7 @@ export interface WebChannelLike
 
   endpointContexts: RequestGuardsChannel["endpointContexts"] & {
     auth(): AuthEndpointsContext;
+    agentStatus(): AgentStatusContext;
   };
 
   /** Runtime dependencies and state services used across web layers. */
