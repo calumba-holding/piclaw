@@ -16,6 +16,6 @@ walk(join(root, 'runtime/test')); walk(join(root, 'tests'));
 for (const dir of dirs) {
   const expected = `[test]\npreload = ["${relative(dir, preload).replaceAll('\\', '/').replace(/^(?!\.)/, './')}"]\n`;
   const file = join(dir, 'bunfig.toml');
-  if (!existsSync(file) || readFileSync(file, 'utf8') !== expected) throw new Error(`Missing test-directory isolation preload: ${relative(root, dir)}`);
+  if (!existsSync(file) || readFileSync(file, 'utf8').replace(/\r\n/g, '\n') !== expected) throw new Error(`Missing test-directory isolation preload: ${relative(root, dir)}`);
 }
 console.log(`Test preload coverage: ${dirs.size} test directories`);

@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import "../helpers.js";
+import { isolateBudgetTestDatabase } from './fixture.js';
+isolateBudgetTestDatabase();
 
 import { withBudgetWorkContext } from "../../src/budget/context.js";
 import { valueApiEquivalentCost } from "../../src/budget/valuation.js";
