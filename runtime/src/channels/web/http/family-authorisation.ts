@@ -1,6 +1,7 @@
 import type Database from "bun:sqlite";
 import type { AuthenticatedPrincipal } from "../../../core/access-types.js";
 import { getDb } from "../../../db/connection.js";
+import { getThinkingContentForChat } from "../../../db/messages.js";
 import { ChatAccessDenied, resolveAuthorisedChat } from "../../../db/session-ownership.js";
 import type { WebChannelLike } from "../core/web-channel-contracts.js";
 import { principalResponse } from "../auth/principal.js";
@@ -130,10 +131,30 @@ export async function handleFamilyRequest(channel: WebChannelLike, req: Request,
     if (req.method === "HEAD") { await response.body?.cancel(); return new Response(null, { status: response.status, headers: response.headers }); }
     return response;
   }
-  if (flags.isGetOrHead && ["/static/common/dist/family.bundle.js", "/static/common/dist/family.bundle.css", "/static/classic/dist/app.bundle.css"].includes(path)) {
+  if (flags.isGetOrHead && [
+    "/static/common/dist/family.bundle.js",
+    "/static/common/dist/family.bundle.css",
+    "/static/classic/dist/app.bundle.css",
+    "/static/common/js/marked.min.js",
+    "/static/common/js/vendor/katex.min.js",
+    "/static/common/js/vendor/beautiful-mermaid.js",
+    "/static/common/js/vendor/adaptivecards.min.js",
+  ].includes(path)) {
     const response = await handleShellRoutes(channel, req, path, flags, serveStaticAsset) ?? deny();
     if (req.method === "HEAD") { await response.body?.cancel(); return new Response(null, { status: response.status, headers: response.headers }); }
     return response;
+  }
+  if (req.method === "GET" && path === "/agent/thinking") {
+    try {
+      const messageId = selector(url, "message_id");
+      const requestedChat = selector(url, "chat_jid");
+      if (messageId === undefined || requestedChat === undefined || !/^[1-9]\d*$/.test(messageId)) throw new ChatAccessDenied();
+      const target = resolveAuthorisedChat(getDb(), principal, requestedChat, "session.read");
+      const result = getThinkingContentForChat(target.chatJid, messageId);
+      if (!result || typeof result.text !== "string" || new TextEncoder().encode(result.text).byteLength > 100_000
+        || !Number.isSafeInteger(result.lines) || result.lines < 0 || !Number.isSafeInteger(result.duration_ms) || result.duration_ms < 0) return deny();
+      return channel.json(result);
+    } catch (error) { if (error instanceof ChatAccessDenied) return deny(); throw error; }
   }
   const media = path.match(/^\/media\/([1-9]\d*)(?:\/(thumbnail|info))?$/);
   if (req.method === "GET" && media) {
