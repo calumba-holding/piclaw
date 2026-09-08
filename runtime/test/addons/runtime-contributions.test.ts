@@ -11,6 +11,7 @@ import {
   runAddonStatusPanelAction,
   setAddonAgentMessageEnqueuer,
   setAddonMessagingRuntimeHandlers,
+  shutdownAddonRuntimeContributionsForTests,
 } from "../../src/addons/runtime-contributions.js";
 import { withTempWorkspaceEnv } from "../helpers.js";
 import { getChatTransport } from "../../src/extensions/chat-transport-registry.js";
@@ -215,6 +216,29 @@ test("startup entry loading fails clearly when concrete messaging handlers were 
     const mod = await import("../../src/addons/runtime-contributions.js");
     await expect(mod.ensureStartupAddonRuntimeEntriesLoaded()).rejects.toThrow("not available yet");
   });
+  resetAddonRuntimeContributionsForTests();
+});
+
+test("runtime add-on lifecycle cleanup is process-scoped, awaited, and unregisterable", async () => {
+  resetAddonRuntimeContributionsForTests();
+  const api = installAddonRuntimeApi();
+  expect(api.lifecycle.version).toBe(1);
+  const events: string[] = [];
+  api.lifecycle.onShutdown(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    events.push("async");
+  });
+  const unregister = api.lifecycle.onShutdown(() => events.push("removed"));
+  unregister();
+  unregister();
+  api.lifecycle.onShutdown(() => {
+    events.push("throws");
+    throw new Error("cleanup failure");
+  });
+  await shutdownAddonRuntimeContributionsForTests();
+  expect(events.sort()).toEqual(["async", "throws"]);
+  await shutdownAddonRuntimeContributionsForTests();
+  expect(events.sort()).toEqual(["async", "throws"]);
   resetAddonRuntimeContributionsForTests();
 });
 
