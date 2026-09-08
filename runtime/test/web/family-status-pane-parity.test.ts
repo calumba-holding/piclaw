@@ -46,12 +46,13 @@ test('family adapter injects standard status state without privileged request, e
   const family = source('family-chat-surface.ts');
   const shared = source('components/chat-surface.ts');
   const compose = source('components/compose-box.ts');
-  for (const prop of ['agentStatus=${agentStatus}', 'agentDraft=${activeAgentState?.draft ?? null}', 'agentThought=${activeAgentState?.thought ?? null}', 'currentTurnId=${currentTurnId}']) {
+  for (const prop of ['agentStatus=${agentStatus}', 'agentDraft=${value.agentState?.draft ?? null}', 'agentThought=${value.agentState?.thought ?? null}', 'currentTurnId=${currentTurnId}']) {
     expect(family).toContain(prop);
   }
   expect(shared).toContain('loadWorkspaceBranch=${loadStatusWorkspaceBranch}');
   expect(family).toContain('loadStatusWorkspaceBranch=${denyStatusWorkspaceLookup}');
-  expect(family).toContain('isAgentActive: false');
+  expect(family).toContain('isAgentActive: activeAgentState !== null');
+  expect(family).toContain("import { FamilyApi } from './family-api.js'");
   expect(family).not.toContain('pendingRequest=${');
   expect(family).not.toContain('extensionPanels=${');
   expect(family).not.toContain('onPendingRequestRespond=${');

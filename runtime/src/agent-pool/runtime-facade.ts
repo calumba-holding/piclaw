@@ -622,6 +622,37 @@ export class AgentRuntimeFacade {
     }
   }
 
+  /** Owner-authorized active-session steering. Durable authority stays in the family queue ledger. */
+  async queueOwnedStreamingMessage(
+    chatJid: string,
+    text: string,
+    behavior: "steer",
+  ): Promise<{ queued: boolean; error?: string }> {
+    requireOwnedSessionExecution(chatJid);
+    const session = this.options.pool.get(chatJid)?.runtime.session;
+    if (!session) return { queued: false };
+    if (!session.isStreaming) return { queued: false };
+    try {
+      return await withChatContext(chatJid, detectChannel(chatJid), async () => {
+        await session.prompt(text, { streamingBehavior: behavior });
+        return { queued: true };
+      });
+    } catch (error) {
+      return { queued: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  /** Owner-authorized abort; checked again inside the execution identity immediately before mutation. */
+  async abortOwnedRun(chatJid: string): Promise<AgentControlResult> {
+    requireOwnedSessionExecution(chatJid);
+    const runtime = this.options.pool.get(chatJid)?.runtime;
+    if (!runtime || !(runtime.session.isStreaming || runtime.session.isCompacting || runtime.session.isRetrying || runtime.session.isBashRunning)) {
+      return { status: "error", message: "No active response to abort." };
+    }
+    return await withChatContext(chatJid, detectChannel(chatJid), () =>
+      (this.options.applyControlCommandFn ?? applyControlCommand)(runtime, this.options.modelRegistry, { type: "abort", raw: "/abort" }));
+  }
+
   async removeQueuedFollowupMessage(chatJid: string, queuedContent?: string): Promise<boolean> {
     requireSingleUserDirectExecution("Direct queue mutation");
     const session = (await this.options.getOrCreateRuntime(chatJid)).session;

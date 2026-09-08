@@ -18,6 +18,7 @@ async function fixture(page: Page) {
   await page.route('**/account/model-defaults', route => route.fulfill({ json: modelDefaultsSnapshot() }));
   await page.route('**/account/preferences', route => route.fulfill({ json: { user_id: state.identity.principal.userId, preferences: { revision: 0, theme: 'system', response_guidance: '' }, defaults: { theme: 'system', response_guidance: '' }, can_edit: true } }));
   await page.route("**/agent/message-recovery?**", route => route.fulfill({ json: { state: 'idle' } }));
+  await page.route("**/agent/queue-state?**", route => route.fulfill({ json: { count: 0, items: [] } }));
   await page.route("**/agent/status?**", route => route.fulfill({ json: { status: 'idle', state: 'idle', chat_jid: 'web:alice', data: null, extension_working: null } }));
   await page.route("**/agent/context?**", route => route.fulfill({ json: { tokens: 1000, contextWindow: 200000, percent: 1, sessionGeneration: 'fixture', cacheUsage: null } }));
   await page.route("**/agent/models?**", route => route.fulfill({ json: { current:'test/reasoning',model_options:[{label:'test/reasoning',provider:'test',id:'reasoning',name:'Reasoning model',context_window:200000,pricing:{input_per_million:1,output_per_million:2},reasoning:true,thinking_levels:['off','high'],thinking_level_labels:['Off','High']},{label:'openrouter/openai/gpt-5.4',provider:'openrouter',id:'openai/gpt-5.4',name:'GPT 5.4',context_window:400000,pricing:{input_per_million:2,output_per_million:4},reasoning:true,thinking_levels:['off','high'],thinking_level_labels:['Off','High']}],thinking_level:'high',thinking_level_label:'High',supports_thinking:true,available_thinking_levels:['off','high'],available_thinking_level_labels:['Off','High'],context_usage:{tokens:1000,contextWindow:200000,percent:1} } }));
@@ -387,7 +388,7 @@ browserTest('standard working pane renders owner-polled status and usage without
           costProvenance: 'provider_reported', runs: 1, model: 'reasoning', provider: 'test',
         }, totals: null },
       } }));
-      for (const path of ['/workspace/branch', '/agent/respond', '/agent/whitelist', '/agent/queue-state', '/agent/runs/abort']) {
+      for (const path of ['/workspace/branch', '/agent/respond', '/agent/whitelist']) {
         await page.route(`**${path}**`, route => { forbidden.push(new URL(route.request().url()).pathname); return route.fulfill({ status: 500 }); });
       }
       await page.goto(base); await ready(page);
@@ -399,8 +400,7 @@ browserTest('standard working pane renders owner-polled status and usage without
       expect(await page.locator('.compose-model-usage-hint').textContent()).toContain('Last • 5K • CH60.0% • $0.01');
       expect(await page.locator('.compose-context-pie').count()).toBe(1);
       expect(await page.locator('.compose-context-pie').isDisabled()).toBe(true);
-      expect(await page.getByRole('button', { name: /Stop response/ }).count()).toBe(0);
-      expect(await page.getByRole('button', { name: /Queue follow-up/ }).count()).toBe(0);
+      expect(await page.getByRole('button', { name: /Stop response/ }).count()).toBe(1);
       expect(forbidden).toEqual([]);
 
       status = {
