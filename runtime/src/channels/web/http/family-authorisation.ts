@@ -21,9 +21,10 @@ import { handleFamilyScheduledResults } from "./family-scheduled-results.js";
 import { handleFamilyScheduledTasks } from "./family-scheduled-tasks.js";
 import { handleFamilyMemory } from "./family-memory.js";
 import { checkCsrfOrigin } from "./security.js";
+import { handleFamilyModelControl } from "./family-model-control.js";
 import { authoriseExecutionIdentity } from "../../../agent-pool/execution-identity.js";
 import { withExecutionIdentity } from "../../../core/execution-context.js";
-import { createOwnedRoot, listOwnedLifecycleSessions } from "../../../db/owned-session-lifecycle.js";
+import { createOwnedRoot, readOwnedSessionSettings } from "../../../db/owned-session-lifecycle.js";
 import { authoriseOwnedMedia, readOwnedMediaInfo, exportOwnedArchivedTranscript } from "../../../db/owned-resource-reads.js";
 import { handleMedia } from "../handlers/media.js";
 import { buildContentDisposition } from "./content-disposition.js";
@@ -118,6 +119,7 @@ export async function handleFamilyRequest(channel: WebChannelLike, req: Request,
     return channel.json({ logged_out: true });
   }
   if (path === "/agent/message-recovery") return handleFamilyMessageRecovery(channel, req, principal);
+  if (path === "/agent/models") return handleFamilyModelControl(channel, req, principal);
   if (path === "/agent/scheduled-results" || path.startsWith("/agent/scheduled-results/")) return handleFamilyScheduledResults(channel, req, principal);
   if (path === "/agent/scheduled-tasks" || path.startsWith("/agent/scheduled-tasks/")) return handleFamilyScheduledTasks(channel, req, principal);
   if (path === "/agent/family-memory" || path.startsWith("/agent/family-memory/")) return handleFamilyMemory(channel, req, principal);
@@ -189,8 +191,24 @@ export async function handleFamilyRequest(channel: WebChannelLike, req: Request,
       if (requested !== undefined) resolveAuthorisedChat(getDb(), principal, requested, "session.read");
       const archiveFlag = selector(url, "include_archived");
       if (archiveFlag !== undefined && !["true", "false", "1", "0"].includes(archiveFlag)) throw new ChatAccessDenied();
-      const branches = listOwnedLifecycleSessions(getDb(), principal, root, archiveFlag === "true" || archiveFlag === "1");
-      return channel.json({ branches });
+      const settings = readOwnedSessionSettings(getDb(), principal);
+      const selectedRoot = root === undefined ? null : settings.branches.find(branch => branch.chat_jid === root
+        && branch.root_chat_jid === branch.chat_jid && branch.parent_branch_id === null);
+      if (root !== undefined && !selectedRoot) throw new ChatAccessDenied();
+      const selected = selectedRoot ? settings.branches.filter(branch => branch.root_chat_jid === selectedRoot.chat_jid) : settings.branches;
+      const includeArchived = archiveFlag === "true" || archiveFlag === "1";
+      const pool = channel.agentPool as Partial<typeof channel.agentPool>;
+      const branches = await Promise.all(selected.filter(branch => includeArchived || !branch.archived_at).map(async branch => {
+        if (branch.archived_at) return { ...branch, is_active: false, model: null, context_usage: null };
+        const isActive = typeof pool.isActive === "function" ? pool.isActive(branch.chat_jid) : false;
+        const models = typeof pool.getAvailableModels === "function"
+          ? await pool.getAvailableModels(branch.chat_jid, { includeProviderUsage: false, includeProviderDiagnostics: false })
+          : null;
+        const context = typeof pool.getContextUsageForChat === "function" ? await pool.getContextUsageForChat(branch.chat_jid) : null;
+        return { ...branch, is_active: isActive, model: models?.current ?? null, context_usage: context };
+      }));
+      requireAccountActor(getDb(), principal);
+      return channel.json({ home_chat_jid: settings.home_chat_jid, capabilities: settings.capabilities, branches });
     } catch (error) { if (error instanceof ChatAccessDenied) return deny(); throw error; }
   }
   if (req.method === "POST" && ["/agent/root-session", "/agent/branch-prune", "/agent/branch-restore"].includes(path)) {
@@ -232,7 +250,8 @@ export async function handleFamilyRequest(channel: WebChannelLike, req: Request,
     } catch { return channel.json({ error: "Invalid JSON object" }, 400); }
     try {
       const keys = path.endsWith("-fork") ? ["chat_jid", "agent_name", "request_id"] : ["chat_jid", "agent_name"];
-      if (Object.keys(body).some(key => !keys.includes(key)) || (body.chat_jid !== undefined && typeof body.chat_jid !== "string") || typeof body.agent_name !== "string") return channel.json({ error: "Invalid branch request" }, 400);
+      if (Object.keys(body).some(key => !keys.includes(key)) || (body.chat_jid !== undefined && typeof body.chat_jid !== "string")
+        || (body.agent_name !== undefined && typeof body.agent_name !== "string") || (!path.endsWith("-fork") && typeof body.agent_name !== "string")) return channel.json({ error: "Invalid branch request" }, 400);
       const target = resolveAuthorisedChat(getDb(), principal, body.chat_jid as string | undefined, path.endsWith("-fork") ? "session.fork" : "session.rename");
       if (path.endsWith("-fork") && (typeof body.request_id !== "string" || !/^[a-zA-Z0-9_-]{1,128}$/.test(body.request_id))) return channel.json({ error: "Valid request_id required" }, 400);
       const identity = authoriseExecutionIdentity(getDb(), "family-shared", target.chatJid, {
@@ -240,7 +259,7 @@ export async function handleFamilyRequest(channel: WebChannelLike, req: Request,
       });
       if (!identity) throw new ChatAccessDenied();
       const branch = await withExecutionIdentity(identity, () => path.endsWith("-fork")
-        ? channel.agentPool.createForkedChatBranch(target.chatJid, { agentName: body.agent_name as string, requestId: body.request_id as string })
+        ? channel.agentPool.createForkedChatBranch(target.chatJid, { agentName: body.agent_name as string | undefined, requestId: body.request_id as string })
         : channel.agentPool.renameChatBranch(target.chatJid, { agentName: body.agent_name as string }));
       return channel.json({ branch }, path.endsWith("-fork") ? 201 : 200);
     } catch (error) {

@@ -545,6 +545,10 @@ export class AgentPool {
     return this.runtimeFacade.applyControlCommand(chatJid, command);
   }
 
+  async applyOwnedModelControl(chatJid: string, command: Extract<AgentControlCommand, { type: "model" | "thinking" }>): Promise<AgentControlResult> {
+    return this.runtimeFacade.applyOwnedModelControl(chatJid, command);
+  }
+
   async getCurrentModelLabel(chatJid: string): Promise<string | null> {
     return this.runtimeFacade.getCurrentModelLabel(chatJid);
   }
@@ -588,8 +592,8 @@ export class AgentPool {
   }
 
   /** Return available model labels and current model for a chat session. */
-  async getAvailableModels(chatJid: string): Promise<AvailableModelsResult> {
-    return this.runtimeFacade.getAvailableModels(chatJid);
+  async getAvailableModels(chatJid: string, options: { includeProviderUsage?: boolean; includeProviderDiagnostics?: boolean } = {}): Promise<AvailableModelsResult> {
+    return this.runtimeFacade.getAvailableModels(chatJid, options);
   }
 
   accountModelDefaults(actor: import('./core/access-types.js').AuthenticatedPrincipal, input?: unknown) {

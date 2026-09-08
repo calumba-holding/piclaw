@@ -18,7 +18,8 @@ async function fixture(page: Page) {
   await page.route('**/account/model-defaults', route => route.fulfill({ json: modelDefaultsSnapshot() }));
   await page.route('**/account/preferences', route => route.fulfill({ json: { user_id: state.identity.principal.userId, preferences: { revision: 0, theme: 'system', response_guidance: '' }, defaults: { theme: 'system', response_guidance: '' }, can_edit: true } }));
   await page.route("**/agent/message-recovery?**", route => route.fulfill({ json: { state: 'idle' } }));
-  await page.route("**/agent/branches", route => route.fulfill({ json: { branches: [{ chat_jid: "web:alice", root_chat_jid: "web:alice", agent_name: "home" }, { chat_jid: "web:alice-two", root_chat_jid: "web:alice-two", agent_name: "second" }] } }));
+  await page.route("**/agent/models?**", route => route.fulfill({ json: { current:'test/reasoning',model_options:[{label:'test/reasoning',provider:'test',id:'reasoning',name:'Reasoning model',context_window:200000,pricing:{input_per_million:1,output_per_million:2},reasoning:true,thinking_levels:['off','high'],thinking_level_labels:['Off','High']},{label:'openrouter/openai/gpt-5.4',provider:'openrouter',id:'openai/gpt-5.4',name:'GPT 5.4',context_window:400000,pricing:{input_per_million:2,output_per_million:4},reasoning:true,thinking_levels:['off','high'],thinking_level_labels:['Off','High']}],thinking_level:'high',thinking_level_label:'High',supports_thinking:true,available_thinking_levels:['off','high'],available_thinking_level_labels:['Off','High'],context_usage:{tokens:1000,contextWindow:200000,percent:1} } }));
+  await page.route(/\/agent\/branches(?:\?.*)?$/, route => route.fulfill({ json: { capabilities:{create_root:true},branches: [{ chat_jid: "web:alice", root_chat_jid: "web:alice", parent_branch_id:null, agent_name: "home", is_active:false, model:'test/reasoning',capabilities:{open:true,fork:true,rename:true,archive:false,restore:false} }, { chat_jid: "web:alice-two", root_chat_jid: "web:alice-two", parent_branch_id:null, agent_name: "second", is_active:false, model:'test/reasoning',capabilities:{open:true,fork:true,rename:true,archive:true,restore:false} }] } }));
   await page.route("**/timeline?**", route => { state.calls.push({ path: route.request().url(), headers: route.request().headers(), body: null }); return route.fulfill({ json: posts() }); });
   return state;
 }
@@ -61,7 +62,7 @@ browserTest('owned session picker groups authorized roots and forks while allowi
       { chat_jid:'web:beta',root_chat_jid:'web:beta',parent_branch_id:null,agent_name:'second' },
       { chat_jid:'web:beta-research',root_chat_jid:'web:beta',parent_branch_id:'beta',agent_name:'research' },
     ];
-    await page.route('**/agent/branches', route => route.fulfill({ json: { branches } }));
+    await page.route(/\/agent\/branches(?:\?.*)?$/, route => route.fulfill({ json: { branches } }));
     await page.goto(`${base}?chat_jid=web:alpha`); await ready(page);
     await openSessionPicker(page);
     expect(await page.locator('.compose-session-section-heading').allTextContents()).toEqual(['Current', 'This session tree', 'Other sessions']);
@@ -79,6 +80,35 @@ browserTest('owned session picker groups authorized roots and forks while allowi
     expect(await currentChat(page)).toBe('web:beta-research');
   } finally { await page.close(); }
 }, 20000);
+
+browserTest('curated model and owned session controls share standard UX without cross-account persistence', async () => {
+  for(const viewport of [{width:1200,height:900},{width:375,height:740}]){
+    const page=await browser.newPage({viewport});
+    try{
+      const state=await fixture(page),modelWrites:any[]=[],sessionWrites:any[]=[];let model='test/reasoning',thinking='high';
+      const branches:any[]=[
+        {branch_id:'alice-root',chat_jid:'web:alice',root_chat_jid:'web:alice',parent_branch_id:null,agent_name:'home',is_active:false,model:'test/reasoning',context_usage:{tokens:1000,contextWindow:200000,percent:1},capabilities:{open:true,fork:true,rename:true,archive:false,restore:false}},
+        {branch_id:'alice-child',chat_jid:'web:alice-child',root_chat_jid:'web:alice',parent_branch_id:'alice-root',agent_name:'child',is_active:false,model:'openrouter/openai/gpt-5.4',capabilities:{open:true,fork:true,rename:true,archive:true,restore:false}},
+        {branch_id:'alice-old',chat_jid:'web:alice-old',root_chat_jid:'web:alice',parent_branch_id:'alice-root',agent_name:'old',archived_at:'yesterday',is_active:false,model:null,capabilities:{open:false,fork:false,rename:false,archive:false,restore:true}},
+      ];
+      await page.route('**/agent/models?**',async route=>{const req=route.request();if(req.method()==='PATCH'){const body=req.postDataJSON();modelWrites.push({body,headers:req.headers(),url:req.url()});if(body.action==='model')model=body.value;else thinking=body.value;return route.fulfill({json:{command:{status:'success'},current:model,thinking_level:thinking,thinking_level_label:thinking,supports_thinking:true,context_usage:{tokens:1000,contextWindow:200000,percent:1}}});}return route.fulfill({json:{current:model,model_options:[{label:'test/reasoning',provider:'test',id:'reasoning',name:'Reasoning model',context_window:200000,pricing:{input_per_million:1,output_per_million:2},reasoning:true,thinking_levels:['off','high'],thinking_level_labels:['Off','High']},{label:'openrouter/openai/gpt-5.4',provider:'openrouter',id:'openai/gpt-5.4',name:'GPT 5.4',context_window:400000,pricing:{input_per_million:2,output_per_million:4},reasoning:true,thinking_levels:['off','high'],thinking_level_labels:['Off','High']}],thinking_level:thinking,thinking_level_label:thinking,supports_thinking:true,context_usage:{tokens:1000,contextWindow:200000,percent:1}}});});
+      await page.route(/\/agent\/branches(?:\?.*)?$/,route=>route.fulfill({json:{capabilities:{create_root:true},branches}}));
+      for(const path of ['/agent/branch-fork','/agent/root-session','/agent/branch-rename','/agent/branch-prune','/agent/branch-restore'])await page.route(`**${path}`,route=>{const body=route.request().postDataJSON();sessionWrites.push({path,body,headers:route.request().headers()});if(path.endsWith('branch-fork')){const branch={...branches[1],branch_id:'new-child',chat_jid:'web:new-child',agent_name:'child-2'};branches.push(branch);return route.fulfill({status:201,json:{branch}});}if(path.endsWith('root-session')){const branch={...branches[0],branch_id:'new-root',chat_jid:'web:new-root',root_chat_jid:'web:new-root',agent_name:body.agent_name};branches.push(branch);return route.fulfill({status:201,json:{branch}});}const branch=branches.find(item=>item.chat_jid===body.chat_jid);if(path.endsWith('rename'))branch.agent_name=body.agent_name;if(path.endsWith('prune')){branch.archived_at='now';branch.capabilities={open:false,fork:false,rename:false,archive:false,restore:true};}if(path.endsWith('restore')){branch.archived_at=null;branch.capabilities={open:true,fork:true,rename:true,archive:true,restore:false};}return route.fulfill({json:{branch}});});
+      await page.goto(base);await ready(page);
+      const modelButton=page.getByRole('button',{name:'Open model picker'});expect(await modelButton.textContent()).toContain('test/reasoning');await modelButton.click();
+      expect(await page.locator('.compose-model-catalogue-option-price').first().textContent()).toContain('/ 1M');expect(await page.locator('.compose-model-catalogue-badge').allTextContents()).toContain('200K context');
+      await page.locator('.compose-model-catalogue-search').fill('gpt 5.4');expect(await page.locator('.compose-model-catalogue-option').count()).toBe(1);await page.locator('.compose-model-catalogue-pin').click();expect(await page.locator('.compose-model-catalogue-pin').textContent()).toBe('★');
+      await page.locator('.compose-model-catalogue-option').click();await page.waitForFunction(()=>document.querySelector('.compose-model-hint')?.textContent?.includes('openrouter/openai/gpt-5.4'));
+      await modelButton.click();await page.locator('.compose-model-catalogue').getByLabel('Thinking level',{exact:true}).selectOption('off');await page.waitForFunction(()=>document.querySelector('.compose-model-hint')?.getAttribute('title')?.includes('(off)'));
+      expect(modelWrites.map(item=>item.body)).toEqual([{action:'model',value:'openrouter/openai/gpt-5.4'},{action:'thinking',value:'off'}]);expect(await page.locator('#default-model').inputValue()).toBe('');expect(modelWrites.every(item=>item.headers['x-piclaw-account-id']==='alice'&&item.headers['x-piclaw-login-id']==='login-a')).toBe(true);
+      await page.keyboard.press('Escape');await openSessionPicker(page);expect(await page.locator('.compose-session-section-heading').allTextContents()).toContain('Archived');expect(await page.locator('[data-testid="session-popup"]').textContent()).not.toContain('web:bob');expect(await page.getByText('Merge current w/ parent',{exact:true}).count()).toBe(0);expect(await page.getByText('Open Models settings',{exact:true}).count()).toBe(0);
+      const childRow=page.getByTestId('session-item').filter({has:page.getByText('web:alice-child',{exact:true})});await childRow.locator('xpath=..').locator('.compose-session-row-pin').click();expect(await childRow.locator('xpath=..').locator('.compose-session-row-pin').textContent()).toBe('★');
+      await page.getByRole('button',{name:'Close session picker'}).click();await page.evaluate(()=>{(window as any).prompt=()=> 'renamed';});await openSessionPicker(page);await page.getByRole('button',{name:'Rename current…',exact:true}).click();await page.waitForFunction(()=>document.body.textContent?.includes('@renamed'));
+      expect(sessionWrites[0]).toMatchObject({path:'/agent/branch-rename',body:{chat_jid:'web:alice',agent_name:'renamed'}});expect(sessionWrites.every(item=>item.headers['x-piclaw-account-id']==='alice'&&item.headers['x-piclaw-login-id']==='login-a')).toBe(true);
+      await waitForFamilyIdle(page);state.identity=principal('bob','login-b');await page.locator('#refresh').click();await page.waitForFunction(()=>!document.getElementById('family-chat-root')?.textContent);expect(await page.evaluate(()=>[localStorage.length,sessionStorage.length])).toEqual([0,0]);
+    }finally{await page.close();}
+  }
+},30000);
 
 browserTest('authenticated header exposes the read-only family mode and clears it with identity state', async () => {
   const page = await browser.newPage({ viewport: { width: 375, height: 740 } });
@@ -1283,7 +1313,7 @@ browserTest('a different account starts with its own appearance and cannot inher
     await page.goto(base); await ready(page); await page.locator('#open-preferences').click(); await page.waitForFunction(() => !(document.getElementById('preferences-form') as HTMLElement)?.hidden);
     expect(await page.locator('#preferences-guidance').inputValue()).toBe('ALICE_ONLY');
     state.identity = principal('bob', 'login-b');
-    await page.route('**/agent/branches', route => route.fulfill({ json: { branches: [{ chat_jid: 'web:bob', root_chat_jid: 'web:bob', agent_name: 'home' }] } }));
+    await page.route(/\/agent\/branches(?:\?.*)?$/, route => route.fulfill({ json: { branches: [{ chat_jid: 'web:bob', root_chat_jid: 'web:bob', agent_name: 'home' }] } }));
     await page.reload(); await ready(page); await page.locator('#open-preferences').click(); await page.waitForFunction(() => !(document.getElementById('preferences-form') as HTMLElement)?.hidden);
     expect(await page.locator('html').getAttribute('data-account-theme')).toBe('light'); expect(await page.locator('#preferences-guidance').inputValue()).toBe('BOB_ONLY');
     expect(await page.locator('#preferences-guidance').inputValue()).not.toContain('ALICE_ONLY');
@@ -1828,7 +1858,7 @@ async function treeFixture(page: Page) {
   const snapshot: SessionSettings = { home_chat_jid: 'web:alice', capabilities: { create_root: true }, branches: [branch('alice', 'home'), branch('alice-two', 'second')] };
   const actions: { path: string; body: any; headers: Record<string, string> }[] = [];
   await page.route('**/account/trees', route => route.fulfill({ json: snapshot }));
-  await page.route('**/agent/branches', route => route.fulfill({ json: { branches: snapshot.branches.filter(b => b.capabilities.open) } }));
+  await page.route(/\/agent\/branches(?:\?.*)?$/, route => route.fulfill({ json: { branches: snapshot.branches.filter(b => b.capabilities.open) } }));
   await page.route('**/timeline?**', route => {
     const jid = new URL(route.request().url()).searchParams.get('chat_jid');
     return route.fulfill(snapshot.branches.some(b => b.chat_jid === jid && b.capabilities.open) ? { json: posts() } : { status: 403, json: {} });
