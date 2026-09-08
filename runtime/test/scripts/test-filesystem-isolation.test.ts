@@ -2,10 +2,29 @@ import { expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { assertPathWithinTestFilesystemIsolation, ensureTestFilesystemIsolation } from "../../scripts/test-filesystem-isolation.js";
+import { assertPathWithinTestFilesystemIsolation, assertTestWorkspaceArguments, ensureTestFilesystemIsolation } from "../../scripts/test-filesystem-isolation.js";
 
 const repo = resolve(import.meta.dir, "../../..");
 const launcher = join(repo, "runtime/scripts/local-test-priority.ts");
+
+test("CLI workspace overrides cannot outrank filesystem isolation", () => {
+  const env = { ...process.env, PICLAW_TEST_FS_ISOLATION_ACTIVE: "0" };
+  const isolation = ensureTestFilesystemIsolation(env);
+  try {
+    for (const args of [["--workspace", "/workspace"], ["--workspace=/workspace"], ["-w", "/workspace"], ["-w=/workspace"], ["--workspace"]]) {
+      expect(() => assertTestWorkspaceArguments(args, env)).toThrow();
+    }
+    expect(() => assertTestWorkspaceArguments(["--workspace", isolation.workspace], env)).not.toThrow();
+    for (const command of [
+      [launcher, "--", process.execPath, "-e", "throw Error('must not run')", "--workspace=/workspace"],
+      [join(repo, "runtime/scripts/controlled-test-runner.ts"), "--", "--workspace=/workspace"],
+    ]) {
+      const child = Bun.spawnSync([process.execPath, ...command], { cwd: repo, env, stdout: "pipe", stderr: "pipe" });
+      expect(child.exitCode).not.toBe(0);
+      expect(child.stderr.toString()).toContain("outside isolated root");
+    }
+  } finally { isolation.cleanup(); }
+});
 
 test("isolation replaces inherited production paths even with CI/priority markers", () => {
   const env = { ...process.env, CI: "true", PICLAW_LOCAL_TEST_PRIORITY_ACTIVE: "1", PICLAW_WORKSPACE: "/workspace", PICLAW_STORE: "/workspace/.piclaw/store", PICLAW_DATA: "/workspace/.piclaw/data", HOME: "/home/agent", PICLAW_KEYCHAIN_KEY: "not-a-real-secret", PICLAW_RUNTIME_ROOT: "/workspace/.piclaw" };

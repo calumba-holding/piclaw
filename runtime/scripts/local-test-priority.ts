@@ -2,7 +2,7 @@
 
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { ensureTestFilesystemIsolation } from "./test-filesystem-isolation.js";
+import { assertTestWorkspaceArguments, ensureTestFilesystemIsolation } from "./test-filesystem-isolation.js";
 
 export const LOCAL_TEST_NICE_ENV = "PICLAW_LOCAL_TEST_NICE";
 export const LOCAL_TEST_PRIORITY_ACTIVE_ENV = "PICLAW_LOCAL_TEST_PRIORITY_ACTIVE";
@@ -84,6 +84,7 @@ export async function runLocalTestCommand(
   const isolation = ensureTestFilesystemIsolation(env);
   let plan: LocalTestPriorityPlan;
   try {
+    assertTestWorkspaceArguments(argv, env);
     plan = planLocalTestCommand(argv, env);
   } catch (error) {
     if (isolation.createdRoot) isolation.cleanup();

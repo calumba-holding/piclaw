@@ -254,6 +254,19 @@ export function getActiveTestFilesystemIsolationRoot(env: MutableEnv = process.e
   return realpathSync(resolve(rootEnv));
 }
 
+/** CLI workspace selection outranks all three environment path overrides. */
+export function assertTestWorkspaceArguments(args: readonly string[], env: MutableEnv = process.env): void {
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!;
+    let path: string | undefined;
+    if (arg === "--workspace" || arg === "-w") path = args[++i];
+    else if (arg.startsWith("--workspace=") || arg.startsWith("-w=")) path = arg.slice(arg.indexOf("=") + 1);
+    else continue;
+    if (!path?.trim()) throw new Error("[test-fs-isolation] workspace argument requires an isolated path");
+    assertPathWithinTestFilesystemIsolation(path, env, { allowRoot: false });
+  }
+}
+
 export function assertPathWithinTestFilesystemIsolation(path: string, env: MutableEnv = process.env, options: { readonly allowRoot?: boolean } = {}): void {
   const root = getActiveTestFilesystemIsolationRoot(env);
   if (!root) throw new Error("[test-fs-isolation] test filesystem isolation is not active");

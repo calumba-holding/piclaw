@@ -3,7 +3,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
-import { ensureTestFilesystemIsolation } from "./test-filesystem-isolation.js";
+import { assertTestWorkspaceArguments, ensureTestFilesystemIsolation } from "./test-filesystem-isolation.js";
 
 type RunnerOptions = {
   stageSize: number;
@@ -322,6 +322,7 @@ async function runStage(
 
 async function main(): Promise<void> {
   const isolation = ensureTestFilesystemIsolation();
+  assertTestWorkspaceArguments(process.argv.slice(2));
   const { findProjectPackageDir } = await import("./vendor-workflow.js");
   const options = parseArgs();
   const packageDir = findProjectPackageDir(process.cwd());
