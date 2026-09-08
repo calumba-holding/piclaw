@@ -32,6 +32,10 @@
 | `family_memory_withdrawals` | Append-only publisher withdrawal receipts; exclude copies from future shared ledger reads without erasing publication history |
 | `task_run_logs` | Task run history |
 | `token_usage` | Per‑assistant‑message token + cost usage (includes model/provider/api for per‑model tracking) |
+| `budget_caps`, `budget_cap_windows` | Opt-in cap definitions, revisions and persisted calendar windows |
+| `budget_work`, `budget_usage_events` | Durable work lineage and immutable idempotent usage attribution |
+| `budget_allowances`, `budget_overrides`, `budget_decisions` | Bounded approvals, work-scoped warnings-only state and admission audit |
+| `budget_provider_evidence` | Non-secret, account-bound provider quota observations and freshness state |
 | `tool_outputs` | Stored tool output summaries; family rows bind owner, stable root/source branch, creation-time chat JID and execution kind; legacy null-scope rows stay single-user-only |
 | `tool_outputs_fts` | Full‑text chunks keyed by opaque output ID; family reads first prove the matching scoped metadata row |
 | `workspace_files` | Indexed workspace files (path, size, mtime) |

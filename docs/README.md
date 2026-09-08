@@ -7,6 +7,7 @@ Start with [getting started](getting-started.md) for installation, first chat, a
 - [Web UI](web-ui.md#chat-and-status-surfaces) — chat, workspace, editor, terminal and viewers
 - [Configuration](configuration.md) — settings, paths, providers, remote SSH tools and environment overrides
 - [Tools and skills](tools-and-skills.md) — tool discovery, skills and slash commands
+- [Budget limits](budget-limits.md) — opt-in spend/quota caps, status, approvals and enforcement limits
 - [Settings and add-ons](settings-and-addons.md) — installation and configuration; [add-on catalogue](https://rcarmo.github.io/piclaw-addons/)
 - [Visual artefact generation](visual-artifact-generator.md) — diagrams, charts and interactive output
 - [Dream memory](dream-memory.md) — file-based memory maintenance

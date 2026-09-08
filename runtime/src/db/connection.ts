@@ -41,6 +41,7 @@ import { initializeFamilyWorkspaceIndex } from './family-workspace-index-schema.
 import { initializeFamilyMemory } from './family-memory-schema.js';
 import { initializeFamilyScheduledPublications } from './family-scheduled-publications-schema.js';
 import { initializeToolOutputOwnership } from './tool-output-ownership-schema.js';
+import { initializeBudgetLimitsSchema } from './budget-limits-schema.js';
 import fs from "fs";
 import path from "path";
 
@@ -490,7 +491,20 @@ function createSchema(database: Database): void {
       provider TEXT,
       api TEXT,
       usage_source TEXT DEFAULT 'assistant',
-      turns INTEGER DEFAULT 0
+      turns INTEGER DEFAULT 0,
+      work_id TEXT,
+      invocation_id TEXT,
+      usage_event_id TEXT,
+      api_equivalent_cost_microusd INTEGER,
+      api_equivalent_cost_known INTEGER,
+      valuation_provenance TEXT,
+      api_equivalent_known_subtotal_microusd INTEGER,
+      api_equivalent_unknown_categories TEXT,
+      pricing_currency TEXT,
+      pricing_source TEXT,
+      pricing_version TEXT,
+      pricing_context_tier TEXT,
+      pricing_cache_fallbacks TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_token_usage_chat_jid ON token_usage(chat_jid);
     CREATE INDEX IF NOT EXISTS idx_token_usage_run_at ON token_usage(run_at);
@@ -688,6 +702,20 @@ function ensureTokenUsageColumns(database: Database): void {
   ensureColumn("provider_cost_total", "REAL");
   ensureColumn("catalogue_cost_total", "REAL");
   ensureColumn("cost_provenance", "TEXT");
+  ensureColumn("work_id", "TEXT");
+  ensureColumn("invocation_id", "TEXT");
+  ensureColumn("usage_event_id", "TEXT");
+  ensureColumn("api_equivalent_cost_microusd", "INTEGER");
+  ensureColumn("api_equivalent_cost_known", "INTEGER");
+  ensureColumn("valuation_provenance", "TEXT");
+  ensureColumn("api_equivalent_known_subtotal_microusd", "INTEGER");
+  ensureColumn("api_equivalent_unknown_categories", "TEXT");
+  ensureColumn("pricing_currency", "TEXT");
+  ensureColumn("pricing_source", "TEXT");
+  ensureColumn("pricing_version", "TEXT");
+  ensureColumn("pricing_context_tier", "TEXT");
+  ensureColumn("pricing_cache_fallbacks", "TEXT");
+  database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_token_usage_usage_event_id ON token_usage(usage_event_id) WHERE usage_event_id IS NOT NULL");
 }
 
 function ensureScheduledTaskColumns(database: Database): void {
@@ -955,6 +983,7 @@ export function initDatabase(): void {
   ensureMessageColumns(db);
   ensureKeychainNoteColumns(db);
   ensureTokenUsageColumns(db);
+  initializeBudgetLimitsSchema(db);
   ensureScheduledTaskColumns(db);
   installScheduledRunCompositionSchema(db);
   migrateScheduledTaskAuthorities(db);
