@@ -51,7 +51,7 @@ export async function dispatchFamilyScheduledExecution(capability:FamilySettleme
           let output:AgentOutput;
           try {
             output=await withChatContext(chat,"web",()=>withScheduledDispatch(identity,descriptor.prompt,validate,()=>withExecutionIdentity(identity,()=>
-              Promise.race([outstanding=deps.agentPool.runAgent(descriptor.prompt,chat,{executionProvenance:identity.provenance,timeoutMs,skipPrePromptCompaction:true,
+              Promise.race([outstanding=deps.agentPool.runAgent(descriptor.prompt,chat,{executionProvenance:identity.provenance,budgetWorkId:proof.execution_id,budgetExecutionKind:"scheduled",timeoutMs,skipPrePromptCompaction:true,
                 scheduleIdleAutoCompaction:false,deferToolEnabledContinuation:true,toolCeilingFilter:name=>identity.toolPolicy!.allowed.includes(name)}),
                 new Promise<never>((_,reject)=>{expiry=setTimeout(()=>{expired=true;valid=false;reject(new Error("Scheduled dispatch deadline expired."));},timeoutMs);})]))));
           }finally{if(expiry)clearTimeout(expiry);}

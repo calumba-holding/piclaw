@@ -1,8 +1,45 @@
-# Family preview user guide
+# Family user guide
 
-Piclaw supports **single-user deployments only**. Family and isolated modes cannot start in a supported installation. Use this guide for controlled testing of the family preview. Do not enable family mode or change database markers to follow these steps.
+Piclaw supports promoted **family-shared** deployments for trusted households. Single-user remains the default; isolated-container mode is unavailable. Operators must use the offline [migration and promotion runbook](migration-copy.md); users must never edit activation markers or configuration to enable the mode.
 
-For the supported single-user app, see [Web UI](../web-ui.md). For family testing, use this guide with the [administrator guide](administrator-guide.md) and [troubleshooting](troubleshooting.md). Operators have separate [migration](migration-copy.md) and [offline recovery](operator-recovery.md) runbooks. Developers can check [implementation status](README.md).
+For the single-user app, see [Web UI](../web-ui.md). For family use, read this guide with the [administrator guide](administrator-guide.md) and [troubleshooting](troubleshooting.md). Operators have separate [migration](migration-copy.md) and [offline recovery](operator-recovery.md) runbooks. Developers can check [implementation status and limits](README.md). [Family acceptance evidence](family-acceptance.md) records the tested browser, security and resource gates.
+
+## Enable family mode
+
+Family mode requires an offline promoted database. Do not point a running instance at an unprepared database or edit activation records by hand.
+
+1. Stop all writers and follow the [offline migration and promotion runbook](migration-copy.md).
+2. Set the promoted instance configuration to:
+
+```json
+{
+  "domains": {
+    "access": {
+      "mode": "family-shared"
+    }
+  }
+}
+```
+
+3. Start the promoted copy and use the administrator flow to create or invite accounts. An absent mode remains `single-user`; `isolated-containers` is unavailable.
+
+## Current chat experience
+
+These screenshots use synthetic household data and the production family bundle tested in PR #1286.
+
+![Rich family conversation with the standard compose box](screenshots/01-rich-conversation-desktop.png)
+
+| Curated models | Owned sessions |
+|---|---|
+| ![Curated model picker](screenshots/02-curated-model-picker.png) | ![Owned session picker](screenshots/03-owned-session-picker.png) |
+
+![Live thinking, tool and queue state](screenshots/04-live-status-thinking-tools-queue.png)
+
+![Rich family conversation on a mobile viewport](screenshots/05-rich-conversation-mobile.png)
+
+| Family administration | Workspace and security |
+|---|---|
+| ![Family administration panel](screenshots/06-family-administration.png) | ![Workspace and security panel](screenshots/07-workspace-security.png) |
 
 ## Accounts, conversations and shared files
 
@@ -11,7 +48,7 @@ For the supported single-user app, see [Web UI](../web-ui.md). For family testin
 - Your **home** is the root used after a fresh sign-in or when you have not selected a conversation.
 - A **handle** is a friendly session name such as `research`. Renaming it does not change the conversation's internal ID or stored history. Different accounts can use the same handle; your active sessions must have distinct names within your account.
 
-The family preview checks conversation ownership. Administrators manage accounts and sign-in factors but cannot open another person's conversation or avatar through their role alone. They can reset another account's sign-in factors, so grant the role only to people you trust.
+Family mode checks conversation ownership. Administrators manage accounts and sign-in factors but cannot open another person's conversation or avatar through their role alone. They can reset another account's sign-in factors, so grant the role only to people you trust.
 
 **Workspace files are shared between tool-capable users.** Skills, add-ons, provider configuration and permitted integration credentials belong to the instance. Piclaw selects personal memory by account ID; those files still live on the shared filesystem. Account ownership does not make workspace files private. The host operator and privileged installed code can access them.
 
@@ -54,18 +91,18 @@ The sign-in page loads the site's enabled methods before accepting input:
 
 There are no passwords, email recovery or SSO in this account flow. Use an enabled alternative or contact an administrator if you lose access. Repeated failures are rate-limited; stop guessing and follow the retry notice.
 
-A fresh sign-in opens your home. To change accounts, use **Sign out**, then sign in to the other account. The **Owned session** selector changes conversations within the current account; it does not change who you are signed in as.
+A fresh sign-in opens your home. Choose **Switch account** to clear the current family page and open the sign-in screen for another account; it does not revoke the current login. Choose **Sign out** when you also want to revoke this device login. The **Owned session** selector changes conversations within the current account; it does not change who you are signed in as.
 
 Tabs in one browser profile share the site's login cookie. Signing in as another account can invalidate an older tab, which clears its conversation and draft. Use separate browser profiles when testing two accounts concurrently.
 
 ## Read and send messages
 
-1. Check your displayed account name and select an **Owned session**, or choose **Go home**.
-2. Read the current conversation. The preview shows up to the most recent 100 text messages and refreshes by polling every five seconds while active.
-3. Enter plain text in **Message** and choose **Send**.
-4. Wait for the queued/running status and reply. **Refresh** requests the latest state.
+1. Check your displayed account name and select an owned session, or choose **Go home**. The standard searchable picker groups roots and forks, including pinned and archived entries, without exposing another account's names.
+2. Read up to the latest 100 text messages through the same timeline, post and status components used in single-user mode. Server-authorised events stream replies, thinking, tool progress, drafts, queue state and model changes for that owned conversation.
+3. Use the standard compose box to type, paste or drop text and attachments. **Send**, queue, queue-all, steer, stop, retry, model/thinking controls and queue-item actions appear when the current owner/session policy permits them.
+4. Use **Refresh** after an uncertain response. Reconnect and account checks never replay a mutation automatically.
 
-The family shell does not offer the classic app's rich rendering, attachments, add-on panes, terminal, live streaming or message-editing controls. Leading slash commands and `@` mentions are unsupported as prompts. Do not use the single-user UI instructions to bypass these restrictions.
+The family shell uses the standard chat CSS and TypeScript/Preact components for Markdown, code, KaTeX, Mermaid, media, link previews, annotations, outcomes, persisted thinking, Adaptive Cards, resources, generated widgets, attachment upload/download/preview and the curated model/session controls. Uploads are bound to the current account/login until they commit with an owned message. Generic Adaptive Card submissions, annotation edits and widget text submissions become owner-authorised chat messages; privileged login/recovery/add-on card intents remain denied. External card/image resources are removed unless rewritten to an owner-authorised media URL. Global provider/add-on administration, shell, terminal, VNC and cross-account writes remain unavailable.
 
 If you cannot tell whether a message was sent, choose **Refresh** before changing the text. After a failed or lost response, resending unchanged text from the same page and conversation reuses its request ID. The server returns the existing message if it already accepted that request. Editing the text, switching sessions or reloading the page may create a new request. The page never retries a failed send automatically.
 
@@ -86,6 +123,8 @@ For a **Legacy input** held by migration, Retry is unavailable. Check the confir
 A **Recovery is blocked** notice needs operator inspection; do not invent an input ID or edit stored authority to bypass it.
 
 ## Manage your account
+
+The authenticated header shows **Family shared** so this preview cannot be mistaken for the normal single-user interface. It is a read-only label, not a mode selector. The family workspace groups settings under **Personal**, **Sessions and work** and **Shared family**. Notifications, account switching and sign-out remain separate account actions. On a phone these groups form one vertical list; wider screens show three columns. Only one settings panel stays open; selecting another closes the previous panel and discards its unsaved private draft. Opening a group control does not change its permissions or move data between scopes.
 
 Open **My account**. A disabled control can mean the operation is prohibited, your authentication is too old, the browser lacks support, or the server is still loading. **Refresh account** reloads the current permissions and values.
 
@@ -141,6 +180,12 @@ Select **System**, **Light** or **Dark** appearance. Optionally enter up to 2,00
 
 Saved guidance applies to new model runs. It cannot change permissions, account identity or higher-priority instructions. A run already in progress keeps its original guidance. Account theme updates can arrive with polling without replacing your unsaved form fields.
 
+### Active model and thinking
+
+The model control below the current conversation opens the same searchable catalogue used by standard chat. It shows only locally available, instance-scoped models with their context window, catalogue pricing and reasoning support. Choosing a model or thinking level changes only the currently open owned session; it does not change provider credentials, instance defaults or another session.
+
+Model and session pins plus recent-model ordering live only in this family page's memory and are partitioned by immutable account identity. Reloading, switching accounts or invalidating the login clears them. A late response for a previous session is ignored. If the selected model cannot fit the current context, choose a larger model; automatic model-switch compaction is not available here.
+
 ### Model and thinking defaults
 
 Under **Model defaults for empty roots**, choose an available model and, optionally, one of its supported thinking levels. Choose **Save model defaults**. Leaving thinking at the instance default uses the instance's setting for that model, or its general default. Piclaw adjusts the level if the model does not support it.
@@ -151,7 +196,9 @@ The effective-value notice shows the configured default. Check the conversation'
 
 ## Manage your sessions
 
-Open **My sessions** to see your roots, forks, home and archives. Saving a change does not select another conversation. If you archive the selected session, its messages disappear and sending is disabled. Use **Open** or **Go home** to select an active conversation.
+Use the standard session control beside the compose box to search owned roots, forks and archives, pin active rows for this page, switch sessions, create a root or fork, rename, archive or restore where the server-provided capability allows it. The picker shows hierarchy, lifecycle state, active state and available model/context metrics. Foreign rows never appear. Merge and permanent purge stay unavailable.
+
+Open **My sessions** for the detailed owner-only tree, home selection and archived transcript controls. Saving a change there does not select another conversation. If you archive the selected session, its messages disappear and the shell returns to your home. Use **Open** or **Go home** to select an active conversation.
 
 ### Create a root or fork
 
@@ -265,8 +312,8 @@ Administrators may deny tools within the fixed preview set. A new run sees the n
 
 ## Current limits and getting help
 
-The preview cannot start a supported family or isolated deployment, promote a migration copy or start in recovery-only mode. It has no per-user containers or complete equivalent of the classic and visual apps.
+Family mode uses the standard chat experience but has no per-user containers. Users and web administrators cannot activate, restart, migrate or recover the deployment; those are offline host-operator procedures. Isolated-container mode remains unavailable.
 
-Unsupported user actions include attachments, steering and commands; switching a running session's model; provider login and generic add-on panes; shell, terminal and VNC access; family task activation/execution, Dream and push notifications; cross-account sharing; and session merge or purge.
+Use **Enable notifications** to grant this signed-in browser login a Web Push subscription. Notifications are delivered only for your owned conversations while that exact login remains valid. Family notifications say only that a reply is available; open PiClaw to read it after account checks. **Disable notifications** removes the current browser subscription. Signing out, revoking the device or disabling the account prevents future delivery; already displayed notifications cannot be recalled. Device and tab identifiers are memory-only in the family shell and presence is cleared on blur, navigation and account invalidation. Unsupported user actions include global provider login and generic add-on panes; shell, terminal and VNC access; automatic family task scheduling and Dream; cross-account sharing; session merge or purge; and privileged Adaptive Card/add-on intents without an owner-scoped contract.
 
 Consult [troubleshooting](troubleshooting.md) before retrying an uncertain operation. Contact your account administrator for invitations, factor resets or account policy. Contact the host operator for certificates, old browser caches, backups, migration quarantine, prepared-copy errors and unavailable startup modes. Send only the minimum diagnostic information requested; never include setup keys, invitation links, cookies, private transcripts or credential files.

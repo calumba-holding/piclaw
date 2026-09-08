@@ -263,6 +263,9 @@ The web agent surface now follows a stricter rule:
   - recovery-card actions such as **Continue** and **Retry cleanly** first **skip** the held failed run so the recovery follow-up prompt is not blocked behind the unresolved failure marker
 - `GET /agent/status`
   - remains the live in-memory status surface; the held failed-run state itself is durable DB state rather than a separate new endpoint family
+  - family mode resolves an owned target, returns the shared core status and thought/draft previews, rechecks authority after collection, and omits instance diagnostics, extension working state/status hints and process-generation metadata
+- `GET /agent/context`
+  - family mode resolves an owned target and returns its context plus latest-run token/cost summary after a final authority check
 
 This keeps the HTTP surface small while making the message-consumption semantics truthful.
 
