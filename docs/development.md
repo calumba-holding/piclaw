@@ -44,6 +44,12 @@ For the current end-to-end GitHub Actions flow (triggers, job dependencies, and 
 
 ## Testing
 
+Repository test entry points create an owned temporary filesystem root before importing runtime configuration. The local launcher, direct controlled runner and Bun test preloads in the root and `runtime/` isolate workspace, store, data, home, Pi profile, XDG and temporary directories. Nested runners retain only paths inside that root. CI and niceness flags do not disable filesystem isolation.
+
+Destructive Dream fixtures additionally reject paths outside the owned root and symlink ancestors before deletion. Tests that need keychain access must provide a test-only key; inherited keychain and deployment secrets are removed. `PICLAW_DB_IN_MEMORY=1` isolates SQLite only and must never be treated as filesystem protection.
+
+This prevents inherited live paths from becoming test fixtures; it is not an OS sandbox for arbitrary shell commands. Do not hard-code live paths in test mutations or run unreviewed destructive scripts. Older worktrees without the preloads and launcher changes are unsafe for live-host test runs.
+
 The implementation lives under `runtime/`, so direct Bun test runs should target that subtree. Sequential mode is recommended for SQLite safety:
 
 ```bash
