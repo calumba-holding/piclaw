@@ -7,18 +7,22 @@ import { isMermaidSourceAllowedForScopedRendering } from '../../web/src/markdown
 const web = join(import.meta.dir, '../../web/src');
 const source = (path: string) => readFileSync(join(web, path), 'utf8');
 
-test('family enables standard persisted renderers while keeping rich actions disabled', () => {
+test('family enables standard persisted renderers and owner-authorized viewing actions', () => {
   const family = source('family-chat-surface.ts');
   for (const capability of ['media', 'cards', 'widgets', 'annotations', 'thinking']) {
     expect(family).toContain(`${capability}: true`);
   }
-  for (const capability of ['mediaActions', 'annotationActions', 'cardActions', 'widgetActions', 'resourceActions']) {
-    expect(family).toContain(`${capability}: false`);
-  }
+  for (const capability of ['mediaActions', 'widgetActions', 'resourceActions', 'annotationActions', 'cardActions']) expect(family).toContain(`${capability}: true`);
   expect(family).toContain('rewriteImageSrc: rewriteOwnedMediaUrl');
   expect(family).toContain('this.postCapabilities = Object.freeze({');
   expect(family).toContain('loadMediaInfo: (mediaId: number) => this.api.request');
   expect(family).toContain('loadThinking: (messageId: number, chatJid: string) => this.api.request');
+  expect(family).toContain('onOpenWidget=${');
+  expect(family).toContain('onOpenAttachmentPreview=${');
+  expect(family).toContain('attachmentPreview=${this.attachmentPreview}');
+  expect(family).toContain('onSaveAnnotations=${async');
+  expect(family).toContain('onSubmitCardAction=${async');
+  expect(family).toContain("event?.kind!=='widget.submit'");
 });
 
 test('family inline and preview images accept only owner-authorized media route shapes', () => {
@@ -40,7 +44,8 @@ test('scoped Mermaid rendering rejects external resource syntax before rendering
 test('shared Post separates rendering from interaction authority', () => {
   const post = source('components/post.ts');
   expect(post).toContain('readOnly: !allowCardActions');
-  expect(post).toContain('rewriteResourceUrl: !allowCardActions ? rewriteImageSrc : undefined');
+  expect(post).toContain('rewriteResourceUrl: rewriteImageSrc');
+  expect(post).toContain('onSubmitCardAction ?? submitAdaptiveCardAction');
   expect(post).toContain("if (!rendered) cardEl.textContent = block.fallback_text || 'Card failed to render.'");
   expect(post).toContain('disabled=${!allowDownload}');
   expect(post).toContain('disabled=${!canOpen}');
@@ -54,5 +59,6 @@ test('family shell loads the standard markdown, math, and diagram runtimes', () 
   expect(html).toContain('/static/common/js/marked.min.js');
   expect(html).toContain('/static/common/js/vendor/katex.min.js');
   expect(html).toContain('/static/common/js/vendor/beautiful-mermaid.js');
-  expect(html).toContain('attachment viewers/downloads, card submissions, widget opening, annotation edits and resource downloads remain unavailable');
+  expect(html).toContain('owner-scoped messages, uploads, rich content and live turn controls');
+  expect(html).toContain('shell, terminal, VNC and global provider/add-on controls remain unavailable');
 });

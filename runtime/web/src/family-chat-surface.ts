@@ -3,6 +3,8 @@ import { rewriteOwnedMediaUrl } from './components/post.js';
 import { FamilyApi } from './family-api.js';
 import { validMemorySource } from './family-memory.js';
 import { isCompactionStatus } from './ui/status-duration.js';
+import { uploadMedia } from './ui/upload-transfers.js';
+import { getGeneratedWidgetShouldCloseOnSubmit, getGeneratedWidgetSubmissionText } from './ui/generated-widget.js';
 import { html, render, useState } from './vendor/preact-htm.js';
 
 const denyStatusWorkspaceLookup = async (): Promise<null> => null;
@@ -50,10 +52,13 @@ export class FamilyChatSurface {
   private readonly postCapabilities: Record<string, unknown>;
   private readonly preferenceRuntime: EventTarget & { localStorage: { getItem: (key: string) => string | null; setItem: (key: string, value: string) => void } };
   private stopped = false;
-  private pending: { chatJid: string; content: string; requestId: string } | null = null;
+  private pending: { chatJid: string; content: string; mediaIds: number[]; requestId: string } | null = null;
   private renderSetter: ((value: FamilyChatSurfaceSnapshot) => void) | null = null;
   private readonly composeBrowserStorage: { getItem: (key: string) => string | null; setItem: (key: string, value: string) => void };
   private readonly composeDrafts = new Map<string, string>();
+  private readonly cardRequests = new Map<string,string>();
+  private floatingWidget: any = null;
+  private attachmentPreview: { mediaId: number; info: any } | null = null;
 
   constructor(
     private readonly api: FamilyApi,
@@ -80,14 +85,14 @@ export class FamilyChatSurface {
     };
     this.postCapabilities = Object.freeze({
       media: true,
-      mediaActions: false,
+      mediaActions: true,
       cards: true,
       widgets: true,
       annotations: true,
-      annotationActions: false,
-      cardActions: false,
-      widgetActions: false,
-      resourceActions: false,
+      annotationActions: true,
+      cardActions: true,
+      widgetActions: true,
+      resourceActions: true,
       thinking: true,
       delete: false,
       rewriteImageSrc: rewriteOwnedMediaUrl,
@@ -109,7 +114,7 @@ export class FamilyChatSurface {
   }
 
   clear(options: { preserveComposeDraft?: boolean } = {}): void {
-    this.pending = null;
+    this.pending = null; this.floatingWidget = null; this.attachmentPreview = null;
     if (!options.preserveComposeDraft) this.composeDrafts.clear();
     this.update({ posts: [], hasMore: false, directory: [], currentChatJid: '', enabled: false, modelState: null, agentState: null, contextUsage: null, queueItems: [], connectionStatus: 'disconnected' });
   }
@@ -117,7 +122,7 @@ export class FamilyChatSurface {
   stop(): void {
     if (this.stopped) return;
     this.stopped = true;
-    this.pending = null;
+    this.pending = null; this.floatingWidget = null; this.attachmentPreview = null;
     this.renderSetter = null;
     render(null, this.host);
     this.host.replaceChildren();
@@ -129,7 +134,7 @@ export class FamilyChatSurface {
     _agentId: string,
     content: string,
     _threadId: unknown,
-    mediaIds: unknown[],
+    mediaIds: number[],
     mode: string | null | undefined,
     chatJid: string,
   ): Promise<any> => {
@@ -151,16 +156,18 @@ export class FamilyChatSurface {
       familyMode = explicit[1].toLowerCase() === 'queue-all' ? 'queue_all' : explicit[1].toLowerCase();
       message = explicit[2].trim();
     }
-    if (mediaIds?.length || !message || /^[\s]*[/@]/.test(message)) throw new Error('Only plain text prompts and permitted live-turn controls are supported by the current family capability policy.');
+    if ((!message && !mediaIds.length) || /^[\s]*[/@]/.test(message)) throw new Error('A message or attachment and a permitted live-turn mode are required by the current family capability policy.');
     const pendingContent = `${familyMode}:${message}`;
-    if (!this.pending || this.pending.chatJid !== chatJid || this.pending.content !== pendingContent) {
-      this.pending = { chatJid, content: pendingContent, requestId: crypto.randomUUID() };
+    if (!this.pending || this.pending.chatJid !== chatJid || this.pending.content !== pendingContent
+      || JSON.stringify(this.pending.mediaIds) !== JSON.stringify(mediaIds)) {
+      this.pending = { chatJid, content: pendingContent, mediaIds: [...mediaIds], requestId: crypto.randomUUID() };
     }
     const request = this.pending;
     const response = await this.api.request(`/agent/default/message?chat_jid=${encodeURIComponent(chatJid)}`, 'POST', {
       content: message,
       request_id: request.requestId,
       mode: familyMode,
+      media_ids: request.mediaIds,
     });
     if (this.pending === request) this.pending = null;
     return response;
@@ -215,6 +222,17 @@ export class FamilyChatSurface {
       hasMore=${value.hasMore}
       renderPostAccessory=${renderAccessory}
       postCapabilities=${this.postCapabilities}
+      onOpenWidget=${(widget: any) => { this.floatingWidget = widget; this.renderSetter?.({ ...this.snapshot }); }}
+      onOpenAttachmentPreview=${(preview: any) => { this.attachmentPreview = preview; this.renderSetter?.({ ...this.snapshot }); }}
+      onSaveAnnotations=${async (postId: number, annotations: unknown[], chatJid: string) => {
+        const response = await this.api.request(`/post/${postId}/annotations?chat_jid=${encodeURIComponent(chatJid)}`, 'PATCH', { annotations });
+        return response.annotations;
+      }}
+      onSubmitCardAction=${async (payload: any) => {
+        const key=`${payload.chat_jid}:${payload.post_id}:${payload.card_id}:${JSON.stringify(payload.action)}`;
+        let id=this.cardRequests.get(key);if(!id){id=crypto.randomUUID();this.cardRequests.set(key,id);}
+        const response=await this.api.request('/agent/card-action','POST',{...payload,request_id:id});this.cardRequests.delete(key);return response;
+      }}
       agents=${{}}
       user=${{ name: value.identity.displayName, user_name: value.identity.displayName }}
       reverse=${true}
@@ -224,6 +242,19 @@ export class FamilyChatSurface {
       agentThought=${value.agentState?.thought ?? null}
       currentTurnId=${currentTurnId}
       loadStatusWorkspaceBranch=${denyStatusWorkspaceLookup}
+      floatingWidget=${this.floatingWidget}
+      onCloseWidget=${() => { this.floatingWidget = null; this.renderSetter?.({ ...this.snapshot }); }}
+      onWidgetEvent=${(event: any) => {
+        if(event?.kind==='widget.close'){this.floatingWidget=null;this.renderSetter?.({...this.snapshot});return;}
+        if(event?.kind!=='widget.submit')return;
+        const text=getGeneratedWidgetSubmissionText(event.payload);if(!text)return;
+        void this.sendMessage('default',text,null,[],activeAgentState?'queue':'send',value.currentChatJid).then(()=>{
+          if(getGeneratedWidgetShouldCloseOnSubmit(event.payload))this.floatingWidget=null;
+          this.composeDrafts.delete(value.currentChatJid);this.renderSetter?.({...this.snapshot});void this.hooks.changed();
+        }).catch(error=>{document.getElementById('family-error')!.textContent=error?.message||'Widget submission failed.';});
+      }}
+      attachmentPreview=${this.attachmentPreview}
+      onCloseAttachmentPreview=${() => { this.attachmentPreview = null; this.renderSetter?.({ ...this.snapshot }); }}
       composeKey=${`${value.identity.userId}:${value.currentChatJid}`}
       composeProps=${{
         key: `${value.identity.userId}:${value.currentChatJid}`,
@@ -270,10 +301,8 @@ export class FamilyChatSurface {
           await this.mutateSession('/agent/branch-restore', { chat_jid: chatJid, agent_name: branch.agent_name });
           if (!this.stopped && this.snapshot.currentChatJid === sourceChatJid) await this.hooks.navigate(chatJid);
         } : undefined,
-        onSubmitIntercept: value.enabled ? async (submission: any) => {
-          return await this.sendMessage('default', submission.content, null, [], submission.submitMode, value.currentChatJid);
-        } : async () => { throw new Error('This family conversation is unavailable. Refresh before sending.'); },
-        onPost: () => { document.getElementById('family-error')!.textContent = ''; void this.hooks.changed(); },
+        onSubmitIntercept: value.enabled ? undefined : async () => { throw new Error('This family conversation is unavailable. Refresh before sending.'); },
+        onPost: () => { this.composeDrafts.delete(value.currentChatJid); document.getElementById('family-error')!.textContent = ''; void this.hooks.changed(); },
         onSubmitError: (message: string) => {
           document.getElementById('family-error')!.textContent = `${message} Resend unchanged text to reuse the request ID; do not assume it was rejected.`;
         },
@@ -303,7 +332,10 @@ export class FamilyChatSurface {
         services: {
           sendAgentMessage: this.sendMessage,
           getAgentModels: this.loadModels,
-          uploadMedia: async () => { throw new Error('Attachments are unavailable in family mode.'); },
+          uploadMedia: (file: File, options: any) => uploadMedia(file, { ...options, headers: {
+            'x-piclaw-account-id': value.identity.userId,
+            'x-piclaw-login-id': value.identity.loginId,
+          } }),
           fetchCommands: this.loadComposeCommands,
           browserStorage: this.composeBrowserStorage,
         },
@@ -311,7 +343,7 @@ export class FamilyChatSurface {
           persistBrowserState: true,
           commands: true,
           mentions: true,
-          media: false,
+          media: true,
           search: false,
           location: false,
           speech: true,
