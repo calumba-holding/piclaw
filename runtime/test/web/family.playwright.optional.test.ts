@@ -19,6 +19,11 @@ async function fixture(page: Page) {
   await page.route('**/account/preferences', route => route.fulfill({ json: { user_id: state.identity.principal.userId, preferences: { revision: 0, theme: 'system', response_guidance: '' }, defaults: { theme: 'system', response_guidance: '' }, can_edit: true } }));
   await page.route("**/agent/message-recovery?**", route => route.fulfill({ json: { state: 'idle' } }));
   await page.route("**/agent/queue-state?**", route => route.fulfill({ json: { count: 0, items: [] } }));
+  await page.route("**/agent/commands?**", route => route.fulfill({ json: { commands: [
+    { name: '/abort', description: 'Abort the current response', source: 'core' },
+    { name: '/queue-all', description: 'Queue a follow-up message (batch all)', source: 'core' },
+    { name: '/steer', description: 'Steer the current response', source: 'core' },
+  ], mentions: [] } }));
   await page.route("**/agent/status?**", route => route.fulfill({ json: { status: 'idle', state: 'idle', chat_jid: 'web:alice', data: null, extension_working: null } }));
   await page.route("**/agent/context?**", route => route.fulfill({ json: { tokens: 1000, contextWindow: 200000, percent: 1, sessionGeneration: 'fixture', cacheUsage: null } }));
   await page.route("**/agent/models?**", route => route.fulfill({ json: { current:'test/reasoning',model_options:[{label:'test/reasoning',provider:'test',id:'reasoning',name:'Reasoning model',context_window:200000,pricing:{input_per_million:1,output_per_million:2},reasoning:true,thinking_levels:['off','high'],thinking_level_labels:['Off','High']},{label:'openrouter/openai/gpt-5.4',provider:'openrouter',id:'openai/gpt-5.4',name:'GPT 5.4',context_window:400000,pricing:{input_per_million:2,output_per_million:4},reasoning:true,thinking_levels:['off','high'],thinking_level_labels:['Off','High']}],thinking_level:'high',thinking_level_label:'High',supports_thinking:true,available_thinking_levels:['off','high'],available_thinking_level_labels:['Off','High'],context_usage:{tokens:1000,contextWindow:200000,percent:1} } }));
@@ -2332,6 +2337,58 @@ browserTest("passkey creation uses native registration twice without replacement
     expect(finishes[0].credential.response.attestationObject.length).toBeGreaterThan(0);
     expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0]);
   } finally { await cdp.detach(); await page.close(); }
+}, 20000);
+
+browserTest('standard compose keeps drafts by owned session and exposes permitted command, mention, speech and keyboard behavior', async () => {
+  const page = await browser.newPage({ viewport: { width: 900, height: 800 } });
+  try {
+    await fixture(page);
+    await page.route('**/agent/commands?**', route => route.fulfill({ json: { commands: [
+      { name: '/abort', description: 'Abort the current response', source: 'core' },
+      { name: '/queue-all', description: 'Queue a follow-up message (batch all)', source: 'core' },
+      { name: '/steer', description: 'Steer the current response', source: 'core' },
+    ], mentions: [{ chat_jid: 'web:alice-two', root_chat_jid: 'web:alice-two', parent_branch_id: null, agent_name: 'second', archived_at: null }] } }));
+    await page.addInitScript(() => {
+      class Recognition {
+        continuous = false; interimResults = false; maxAlternatives = 1; lang = '';
+        start() { setTimeout(() => (this as any).onstart?.(), 0); }
+        stop() { (this as any).onend?.(); }
+        abort() { (this as any).onend?.(); }
+      }
+      Object.defineProperty(window, 'SpeechRecognition', { value: Recognition, configurable: true });
+      (window as any).speechCtor = Recognition;
+    });
+    const sent: any[] = [];
+    await page.route('**/agent/default/message?**', route => {
+      sent.push(route.request().postDataJSON());
+      return route.fulfill({ status: 201, json: { queued: 'message', user_message: { id: 99, chat_jid: 'web:alice', data: { content: route.request().postDataJSON().content } } } });
+    });
+    await page.goto(base); await ready(page);
+
+    await composeInput(page).fill('/que');
+    await page.waitForFunction(() => document.body.textContent?.includes('/queue-all'));
+    expect(await page.getByText('/queue-all', { exact: true }).count()).toBeGreaterThan(0);
+    await composeInput(page).fill('@sec');
+    await page.waitForFunction(() => document.body.textContent?.includes('@second'));
+    expect(await page.getByText('@second', { exact: true }).count()).toBeGreaterThan(0);
+    expect(await page.getByRole('button', { name: /voice input/i }).count()).toBe(1);
+    await page.getByRole('button', { name: /voice input/i }).click();
+    await page.waitForFunction(() => document.body.textContent?.includes('Listening'));
+    const constructor = await page.evaluate(() => typeof (window as any).speechCtor);
+    expect(constructor).toBe('function');
+
+    await composeInput(page).fill('draft for alice');
+    await switchChat(page, 'web:alice-two');
+    expect(await composeInput(page).inputValue()).toBe('');
+    await composeInput(page).fill('draft for second');
+    await switchChat(page, 'web:alice');
+    expect(await composeInput(page).inputValue()).toBe('draft for alice');
+
+    await composeInput(page).fill('keyboard send');
+    await composeInput(page).press('Enter');
+    await page.waitForFunction(() => (document.getElementById('message-text') as HTMLTextAreaElement)?.value === '');
+    expect(sent.at(-1)).toMatchObject({ content: 'keyboard send', mode: 'send' });
+  } finally { await page.close(); }
 }, 20000);
 
 browserTest("closing or changing login during native registration never submits a late credential", async () => {

@@ -52,6 +52,8 @@ export class FamilyChatSurface {
   private stopped = false;
   private pending: { chatJid: string; content: string; requestId: string } | null = null;
   private renderSetter: ((value: FamilyChatSurfaceSnapshot) => void) | null = null;
+  private readonly composeBrowserStorage: { getItem: (key: string) => string | null; setItem: (key: string, value: string) => void };
+  private readonly composeDrafts = new Map<string, string>();
 
   constructor(
     private readonly api: FamilyApi,
@@ -68,9 +70,14 @@ export class FamilyChatSurface {
       modelState: null, agentState: null, contextUsage: null, queueItems: [], connectionStatus: 'disconnected',
     };
     const preferences = new Map<string, string>();
+    const composeState = new Map<string, string>();
     const runtime = new EventTarget() as FamilyChatSurface['preferenceRuntime'];
     runtime.localStorage = { getItem: key => preferences.get(key) ?? null, setItem: (key, value) => { preferences.set(key, value); } };
     this.preferenceRuntime = runtime;
+    this.composeBrowserStorage = {
+      getItem: key => composeState.get(key) ?? null,
+      setItem: (key, value) => { composeState.set(key, value); },
+    };
     this.postCapabilities = Object.freeze({
       media: true,
       mediaActions: false,
@@ -101,8 +108,9 @@ export class FamilyChatSurface {
     this.renderSetter?.(this.snapshot);
   }
 
-  clear(): void {
+  clear(options: { preserveComposeDraft?: boolean } = {}): void {
     this.pending = null;
+    if (!options.preserveComposeDraft) this.composeDrafts.clear();
     this.update({ posts: [], hasMore: false, directory: [], currentChatJid: '', enabled: false, modelState: null, agentState: null, contextUsage: null, queueItems: [], connectionStatus: 'disconnected' });
   }
 
@@ -160,6 +168,21 @@ export class FamilyChatSurface {
 
   private readonly loadModels = async (chatJid: string): Promise<any> => {
     return await this.api.request(`/agent/models?chat_jid=${encodeURIComponent(chatJid)}`);
+  };
+
+  private readonly loadComposeCommands = async (chatJid: string): Promise<any> => {
+    const response = await this.api.request(`/agent/commands?chat_jid=${encodeURIComponent(chatJid)}`);
+    if (Array.isArray(response?.mentions)) {
+      const byJid = new Map(this.snapshot.directory.map(entry => [entry.chat_jid, entry]));
+      for (const mention of response.mentions) {
+        const chatJid = typeof mention?.chat_jid === 'string' ? mention.chat_jid : '';
+        const agentName = typeof mention?.agent_name === 'string' ? mention.agent_name : '';
+        if (!chatJid || !agentName || byJid.has(chatJid)) continue;
+        byJid.set(chatJid, { ...mention, chat_jid: chatJid, agent_name: agentName });
+      }
+      this.update({ directory: [...byJid.values()] });
+    }
+    return { commands: Array.isArray(response?.commands) ? response.commands : [] };
   };
 
   private readonly mutateSession = async (path: string, body: Record<string, unknown>): Promise<any> => {
@@ -255,6 +278,11 @@ export class FamilyChatSurface {
           document.getElementById('family-error')!.textContent = `${message} Resend unchanged text to reuse the request ID; do not assume it was rejected.`;
         },
         onSubmissionStateChange: this.hooks.submissionState,
+        draftValue: this.composeDrafts.get(value.currentChatJid) ?? '',
+        onContentChange: (content: string) => {
+          if (content) this.composeDrafts.set(value.currentChatJid, content);
+          else this.composeDrafts.delete(value.currentChatJid);
+        },
         followupQueueItems: value.queueItems,
         onInjectQueuedFollowup: value.enabled ? async (item: any) => {
           await this.api.request('/agent/queue-steer', 'POST', { chat_jid: value.currentChatJid, row_id: item.row_id });
@@ -276,16 +304,17 @@ export class FamilyChatSurface {
           sendAgentMessage: this.sendMessage,
           getAgentModels: this.loadModels,
           uploadMedia: async () => { throw new Error('Attachments are unavailable in family mode.'); },
-          fetchCommands: async () => ({ commands: [] }),
+          fetchCommands: this.loadComposeCommands,
+          browserStorage: this.composeBrowserStorage,
         },
         capabilities: {
-          persistBrowserState: false,
-          commands: false,
-          mentions: false,
+          persistBrowserState: true,
+          commands: true,
+          mentions: true,
           media: false,
           search: false,
           location: false,
-          speech: false,
+          speech: true,
           notifications: false,
           modelPicker: true,
           modelSettings: false,

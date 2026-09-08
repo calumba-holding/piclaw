@@ -20,6 +20,7 @@ import { getSearchResponse } from "../../../src/channels/web/timeline-service.js
 import { listStoredWebPushSubscriptions } from "../../../src/channels/web/push/web-push-store.js";
 import { WebNotificationPresenceService } from "../../../src/channels/web/push/web-notification-presence-service.js";
 import { handleFamilyWebPush } from "../../../src/channels/web/push/web-push-routes.js";
+import { renameOwnedSessionHandle } from "../../../src/db/session-handles.js";
 
 const json = (value: unknown, status = 200) => Response.json(value, { status });
 let alice: string, bob: string, gateway: WebAuthGateway, router: RequestRouterService, hub: SseHub;
@@ -205,6 +206,21 @@ test('family status/context expose only an owned standard-pane snapshot and reva
 
   revokeDuringStatusRead = true;
   expect((await router.handle(request('/agent/status?chat_jid=web:alice'))).status).toBe(403);
+});
+
+test("family compose catalogue exposes only permitted controls and owner-scoped mentions", async () => {
+  const fork = registerChat("web:alice-compose-fork", "web:alice", (getDb().query("SELECT branch_id FROM chat_branches WHERE chat_jid='web:alice'").get() as any).branch_id);
+  getDb().query("UPDATE chat_branches SET handle_owner_id=? WHERE branch_id=?").run(alice, fork.branch_id);
+  renameOwnedSessionHandle(getDb(), gateway.getPrincipal(request("/auth/me"))!, "web:alice-compose-fork", "compose-helper");
+  const response = await router.handle(request("/agent/commands?chat_jid=web:alice"));
+  expect(response.status).toBe(200);
+  const payload = await response.json();
+  expect(payload.commands.map((entry: any) => entry.name).sort()).toEqual(["/abort", "/model", "/queue", "/queue-all", "/steer", "/thinking"]);
+  expect(payload.mentions).toEqual([expect.objectContaining({ chat_jid: "web:alice-compose-fork", agent_name: "compose-helper" })]);
+  expect(JSON.stringify(payload)).not.toContain("web:bob");
+  expect((await router.handle(request("/agent/commands?chat_jid=web:bob"))).status).toBe(403);
+  expect((await router.handle(request("/agent/commands?chat_jid=web:alice&owner_user_id=" + bob))).status).toBe(403);
+  expect((await router.handle(request("/agent/commands?chat_jid=web:alice", "alice-token", "POST"))).status).toBe(403);
 });
 
 test("public assets are narrow and anonymous APIs use JSON 401, not redirects", async () => {

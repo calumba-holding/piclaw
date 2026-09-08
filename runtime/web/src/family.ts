@@ -54,13 +54,13 @@ function controls(enabled: boolean): void {
   notify.disabled = !enabled || !notifications?.state().available;
   chatSurface?.update({ enabled });
 }
-function mask(): void {
+function mask(options: { preserveComposeDraft?: boolean } = {}): void {
   // Backgrounded tabs retain no visible conversation/draft until the cookie is revalidated.
   generation++; refreshing = null; account.textContent = ''; modeBadge.textContent = ''; modeBadge.hidden = true; status.textContent = ''; error.textContent = '';
   directoryGeneration++; directory = [];
   confirmSkip.checked = false;
   element('recovery-warning').textContent = ''; recoveryStatus.textContent = '';
-  recovery.hidden = true; chatSurface?.clear(); controls(false);
+  recovery.hidden = true; chatSurface?.clear(options); controls(false);
   realtime?.close();
   settings?.suspend(); element<HTMLButtonElement>('open-account').disabled = true;
   sessionSettings?.suspend(); element<HTMLButtonElement>('open-sessions').disabled = true;
@@ -139,7 +139,7 @@ async function loadTimeline(): Promise<void> {
 }
 async function switchSession(chat: string): Promise<void> {
   if (stopped || busy || !api) return;
-  mask(); current = chat; heldRow = null; recoveryRequest = null; confirmSkip.checked = false; error.textContent = '';
+  mask({ preserveComposeDraft: true }); current = chat; heldRow = null; recoveryRequest = null; confirmSkip.checked = false; error.textContent = '';
   const url = new URL(location.href); url.search = ''; url.searchParams.set('chat_jid', chat); url.hash = '';
   history.replaceState(null, '', url.pathname + url.search);
   realtime?.start(chat); await refreshDirectory(); await loadTimeline();
