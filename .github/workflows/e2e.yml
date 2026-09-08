@@ -102,7 +102,18 @@ jobs:
         working-directory: tests/e2e
 
       - name: Configure deterministic E2E LLM provider
-        run: bun run setup/configure-test-instance.ts
+        run: |
+          export PICLAW_E2E_FIXTURE_ROOT=$(mktemp -d /tmp/piclaw-e2e-fixture.XXXXXX)
+          printf 'piclaw disposable e2e\n' > "$PICLAW_E2E_FIXTURE_ROOT/.piclaw-e2e-fixture"
+          export PICLAW_WORKSPACE="$PICLAW_E2E_FIXTURE_ROOT/workspace"
+          export PICLAW_PI_AGENT_DIR="$PICLAW_E2E_FIXTURE_ROOT/profile"
+          export PICLAW_E2E_DISPOSABLE=1
+          mkdir -p "$PICLAW_PI_AGENT_DIR" "$PICLAW_WORKSPACE"
+          echo "PICLAW_E2E_FIXTURE_ROOT=$PICLAW_E2E_FIXTURE_ROOT" >> $GITHUB_ENV
+          echo "PICLAW_WORKSPACE=$PICLAW_WORKSPACE" >> $GITHUB_ENV
+          echo "PICLAW_PI_AGENT_DIR=$PICLAW_PI_AGENT_DIR" >> $GITHUB_ENV
+          echo "PICLAW_E2E_DISPOSABLE=1" >> $GITHUB_ENV
+          bun run setup/configure-test-instance.ts
         working-directory: tests/e2e
 
       - name: Start PiClaw instance
@@ -112,8 +123,6 @@ jobs:
           echo "PICLAW_INTERNAL_SECRET=$PICLAW_INTERNAL_SECRET" >> $GITHUB_ENV
 
           # Start piclaw in background with test config
-          export PICLAW_WORKSPACE=$(mktemp -d)
-          echo "PICLAW_WORKSPACE=$PICLAW_WORKSPACE" >> $GITHUB_ENV
           mkdir -p "$PICLAW_WORKSPACE/.piclaw"
 
           # Write minimal config and seed one known root file for workspace/editor UX tests.
@@ -146,12 +155,14 @@ jobs:
         env:
           PICLAW_E2E_URL: http://localhost:3000
           PICLAW_INTERNAL_SECRET: ${{ env.PICLAW_INTERNAL_SECRET }}
+          PICLAW_E2E_INTERNAL_SECRET: ${{ env.PICLAW_INTERNAL_SECRET }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run E2E tests (${{ matrix.stage }})
         run: bun run test -- ${{ matrix.specs }} --project=desktop-chrome
         working-directory: tests/e2e
         env:
+          PICLAW_E2E_DISPOSABLE: '1'
           PICLAW_E2E_URL: http://localhost:3000
           PICLAW_INTERNAL_SECRET: ${{ env.PICLAW_INTERNAL_SECRET }}
           PICLAW_E2E_INTERNAL_SECRET: ${{ env.PICLAW_INTERNAL_SECRET }}

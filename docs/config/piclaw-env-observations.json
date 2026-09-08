@@ -78,16 +78,16 @@
       "semanticReaderOccurrences": 0
     },
     "tooling": {
-      "referencedNames": 83,
-      "directReaderNames": 40,
-      "directReaderOccurrences": 66,
+      "referencedNames": 87,
+      "directReaderNames": 42,
+      "directReaderOccurrences": 69,
       "helperReaderNames": 0,
       "helperReaderOccurrences": 0,
-      "semanticReaderNames": 40,
-      "semanticReaderOccurrences": 66
+      "semanticReaderNames": 42,
+      "semanticReaderOccurrences": 69
     },
     "docsDeploy": {
-      "referencedNames": 124,
+      "referencedNames": 127,
       "directReaderNames": 16,
       "directReaderOccurrences": 32,
       "helperReaderNames": 0,
@@ -1204,6 +1204,7 @@
             "scripts/audit-baseline-quality-deterministic.ts",
             "scripts/audit-piclaw-env-surface.ts",
             "scripts/audit-queue-session-threading-replay.ts",
+            "scripts/smoke-install-from-repo.sh",
             "scripts/token-chart.ts"
           ],
           "readerFiles": [
@@ -1727,17 +1728,80 @@
     {
       "name": "PICLAW_E2E_BASE_URL",
       "scopes": {
+        "docsDeploy": {
+          "referenced": true,
+          "directReaders": 0,
+          "helperReaders": 0,
+          "semanticReaders": 0,
+          "files": [
+            "docs/development.md"
+          ],
+          "readerFiles": []
+        },
         "tooling": {
           "referenced": true,
-          "directReaders": 1,
+          "directReaders": 4,
           "helperReaders": 0,
-          "semanticReaders": 1,
+          "semanticReaders": 4,
           "files": [
-            "runtime/scripts/playwright/terminal-reopen.ts"
+            "runtime/scripts/playwright/terminal-reopen-multicycle.ts",
+            "runtime/scripts/playwright/terminal-reopen-race.ts",
+            "runtime/scripts/playwright/terminal-reopen.ts",
+            "scripts/web-silence-test.ts"
           ],
           "readerFiles": [
-            "runtime/scripts/playwright/terminal-reopen.ts"
+            "runtime/scripts/playwright/terminal-reopen-multicycle.ts",
+            "runtime/scripts/playwright/terminal-reopen-race.ts",
+            "runtime/scripts/playwright/terminal-reopen.ts",
+            "scripts/web-silence-test.ts"
           ]
+        }
+      }
+    },
+    {
+      "name": "PICLAW_E2E_DISPOSABLE",
+      "scopes": {
+        "docsDeploy": {
+          "referenced": true,
+          "directReaders": 0,
+          "helperReaders": 0,
+          "semanticReaders": 0,
+          "files": [
+            ".github/workflows/e2e.yml",
+            "docs/development.md"
+          ],
+          "readerFiles": []
+        },
+        "tooling": {
+          "referenced": true,
+          "directReaders": 2,
+          "helperReaders": 0,
+          "semanticReaders": 2,
+          "files": [
+            "runtime/scripts/playwright/vnc-harness-report.ts",
+            "runtime/scripts/test-filesystem-isolation.ts",
+            "runtime/scripts/test-target.ts",
+            "runtime/scripts/vnc-harness-standalone.ts"
+          ],
+          "readerFiles": [
+            "runtime/scripts/playwright/vnc-harness-report.ts",
+            "runtime/scripts/vnc-harness-standalone.ts"
+          ]
+        }
+      }
+    },
+    {
+      "name": "PICLAW_E2E_FIXTURE_ROOT",
+      "scopes": {
+        "docsDeploy": {
+          "referenced": true,
+          "directReaders": 0,
+          "helperReaders": 0,
+          "semanticReaders": 0,
+          "files": [
+            ".github/workflows/e2e.yml"
+          ],
+          "readerFiles": []
         }
       }
     },
@@ -1767,9 +1831,29 @@
           "helperReaders": 0,
           "semanticReaders": 0,
           "files": [
-            ".github/workflows/e2e.yml"
+            ".github/workflows/e2e.yml",
+            "docs/development.md"
           ],
           "readerFiles": []
+        },
+        "tooling": {
+          "referenced": true,
+          "directReaders": 4,
+          "helperReaders": 0,
+          "semanticReaders": 4,
+          "files": [
+            "runtime/scripts/playwright/terminal-reopen-multicycle.ts",
+            "runtime/scripts/playwright/terminal-reopen-race.ts",
+            "runtime/scripts/playwright/terminal-reopen.ts",
+            "runtime/scripts/playwright/web-auth-bootstrap.ts",
+            "runtime/scripts/test-filesystem-isolation.ts"
+          ],
+          "readerFiles": [
+            "runtime/scripts/playwright/terminal-reopen-multicycle.ts",
+            "runtime/scripts/playwright/terminal-reopen-race.ts",
+            "runtime/scripts/playwright/terminal-reopen.ts",
+            "runtime/scripts/playwright/web-auth-bootstrap.ts"
+          ]
         }
       }
     },
@@ -1799,7 +1883,8 @@
           "helperReaders": 0,
           "semanticReaders": 0,
           "files": [
-            ".github/workflows/e2e.yml"
+            ".github/workflows/e2e.yml",
+            "docs/development.md"
           ],
           "readerFiles": []
         }
@@ -2172,23 +2257,14 @@
         },
         "tooling": {
           "referenced": true,
-          "directReaders": 4,
+          "directReaders": 0,
           "helperReaders": 0,
-          "semanticReaders": 4,
+          "semanticReaders": 0,
           "files": [
-            "runtime/scripts/playwright/terminal-reopen-multicycle.ts",
-            "runtime/scripts/playwright/terminal-reopen-race.ts",
-            "runtime/scripts/playwright/terminal-reopen.ts",
-            "runtime/scripts/playwright/web-auth-bootstrap.ts",
             "runtime/scripts/test-filesystem-isolation.ts",
             "scripts/audit-piclaw-env-surface.ts"
           ],
-          "readerFiles": [
-            "runtime/scripts/playwright/terminal-reopen-multicycle.ts",
-            "runtime/scripts/playwright/terminal-reopen-race.ts",
-            "runtime/scripts/playwright/terminal-reopen.ts",
-            "runtime/scripts/playwright/web-auth-bootstrap.ts"
-          ]
+          "readerFiles": []
         },
         "production": {
           "referenced": true,
@@ -2241,7 +2317,8 @@
           "semanticReaders": 0,
           "files": [
             "runtime/scripts/test-filesystem-isolation.ts",
-            "scripts/audit-piclaw-env-surface.ts"
+            "scripts/audit-piclaw-env-surface.ts",
+            "scripts/smoke-install-from-repo.sh"
           ],
           "readerFiles": []
         },
@@ -2294,7 +2371,8 @@
           "semanticReaders": 0,
           "files": [
             "runtime/scripts/test-filesystem-isolation.ts",
-            "scripts/audit-piclaw-env-surface.ts"
+            "scripts/audit-piclaw-env-surface.ts",
+            "scripts/smoke-install-from-repo.sh"
           ],
           "readerFiles": []
         },
@@ -2913,6 +2991,7 @@
           "helperReaders": 0,
           "semanticReaders": 0,
           "files": [
+            ".github/workflows/e2e.yml",
             "docs/configuration.md"
           ],
           "readerFiles": []
@@ -2924,7 +3003,8 @@
           "semanticReaders": 0,
           "files": [
             "runtime/scripts/test-filesystem-isolation.ts",
-            "scripts/audit-piclaw-env-surface.ts"
+            "scripts/audit-piclaw-env-surface.ts",
+            "scripts/smoke-install-from-repo.sh"
           ],
           "readerFiles": []
         },
@@ -3471,6 +3551,40 @@
       }
     },
     {
+      "name": "PICLAW_PROVIDER_TEST_LIVE",
+      "scopes": {
+        "tooling": {
+          "referenced": true,
+          "directReaders": 1,
+          "helperReaders": 0,
+          "semanticReaders": 1,
+          "files": [
+            "runtime/scripts/azure-openai-harness.ts"
+          ],
+          "readerFiles": [
+            "runtime/scripts/azure-openai-harness.ts"
+          ]
+        }
+      }
+    },
+    {
+      "name": "PICLAW_PROVIDER_TEST_SETTINGS",
+      "scopes": {
+        "tooling": {
+          "referenced": true,
+          "directReaders": 1,
+          "helperReaders": 0,
+          "semanticReaders": 1,
+          "files": [
+            "runtime/scripts/azure-openai-harness.ts"
+          ],
+          "readerFiles": [
+            "runtime/scripts/azure-openai-harness.ts"
+          ]
+        }
+      }
+    },
+    {
       "name": "PICLAW_QUEUE_REPLAY_AUDIT_DIR",
       "scopes": {
         "tooling": {
@@ -3785,7 +3899,8 @@
           "semanticReaders": 0,
           "files": [
             "runtime/scripts/test-filesystem-isolation.ts",
-            "scripts/audit-piclaw-env-surface.ts"
+            "scripts/audit-piclaw-env-surface.ts",
+            "scripts/smoke-install-from-repo.sh"
           ],
           "readerFiles": []
         },
@@ -4916,6 +5031,7 @@
             "scripts/audit-piclaw-env-surface.ts",
             "scripts/audit-queue-session-threading-replay.ts",
             "scripts/backfill-token-usage.ts",
+            "scripts/smoke-install-from-repo.sh",
             "scripts/token-chart.ts"
           ],
           "readerFiles": [
@@ -6496,23 +6612,14 @@
         },
         "tooling": {
           "referenced": true,
-          "directReaders": 4,
+          "directReaders": 0,
           "helperReaders": 0,
-          "semanticReaders": 4,
+          "semanticReaders": 0,
           "files": [
-            "runtime/scripts/playwright/terminal-reopen-multicycle.ts",
-            "runtime/scripts/playwright/terminal-reopen-race.ts",
-            "runtime/scripts/playwright/terminal-reopen.ts",
-            "runtime/scripts/playwright/web-auth-bootstrap.ts",
             "runtime/scripts/test-filesystem-isolation.ts",
             "scripts/audit-piclaw-env-surface.ts"
           ],
-          "readerFiles": [
-            "runtime/scripts/playwright/terminal-reopen-multicycle.ts",
-            "runtime/scripts/playwright/terminal-reopen-race.ts",
-            "runtime/scripts/playwright/terminal-reopen.ts",
-            "runtime/scripts/playwright/web-auth-bootstrap.ts"
-          ]
+          "readerFiles": []
         },
         "production": {
           "referenced": true,
@@ -7426,7 +7533,8 @@
             "runtime/scripts/test-filesystem-isolation.ts",
             "scripts/audit-baseline-quality-deterministic.ts",
             "scripts/audit-piclaw-env-surface.ts",
-            "scripts/audit-queue-session-threading-replay.ts"
+            "scripts/audit-queue-session-threading-replay.ts",
+            "scripts/smoke-install-from-repo.sh"
           ],
           "readerFiles": [
             "runtime/scripts/benchmark-cold-session.ts",

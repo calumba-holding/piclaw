@@ -50,6 +50,10 @@ Destructive Dream fixtures additionally reject paths outside the owned root and 
 
 This prevents inherited live paths from becoming test fixtures; it is not an OS sandbox for arbitrary shell commands. Do not hard-code live paths in test mutations or run unreviewed destructive scripts. Older worktrees without the preloads and launcher changes are unsafe for live-host test runs.
 
+Every directory containing Bun tests has a local `bunfig.toml`: Bun does not inherit test preloads reliably from ancestor directories. `check:local-test-entrypoints` also checks this coverage. Add the corresponding preload when creating a new test directory. Recursive fixture cleanup refuses mounted descendants; overlay lower layers must also be disposable fixtures, and failed unmounts retain the directory instead of deleting through a mount.
+
+External browser tests require an explicit `PICLAW_E2E_URL` (or `PICLAW_E2E_BASE_URL` for terminal scripts), `PICLAW_E2E_DISPOSABLE=1`, and, when needed, `PICLAW_E2E_INTERNAL_SECRET` for that instance. Injected production credentials are removed from test children. The OOBE container harness creates its own loopback-only container and cleans up by returned ID. Provider integration scripts require explicit opt-in and a test profile; they do not discover the default Pi profile or an SSH host's credentials.
+
 The implementation lives under `runtime/`, so direct Bun test runs should target that subtree. Sequential mode is recommended for SQLite safety:
 
 ```bash

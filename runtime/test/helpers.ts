@@ -11,7 +11,9 @@
 import { mkdtempSync, rmSync, mkdirSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { getActiveTestFilesystemIsolationRoot } from "../scripts/test-filesystem-isolation.js";
+import { assertNoTestMounts, assertPathWithinTestFilesystemIsolation, ensureTestFilesystemIsolation, getActiveTestFilesystemIsolationRoot } from "../scripts/test-filesystem-isolation.js";
+
+ensureTestFilesystemIsolation();
 import { isOverlayAvailable, createOverlayWorkspace, type OverlayWorkspace } from "./overlay-workspace";
 
 /** Shape of an isolated temp workspace: paths and cleanup callback. */
@@ -43,6 +45,8 @@ export function createTempWorkspace(prefix = "piclaw-test-"): TempWorkspace {
     store,
     data,
     cleanup: () => {
+      assertPathWithinTestFilesystemIsolation(base, process.env, { allowRoot: false });
+      assertNoTestMounts(base);
       rmSync(base, { recursive: true, force: true });
     },
   };

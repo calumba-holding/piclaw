@@ -198,6 +198,7 @@ function inheritedRootIsUsable(env: MutableEnv): boolean {
 }
 
 export function ensureTestFilesystemIsolation(env: MutableEnv = process.env): TestFilesystemIsolation {
+  const e2eSecret = env.PICLAW_E2E_DISPOSABLE === "1" ? env.PICLAW_E2E_INTERNAL_SECRET : undefined;
   const reusedRoot = inheritedRootIsUsable(env);
   const root = reusedRoot
     ? realpathSync(resolve(env[TEST_FS_ISOLATION_ROOT_ENV]!))
@@ -229,7 +230,12 @@ export function ensureTestFilesystemIsolation(env: MutableEnv = process.env): Te
   env.PICLAW_DB_IN_MEMORY = env.PICLAW_DB_IN_MEMORY ?? "1";
 
   for (const key of SECRET_ENV_KEYS) delete env[key];
+  // Bash/SSH tools inject the entire keychain; none belongs in a test child.
+  for (const key of Object.keys(env)) {
+    if (/(?:API_KEY|ACCESS_KEY|ACCOUNT_KEY|PRIVATE_KEY|PASSWORD|TOKEN|SECRET|CONNECTION_STRING|_PAT)$/.test(key) || /^(SSH_|GITHUB_|GH_|AZURE_|AWS_|PORTAINER_|PROXMOX_|RESTIC_|MEMENTO_|BORGBACKUPSERVER_)/.test(key)) delete env[key];
+  }
   for (const key of DEPLOYMENT_PATH_ENV_KEYS) delete env[key];
+  if (e2eSecret) env.PICLAW_E2E_INTERNAL_SECRET = e2eSecret;
 
   let cleaned = false;
   const cleanup = () => {
@@ -282,5 +288,18 @@ export function cleanupTestFilesystemIsolationRoot(root: string): void {
   if (!isSafeRoot(resolved)) return;
   const real = realpathSync(resolved);
   if (!isWithin(safeTempParent(), real)) return;
+  assertNoTestMounts(real);
   rmSync(real, { recursive: true, force: true });
+}
+
+/** Never walk into an active mount during recursive fixture cleanup. */
+export function assertNoTestMounts(path: string, mountInfo?: string): void {
+  if (mountInfo === undefined && process.platform !== "linux") return;
+  const mounts = mountInfo ?? readFileSync("/proc/self/mountinfo", "utf8");
+  for (const line of mounts.split("\n")) {
+    const escaped = line.split(" ")[4];
+    if (!escaped) continue;
+    const mount = escaped.replace(/\\([0-7]{3})/g, (_, octal) => String.fromCharCode(parseInt(octal, 8)));
+    if (isWithin(path, mount)) throw new Error(`[test-fs-isolation] refusing cleanup with active mount: ${mount}`);
+  }
 }
