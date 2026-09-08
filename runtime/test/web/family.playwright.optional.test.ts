@@ -18,6 +18,8 @@ async function fixture(page: Page) {
   await page.route('**/account/model-defaults', route => route.fulfill({ json: modelDefaultsSnapshot() }));
   await page.route('**/account/preferences', route => route.fulfill({ json: { user_id: state.identity.principal.userId, preferences: { revision: 0, theme: 'system', response_guidance: '' }, defaults: { theme: 'system', response_guidance: '' }, can_edit: true } }));
   await page.route("**/agent/message-recovery?**", route => route.fulfill({ json: { state: 'idle' } }));
+  await page.route("**/agent/status?**", route => route.fulfill({ json: { status: 'idle', state: 'idle', chat_jid: 'web:alice', data: null, extension_working: null } }));
+  await page.route("**/agent/context?**", route => route.fulfill({ json: { tokens: 1000, contextWindow: 200000, percent: 1, sessionGeneration: 'fixture', cacheUsage: null } }));
   await page.route("**/agent/models?**", route => route.fulfill({ json: { current:'test/reasoning',model_options:[{label:'test/reasoning',provider:'test',id:'reasoning',name:'Reasoning model',context_window:200000,pricing:{input_per_million:1,output_per_million:2},reasoning:true,thinking_levels:['off','high'],thinking_level_labels:['Off','High']},{label:'openrouter/openai/gpt-5.4',provider:'openrouter',id:'openai/gpt-5.4',name:'GPT 5.4',context_window:400000,pricing:{input_per_million:2,output_per_million:4},reasoning:true,thinking_levels:['off','high'],thinking_level_labels:['Off','High']}],thinking_level:'high',thinking_level_label:'High',supports_thinking:true,available_thinking_levels:['off','high'],available_thinking_level_labels:['Off','High'],context_usage:{tokens:1000,contextWindow:200000,percent:1} } }));
   await page.route(/\/agent\/branches(?:\?.*)?$/, route => route.fulfill({ json: { capabilities:{create_root:true},branches: [{ chat_jid: "web:alice", root_chat_jid: "web:alice", parent_branch_id:null, agent_name: "home", is_active:false, model:'test/reasoning',capabilities:{open:true,fork:true,rename:true,archive:false,restore:false} }, { chat_jid: "web:alice-two", root_chat_jid: "web:alice-two", parent_branch_id:null, agent_name: "second", is_active:false, model:'test/reasoning',capabilities:{open:true,fork:true,rename:true,archive:true,restore:false} }] } }));
   await page.route("**/timeline?**", route => { state.calls.push({ path: route.request().url(), headers: route.request().headers(), body: null }); return route.fulfill({ json: posts() }); });
@@ -358,6 +360,83 @@ browserTest('timeline memory preview closes the previous settings panel and clea
     expect(await page.locator('#account-settings:not([hidden]),#account-preferences:not([hidden]),#session-settings:not([hidden]),#scheduled-results:not([hidden]),#scheduled-tasks:not([hidden]),#family-memory:not([hidden]),#administration-settings:not([hidden]),#workspace-policy:not([hidden])').count()).toBe(1);
   } finally { await page.close(); }
 }, 20000);
+
+browserTest('standard working pane renders owner-polled status and usage without privileged actions', async () => {
+  for (const viewport of [{ width: 1200, height: 900 }, { width: 375, height: 740 }]) {
+    const page = await browser.newPage({ viewport });
+    try {
+      await fixture(page);
+      let status: any = {
+        status: 'active', state: 'active', chat_jid: 'web:alice',
+        data: {
+          type: 'tool_status', turn_id: 'turn-tools', tool_name: 'read',
+          tool_args: { path: '/workspace/notes/owned.md' }, status: 'Streaming output...',
+          output_preview: 'first output\nsecond output', output_total_lines: 2,
+          started_at: '2026-09-08T10:00:00.000Z', last_event_at: new Date().toISOString(),
+        },
+        thought: { text: 'Reasoning for the owned conversation', totalLines: 1 },
+        draft: { text: 'Draft response for the owner', totalLines: 1 }, extension_working: null,
+      };
+      const forbidden: string[] = [];
+      await page.route('**/agent/status?**', route => route.fulfill({ json: status }));
+      await page.route('**/agent/context?**', route => route.fulfill({ json: {
+        tokens: 5000, contextWindow: 200000, percent: 2.5, sessionGeneration: 'owned-generation',
+        cacheUsage: { latest: {
+          inputTokens: 1000, outputTokens: 300, reasoningTokens: 40, cacheReadTokens: 3000, cacheWriteTokens: 1000,
+          cacheReadReported: true, cacheWriteReported: true, totalTokens: 5300, costTotal: 0.012,
+          costProvenance: 'provider_reported', runs: 1, model: 'reasoning', provider: 'test',
+        }, totals: null },
+      } }));
+      for (const path of ['/workspace/branch', '/agent/respond', '/agent/whitelist', '/agent/queue-state', '/agent/runs/abort']) {
+        await page.route(`**${path}**`, route => { forbidden.push(new URL(route.request().url()).pathname); return route.fulfill({ status: 500 }); });
+      }
+      await page.goto(base); await ready(page);
+      expect(await page.locator('.agent-thinking-title').allTextContents()).toEqual(expect.arrayContaining(['Draft', 'Thoughts', 'Output']));
+      expect(await page.locator('.agent-status-text').textContent()).toContain('read: /workspace/notes/owned.md');
+      expect((await page.locator('.agent-thinking-body').allTextContents()).map(value => value.trim())).toEqual(expect.arrayContaining([
+        'Draft response for the owner', 'Reasoning for the owned conversation', 'first output\nsecond output',
+      ]));
+      expect(await page.locator('.compose-model-usage-hint').textContent()).toContain('Last • 5K • CH60.0% • $0.01');
+      expect(await page.locator('.compose-context-pie').count()).toBe(1);
+      expect(await page.locator('.compose-context-pie').isDisabled()).toBe(true);
+      expect(await page.getByRole('button', { name: /Stop response/ }).count()).toBe(0);
+      expect(await page.getByRole('button', { name: /Queue follow-up/ }).count()).toBe(0);
+      expect(forbidden).toEqual([]);
+
+      status = {
+        status: 'active', state: 'active', chat_jid: 'web:alice', data: {
+          type: 'intent', intent_key: 'compaction', title: 'Compacting context', detail: 'Preparing a smaller context.',
+          turn_id: 'turn-compaction', started_at: new Date(Date.now() - 2000).toISOString(),
+        }, extension_working: null,
+      };
+      await page.reload(); await ready(page);
+      await page.waitForFunction(() => Boolean(document.querySelector('.compose-context-pie-timer')?.textContent));
+      expect(await page.locator('.compose-context-pie').getAttribute('aria-label')).toContain('Compacting context');
+      expect(await page.locator('.compose-context-pie').isDisabled()).toBe(true);
+
+      status = {
+        status: 'active', state: 'active', chat_jid: 'web:alice', data: {
+          type: 'intent', intent_key: 'summarization_retry', title: 'Retrying summary', detail: 'The previous summary attempt failed.',
+          turn_id: 'turn-retry', retry_at: new Date(Date.now() + 3000).toISOString(),
+        }, extension_working: null,
+      };
+      await page.reload(); await ready(page);
+      await page.waitForFunction(() => document.body.textContent?.includes('Retrying summary'));
+      expect(await page.locator('.agent-status-elapsed').textContent()).toContain('retry in');
+
+      status = {
+        status: 'idle', state: 'failed', chat_jid: 'web:alice', data: {
+          type: 'error', title: 'Agent error', detail: 'Owned turn failed safely.', turn_id: 'turn-error',
+        }, extension_working: null,
+      };
+      await page.reload(); await ready(page);
+      await page.waitForFunction(() => document.querySelector('.agent-status-error')?.textContent?.includes('Agent error'));
+      expect(await page.locator('.agent-status-error').textContent()).not.toContain('web:bob');
+      expect(await page.locator('.agent-status-panel').evaluate(node => node.getBoundingClientRect().right <= innerWidth)).toBe(true);
+      expect(forbidden).toEqual([]);
+    } finally { await page.close(); }
+  }
+}, 30000);
 
 browserTest('memory publication previews exact source, requires verbatim confirmed excerpt and renders reference text safely',async()=>{
   const page=await browser.newPage({viewport:{width:375,height:800}});
@@ -987,11 +1066,16 @@ browserTest("in-flight old session cannot overwrite newly selected session", asy
       if (route.request().url().includes("alice-two")) return route.fulfill({ json: posts("SECOND_SESSION") });
       entered(); await held; return route.fulfill({ json: posts("STALE_SESSION") });
     });
+    await page.route('**/agent/status?**', route => route.fulfill({ json: route.request().url().includes('alice-two')
+      ? { status: 'active', state: 'active', chat_jid: 'web:alice-two', data: { type: 'thinking', title: 'SECOND_STATUS', turn_id: 'turn-second' } }
+      : { status: 'active', state: 'active', chat_jid: 'web:alice', data: { type: 'thinking', title: 'STALE_STATUS', turn_id: 'turn-stale' } } }));
     await page.locator("#refresh").click(); await waiting;
     await switchChat(page, "web:alice-two");
     await page.waitForFunction(() => document.getElementById("timeline")?.textContent?.includes("SECOND_SESSION")); release();
     await page.waitForTimeout(100);
     expect(await page.locator("#timeline").textContent()).not.toContain("STALE_SESSION");
+    expect(await page.locator('#family-chat-root').textContent()).toContain('SECOND_STATUS');
+    expect(await page.locator('#family-chat-root').textContent()).not.toContain('STALE_STATUS');
   } finally { await page.close(); }
 }, 20000);
 

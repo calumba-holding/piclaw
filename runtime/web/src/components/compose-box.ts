@@ -355,7 +355,8 @@ function ContextPie({ usage, onCompact, compactionLabel = '', compactionTitle = 
     const pct = Math.min(100, Math.max(0, usage.percent || 0));
     const tokens = usage.tokens;
     const window = usage.contextWindow;
-    const compactLabel = `Compact context`;
+    const canCompact = typeof onCompact === 'function';
+    const compactLabel = canCompact ? 'Compact context' : 'Context usage';
     const label = tokens != null
         ? `Context: ${formatK(tokens)} / ${formatK(window)} tokens (${pct.toFixed(0)}%)`
         : `Context: ${pct.toFixed(0)}%`;
@@ -382,10 +383,11 @@ function ContextPie({ usage, onCompact, compactionLabel = '', compactionTitle = 
             title=${title}
             data-tooltip=${title}
             aria-label=${title}
+            disabled=${!canCompact}
             onClick=${(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                onCompact?.();
+                if (canCompact) onCompact();
             }}
         >
             <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
@@ -3895,7 +3897,7 @@ export function ComposeBox({
                         ${!searchMode && contextUsage && contextUsage.percent != null && html`
                             <${ContextPie}
                                 usage=${contextUsage}
-                                onCompact=${handleContextCompact}
+                                onCompact=${allowModelCompaction ? handleContextCompact : undefined}
                                 compactionLabel=${statusNoticeIsCompaction ? statusNoticeElapsedLabel || '0:00' : ''}
                                 compactionTitle=${statusNoticeIsCompaction ? (statusNoticeTitle || 'Smart compaction') : ''}
                             />

@@ -2,7 +2,10 @@ import { ChatSurface } from './components/chat-surface.js';
 import { rewriteOwnedMediaUrl } from './components/post.js';
 import { FamilyApi } from './family-api.js';
 import { validMemorySource } from './family-memory.js';
+import { isCompactionStatus } from './ui/status-duration.js';
 import { html, render } from './vendor/preact-htm.js';
+
+const denyStatusWorkspaceLookup = async (): Promise<null> => null;
 
 export interface FamilyChatDirectoryEntry {
   branch_id?: string;
@@ -25,6 +28,8 @@ interface FamilyChatSurfaceSnapshot {
   enabled: boolean;
   identity: FamilyApi['identity'];
   modelState: Record<string, any> | null;
+  agentState: Record<string, any> | null;
+  contextUsage: Record<string, any> | null;
 }
 
 /**
@@ -50,7 +55,8 @@ export class FamilyChatSurface {
     },
   ) {
     this.snapshot = {
-      posts: [], hasMore: false, directory: [], currentChatJid: '', enabled: false, identity: api.identity, modelState: null,
+      posts: [], hasMore: false, directory: [], currentChatJid: '', enabled: false, identity: api.identity,
+      modelState: null, agentState: null, contextUsage: null,
     };
     const preferences = new Map<string, string>();
     const runtime = new EventTarget() as FamilyChatSurface['preferenceRuntime'];
@@ -85,7 +91,7 @@ export class FamilyChatSurface {
 
   clear(): void {
     this.pending = null;
-    this.update({ posts: [], hasMore: false, directory: [], currentChatJid: '', enabled: false, modelState: null });
+    this.update({ posts: [], hasMore: false, directory: [], currentChatJid: '', enabled: false, modelState: null, agentState: null, contextUsage: null });
   }
 
   stop(): void {
@@ -140,6 +146,10 @@ export class FamilyChatSurface {
   private render(): void {
     if (this.stopped) return;
     const value = this.snapshot;
+    const activeAgentState = value.agentState?.status === 'active' ? value.agentState : null;
+    const terminalError = value.agentState?.data?.type === 'error' ? value.agentState.data : null;
+    const agentStatus = activeAgentState?.data ?? terminalError;
+    const currentTurnId = typeof agentStatus?.turn_id === 'string' ? agentStatus.turn_id : null;
     const currentBranch = value.directory.find(branch => branch.chat_jid === value.currentChatJid) as (FamilyChatDirectoryEntry & { capabilities?: Record<string, boolean> }) | undefined;
     const renderAccessory = (post: any) => {
       const source = post?.memory_source;
@@ -161,6 +171,12 @@ export class FamilyChatSurface {
       agents=${{}}
       user=${{ name: value.identity.displayName, user_name: value.identity.displayName }}
       reverse=${true}
+      agentStatus=${agentStatus}
+      isCompactionStatus=${isCompactionStatus}
+      agentDraft=${activeAgentState?.draft ?? null}
+      agentThought=${activeAgentState?.thought ?? null}
+      currentTurnId=${currentTurnId}
+      loadStatusWorkspaceBranch=${denyStatusWorkspaceLookup}
       composeKey=${`${value.identity.userId}:${value.currentChatJid}`}
       composeProps=${{
         key: `${value.identity.userId}:${value.currentChatJid}`,
@@ -170,6 +186,8 @@ export class FamilyChatSurface {
         agentModelsPayload: value.modelState,
         thinkingLevel: value.modelState?.thinking_level ?? null,
         supportsThinking: value.modelState?.supports_thinking === true,
+        contextUsage: value.contextUsage ?? value.modelState?.context_usage ?? null,
+        statusNotice: isCompactionStatus(agentStatus) ? agentStatus : null,
         preferenceRuntime: this.preferenceRuntime,
         onModelStateChange: (state: any) => { if (state && typeof state === 'object') this.update({ modelState: state }); },
         onSwitchChat: value.enabled ? (chatJid: string) => { void this.hooks.navigate(chatJid); } : undefined,

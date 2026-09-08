@@ -408,7 +408,7 @@ function formatElapsed(isoString, nowMs = Date.now()) {
     return `${s}s`;
 }
 
-export function AgentStatus({ status, draft, plan, thought, pendingRequest, intent, extensionPanels = [], pendingPanelActions = new Set(), onExtensionPanelAction, turnId, steerQueued, onPanelToggle, showCorePanels = true, showExtensionPanels = true }) {
+export function AgentStatus({ status, draft, plan, thought, pendingRequest, intent, extensionPanels = [], pendingPanelActions = new Set(), onExtensionPanelAction, turnId, steerQueued, onPanelToggle, showCorePanels = true, showExtensionPanels = true, loadWorkspaceBranch = getWorkspaceBranch }) {
     const { t } = useTranslation();
     const THOUGHT_MAX_LINES = 9;
     const DRAFT_MAX_LINES = 9;
@@ -575,7 +575,7 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
         }
 
         let active = true;
-        getWorkspaceBranch(toolContextPath)
+        loadWorkspaceBranch(toolContextPath)
             .then((payload) => {
                 if (!active) return;
                 if (payload?.branch) {
@@ -595,7 +595,7 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, inte
         return () => {
             active = false;
         };
-    }, [status?.type, toolContextPath]);
+    }, [status?.type, toolContextPath, loadWorkspaceBranch]);
 
     const activeTurn = status?.turn_id || turnId;
     const turnColor = getTurnColor(activeTurn);

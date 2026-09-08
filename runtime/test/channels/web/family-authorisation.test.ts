@@ -24,6 +24,8 @@ import { handleFamilyWebPush } from "../../../src/channels/web/push/web-push-rou
 const json = (value: unknown, status = 200) => Response.json(value, { status });
 let alice: string, bob: string, gateway: WebAuthGateway, router: RequestRouterService, hub: SseHub;
 let channel: any;
+let statusByChat: Map<string, Record<string, unknown>>;
+let revokeDuringStatusRead: boolean;
 function request(path: string, token: string | null = "alice-token", method = "GET") {
   return new Request(`https://family.local${path}`, { method, headers: {
     ...(token ? { cookie: `piclaw_session=${token}` } : {}),
@@ -56,13 +58,32 @@ beforeEach(() => {
     json, challenges: new WebauthnChallengeTracker(), failureTracker: new TotpFailureTracker(),
   });
   hub = new SseHub();
+  statusByChat = new Map(); revokeDuringStatusRead = false;
   channel = {
     authGateway: gateway, json,
     clampInt: (v: string | null, fallback: number, min: number, max: number) => v && Number.isFinite(Number(v)) ? Math.max(min, Math.min(max, Math.trunc(Number(v)))) : fallback,
     parseOptionalInt: (v: string | null) => v && Number.isSafeInteger(Number(v)) ? Number(v) : null,
     handleSse: (req: Request, authority: any) => hub.handleRequest(req, authority),
     serveStatic: async (path: string) => new Response(`static:${path}`),
-    endpointContexts: { auth: () => ({ serveStatic: async (path: string) => new Response(`auth:${path}`) }) },
+    endpointContexts: {
+      auth: () => ({ serveStatic: async (path: string) => new Response(`auth:${path}`) }),
+      agentStatus: () => ({
+        defaultChatJid: 'web:default', json,
+        getAgentStatus: (chatJid: string) => statusByChat.get(chatJid) ?? null,
+        getExtensionWorkingState: () => ({ message: 'private extension state' }),
+        recoverStaleInflightRun: () => { throw new Error('family status read must not mutate recovery state'); },
+        getBuffer: (_turnId: string, panel: 'thought' | 'draft') => {
+          if (revokeDuringStatusRead) revokeUserWebSessions(alice);
+          return { text: `${panel} preview`, totalLines: panel === 'thought' ? 2 : 1, updatedAt: 1 };
+        },
+        getContextUsageForChat: async () => ({ tokens: 1200, contextWindow: 120000, percent: 1, sessionGeneration: 'session-owned' }),
+        getTokenUsageForChat: () => ({
+          latest: { input_tokens: 100, output_tokens: 20, reasoning_tokens: 5, cache_read_tokens: 50, cache_write_tokens: 0, total_tokens: 175, cost_total: 0.01, runs: 1, model: 'model', provider: 'test' },
+          totals: { input_tokens: 100, output_tokens: 20, reasoning_tokens: 5, cache_read_tokens: 50, cache_write_tokens: 0, total_tokens: 175, cost_total: 0.01, runs: 1 },
+        }),
+        getAvailableModels: async () => ({ models: [] }), getProviderReadyCompletedForInstance: () => false,
+      }),
+    },
     handleTimeline: () => { throw Error("legacy fallback entered"); },
   };
   router = new RequestRouterService(channel, "family-shared");
@@ -139,6 +160,51 @@ test("terminal gate denies early add-ons, widget state, indirect resources, cont
     for (const method of ["POST", "PUT", "DELETE", "PATCH"]) expect((await router.handle(request(path, "alice-token", method))).status).toBe(403);
   }
   expect((await router.handle(request("/timeline", "alice-token", "HEAD"))).status).toBe(403);
+});
+
+test('family status/context expose only an owned standard-pane snapshot and revalidate after reads', async () => {
+  statusByChat.set('web:alice', {
+    type: 'tool_status', turn_id: 'turn-owned', tool_name: 'read', tool_args: { path: '/workspace/owned.txt' },
+    status: 'Working...', output_preview: 'line one\nline two', output_total_lines: 2,
+    started_at: '2026-09-08T10:00:00.000Z', retry_at: '2026-09-08T10:00:05.000Z', runtime_generation: 'internal',
+    status_hints: [{ key: 'extension', icon_svg: '<svg>extension</svg>', label: 'extension callback' }],
+  });
+  statusByChat.set('web:bob', { type: 'tool_call', turn_id: 'turn-foreign', title: 'FOREIGN_STATUS' });
+
+  const statusResponse = await router.handle(request('/agent/status?chat_jid=web:alice'));
+  expect(statusResponse.status).toBe(200);
+  expect(statusResponse.headers.get('cache-control')).toBe('private, no-store');
+  const status = await statusResponse.json();
+  expect(status).toMatchObject({
+    status: 'active', state: 'active', chat_jid: 'web:alice',
+    data: { type: 'tool_status', turn_id: 'turn-owned', tool_name: 'read', output_total_lines: 2 },
+    thought: { text: 'thought preview', totalLines: 2 },
+    draft: { text: 'draft preview', totalLines: 1 },
+    extension_working: null,
+  });
+  const statusText = JSON.stringify(status);
+  for (const omitted of ['runtime_generation', 'status_hints', 'extension callback', 'addon_api', 'mcp_startup', 'private extension state', 'FOREIGN_STATUS']) {
+    expect(statusText).not.toContain(omitted);
+  }
+
+  const contextResponse = await router.handle(request('/agent/context?chat_jid=web:alice'));
+  expect(contextResponse.status).toBe(200);
+  expect(await contextResponse.json()).toMatchObject({
+    tokens: 1200, contextWindow: 120000, percent: 1, sessionGeneration: 'session-owned',
+    cacheUsage: { latest: { totalTokens: 175, reasoningTokens: 5, provider: 'test' }, totals: { totalTokens: 175, runs: 1 } },
+  });
+
+  for (const path of [
+    '/agent/status?chat_jid=web:bob', '/agent/context?chat_jid=web:bob',
+    '/agent/status?chat_jid=', '/agent/status?chat_jid=web:alice&chat_jid=web:bob',
+    '/agent/context?chat_jid=web:alice&owner_user_id=' + bob,
+  ]) expect((await router.handle(request(path))).status).toBe(403);
+  for (const path of ['/agent/status?chat_jid=web:alice', '/agent/context?chat_jid=web:alice']) {
+    expect((await router.handle(request(path, 'alice-token', 'POST'))).status).toBe(403);
+  }
+
+  revokeDuringStatusRead = true;
+  expect((await router.handle(request('/agent/status?chat_jid=web:alice'))).status).toBe(403);
 });
 
 test("public assets are narrow and anonymous APIs use JSON 401, not redirects", async () => {

@@ -30,6 +30,7 @@ import { handleMedia } from "../handlers/media.js";
 import { buildContentDisposition } from "./content-disposition.js";
 import { requireAccountActor } from "../../../db/account-administration.js";
 import { handleFamilyWebPush } from "../push/web-push-routes.js";
+import { handleFamilyAgentStatus } from "./family-agent-status.js";
 
 /** Absent selects the live home; explicit empty/duplicate selectors never fall back. */
 function selector(url: URL, key: string): string | undefined {
@@ -120,6 +121,7 @@ export async function handleFamilyRequest(channel: WebChannelLike, req: Request,
   }
   if (path === "/agent/message-recovery") return handleFamilyMessageRecovery(channel, req, principal);
   if (path === "/agent/models") return handleFamilyModelControl(channel, req, principal);
+  if (path === "/agent/status" || path === "/agent/context") return handleFamilyAgentStatus(channel, req, principal);
   if (path === "/agent/scheduled-results" || path.startsWith("/agent/scheduled-results/")) return handleFamilyScheduledResults(channel, req, principal);
   if (path === "/agent/scheduled-tasks" || path.startsWith("/agent/scheduled-tasks/")) return handleFamilyScheduledTasks(channel, req, principal);
   if (path === "/agent/family-memory" || path.startsWith("/agent/family-memory/")) return handleFamilyMemory(channel, req, principal);

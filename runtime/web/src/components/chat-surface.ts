@@ -63,6 +63,7 @@ export function ChatSurface(props: ChatSurfaceProps) {
     composeKey,
     composeId,
     onPendingRequestRespond,
+    loadStatusWorkspaceBranch,
   } = props;
 
   return html`
@@ -100,6 +101,7 @@ export function ChatSurface(props: ChatSurfaceProps) {
       steerQueued=${steerQueued}
       onPanelToggle=${onPanelToggle}
       showExtensionPanels=${false}
+      loadWorkspaceBranch=${loadStatusWorkspaceBranch}
     />
     <${BtwPanel}
       session=${btwSession}
@@ -127,6 +129,7 @@ export function ChatSurface(props: ChatSurfaceProps) {
       steerQueued=${steerQueued}
       onPanelToggle=${onPanelToggle}
       showCorePanels=${false}
+      loadWorkspaceBranch=${loadStatusWorkspaceBranch}
     />
     <div id=${composeId} class="chat-surface-compose">
       <${ComposeBox} key=${composeKey} ...${composeProps} />
