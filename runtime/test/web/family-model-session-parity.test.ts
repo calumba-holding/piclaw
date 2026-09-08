@@ -33,12 +33,14 @@ test('picker pins and recents remain isolated by injected account runtime', () =
   expect(readSessionPickerPreferences(bob).pinnedChatJids).toEqual([]);
 });
 
-test('family adapter reuses standard model/session controls without rollup, purge, settings, or browser persistence', () => {
+test('family adapter reuses standard model/session and account-scoped compose controls without rollup, purge, or model settings', () => {
   const root=join(import.meta.dir,'../../web/src');
   const family=readFileSync(join(root,'family-chat-surface.ts'),'utf8');
   const compose=readFileSync(join(root,'components/compose-box.ts'),'utf8');
   expect(family).toContain('modelPicker: true');
-  for(const disabled of ['modelSettings: false','modelCompaction: false','sessionRollup: false','persistBrowserState: false']) expect(family).toContain(disabled);
+  for(const disabled of ['modelSettings: false','modelCompaction: false','sessionRollup: false']) expect(family).toContain(disabled);
+  expect(family).toContain('persistBrowserState: true');
+  expect(family).toContain('browserStorage: this.composeBrowserStorage');
   expect(family).toContain('preferenceRuntime: this.preferenceRuntime');
   expect(family).not.toContain('onPurgeArchivedSession:');
   expect(family).toContain('this.snapshot.currentChatJid !== sourceChatJid');

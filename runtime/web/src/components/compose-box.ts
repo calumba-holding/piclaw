@@ -136,8 +136,8 @@ function clampComposeManualHeight(height) {
     return Math.min(Math.max(Math.round(Number(height) || min), min), max);
 }
 
-function readStoredComposeHeight() {
-    const raw = getLocalStorageItem(COMPOSE_HEIGHT_STORAGE_KEY);
+export function readStoredComposeHeight(storage = null, storageKey = COMPOSE_HEIGHT_STORAGE_KEY) {
+    const raw = storage?.getItem?.(storageKey) ?? getLocalStorageItem(storageKey);
     if (!raw) return null;
     const parsed = parseInt(raw, 10);
     return Number.isFinite(parsed) ? clampComposeManualHeight(parsed) : null;
@@ -1203,6 +1203,7 @@ export function ComposeBox({
     statusNotice = null,
     extensionWorkingState = null,
     prefillRequest = null,
+    draftValue = undefined,
     services = null,
     capabilities = null,
     storageNamespace = '',
@@ -1213,7 +1214,7 @@ export function ComposeBox({
     inputId,
     sendButtonId,
 }) {
-    const [content, setContent] = useState('');
+    const [content, setContent] = useState(() => typeof draftValue === 'string' ? draftValue : '');
     const { t } = useTranslation();
     const composeServices = services && typeof services === 'object' ? services : {};
     const composeCapabilities = capabilities && typeof capabilities === 'object' ? capabilities : {};
@@ -1221,6 +1222,9 @@ export function ComposeBox({
     const loadModels = composeServices.getAgentModels ?? getAgentModels;
     const uploadOne = composeServices.uploadMedia ?? uploadMedia;
     const fetchCommands = composeServices.fetchCommands ?? ((chatJid) => fetch(`/agent/commands?chat_jid=${encodeURIComponent(chatJid)}`).then(r => r.ok ? r.json() : null));
+    const composeStorage = composeServices.browserStorage && typeof composeServices.browserStorage === 'object'
+        ? composeServices.browserStorage
+        : { getItem: getLocalStorageItem, setItem: setLocalStorageItem };
     const persistBrowserState = composeCapabilities.persistBrowserState !== false;
     const modelPreferenceRuntime = preferenceRuntime === undefined ? (typeof window !== 'undefined' ? window : null) : preferenceRuntime;
     const sessionPreferenceRuntime = modelPreferenceRuntime;
@@ -1325,7 +1329,8 @@ export function ComposeBox({
     const [statusNoticeNowMs, setStatusNoticeNowMs] = useState(() => Date.now());
     const [extensionWorkingFrameIndex, setExtensionWorkingFrameIndex] = useState(0);
     const textareaRef = useRef(null);
-    const manualTextareaHeightRef = useRef(persistBrowserState ? readStoredComposeHeight() : null);
+    const composeHeightStorageKey = storageNamespace ? `${storageNamespace}:${COMPOSE_HEIGHT_STORAGE_KEY}` : COMPOSE_HEIGHT_STORAGE_KEY;
+    const manualTextareaHeightRef = useRef(persistBrowserState ? readStoredComposeHeight(composeStorage, composeHeightStorageKey) : null);
     const slashRef = useRef(null);
     const mentionRef = useRef(null);
     const modelPopupRef = useRef(null);
@@ -1370,7 +1375,7 @@ export function ComposeBox({
     };
     const loadHistory = (storageKey = historyStorageKey) => {
         if (!persistBrowserState || !storageKey) return [];
-        const raw = getLocalStorageItem(storageKey);
+        const raw = composeStorage.getItem?.(storageKey) ?? null;
         if (!raw) return [];
         try {
             const parsed = JSON.parse(raw);
@@ -1382,7 +1387,7 @@ export function ComposeBox({
     };
     const saveHistory = (history, storageKey = historyStorageKey) => {
         if (!persistBrowserState || !storageKey) return;
-        setLocalStorageItem(storageKey, JSON.stringify(history));
+        composeStorage.setItem?.(storageKey, JSON.stringify(history));
     };
     const historyRef = useRef(loadHistory(historyStorageKey));
     const historyIndexRef = useRef(-1);
@@ -1394,6 +1399,16 @@ export function ComposeBox({
         historyIndexRef.current = -1;
         historyDraftRef.current = '';
     }, [historyStorageKey]);
+
+    useEffect(() => {
+        if (typeof draftValue !== 'string' || draftValue === content) return;
+        setContent(draftValue);
+        requestAnimationFrame(() => resizeTextarea());
+    }, [draftValue]);
+
+    useEffect(() => {
+        onContentChange?.(content);
+    }, [content]);
 
     // Fetch search match mode when entering search mode
     useEffect(() => {
@@ -1423,7 +1438,7 @@ export function ComposeBox({
                 console.debug("[compose] failed to fetch dynamic commands", e);
             });
         return () => { cancelled = true; };
-    }, [currentChatJid]);
+    }, [currentChatJid, allowCommands]);
 
     useEffect(() => {
         const resolved = resolveComposePrefillRequest(prefillRequest, lastPrefillTokenRef.current, searchMode);
@@ -2058,7 +2073,7 @@ export function ComposeBox({
             handle.classList.remove('dragging');
             document.body.style.cursor = '';
             document.body.style.userSelect = '';
-            if (persistBrowserState) setLocalStorageItem(COMPOSE_HEIGHT_STORAGE_KEY, String(Math.round(nextHeight)));
+            if (persistBrowserState) composeStorage.setItem?.(composeHeightStorageKey, String(Math.round(nextHeight)));
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', stop);
             document.removeEventListener('touchmove', onTouchMove);
@@ -2097,7 +2112,6 @@ export function ComposeBox({
             else { setShowSlash(false); setSlashMatches([]); }
             if (allowMentions) updateMentionAutocomplete(value);
             else { setShowMention(false); setMentionMatches([]); }
-            onContentChange?.(value);
         }
         requestAnimationFrame(() => resizeTextarea());
     };
@@ -2454,13 +2468,13 @@ export function ComposeBox({
     const handleSubmit = async (overrideContent, submitMode, submitOptions = {}) => {
         // Client-side interception for UI-only shortcuts.
         const rawInput = typeof overrideContent === 'string' ? overrideContent : content;
-        if (/^\/settings\s*$/i.test(rawInput.trim())) {
+        if (allowModelSettings && /^\/settings\s*$/i.test(rawInput.trim())) {
             setContent('');
             requestAnimationFrame(() => resizeTextarea());
             requestOpenSettingsDialog();
             return;
         }
-        if (/^\/help\s*$/i.test(rawInput.trim())) {
+        if (allowModelSettings && /^\/help\s*$/i.test(rawInput.trim())) {
             setContent('');
             requestAnimationFrame(() => resizeTextarea());
             requestOpenSettingsDialog({ section: 'keyboard' });
@@ -3287,7 +3301,7 @@ export function ComposeBox({
             if (manualTextareaHeightRef.current != null) {
                 const clamped = clampComposeManualHeight(manualTextareaHeightRef.current);
                 manualTextareaHeightRef.current = clamped;
-                if (persistBrowserState) setLocalStorageItem(COMPOSE_HEIGHT_STORAGE_KEY, String(clamped));
+                if (persistBrowserState) composeStorage.setItem?.(composeHeightStorageKey, String(clamped));
             }
             requestAnimationFrame(() => resizeTextarea());
         };
