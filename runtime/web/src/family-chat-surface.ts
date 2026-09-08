@@ -1,4 +1,5 @@
 import { ChatSurface } from './components/chat-surface.js';
+import { rewriteOwnedMediaUrl } from './components/post.js';
 import { FamilyApi } from './family-api.js';
 import { validMemorySource } from './family-memory.js';
 import { html, render } from './vendor/preact-htm.js';
@@ -31,6 +32,7 @@ interface FamilyChatSurfaceSnapshot {
 export class FamilyChatSurface {
   private readonly host = document.getElementById('family-chat-root') as HTMLElement;
   private snapshot: FamilyChatSurfaceSnapshot;
+  private readonly postCapabilities: Record<string, unknown>;
   private stopped = false;
   private pending: { chatJid: string; content: string; requestId: string } | null = null;
 
@@ -46,6 +48,22 @@ export class FamilyChatSurface {
     this.snapshot = {
       posts: [], hasMore: false, directory: [], currentChatJid: '', enabled: false, identity: api.identity,
     };
+    this.postCapabilities = Object.freeze({
+      media: true,
+      mediaActions: false,
+      cards: true,
+      widgets: true,
+      annotations: true,
+      annotationActions: false,
+      cardActions: false,
+      widgetActions: false,
+      resourceActions: false,
+      thinking: true,
+      delete: false,
+      rewriteImageSrc: rewriteOwnedMediaUrl,
+      loadMediaInfo: (mediaId: number) => this.api.request(`/media/${mediaId}/info`),
+      loadThinking: (messageId: number, chatJid: string) => this.api.request(`/agent/thinking?message_id=${encodeURIComponent(messageId)}&chat_jid=${encodeURIComponent(chatJid)}`),
+    });
     this.render();
   }
 
@@ -116,7 +134,7 @@ export class FamilyChatSurface {
       posts=${value.posts}
       hasMore=${value.hasMore}
       renderPostAccessory=${renderAccessory}
-      postCapabilities=${{ media: false, cards: false, widgets: false, annotations: false, thinking: false, delete: false }}
+      postCapabilities=${this.postCapabilities}
       agents=${{}}
       user=${{ name: value.identity.displayName, user_name: value.identity.displayName }}
       reverse=${true}

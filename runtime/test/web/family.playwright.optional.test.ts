@@ -187,13 +187,112 @@ beforeAll(async () => {
   server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch(req) {
     const path = new URL(req.url).pathname;
     if (path === "/" || path === "/index.html") return new Response(Bun.file(join(import.meta.dir, "../../web/static/family.html")), { headers: { "Content-Type": "text/html" } });
-    if (["/static/common/dist/family.bundle.js", "/static/common/dist/family.bundle.css", "/static/classic/dist/app.bundle.css"].includes(path)) return new Response(Bun.file(join(import.meta.dir, "../../web/static", path.slice(8))));
+    if (["/static/common/dist/family.bundle.js", "/static/common/dist/family.bundle.css", "/static/classic/dist/app.bundle.css", "/static/common/js/marked.min.js", "/static/common/js/vendor/katex.min.js", "/static/common/js/vendor/beautiful-mermaid.js", "/static/common/js/vendor/adaptivecards.min.js"].includes(path)) return new Response(Bun.file(join(import.meta.dir, "../../web/static", path.slice(8))));
     if (path === "/login" || path === "/blank") return new Response("<!doctype html><p>Sign in</p>", { headers: { "Content-Type": "text/html" } });
     if (path === "/old-sw.js") return new Response("self.addEventListener('install',()=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));", { headers: { "Content-Type": "text/javascript" } });
     return new Response("not found", { status: 404 });
   } }); base = `http://localhost:${server.port}`;
 });
 afterAll(async () => { await browser?.close(); server?.stop(true); });
+
+browserTest('owned rich timeline uses the standard renderer without activating indirect actions', async () => {
+  const transparentPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+7aIf9QAAAABJRU5ErkJggg==','base64');
+  const content = [
+    '# Render parity',
+    '',
+    '- list item',
+    '',
+    '> quoted text',
+    '',
+    '| A | B |',
+    '|---|---|',
+    '| 1 | 2 |',
+    '',
+    '[safe link](https://example.com)',
+    '',
+    '```ts',
+    'const answer: number = 42;',
+    '```',
+    '',
+    '#familytag',
+    '',
+    '$$',
+    'x^2',
+    '$$',
+    '',
+    '```mermaid',
+    'flowchart LR',
+    '  A --> B',
+    '```',
+    '',
+    '<strong>SAFE_HTML</strong><script>window.TIMELINE_XSS=true</script><img src="https://foreign.example/tracker.png" onerror="window.TIMELINE_XSS=true">',
+    '',
+    '![owned](/media/11)',
+    '![foreign](https://foreign.example/foreign.png)',
+    '',
+    'Files:',
+    '- /workspace/report.md',
+    '',
+    'Folders:',
+    '- /workspace/docs',
+    '',
+    'Referenced messages:',
+    '- message:1',
+    '',
+    'Attachments:',
+    '- attachment:11 (photo.png)',
+    '- attachment:12 (report.pdf)',
+  ].join('\n');
+  const blocks = [
+    { type:'text',annotations:{audience:['family'],priority:2,lastModified:'2026-09-08T00:00:00.000Z'} },
+    { type:'image',name:'photo.png',mime_type:'image/png',annotations:{audience:['family']} },
+    { type:'file',name:'report.pdf',mime_type:'application/pdf' },
+    { type:'adaptive_card',card_id:'card-one',schema_version:'1.5',state:'active',fallback_text:'Card fallback',payload:{type:'AdaptiveCard',version:'1.5',body:[{type:'TextBlock',text:'CARD_BODY [card link](https://foreign.example/card-link)'},{type:'Image',url:'https://foreign.example/card.png',altText:'Remote card image'},{type:'Image',url:'/media/11',altText:'Owned card image'}],actions:[{type:'Action.Submit',title:'Submit card',data:{secret:'not-authority'}}]} },
+    { type:'adaptive_card_submission',card_id:'card-one',source_post_id:2,submitted_at:'2026-09-08T00:00:00.000Z',action_type:'Action.Submit',title:'Submitted choices',data:{priority:'high'} },
+    { type:'generated_widget',widget_id:'widget-one',title:'READ_ONLY_WIDGET',description:'Widget description',artifact:{kind:'html',html:'<!doctype html><p>widget</p>'},auto_open:true,capabilities:['interactive'] },
+    { type:'resource_link',uri:'https://foreign.example/resource',title:'REMOTE_RESOURCE',description:'Remote resource' },
+    { type:'resource',uri:'memory://owned',text:'EMBEDDED_RESOURCE',data:'SGVsbG8=',mime_type:'text/plain' },
+    { type:'thinking_ref',lines:2,duration_ms:25 },
+    { type:'recovery_marker',recovered:true,attempts_used:2,classifier:'timeout' },
+    { type:'timeout_marker',timed_out:true,tool_action_summary:'read source',draft_recovered:true },
+    { type:'agent_timing',started_at:'2026-09-07T23:59:58.000Z',completed_at:'2026-09-08T00:00:00.000Z',duration_ms:2000,usage:{input_tokens:20,output_tokens:10,total_tokens:30} },
+    { type:'turn_outcome_marker',kind:'provider_error',severity:'warning',label:'Needs review',title:'Turn outcome',detail:'Bounded detail' },
+    { type:'unknown_future_block',payload:{html:'<script>window.TIMELINE_XSS=true</script>'} },
+    null,
+    ['malformed'],
+  ];
+  const richPosts = { posts:[
+    {id:2,timestamp:'2026-09-08T00:00:00.000Z',chat_jid:'web:alice',data:{type:'agent_response',content,content_blocks:blocks,media_ids:[11,12,-1,'bad'],link_previews:[{url:'https://example.com/docs',title:'LINK_PREVIEW',description:'Preview description',image:'https://foreign.example/preview.png'},null,'bad']}},
+    {id:3,timestamp:'2026-09-08T00:00:01.000Z',chat_jid:'web:alice',data:{type:'agent_response',content:'SURROUNDING_MESSAGE',content_blocks:[{type:'adaptive_card',card_id:'unsupported-card',schema_version:'99.0',state:'active',fallback_text:'UNSUPPORTED_CARD_FALLBACK',payload:{type:'AdaptiveCard',version:'99.0',body:[]}}],media_ids:[],link_previews:[]}},
+  ],has_more:false };
+  for (const context of [
+    { viewport:{width:1200,height:900},colorScheme:'light' as const },
+    { viewport:{width:375,height:740},colorScheme:'dark' as const },
+  ]) {
+    const page=await browser.newPage(context);const external:string[]=[],media:Array<{path:string,search:string,headers:Record<string,string>}>=[],thinkingHeaders:Record<string,string>[]=[];
+    try{
+      await fixture(page);
+      await page.route('**/timeline?**',route=>route.fulfill({json:richPosts}));
+      await page.route('**/agent/thinking?**',route=>{thinkingHeaders.push(route.request().headers());return route.fulfill({json:{text:'PRIVATE_REASONING',lines:2,duration_ms:25,model:'test-model',truncated:false}});});
+      await page.route('https://foreign.example/**',route=>{external.push(route.request().url());return route.abort();});
+      await page.route('**/media/**',route=>{const parsed=new URL(route.request().url()),path=parsed.pathname;if(parsed.origin!==new URL(base).origin||!/^\/media\/[1-9]\d*(?:\/(?:thumbnail|info))?$/.test(path)){external.push(route.request().url());return route.abort();}media.push({path,search:parsed.search,headers:route.request().headers()});if(path.endsWith('/info'))return route.fulfill({json:{id:Number(path.split('/')[2]),filename:path.includes('/11/')?'photo.png':'report.pdf',content_type:path.includes('/11/')?'image/png':'application/pdf',created_at:'2026-09-08T00:00:00.000Z'}});return route.fulfill({status:200,contentType:'image/png',body:transparentPng});});
+      await page.goto(base);await page.waitForFunction(()=>Boolean((window as any).marked&&(window as any).katex&&(window as any).beautifulMermaid));await page.locator('#refresh').click();
+      await page.waitForFunction(()=>Boolean(document.querySelector('.mermaid-container svg')&&document.querySelector('.adaptive-card-container')));
+      expect(await page.locator('.post-content h1').textContent()).toBe('Render parity');expect(await page.locator('.post-content table').count()).toBe(1);expect(await page.locator('.post-content blockquote').count()).toBe(1);expect(await page.locator('#post-2 .post-content a').filter({hasText:'safe link'}).getAttribute('href')).toBe('https://example.com/');
+      expect(await page.locator('.post-code-copy-btn').count()).toBe(1);expect(await page.locator('#post-2 .post-copy-btn').getAttribute('aria-label')).toBe('Copy message');expect(await page.locator('.hashtag').textContent()).toBe('#familytag');expect(await page.locator('.katex-display').count()).toBe(1);expect(await page.locator('.mermaid-container svg').count()).toBe(1);
+      expect(await page.locator('.post-msg-pill-link').getAttribute('href')).toBe('#msg-1');expect(await page.locator('.post-file-pill[title="/workspace/report.md"]').count()).toBe(1);expect(await page.locator('.post-file-pill[title="/workspace/docs"]').count()).toBe(1);
+      expect(await page.locator('.post-content script,[onerror]').count()).toBe(0);expect(await page.evaluate(()=>(window as any).TIMELINE_XSS===true)).toBe(false);expect(await page.locator('#post-2 .post-content').textContent()).toContain('SAFE_HTML');expect(await page.locator('.link-preview').getAttribute('href')).toBe('https://example.com/docs');expect(await page.locator('.link-preview').textContent()).toContain('LINK_PREVIEW');expect(await page.locator('.link-preview').evaluate(node=>getComputedStyle(node).backgroundImage)).toBe('none');
+      expect(await page.locator('.adaptive-card-container').first().textContent()).toContain('CARD_BODY');expect(await page.locator('.adaptive-card-container button:not(:disabled)').count()).toBe(0);expect(await page.locator('.adaptive-card-container input,.adaptive-card-container textarea,.adaptive-card-container select').count()).toBe(0);expect(await page.locator('.adaptive-card-container a[href]').count()).toBe(0);expect(await page.locator('.adaptive-card-container img[src$="/media/11"]').count()).toBe(1);expect(await page.locator('.adaptive-card-container img[src*="foreign.example"]').count()).toBe(0);expect(await page.locator('.adaptive-card-submission-receipt').textContent()).toContain('Submitted choices');expect(await page.locator('#post-3').textContent()).toContain('SURROUNDING_MESSAGE');expect(await page.locator('#post-3').textContent()).toContain('UNSUPPORTED_CARD_FALLBACK');
+      expect(await page.locator('.generated-widget-launch-title').textContent()).toBe('READ_ONLY_WIDGET');expect(await page.locator('.generated-widget-launch-btn').isDisabled()).toBe(true);expect(await page.evaluate(()=>sessionStorage.getItem('widget_opened_widget-one'))).toBeNull();
+      expect(await page.locator('.resource-link').getAttribute('href')).toBeNull();expect(await page.locator('.resource-link').getAttribute('aria-disabled')).toBe('true');await page.locator('.resource-embed-toggle').click();expect(await page.locator('.resource-embed-content').textContent()).toBe('EMBEDDED_RESOURCE');expect(await page.locator('.resource-embed-blob-btn').isDisabled()).toBe(true);
+      expect(await page.locator('.file-attachment').filter({hasText:'report.pdf'}).locator('.file-attachment-main').getAttribute('href')).toBeNull();expect(await page.locator('.attachment-pill-main').count()).toBe(0);expect(await page.locator('.content-annotation').filter({hasText:'Audience: family'}).count()).toBeGreaterThanOrEqual(1);expect(await page.locator('.post-recovery-chip').filter({hasText:'recovered'}).count()).toBe(1);expect(await page.locator('.post-timeout-chip').count()).toBe(1);expect(await page.locator('#post-2 .post-time').getAttribute('title')).toContain('Agent reply took 2.0s');expect(await page.locator('.post-outcome-chip').textContent()).toContain('Needs review');expect(await page.locator('.post-outcome-pill').textContent()).toContain('Turn outcome');
+      await page.locator('.post-thinking-visibility-header').click();await page.waitForFunction(()=>document.querySelector('.post-thinking-visibility-detail')?.textContent?.includes('PRIVATE_REASONING'));expect(await page.locator('.post-thinking-visibility-detail').textContent()).toContain('PRIVATE_REASONING');expect(thinkingHeaders).toHaveLength(1);expect(thinkingHeaders[0]).toMatchObject({'x-piclaw-account-id':'alice','x-piclaw-login-id':'login-a'});
+      await page.locator('.media-preview img').click();expect(await page.locator('.image-modal').count()).toBe(0);expect(external).toEqual([]);expect(media.some(item=>item.path==='/media/11/thumbnail')).toBe(true);
+      const info=media.filter(item=>item.path.endsWith('/info'));expect(info.length).toBeGreaterThanOrEqual(2);expect(info.every(item=>item.headers['x-piclaw-account-id']==='alice'&&item.headers['x-piclaw-login-id']==='login-a')).toBe(true);expect(media.every(item=>item.search==='')).toBe(true);
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(await page.evaluate(()=>matchMedia('(prefers-color-scheme: dark)').matches)).toBe(context.colorScheme==='dark');expect(await page.evaluate(()=>[localStorage.length,sessionStorage.length])).toEqual([0,0]);
+    }finally{await page.close();}
+  }
+},30000);
 
 async function memoryFixture(page:Page){
   const state=await fixture(page),id='11111111-1111-4111-8111-111111111111',key='22222222-2222-4222-8222-222222222222',time='2026-09-06T00:00:00.000Z';

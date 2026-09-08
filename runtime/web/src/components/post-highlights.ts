@@ -57,29 +57,39 @@ export function buildHighlightFromSelectionSnapshot(
 
 // ── Read highlights from post data ──────────────────────────────
 
+const SAVED_HIGHLIGHT_COLORS = new Set(HIGHLIGHT_COLORS.map(({ value }) => value));
+
 export function extractHighlightsFromAnnotations(annotations: unknown[] | undefined | null): PostHighlight[] {
   if (!Array.isArray(annotations)) return [];
-  return annotations.filter(
+  return annotations.slice(0, 500).filter(
     (a): a is PostHighlight =>
       a != null &&
       typeof a === 'object' &&
       (a as any).type === 'highlight' &&
       typeof (a as any).text === 'string' &&
-      typeof (a as any).textOffset === 'number' &&
-      typeof (a as any).color === 'string',
+      (a as any).text.length > 0 &&
+      (a as any).text.length <= 32_000 &&
+      Number.isSafeInteger((a as any).textOffset) &&
+      (a as any).textOffset >= 0 &&
+      SAVED_HIGHLIGHT_COLORS.has((a as any).color),
   );
 }
 
 export function extractAsidesFromAnnotations(annotations: unknown[] | undefined | null): PostAside[] {
   if (!Array.isArray(annotations)) return [];
-  return annotations.filter(
+  return annotations.slice(0, 500).filter(
     (a): a is PostAside =>
       a != null &&
       typeof a === 'object' &&
       (a as any).type === 'aside' &&
       typeof (a as any).text === 'string' &&
-      typeof (a as any).textOffset === 'number' &&
-      typeof (a as any).note === 'string',
+      (a as any).text.length > 0 &&
+      (a as any).text.length <= 32_000 &&
+      Number.isSafeInteger((a as any).textOffset) &&
+      (a as any).textOffset >= 0 &&
+      typeof (a as any).note === 'string' &&
+      (a as any).note.length > 0 &&
+      (a as any).note.length <= 32_000,
   );
 }
 
