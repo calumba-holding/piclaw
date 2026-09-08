@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import { getDataDir, getWorkspaceDir as getConfiguredWorkspaceDir } from "../core/config.js";
 import { readAccessConfig } from "../core/config-access.js";
 import { getExecutionIdentity } from "../core/execution-context.js";
+import { registerPreShutdownHook } from "../runtime/shutdown-registry.js";
 import { createMedia, getMediaById } from "../db/media.js";
 import { postMessagesToolMessage } from "../extensions/messages-crud.js";
 import type { RuntimeAgentMessageRequest, RuntimeAgentMessageResult } from "../channels/web/core/web-channel-runtime-public-surface-service.js";
@@ -101,6 +102,11 @@ export interface PiclawRuntimeExternalRoutesApiV1 {
 }
 
 export interface PiclawRuntimeAddonApi {
+  lifecycle: {
+    version: 1;
+    /** Register process-scoped cleanup for sockets/timers opened by startup runtime entries. */
+    onShutdown(handler: () => void | Promise<void>): () => void;
+  };
   registerStatusPanelProvider: (provider: AddonStatusPanelProvider) => () => void;
   registerAdaptiveCardIntentHandler: (intent: string, handler: AddonAdaptiveCardIntentHandler) => () => void;
   enqueueAgentMessage: AddonAgentMessageEnqueuer;
@@ -130,11 +136,30 @@ type RuntimeGlobal = typeof globalThis & {
 const statusPanelProviders = new Map<string, AddonStatusPanelProvider>();
 const adaptiveCardIntentHandlers = new Map<string, AddonAdaptiveCardIntentHandler>();
 const addonChatTransportUnregisters = new Set<() => void>();
+const addonRuntimeShutdownHandlers = new Set<() => void | Promise<void>>();
 let runtimeApiInstalled = false;
 let lazyRuntimeEntriesLoadPromise: Promise<void> | null = null;
 let startupRuntimeEntriesLoadPromise: Promise<void> | null = null;
 let agentMessageEnqueuer: AddonAgentMessageEnqueuer | null = null;
 let messagingRuntimeHandlers: AddonMessagingRuntimeHandlers | null = null;
+let addonRuntimeShutdownHookRegistered = false;
+
+function registerAddonRuntimeShutdownHandler(handler: () => void | Promise<void>): () => void {
+  if (typeof handler !== "function") return () => {};
+  addonRuntimeShutdownHandlers.add(handler);
+  let active = true;
+  return () => {
+    if (!active) return;
+    active = false;
+    addonRuntimeShutdownHandlers.delete(handler);
+  };
+}
+
+async function shutdownAddonRuntimeContributions(): Promise<void> {
+  const handlers = [...addonRuntimeShutdownHandlers];
+  addonRuntimeShutdownHandlers.clear();
+  await Promise.allSettled(handlers.map((handler) => Promise.resolve().then(handler)));
+}
 
 function getWorkspaceDir(): string {
   return getConfiguredWorkspaceDir();
@@ -301,12 +326,17 @@ async function enqueueAgentMessageViaRuntime(request: RuntimeAgentMessageRequest
 }
 
 export function installAddonRuntimeApi(): PiclawRuntimeAddonApi {
+  if (!addonRuntimeShutdownHookRegistered) {
+    addonRuntimeShutdownHookRegistered = true;
+    registerPreShutdownHook(shutdownAddonRuntimeContributions);
+  }
   const runtimeGlobal = globalThis as RuntimeGlobal;
   if (runtimeApiInstalled && runtimeGlobal.__piclaw_runtime) {
     return runtimeGlobal.__piclaw_runtime;
   }
 
   const api: PiclawRuntimeAddonApi = {
+    lifecycle: { version: 1, onShutdown: registerAddonRuntimeShutdownHandler },
     registerStatusPanelProvider: registerAddonStatusPanelProvider,
     registerAdaptiveCardIntentHandler: registerAddonAdaptiveCardIntentHandler,
     enqueueAgentMessage: enqueueAgentMessageViaRuntime,
@@ -417,11 +447,16 @@ export async function runAddonAdaptiveCardIntent(
   return true;
 }
 
+export async function shutdownAddonRuntimeContributionsForTests(): Promise<void> {
+  await shutdownAddonRuntimeContributions();
+}
+
 export function resetAddonRuntimeContributionsForTests(): void {
   statusPanelProviders.clear();
   adaptiveCardIntentHandlers.clear();
   for (const unregister of [...addonChatTransportUnregisters]) unregister();
   addonChatTransportUnregisters.clear();
+  addonRuntimeShutdownHandlers.clear();
   resetRuntimeStreamSessionsForTests();
   resetExternalAddonRoutesForTests();
   lazyRuntimeEntriesLoadPromise = null;
