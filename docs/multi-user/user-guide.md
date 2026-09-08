@@ -2,7 +2,44 @@
 
 Piclaw supports promoted **family-shared** deployments for trusted households. Single-user remains the default; isolated-container mode is unavailable. Operators must use the offline [migration and promotion runbook](migration-copy.md); users must never edit activation markers or configuration to enable the mode.
 
-For the single-user app, see [Web UI](../web-ui.md). For family use, read this guide with the [administrator guide](administrator-guide.md) and [troubleshooting](troubleshooting.md). Operators have separate [migration](migration-copy.md) and [offline recovery](operator-recovery.md) runbooks. Developers can check [implementation status and limits](README.md).
+For the single-user app, see [Web UI](../web-ui.md). For family use, read this guide with the [administrator guide](administrator-guide.md) and [troubleshooting](troubleshooting.md). Operators have separate [migration](migration-copy.md) and [offline recovery](operator-recovery.md) runbooks. Developers can check [implementation status and limits](README.md). [Family acceptance evidence](family-acceptance.md) records the tested browser, security and resource gates.
+
+## Enable family mode
+
+Family mode requires an offline promoted database. Do not point a running instance at an unprepared database or edit activation records by hand.
+
+1. Stop all writers and follow the [offline migration and promotion runbook](migration-copy.md).
+2. Set the promoted instance configuration to:
+
+```json
+{
+  "domains": {
+    "access": {
+      "mode": "family-shared"
+    }
+  }
+}
+```
+
+3. Start the promoted copy and use the administrator flow to create or invite accounts. An absent mode remains `single-user`; `isolated-containers` is unavailable.
+
+## Current chat experience
+
+These screenshots use synthetic household data and the production family bundle tested in PR #1286.
+
+![Rich family conversation with the standard compose box](screenshots/01-rich-conversation-desktop.png)
+
+| Curated models | Owned sessions |
+|---|---|
+| ![Curated model picker](screenshots/02-curated-model-picker.png) | ![Owned session picker](screenshots/03-owned-session-picker.png) |
+
+![Live thinking, tool and queue state](screenshots/04-live-status-thinking-tools-queue.png)
+
+![Rich family conversation on a mobile viewport](screenshots/05-rich-conversation-mobile.png)
+
+| Family administration | Workspace and security |
+|---|---|
+| ![Family administration panel](screenshots/06-family-administration.png) | ![Workspace and security panel](screenshots/07-workspace-security.png) |
 
 ## Accounts, conversations and shared files
 
